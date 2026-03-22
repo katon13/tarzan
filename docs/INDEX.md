@@ -58,3 +58,19 @@ projektu TARZAN są zdefiniowane w dokumencie:
 
 Dokument ten jest nadrzędną mapą projektu i powinien być traktowany
 jako główne odniesienie przy każdej zmianie kodu lub struktury systemu.
+
+---
+
+# Dokumentacja zewnętrzna
+
+Dokumentacja producentów, datasheety, protokoły oraz materiały referencyjne
+znajdują się w katalogu:
+
+- [external/](external/)
+
+Głowne dokumenty:
+
+- [PoKeys57 - user manual.pdf](external/PoKeys57%20-%20user%20manual.pdf)
+- [PoKeys - protocol specification.pdf](external/PoKeys%20-%20protocol%20specification.pdf)
+- [PoStep25-32 UserManual.pdf](external/PoStep25-32%20UserManual.pdf)
+- [PoSensors.pdf](external/PoSensors.pdf)

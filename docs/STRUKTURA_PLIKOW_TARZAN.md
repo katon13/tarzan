@@ -145,7 +145,19 @@
 │   ├─# TARZAN_CHOREOGRAFIA_RUCHU_MAPA.md
 │   ├─# TARZAN_CHOREOGRAFIA_RUCHU_MOEDEL_MATEMATYCZNY.md
 │   ├─# TARZAN_SYSTEM_ARCHITECTURE.md
-│   └─# 
+│   │
+│   └───── docs/external/
+│        ├─ PoKeys57 - user manual.pdf
+│        ├─ PoKeys - protocol specification.pdf
+│        ├─ PoSensors.pdf
+│        ├─ PoStep25-32 UserManual.pdf
+│        ├─ TSL25911_Datasheet_EN_v1.pdf
+│        ├─ silnik krokowy.pdf
+│        ├─ SOK2-21-0.pdf
+│        ├─ G03-NP93-F.pdf
+│        ├─ CZUJNIK ODLEGLOSCI.pdf
+│        ├─ czujnik poziomu MMA.pdf
+│        └─ Dokumentacja techniczna czujnika.pdf
 │
 └── presets/
     ├── __init__.py

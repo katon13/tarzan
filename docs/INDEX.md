@@ -46,3 +46,15 @@ Dokumentacja opisuje:
 Repozytorium projektu:
 
 https://github.com/katon13/tarzan
+
+---
+
+# Zasady pracy nad projektem
+
+Główne zasady architektury, organizacji kodu oraz reguły modyfikacji
+projektu TARZAN są zdefiniowane w dokumencie:
+
+- [MAPA_PROJEKTU_TARZANA.md](MAPA_PROJEKTU_TARZANA.md)
+
+Dokument ten jest nadrzędną mapą projektu i powinien być traktowany
+jako główne odniesienie przy każdej zmianie kodu lub struktury systemu.

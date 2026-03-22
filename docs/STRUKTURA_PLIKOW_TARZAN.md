@@ -139,11 +139,13 @@
 │   └── matrix_led_wzory/
 │ 
 ├── docs/
+│   ├─# 
 │   ├─# MAPA_PROJEKTU_TARZANA.md
 │   ├─# STRUKTURA_PLIKOW_TARZAN.md
 │   ├─# TARZAN_CHOREOGRAFIA_RUCHU_MAPA.md
 │   ├─# TARZAN_CHOREOGRAFIA_RUCHU_MOEDEL_MATEMATYCZNY.md
-│   └─# TARZAN_SYSTEM_ARCHITECTURE.md
+│   ├─# TARZAN_SYSTEM_ARCHITECTURE.md
+│   └─# 
 │
 └── presets/
     ├── __init__.py

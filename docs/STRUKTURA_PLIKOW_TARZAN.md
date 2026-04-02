@@ -21,6 +21,12 @@
 │
 ├── hardware/
 │   ├── __init__.py
+│   │ 
+│   ├─ pokeys/
+│   │   ├─ PoKeys.py
+│   │   ├─ PoKeysUsage.py
+│   │   └─ PoKeysLib.dll
+│   │ 
 │   ├─# tarzanPoKeysSetting.py
 │   ├── tarzanPoKeysStart.py
 │   ├── tarzanPoKeysLevels.py

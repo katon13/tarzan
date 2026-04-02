@@ -6,7 +6,7 @@ from motion.tarzanSegmentAnalyzer import TarzanSegmentAnalyzer
 from motion.tarzanStepGenerator import TarzanStepGenerator
 from motion.tarzanSymulacjaRuchu import TarzanSymulacjaRuchu
 from motion.tarzanTakeModel import TarzanTake
-from motion.tarzanTimeline import TarzanTimeline
+from motion.tarzanTimeline import TarzanAxisTimeline, TarzanTimeline
 
 
 def main() -> None:
@@ -45,14 +45,20 @@ def main() -> None:
     print("Walidacja mechaniczna: OK")
 
     analyzer = TarzanSegmentAnalyzer()
+    timeline_builder = TarzanTimeline()
 
     print("\nAnaliza segmentów:")
+
+    axis_timelines: list[TarzanAxisTimeline] = []
     first_profile = None
 
     for axis_key, axis in take.axes.items():
         profiles = analyzer.build_axis_segment_profiles(axis)
 
         print(f"\nOś: {axis.axis_name} ({axis_key})")
+
+        axis_frames = []
+
         for profile in profiles:
             print(
                 f"  {profile.segment_id}: "
@@ -64,6 +70,36 @@ def main() -> None:
 
             if first_profile is None and not profile.is_pause:
                 first_profile = profile
+
+            step_generator = TarzanStepGenerator(
+                time_ms=profile.times_ms,
+                pulse_density=profile.pulse_density,
+            )
+            step_times = step_generator.generate_step_times()
+
+            segment_frames = timeline_builder.build_axis_frames(
+                step_times=step_times,
+                segment_start_ms=profile.start_time,
+                segment_end_ms=profile.end_time,
+                direction=profile.direction,
+                enabled=not profile.is_pause,
+            )
+
+            axis_frames.extend(segment_frames)
+
+        if not axis_frames:
+            axis_frames = timeline_builder.build_empty_axis_frames(
+                take_start_ms=take.timeline.take_start,
+                take_end_ms=take.timeline.take_end,
+                enabled=axis.axis_enabled,
+            )
+
+        axis_timeline = TarzanAxisTimeline(
+            axis_key=axis_key,
+            axis_name=axis.axis_name,
+            frames=axis_frames,
+        )
+        axis_timelines.append(axis_timeline)
 
     if first_profile is not None:
         print("\nGenerowanie timeline STEP...")
@@ -81,26 +117,25 @@ def main() -> None:
 
         print(f"\nŁączna liczba impulsów STEP: {len(step_times)}")
 
-        print("\nBudowa roboczego timeline protokołu...")
-        timeline = TarzanTimeline()
+    print("\nBudowa globalnego timeline systemu...")
+    global_timeline = timeline_builder.build_global_timeline(axis_timelines)
 
-        frames = timeline.build_frames(
-            step_times=step_times,
-            segment_start_ms=first_profile.start_time,
-            segment_end_ms=first_profile.end_time,
-            direction=first_profile.direction,
-            enabled=not first_profile.is_pause,
-        )
-
-        print("Pierwsze ramki timeline:")
-        for frame in frames[:20]:
+    print("Pierwsze ramki globalnego timeline:")
+    shown_frames = 0
+    for time_ms, axes_state in global_timeline.items():
+        print(f"\nt={time_ms:4d} ms")
+        for axis_key, signals in axes_state.items():
             print(
-                f"  t={frame.time_ms:4d} ms | "
-                f"STEP_COUNT={frame.step_count:3d} | "
-                f"STEP={frame.step_state} | "
-                f"DIR={frame.dir_state} | "
-                f"ENABLE={frame.enable_state}"
+                f"  {axis_key}: "
+                f"STEP_COUNT={signals['STEP_COUNT']:3d} | "
+                f"STEP={signals['STEP']} | "
+                f"DIR={signals['DIR']} | "
+                f"ENABLE={signals['ENABLE']}"
             )
+
+        shown_frames += 1
+        if shown_frames >= 10:
+            break
 
     simulator = TarzanSymulacjaRuchu()
     simulator.plot_take_axes(take)

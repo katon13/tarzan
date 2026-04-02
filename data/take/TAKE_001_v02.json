@@ -1,0 +1,113 @@
+{
+  "metadata": {
+    "take_id": "TAKE_001",
+    "version": "v02",
+    "title": "Wejście aktora",
+    "author": "Jacek Joniec",
+    "created_at": "2026-03-21T18:30:00",
+    "edited_at": "2026-04-02T21:17:40",
+    "description": "Pierwsza wersja ruchu",
+    "notes": "Wersja surowa"
+  },
+  "timeline": {
+    "time_unit": "ms",
+    "sample_step": 10,
+    "take_start": 0,
+    "take_end": 12840,
+    "take_duration": 12840
+  },
+  "axes": {
+    "camera_horizontal": {
+      "axis_name": "oś pozioma kamery",
+      "axis_enabled": true,
+      "mechanics_ref": "tarzanCameraHorizontal",
+      "full_cycle_pulses": 28800,
+      "min_full_cycle_time_s": 4.0,
+      "max_pulse_rate": 7200,
+      "max_acceleration": 1800,
+      "backlash_compensation": 24,
+      "start_must_be_zero": true,
+      "end_must_be_zero": true,
+      "raw_signal": {
+        "source_take": "REC_2026_03_21_01",
+        "step_count_total": 8420
+      },
+      "segments": [
+        {
+          "segment_id": "SEG_001",
+          "start_time": 0,
+          "end_time": 1850,
+          "direction": 1,
+          "pulse_count": 1240,
+          "is_pause": false,
+          "is_direction_change": false
+        }
+      ],
+      "curve": {
+        "curve_type": "motion_intensity",
+        "interpolation": "spline",
+        "preserve_distance": true,
+        "ghost_enabled": true,
+        "control_points": [
+          {
+            "time": 0,
+            "amplitude": 0.0
+          },
+          {
+            "time": 420,
+            "amplitude": 0.38759209915507015
+          },
+          {
+            "time": 900,
+            "amplitude": 0.6608848269146942
+          },
+          {
+            "time": 1450,
+            "amplitude": 0.26669853325604065
+          },
+          {
+            "time": 1850,
+            "amplitude": 0.0
+          }
+        ]
+      },
+      "generated_protocol": {
+        "export_file": "TAKE_001_v01_protocol.txt",
+        "step_count_total": 8420,
+        "validated": true
+      }
+    }
+  },
+  "events": [
+    {
+      "event_id": "EV_001",
+      "event_type": "drone_release",
+      "event_time": 6240,
+      "enabled": true,
+      "note": "Zwolnienie elektromagnesu"
+    }
+  ],
+  "simulation": {
+    "playhead_start": 0,
+    "playhead_last_position": 4120,
+    "zoom_level": 1.5,
+    "ghost_visible": true,
+    "show_all_axes": true
+  },
+  "source": {
+    "record_mode": "tREC",
+    "source_protocol_file": "REC_2026_03_21_01.txt",
+    "source_notes": "Nagranie z próby 3"
+  },
+  "validation": {
+    "status": "ok",
+    "checked_at": "2026-03-21T19:10:00",
+    "max_speed_ok": true,
+    "max_acceleration_ok": true,
+    "start_zero_ok": true,
+    "end_zero_ok": true,
+    "direction_change_ok": true,
+    "events_ok": true,
+    "messages": []
+  }
+}

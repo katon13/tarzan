@@ -2,6 +2,7 @@ from pathlib import Path
 
 from core.tarzanProtokolRuchu import TarzanProtokolRuchu
 from core.tarzanUstawienia import CZAS_PROBKOWANIA_MS
+from motion.tarzanKrzyweRuchu import TarzanKrzyweRuchu
 from motion.tarzanMechanicalValidator import TarzanMechanicalValidator
 from motion.tarzanSegmentAnalyzer import TarzanSegmentAnalyzer
 from motion.tarzanStepGenerator import TarzanStepGenerator
@@ -44,6 +45,52 @@ def main() -> None:
         return
 
     print("Walidacja mechaniczna: OK")
+
+    krzywe = TarzanKrzyweRuchu()
+
+    print("\n=== TEST OPERATORSKIEJ EDYCJI KRZYWEJ ===")
+
+    if "camera_horizontal" in take.axes:
+        axis_original = take.axes["camera_horizontal"]
+
+        original_area = krzywe.compute_interval_area(
+            axis_original,
+            start_time_ms=0,
+            end_time_ms=1850,
+        )
+
+        axis_edited = krzywe.apply_amplitude_scale_on_interval(
+            axis=axis_original,
+            start_time_ms=300,
+            end_time_ms=1450,
+            scale=1.25,
+            normalize_distance=True,
+        )
+
+        axis_edited = krzywe.smooth_interval(
+            axis=axis_edited,
+            start_time_ms=300,
+            end_time_ms=1450,
+            strength=0.45,
+            normalize_distance=True,
+        )
+
+        edited_area = krzywe.compute_interval_area(
+            axis_edited,
+            start_time_ms=0,
+            end_time_ms=1850,
+        )
+
+        print("Oś testowa: oś pozioma kamery (camera_horizontal)")
+        print("Operacje:")
+        print("  1. zwiększenie amplitudy w przedziale 300-1450 ms")
+        print("  2. wygładzenie tego samego przedziału")
+        print(f"Pole przed edycją: {original_area:.4f}")
+        print(f"Pole po edycji:    {edited_area:.4f}")
+
+        take.axes["camera_horizontal"] = axis_edited
+    else:
+        print("Brak osi camera_horizontal do testu edycji.")
 
     analyzer = TarzanSegmentAnalyzer()
     timeline_builder = TarzanTimeline()

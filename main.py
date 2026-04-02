@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from core.tarzanProtokolRuchu import TarzanProtokolRuchu
 from core.tarzanUstawienia import CZAS_PROBKOWANIA_MS
 from motion.tarzanMechanicalValidator import TarzanMechanicalValidator
 from motion.tarzanSegmentAnalyzer import TarzanSegmentAnalyzer
@@ -136,6 +137,25 @@ def main() -> None:
         shown_frames += 1
         if shown_frames >= 10:
             break
+
+    print("\nEksport protokołu ruchu...")
+    protokol = TarzanProtokolRuchu()
+    protocol_file = (
+        base_dir
+        / "data"
+        / "protokoly"
+        / f"{take.metadata.take_id}_{take.metadata.version}_protocol.txt"
+    )
+
+    saved_path = protokol.export_txt(
+        take=take,
+        global_timeline=global_timeline,
+        file_path=protocol_file,
+    )
+
+    print(f"Zapisano protokół: {saved_path}")
+    print(f"Liczba osi w timeline: {len(axis_timelines)}")
+    print(f"Liczba ramek timeline: {len(global_timeline)}")
 
     simulator = TarzanSymulacjaRuchu()
     simulator.plot_take_axes(take)

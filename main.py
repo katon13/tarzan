@@ -5,6 +5,7 @@ from core.tarzanProtokolRuchu import TarzanProtokolRuchu
 from core.tarzanTakeVersioning import TarzanTakeVersioning
 from core.tarzanUstawienia import CZAS_PROBKOWANIA_MS
 
+from motion.tarzanGhostMotion import TarzanGhostMotion
 from motion.tarzanKrzyweRuchu import TarzanKrzyweRuchu
 from motion.tarzanMechanicalValidator import TarzanMechanicalValidator
 from motion.tarzanSegmentAnalyzer import TarzanSegmentAnalyzer
@@ -15,7 +16,6 @@ from motion.tarzanTimeline import TarzanAxisTimeline, TarzanTimeline
 
 
 def main() -> None:
-
     base_dir = Path(__file__).resolve().parent
     take_path = base_dir / "data" / "take" / "TAKE_001_v01.json"
 
@@ -33,8 +33,8 @@ def main() -> None:
     basic_errors = take.validate_basic()
     if basic_errors:
         print("\nBłędy walidacji TAKE")
-        for e in basic_errors:
-            print(e)
+        for error in basic_errors:
+            print(error)
         return
 
     validator = TarzanMechanicalValidator()
@@ -42,20 +42,21 @@ def main() -> None:
 
     if mechanical_errors:
         print("\nBłędy walidacji mechanicznej")
-        for e in mechanical_errors:
-            print(e)
+        for error in mechanical_errors:
+            print(error)
         return
 
     print("\nWalidacja TAKE: OK")
 
     krzywe = TarzanKrzyweRuchu()
+    ghost = TarzanGhostMotion()
 
     print("\n=== EDYCJA KRZYWEJ (TEST) ===")
 
-    axis = take.axes["camera_horizontal"]
+    axis_original = krzywe.clone_axis(take.axes["camera_horizontal"])
 
     axis_edited = krzywe.apply_amplitude_scale_on_interval(
-        axis,
+        axis_original,
         start_time_ms=300,
         end_time_ms=1450,
         scale=1.25,
@@ -74,54 +75,57 @@ def main() -> None:
 
     print("Krzywa została zmodyfikowana.")
 
-    # ============================================================
-    # ZAPIS NOWEJ WERSJI TAKE
-    # ============================================================
+    print("\n=== GHOST COMPARE ===")
+    comparison = ghost.compare_axes(axis_original, axis_edited)
+
+    print(f"Oś: {comparison.axis_name}")
+    print(f"Pole oryginalne: {comparison.original_area:.4f}")
+    print(f"Pole edytowane:  {comparison.edited_area:.4f}")
+    print(f"Delta pola:      {comparison.area_delta:.4f}")
+    print(f"Delta pola %:    {comparison.area_delta_percent:.4f}%")
+    print(f"Peak oryginalny: {comparison.original_peak:.4f}")
+    print(f"Peak edytowany:  {comparison.edited_peak:.4f}")
+    print(f"Delta peak:      {comparison.peak_delta:.4f}")
+    print(f"Zero crossings oryginalne: {comparison.original_zero_crossings}")
+    print(f"Zero crossings edytowane:  {comparison.edited_zero_crossings}")
 
     print("\nZapisywanie nowej wersji TAKE...")
 
-    with open(take_path, "r", encoding="utf-8") as f:
-        take_dict = json.load(f)
+    with open(take_path, "r", encoding="utf-8") as file:
+        take_dict = json.load(file)
 
-    # aktualizacja punktów krzywej w dict
     control_points = []
-    for p in axis_edited.curve.control_points:
+    for point in axis_edited.curve.control_points:
         control_points.append(
             {
-                "time": int(p.time),
-                "amplitude": float(p.amplitude),
+                "time": int(point.time),
+                "amplitude": float(point.amplitude),
             }
         )
 
     take_dict["axes"]["camera_horizontal"]["curve"]["control_points"] = control_points
 
     versioning = TarzanTakeVersioning()
-
     new_take_path = versioning.save_new_take(
         original_take_path=take_path,
         take_dict=take_dict,
     )
 
-    print(f"Nowa wersja TAKE zapisana:")
+    print("Nowa wersja TAKE zapisana:")
     print(new_take_path)
 
-    # ============================================================
-    # GENEROWANIE TIMELINE
-    # ============================================================
+    take_v2 = TarzanTake.load_json(new_take_path)
 
     analyzer = TarzanSegmentAnalyzer()
     timeline_builder = TarzanTimeline()
 
     axis_timelines = []
 
-    for axis_key, axis in take.axes.items():
-
+    for axis_key, axis in take_v2.axes.items():
         profiles = analyzer.build_axis_segment_profiles(axis)
-
         axis_frames = []
 
         for profile in profiles:
-
             step_generator = TarzanStepGenerator(
                 time_ms=profile.times_ms,
                 pulse_density=profile.pulse_density,
@@ -144,35 +148,31 @@ def main() -> None:
             axis_name=axis.axis_name,
             frames=axis_frames,
         )
-
         axis_timelines.append(axis_timeline)
 
     global_timeline = timeline_builder.build_global_timeline(axis_timelines)
 
-    # ============================================================
-    # PROTOKÓŁ
-    # ============================================================
-
+    print("\nEksport protokołu ruchu...")
     protokol = TarzanProtokolRuchu()
 
     protocol_path = (
         base_dir
         / "data"
         / "protokoly"
-        / f"{take.metadata.take_id}_{take.metadata.version}_protocol.txt"
+        / f"{take_v2.metadata.take_id}_{take_v2.metadata.version}_protocol.txt"
     )
 
     protokol.export_txt(
-        take=take,
+        take=take_v2,
         global_timeline=global_timeline,
         file_path=protocol_path,
     )
 
-    print(f"\nProtokół zapisany:")
+    print("Protokół zapisany:")
     print(protocol_path)
 
     simulator = TarzanSymulacjaRuchu()
-    simulator.plot_take_axes(take)
+    simulator.plot_take_axes(take_v2)
 
     print("\n=== KONIEC SYMULACJI ===")
 

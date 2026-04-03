@@ -100,9 +100,9 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
 
         # Ograniczenia operatorskie podczas drag.
         # Użytkownik ma widzieć skutek zgodny z mechaniką, a nie surowe liczenie.
-        self.drag_preview_max_time_step_ms = 20
-        self.drag_preview_max_value_step = 0.035
-        self.drag_preview_local_value_band = 0.22
+        self.drag_preview_max_time_step_ms = 80
+        self.drag_preview_max_value_step = 0.12
+        self.drag_preview_local_value_band = 0.35
         self.drag_start_node_time = None
         self.drag_start_node_value = None
 
@@ -161,24 +161,7 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         self._make_check(sidebar, "Węzły", self.show_nodes_var, self._refresh_plot).pack(fill="x", padx=8, pady=(0, 0))
         self._make_check(sidebar, "Ghost", self.show_ghost_var, self._refresh_plot).pack(fill="x", padx=8, pady=(0, 6))
 
-        self.start_entry = self._make_entry(sidebar, self.interval_start_var)
-        self._add_field(sidebar, "START", self.start_entry)
-
-        self.end_entry = self._make_entry(sidebar, self.interval_end_var)
-        self._add_field(sidebar, "STOP", self.end_entry)
-
-        self.smooth_entry = self._make_entry(sidebar, self.smooth_strength_var)
-        self._add_field(sidebar, "SMOOTH", self.smooth_entry)
-
-        # Wymuszenie widocznych wartości już po zbudowaniu pól.
-        self.after(10, lambda: self._force_entry_values(
-            self.interval_start_var.get() or "300",
-            self.interval_end_var.get() or "1450",
-            self.smooth_strength_var.get() or "0.35",
-        ))
-
-        self._make_small_button(sidebar, "Ustaw", self.apply_start_stop_from_entries, self.BTN_WARNING).pack(fill="x", padx=8, pady=(4, 4))
-        self._make_small_button(sidebar, "Wygładź", self.apply_smoothing, self.BTN_PRIMARY).pack(fill="x", padx=8, pady=(0, 4))
+        self._make_small_button(sidebar, "Wygładź", self.apply_smoothing, self.BTN_PRIMARY).pack(fill="x", padx=8, pady=(6, 4))
         self._make_small_button(sidebar, "Dodaj węzeł", self.add_node_center, self.BTN_PRIMARY).pack(fill="x", padx=8, pady=(0, 4))
         self._make_small_button(sidebar, "Usuń węzeł", self.remove_selected_node, self.BTN_DANGER).pack(fill="x", padx=8, pady=(0, 4))
         self._make_small_button(sidebar, "Reset", self.reset_current_axis, self.BTN_DANGER).pack(fill="x", padx=8, pady=(0, 8))
@@ -603,16 +586,21 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             self.drag_pan_anchor_x = event.xdata
             return
 
+        nearest_index = self._find_nearest_node_index(event.xdata, event.ydata, axis_key)
+        if nearest_index is not None:
+            self.selected_node_index = nearest_index
+
         self.drag_mode = self._detect_drag_mode(event.xdata, event.ydata, axis_key)
         self.drag_axis_key = axis_key
 
         if self.drag_mode == "node":
-            self.selected_node_index = self._find_nearest_node_index(event.xdata, event.ydata, axis_key)
             if self.selected_node_index is not None:
                 node = self.drag_original_line.nodes[self.selected_node_index]
                 self.drag_start_node_time = node.time_ms
                 self.drag_start_node_value = node.value
             self._refresh_plot(status_override=f"Wybrano węzeł osi: {self.take.axes[axis_key].axis_name}")
+        elif nearest_index is not None:
+            self._refresh_plot(status_override=f"Zaznaczono węzeł osi: {self.take.axes[axis_key].axis_name}")
 
     def _on_plot_motion(self, event) -> None:
         if not self.drag_mode or not self.drag_axis_key:
@@ -628,10 +616,12 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
 
         try:
             if self.drag_mode == "pan":
+                self.preview_line = None
                 delta_ms = self.krzywe.snap_time(event.xdata - self.drag_pan_anchor_x)
                 self.axis_lines[axis_key] = self.krzywe.shift_line_in_time(original, delta_ms, axis)
 
             elif self.drag_mode == "start":
+                self.preview_line = None
                 self.axis_lines[axis_key] = self.krzywe.set_line_start_stop(
                     original,
                     int(event.xdata),
@@ -641,6 +631,7 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
                 )
 
             elif self.drag_mode == "stop":
+                self.preview_line = None
                 self.axis_lines[axis_key] = self.krzywe.set_line_start_stop(
                     original,
                     original.nodes[0].time_ms,
@@ -652,16 +643,32 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             elif self.drag_mode == "node":
                 index = self.selected_node_index
                 if index is not None:
-                    self.axis_lines[axis_key] = self.krzywe.move_node(
-                        original,
+                    # Preview ma być płynny i kumulatywny.
+                    # Nie liczymy zawsze od linii startowej, bo wtedy węzeł
+                    # zatrzaskuje się w jednym małym kroku.
+                    source_line = self.preview_line if self.preview_line is not None else original
+
+                    preview_time, preview_value = self._constrain_preview_node_target(
+                        source_line=source_line,
+                        original_line=original,
                         index=index,
-                        new_time_ms=int(event.xdata),
-                        new_value=float(event.ydata) if event.ydata is not None else None,
-                        axis=axis,
-                        preserve_area=True,
+                        target_time=int(event.xdata),
+                        target_value=float(event.ydata) if event.ydata is not None else None,
                     )
+                    self.preview_line = self.krzywe.move_node(
+                        source_line,
+                        index=index,
+                        new_time_ms=preview_time,
+                        new_value=preview_value,
+                        axis=axis,
+                        preserve_area=False,
+                    )
+                    # Operator musi widzieć, że punkt naprawdę jedzie z linią,
+                    # więc aktywna linia robocza jest aktualizowana na żywo.
+                    self.axis_lines[axis_key] = copy.deepcopy(self.preview_line)
 
             self._sync_entries_from_line()
+
             self._refresh_plot(status_override=f"Edycja osi: {axis.axis_name}", fast=True)
 
         except Exception as exc:
@@ -671,12 +678,32 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         if not self.drag_mode or not self.drag_axis_key:
             return
 
-        axis_name = self.take.axes[self.drag_axis_key].axis_name if self.take and self.drag_axis_key in self.take.axes else self.drag_axis_key
+        axis_key = self.drag_axis_key
+        axis_name = self.take.axes[axis_key].axis_name if self.take and axis_key in self.take.axes else axis_key
+
+        try:
+            if self.drag_mode == "node" and self.take and axis_key in self.take.axes:
+                target_area = self.krzywe.compute_area(self.drag_original_line) if self.drag_original_line is not None else None
+                committed = copy.deepcopy(self.preview_line if self.preview_line is not None else self.axis_lines[axis_key])
+                if target_area is not None:
+                    committed = self.krzywe.fit_line_to_area_with_start_locked(
+                        committed,
+                        target_area=target_area,
+                        axis=self.take.axes[axis_key],
+                    )
+                self.axis_lines[axis_key] = committed
+                self.preview_line = copy.deepcopy(committed)
+        except Exception as exc:
+            self._log(f"Błąd domknięcia edycji osi: {exc}")
 
         self.drag_mode = None
         self.drag_axis_key = None
         self.drag_original_line = None
         self.drag_pan_anchor_x = None
+        self.preview_line = None
+        self.drag_start_node_time = None
+        self.drag_start_node_value = None
+        self._reset_display_preview_smoothing()
 
         self._sync_entries_from_line()
         self._refresh_plot(status_override=f"Zakończono edycję osi: {axis_name}")
@@ -686,15 +713,15 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         start_ms = line.nodes[0].time_ms
         stop_ms = line.nodes[-1].time_ms
 
+        index = self._find_nearest_node_index(xdata, ydata, axis_key)
+        if index is not None:
+            return "node"
+
         line_tol = max(30.0, stop_ms * 0.012 if stop_ms > 0 else 30.0)
         if abs(xdata - start_ms) <= line_tol:
             return "start"
         if abs(xdata - stop_ms) <= line_tol:
             return "stop"
-
-        index = self._find_nearest_node_index(xdata, ydata, axis_key)
-        if index is not None:
-            return "node"
 
         return None
 
@@ -724,18 +751,23 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
 
         axis_key = self.selected_axis_key
         axis = self.take.axes[axis_key]
-        line = self.axis_lines[axis_key]
+        committed_line = self.axis_lines[axis_key]
+        display_line = committed_line
+
+        if self.preview_line is not None and self.drag_mode == "node" and self.drag_axis_key == axis_key:
+            display_line = self.preview_line
 
         self.plot_title_label.config(text=axis.axis_name)
         self.ax_curve.clear()
         self.ax_curve.set_facecolor(self.BG)
 
-        if self.preview_line is not None and self.drag_mode == "node" and self.drag_axis_key == axis_key:
-            sampled = self._sample_preview_line_visual(line, sample_count=90 if fast else 180)
-            sampled = self._blend_display_sampled(sampled)
+        if display_line is self.preview_line:
+            # Podczas drag operator musi widzieć dokładnie bieżący stan punktu,
+            # bez dodatkowego opóźnienia wizualnego.
+            sampled = self.krzywe.sample_line(display_line, sample_count=140 if fast else 320)
         else:
             self._reset_display_preview_smoothing()
-            sampled = self.krzywe.sample_line(line, sample_count=55 if fast else 800)
+            sampled = self.krzywe.sample_line(display_line, sample_count=55 if fast else 800)
 
         xs = [x for x, _ in sampled]
         ys = [y for _, y in sampled]
@@ -752,7 +784,7 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             try:
                 comparison = self.ghost.compare_axes(
                     self.original_take.axes[axis_key],
-                    self.krzywe.export_to_axis(copy.deepcopy(axis), line),
+                    self.krzywe.export_to_axis(copy.deepcopy(axis), committed_line),
                     sample_count=180 if fast else 800,
                 )
                 self.ax_curve.plot(
@@ -767,11 +799,11 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
                 self._log(f"Ghost compare warning: {exc}")
 
         if self.show_nodes_var.get():
-            node_x = [node.time_ms for node in line.nodes]
-            node_y = [node.value for node in line.nodes]
+            node_x = [node.time_ms for node in display_line.nodes]
+            node_y = [node.value for node in display_line.nodes]
 
             colors = []
-            for index in range(len(line.nodes)):
+            for index in range(len(display_line.nodes)):
                 colors.append(self.NODE_SELECTED if self.selected_node_index == index else self.NODE_COLOR)
 
             self.ax_curve.scatter(
@@ -784,21 +816,21 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
                 zorder=6,
             )
 
-        area = self.krzywe.compute_area(line)
+        area = self.krzywe.compute_area(display_line)
 
         self.side_info_label.config(
             text=(
-                f"START: {line.nodes[0].time_ms} ms\n"
-                f"STOP: {line.nodes[-1].time_ms} ms\n"
-                f"Czas: {line.nodes[-1].time_ms - line.nodes[0].time_ms} ms\n"
+                f"START: {display_line.nodes[0].time_ms} ms\n"
+                f"STOP: {display_line.nodes[-1].time_ms} ms\n"
+                f"Czas: {display_line.nodes[-1].time_ms - display_line.nodes[0].time_ms} ms\n"
                 f"Pole: {area:.4f}\n"
                 f"PAN: {'ON' if self.axis_pan_modes.get(axis_key, False) else 'OFF'}\n"
-                f"Węzły: {len(line.nodes)}"
+                f"Węzły: {len(display_line.nodes)}"
             )
         )
 
-        self.ax_curve.axvline(line.nodes[0].time_ms, linewidth=3.4, color=self.START_COLOR)
-        self.ax_curve.axvline(line.nodes[-1].time_ms, linewidth=3.4, color=self.STOP_COLOR)
+        self.ax_curve.axvline(display_line.nodes[0].time_ms, linewidth=3.4, color=self.START_COLOR)
+        self.ax_curve.axvline(display_line.nodes[-1].time_ms, linewidth=3.4, color=self.STOP_COLOR)
         self.ax_curve.axhline(0.0, linewidth=1.1, color=self.MUTED, alpha=0.35)
 
         self.ax_curve.set_xlabel("Czas [ms]", color=self.FG, fontsize=12)
@@ -822,20 +854,6 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         self.interval_end_var.set(str(stop_value))
         if smooth_value is not None:
             self.smooth_strength_var.set(str(smooth_value))
-
-        self.start_entry.delete(0, "end")
-        self.start_entry.insert(0, str(start_value))
-
-        self.end_entry.delete(0, "end")
-        self.end_entry.insert(0, str(stop_value))
-
-        smooth_text = self.smooth_strength_var.get() if smooth_value is None else str(smooth_value)
-        self.smooth_entry.delete(0, "end")
-        self.smooth_entry.insert(0, smooth_text)
-
-        self.start_entry.update_idletasks()
-        self.end_entry.update_idletasks()
-        self.smooth_entry.update_idletasks()
 
     def _sync_entries_from_line(self) -> None:
         axis_key = self._get_current_axis_key(silent=True)
@@ -920,16 +938,17 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         return sampled
 
 
-    def _constrain_preview_node_target(self, original_line, index: int, target_time: int | None, target_value: float | None):
+    def _constrain_preview_node_target(self, source_line, original_line, index: int, target_time: int | None, target_value: float | None):
         """
         Ogranicza preview węzła tak, aby operator nie widział chaotycznego zachowania
-        sprzecznego z mechaniką. Mysz wskazuje kierunek, ale edytor dopuszcza tylko
-        ruch zgodny z lokalną logiką przebiegu.
+        sprzecznego z mechaniką. Preview ma być jednak płynny, więc ograniczenia
+        liczymy względem aktualnego stanu preview, a nie zawsze względem pozycji
+        początkowej klikniętego węzła.
         """
-        if index is None or index < 0 or index >= len(original_line.nodes):
+        if index is None or index < 0 or index >= len(source_line.nodes):
             return target_time, target_value
 
-        node = original_line.nodes[index]
+        node = source_line.nodes[index]
 
         # --- ograniczenie czasu ---
         if target_time is not None:
@@ -943,8 +962,8 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
                     dt = -self.drag_preview_max_time_step_ms
                 target_time = base_time + dt
             else:
-                left_limit = original_line.nodes[index - 1].time_ms + self.krzywe.MIN_NODE_GAP_MS
-                right_limit = original_line.nodes[index + 1].time_ms - self.krzywe.MIN_NODE_GAP_MS
+                left_limit = source_line.nodes[index - 1].time_ms + self.krzywe.MIN_NODE_GAP_MS
+                right_limit = source_line.nodes[index + 1].time_ms - self.krzywe.MIN_NODE_GAP_MS
                 base_time = node.time_ms
                 dt = target_time - base_time
                 if dt > self.drag_preview_max_time_step_ms:
@@ -958,8 +977,8 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             if index == 0 or index == len(original_line.nodes) - 1:
                 target_value = 0.0
             else:
-                left_value = original_line.nodes[index - 1].value
-                right_value = original_line.nodes[index + 1].value
+                left_value = source_line.nodes[index - 1].value
+                right_value = source_line.nodes[index + 1].value
                 center_value = node.value
 
                 # 1) tłumienie względem pozycji startowej
@@ -973,14 +992,6 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
                 # 2) lokalne pasmo względem sąsiadów – krzywa nie może wystrzelić nielogicznie
                 local_min = min(left_value, center_value, right_value) - self.drag_preview_local_value_band
                 local_max = max(left_value, center_value, right_value) + self.drag_preview_local_value_band
-
-                # 3) pasmo względem wartości początkowej klikniętego węzła
-                if self.drag_start_node_value is not None:
-                    start_min = self.drag_start_node_value - 0.28
-                    start_max = self.drag_start_node_value + 0.28
-                    local_min = max(local_min, start_min)
-                    local_max = min(local_max, start_max)
-
                 target_value = max(local_min, min(softened, local_max))
 
         return target_time, target_value

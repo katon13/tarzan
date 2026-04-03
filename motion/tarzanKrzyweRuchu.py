@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from copy import deepcopy
 import numpy as np
 from scipy.interpolate import PchipInterpolator
+from mechanics.tarzanMechanikaOsi import TarzanMechanics
 
 
 @dataclass
@@ -78,31 +79,112 @@ class TarzanKrzyweRuchu:
 
     def _get_mechanical_profile(self, axis=None) -> TarzanMechanicalProfile:
         """
-        Profil mechaniczny osi oparty na dokumentacji TARZAN:
-        - START_SETTLE
-        - START_RAMP
-        - CRUISE
-
-        Wartości czasów odpowiadają publicznej definicji mechaniki osi
-        z pliku mechanics/tarzanMechanikaOsi.py.
+        Profil mechaniczny osi pobierany bezpośrednio z mechanics/tarzanMechanikaOsi.py,
+        żeby edytor nie duplikował na sztywno wartości START_SETTLE / START_RAMP.
         """
         axis_name = self._axis_name_key(axis)
 
-        profile_map: dict[str, tuple[int, int]] = {
-            "oś pozioma kamery": (300, 900),
-            "oś pionowa kamery": (300, 900),
-            "oś pochyłu kamery": (250, 750),
-            "oś ostrości kamery": (200, 500),
-            "oś pionowa ramienia": (500, 1000),
-            "oś pozioma ramienia": (600, 1200),
+        config_map = {
+            "oś pozioma kamery": (
+                TarzanMechanics.CAMERA_HORIZONTAL_START_SETTLE_TIME_SEC,
+                TarzanMechanics.CAMERA_HORIZONTAL_START_RAMP_TIME_SEC,
+                TarzanMechanics.CAMERA_HORIZONTAL_START_SETTLE_MAX_PULSES_PER_SEC,
+                TarzanMechanics.CAMERA_HORIZONTAL_START_RAMP_MAX_PULSES_PER_SEC,
+                TarzanMechanics.maxPulsesPerSecondFromRatio(
+                    TarzanMechanics.simpleGearRatio(
+                        TarzanMechanics.CAMERA_HORIZONTAL_MOTOR_TEETH,
+                        TarzanMechanics.CAMERA_HORIZONTAL_AXIS_TEETH,
+                    ),
+                    TarzanMechanics.CAMERA_HORIZONTAL_MAX_CYCLE_ANGLE_DEG,
+                    TarzanMechanics.CAMERA_HORIZONTAL_MIN_CYCLE_TIME_SEC,
+                ),
+            ),
+            "oś pionowa kamery": (
+                TarzanMechanics.CAMERA_VERTICAL_START_SETTLE_TIME_SEC,
+                TarzanMechanics.CAMERA_VERTICAL_START_RAMP_TIME_SEC,
+                TarzanMechanics.CAMERA_VERTICAL_START_SETTLE_MAX_PULSES_PER_SEC,
+                TarzanMechanics.CAMERA_VERTICAL_START_RAMP_MAX_PULSES_PER_SEC,
+                TarzanMechanics.maxPulsesPerSecondFromRatio(
+                    TarzanMechanics.simpleGearRatio(
+                        TarzanMechanics.CAMERA_VERTICAL_MOTOR_TEETH,
+                        TarzanMechanics.CAMERA_VERTICAL_AXIS_TEETH,
+                    ),
+                    TarzanMechanics.CAMERA_VERTICAL_MAX_CYCLE_ANGLE_DEG,
+                    TarzanMechanics.CAMERA_VERTICAL_MIN_CYCLE_TIME_SEC,
+                ),
+            ),
+            "oś pochyłu kamery": (
+                TarzanMechanics.CAMERA_TILT_START_SETTLE_TIME_SEC,
+                TarzanMechanics.CAMERA_TILT_START_RAMP_TIME_SEC,
+                TarzanMechanics.CAMERA_TILT_START_SETTLE_MAX_PULSES_PER_SEC,
+                TarzanMechanics.CAMERA_TILT_START_RAMP_MAX_PULSES_PER_SEC,
+                TarzanMechanics.cameraTiltMaxPulsesPerSecond(),
+            ),
+            "oś ostrości kamery": (
+                TarzanMechanics.CAMERA_FOCUS_START_SETTLE_TIME_SEC,
+                TarzanMechanics.CAMERA_FOCUS_START_RAMP_TIME_SEC,
+                TarzanMechanics.CAMERA_FOCUS_START_SETTLE_MAX_PULSES_PER_SEC,
+                TarzanMechanics.CAMERA_FOCUS_START_RAMP_MAX_PULSES_PER_SEC,
+                TarzanMechanics.maxPulsesPerSecondFromRatio(
+                    TarzanMechanics.simpleGearRatio(
+                        TarzanMechanics.CAMERA_FOCUS_MOTOR_TEETH,
+                        TarzanMechanics.CAMERA_FOCUS_AXIS_TEETH,
+                    ),
+                    TarzanMechanics.CAMERA_FOCUS_MAX_CYCLE_ANGLE_DEG,
+                    TarzanMechanics.CAMERA_FOCUS_MIN_CYCLE_TIME_SEC,
+                ),
+            ),
+            "oś pionowa ramienia": (
+                TarzanMechanics.ARM_VERTICAL_START_SETTLE_TIME_SEC,
+                TarzanMechanics.ARM_VERTICAL_START_RAMP_TIME_SEC,
+                TarzanMechanics.ARM_VERTICAL_START_SETTLE_MAX_PULSES_PER_SEC,
+                TarzanMechanics.ARM_VERTICAL_START_RAMP_MAX_PULSES_PER_SEC,
+                TarzanMechanics.maxPulsesPerSecondFromRatio(
+                    TarzanMechanics.compoundGearRatio(
+                        TarzanMechanics.ARM_VERTICAL_GEAR_1_MOTOR_TEETH,
+                        TarzanMechanics.ARM_VERTICAL_GEAR_2_INTERMEDIATE_TEETH,
+                        TarzanMechanics.ARM_VERTICAL_GEAR_3_INTERMEDIATE_TEETH,
+                        TarzanMechanics.ARM_VERTICAL_GEAR_4_AXIS_TEETH,
+                    ),
+                    TarzanMechanics.ARM_VERTICAL_MAX_CYCLE_ANGLE_DEG,
+                    TarzanMechanics.ARM_VERTICAL_MIN_CYCLE_TIME_SEC,
+                ),
+            ),
+            "oś pozioma ramienia": (
+                TarzanMechanics.ARM_HORIZONTAL_START_SETTLE_TIME_SEC,
+                TarzanMechanics.ARM_HORIZONTAL_START_RAMP_TIME_SEC,
+                TarzanMechanics.ARM_HORIZONTAL_START_SETTLE_MAX_PULSES_PER_SEC,
+                TarzanMechanics.ARM_HORIZONTAL_START_RAMP_MAX_PULSES_PER_SEC,
+                TarzanMechanics.maxPulsesPerSecondFromRatio(
+                    TarzanMechanics.compoundGearRatio(
+                        TarzanMechanics.ARM_HORIZONTAL_GEAR_1_MOTOR_TEETH,
+                        TarzanMechanics.ARM_HORIZONTAL_GEAR_2_INTERMEDIATE_TEETH,
+                        TarzanMechanics.ARM_HORIZONTAL_GEAR_3_INTERMEDIATE_TEETH,
+                        TarzanMechanics.ARM_HORIZONTAL_GEAR_4_AXIS_TEETH,
+                    ),
+                    TarzanMechanics.ARM_HORIZONTAL_MAX_CYCLE_ANGLE_DEG,
+                    TarzanMechanics.ARM_HORIZONTAL_MIN_CYCLE_TIME_SEC,
+                ),
+            ),
         }
 
-        settle_ms, ramp_ms = profile_map.get(axis_name, (400, 800))
+        settle_sec, ramp_sec, settle_pps, ramp_pps, cruise_pps = config_map.get(
+            axis_name,
+            (0.4, 0.8, 150.0, 600.0, 1200.0),
+        )
+
+        settle_ms = max(self.TIME_STEP_MS, int(round(settle_sec * 1000.0)))
+        ramp_ms = max(self.TIME_STEP_MS, int(round(ramp_sec * 1000.0)))
         start_total_ms = max(self.TIME_STEP_MS, settle_ms + ramp_ms)
 
-        # Znormalizowany limit nachylenia:
-        # wartość 1.0 nie może zostać osiągnięta szybciej niż całkowity czas rozruchu.
-        max_normalized_slope_per_ms = 1.0 / float(start_total_ms)
+        # Limit nachylenia zależy od realnej rampy osi względem prędkości cruise.
+        # Im spokojniejszy start względem cruise, tym mniejszy dozwolony skok amplitudy.
+        cruise_pps = max(float(cruise_pps), 1.0)
+        normalized_start_ratio = min(1.0, max(float(settle_pps), float(ramp_pps)) / cruise_pps)
+        max_normalized_slope_per_ms = max(
+            1.0 / float(start_total_ms),
+            normalized_start_ratio / float(start_total_ms),
+        )
 
         return TarzanMechanicalProfile(
             start_settle_ms=settle_ms,
@@ -122,21 +204,42 @@ class TarzanKrzyweRuchu:
         if stop_ms <= start_ms:
             return
 
-        first_allowed = start_ms + profile.start_total_ms
-        last_allowed = stop_ms - profile.start_total_ms
+        duration = max(self.TIME_STEP_MS, stop_ms - start_ms)
+        first_allowed = start_ms + min(profile.start_total_ms, duration)
+        last_allowed = stop_ms - min(profile.start_total_ms, duration)
 
+        original_times = [node.time_ms for node in line.nodes]
+
+        # Pierwszy i ostatni węzeł wewnętrzny nie mogą wejść w strefy start/stop.
         if len(line.nodes) >= 3:
             line.nodes[1].time_ms = max(line.nodes[1].time_ms, first_allowed)
 
         if len(line.nodes) >= 4:
             line.nodes[-2].time_ms = min(line.nodes[-2].time_ms, last_allowed)
 
-        # Jeżeli przebieg jest krótszy niż suma ramp, rozkładamy węzły proporcjonalnie
-        if first_allowed >= last_allowed and len(line.nodes) > 2:
-            usable = max(self.TIME_STEP_MS, stop_ms - start_ms)
-            step = max(self.MIN_NODE_GAP_MS, usable // max(1, len(line.nodes) - 1))
-            for index, node in enumerate(line.nodes[1:-1], start=1):
-                node.time_ms = start_ms + index * step
+        # Gdy wewnętrznych węzłów jest więcej, zachowujemy proporcje środka przebiegu,
+        # zamiast brutalnie przesuwać tylko 2 punkty.
+        inner_count = len(line.nodes) - 2
+        if inner_count > 0:
+            inner_start = line.nodes[1].time_ms
+            inner_stop = line.nodes[-2].time_ms if inner_count > 1 else line.nodes[1].time_ms
+            if inner_count == 1:
+                midpoint = self.snap_time((first_allowed + last_allowed) / 2.0) if first_allowed < last_allowed else self.snap_time((start_ms + stop_ms) / 2.0)
+                line.nodes[1].time_ms = midpoint
+            else:
+                old_span = max(self.TIME_STEP_MS, original_times[-2] - original_times[1])
+                new_left = max(first_allowed, line.nodes[1].time_ms)
+                new_right = min(last_allowed, line.nodes[-2].time_ms)
+                if new_right <= new_left:
+                    usable = max(self.TIME_STEP_MS, stop_ms - start_ms)
+                    step = max(self.MIN_NODE_GAP_MS, usable // max(1, len(line.nodes) - 1))
+                    for idx, node in enumerate(line.nodes[1:-1], start=1):
+                        node.time_ms = start_ms + idx * step
+                else:
+                    new_span = max(self.TIME_STEP_MS, new_right - new_left)
+                    for idx in range(1, len(line.nodes) - 1):
+                        rel = (original_times[idx] - original_times[1]) / old_span
+                        line.nodes[idx].time_ms = self.snap_time(new_left + rel * new_span)
 
     def _apply_mechanical_slope_limits(self, line: TarzanMotionLine, axis=None) -> None:
         if len(line.nodes) < 2:
@@ -432,6 +535,13 @@ class TarzanKrzyweRuchu:
             self.normalize_line(edited, axis)
 
         return best
+
+    def fit_line_to_area_with_start_locked(self, line: TarzanMotionLine, target_area: float, axis=None) -> TarzanMotionLine:
+        """
+        Domyka pole przebiegu przez zmianę długości osi czasu przy zachowaniu START.
+        To jest łagodniejsze dla operatora niż bezpośrednie skalowanie amplitudy podczas drag.
+        """
+        return self._fit_duration_to_target_area(line, target_area, axis)
 
     def scale_line_to_area(self, line: TarzanMotionLine, target_area: float, axis=None) -> TarzanMotionLine:
         edited = deepcopy(line)

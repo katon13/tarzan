@@ -1,432 +1,285 @@
-# TARZAN — HANDOFF / STAN PROJEKTU (EDYTOR CHOREOGRAFII RUCHU)
 
-Ten dokument zawiera pełne podsumowanie stanu prac nad edytorem choreografii ruchu systemu TARZAN.
-Jego celem jest umożliwienie natychmiastowego wznowienia pracy w nowej sesji lub w nowym wątku bez utraty wiedzy z dotychczasowego procesu projektowego.
+# TARZAN – HANDOFF DOCUMENT
+## Status projektu na moment przekazania (handoff)
 
-Dokument nie skraca informacji — zbiera kluczowe zasady, architekturę, pipeline ruchu oraz aktualny stan implementacji.
+Ten dokument służy do wznowienia pracy nad projektem **TARZAN – Inteligentne Ramię Kamerowe** w nowym wątku rozmowy lub przez inną sesję.
 
-------------------------------------------------------------
+Celem jest szybkie odtworzenie kontekstu bez konieczności przeglądania całej historii rozmowy.
 
-## 1. Główna idea systemu TARZAN
+---
 
-TARZAN jest systemem sterowania ruchem kamery i ramienia kamerowego, w którym ruch nie jest opisany przez pozycje docelowe (jak w systemach CNC), lecz przez zapis sygnałów sterujących w funkcji czasu.
+# 1. Projekt
 
-Najważniejsza zasada projektu:
+**Nazwa:** TARZAN – Inteligentne Ramię Kamerowe  
+**Repozytorium:** https://github.com/katon13/tarzan  
 
-Ruch jest zapisywany jako timeline sygnałów:
-STEP
-DIR
-ENABLE
+Projekt buduje system sterowania ramieniem kamerowym oparty o:
 
-w funkcji czasu.
+- zapis ruchu w funkcji **czasu**
+- protokół sygnałów sterujących
+- edytor choreografii ruchu
 
-System nie zapisuje pozycji osi.
-System zapisuje stan sygnałów sterujących w każdej próbce czasu.
+System nie działa jak CNC (pozycja → ruch).  
+Zamiast tego zapisuje **stan sygnałów w czasie**.
 
-------------------------------------------------------------
+Czyli:
 
-## 2. Fundamentalna zasada czasowa systemu
+czas → stan sygnałów STEP / DIR / ENABLE / itd.
 
-Cały system odnosi się do globalnej stałej:
+To jest kluczowa zasada architektury TARZAN.
 
+---
+
+# 2. Architektura projektu
+
+Główna struktura repozytorium:
+
+```
+/tarzan
+│
+├── main.py
+├── TarzanRejestr.json
+│
+├── core/
+│
+├── hardware/
+│
+├── mechanics/
+│   └── tarzanMechanikaOsi.py
+│
+├── motion/
+│   └── tarzanKrzyweRuchu.py
+│
+├── editor/
+│   └── tarzanEdytorChoreografiiRuchu.py
+│
+└── data/
+    └── take/
+```
+
+Najważniejsze moduły:
+
+### mechanics
+Opis mechaniki osi:
+
+- limity ruchu
+- profile startu
+- rampy
+
+Plik:
+```
+mechanics/tarzanMechanikaOsi.py
+```
+
+---
+
+### motion
+
+Logika matematyczna krzywych ruchu.
+
+Plik:
+```
+motion/tarzanKrzyweRuchu.py
+```
+
+Odpowiada za:
+
+- węzły ruchu
+- normalizację linii
+- ograniczenia mechaniczne
+- interpolację
+
+---
+
+### editor
+
+GUI do projektowania ruchu.
+
+Plik:
+```
+editor/tarzanEdytorChoreografiiRuchu.py
+```
+
+Funkcje:
+
+- edycja węzłów
+- wizualizacja krzywej
+- preview ruchu
+- wygładzanie
+- START / STOP
+- tryb PAN
+
+---
+
+# 3. Aktualny stan edytora choreografii
+
+Edytor jest **działającym prototypem**, ale **wymaga dalszych prac**.
+
+### Co działa
+
+- wybór osi
+- edycja węzłów
+- przeciąganie punktów
+- podgląd krzywej
+- tryb PAN
+- funkcja wygładzania
+- preview ruchu
+
+### Co wymaga dalszej pracy
+
+1️⃣ stabilizacja UI  
+
+2️⃣ pola:
+```
+START
+STOP
+SMOOTH
+```
+
+3️⃣ synchronizacja z linią ruchu
+
+4️⃣ uporządkowanie logiki:
+
+```
+editor/
+motion/
+mechanics/
+```
+
+5️⃣ optymalizacja kodu
+
+6️⃣ dalsze testy matematyki ruchu
+
+---
+
+# 4. Zasady projektu (ważne)
+
+Podczas dalszej pracy należy przestrzegać kilku zasad:
+
+### 1️⃣ Nie zmieniać architektury bez potrzeby
+
+Projekt jest podzielony na:
+
+```
+mechanics
+motion
+editor
+```
+
+Nie należy mieszać tych warstw.
+
+---
+
+### 2️⃣ Nie przenosić wszystkiego do jednego pliku
+
+Każdy moduł ma swoją odpowiedzialność.
+
+---
+
+### 3️⃣ Zawsze bazować na dokumentacji mechaniki
+
+Plik:
+
+```
+mechanics/tarzanMechanikaOsi.py
+```
+
+definiuje fizykę systemu.
+
+---
+
+### 4️⃣ Oś czasu
+
+System działa na:
+
+```
 CZAS_PROBKOWANIA_MS = 10
+```
 
-Oznacza to że globalny timeline systemu ma strukturę:
-
-0 ms
-10 ms
-20 ms
-30 ms
-...
-
-Każda ramka czasu zawiera stan wszystkich osi.
-
-------------------------------------------------------------
-
-## 3. Architektura pipeline ruchu
-
-Pełny pipeline generacji ruchu wygląda następująco:
-
-TAKE (JSON)
-↓
-krzywa ruchu
-↓
-analiza segmentów
-↓
-gęstość impulsów STEP
-↓
-generacja impulsów STEP
-↓
-timeline osi
-↓
-globalny timeline systemu
-↓
-protokół komunikacyjny
-
-------------------------------------------------------------
-
-## 4. Format choreografii — TAKE
-
-Choreografia ruchu jest zapisana w plikach:
-
-data/take/TAKE_XXX_vYY.json
-
-Przykład:
-
-TAKE_001_v01.json
-
-Plik TAKE zawiera:
-
-metadata
-timeline
-axes
-curve control points
-
-Krzywa opisuje profil ruchu osi.
-
-------------------------------------------------------------
-
-## 5. Edycja choreografii
-
-System umożliwia:
-
-1. wczytanie TAKE
-2. modyfikację krzywej ruchu
-3. zapis nowej wersji TAKE
-
-Przykład pipeline:
-
-TAKE_001_v01
-↓
-edycja krzywej
-↓
-TAKE_001_v02
-
-Mechanizm wersjonowania realizuje:
-
-core/tarzanTakeVersioning.py
-
-------------------------------------------------------------
-
-## 6. Ghost Motion (porównanie ruchu)
-
-Dodano mechanizm porównania ruchu tzw. Ghost Compare.
-
-Porównuje on:
-
-krzywą oryginalną
-krzywą po edycji
-
-Analizowane są m.in.:
-
-pole pod krzywą
-peak amplitudy
-liczba przecięć z zerem
-
-Przykładowy wynik:
-
-Pole oryginalne: 639.9242
-Pole edytowane: 657.9136
-Delta pola %: 2.81%
-
-Ghost motion pozwala określić czy edycja zmieniła drogę ruchu kamery.
-
-------------------------------------------------------------
-
-## 7. Generacja impulsów STEP
-
-Krzywa ruchu jest przekształcana w gęstość impulsów STEP.
-
-Następnie generowane są konkretne czasy impulsów STEP.
-
-Moduły:
-
-motion/tarzanSegmentAnalyzer.py
-motion/tarzanStepGenerator.py
-
-------------------------------------------------------------
-
-## 8. Timeline osi
-
-Każda oś posiada własny timeline zawierający:
-
-STEP
-DIR
-ENABLE
-STEP_COUNT
-
-Timeline jest próbkowany co:
-
-CZAS_PROBKOWANIA_MS
-
-------------------------------------------------------------
-
-## 9. Globalny timeline systemu
-
-Timeline wszystkich osi jest łączony w jeden globalny timeline systemu.
-
-Przykład ramki:
-
-t = 80 ms
-
-camera_horizontal:
-STEP_COUNT=1
-STEP=1
-DIR=1
-ENABLE=1
-
-Moduł:
-
-motion/tarzanTimeline.py
-
-------------------------------------------------------------
-
-## 10. Protokół ruchu
-
-Globalny timeline jest eksportowany jako:
-
-data/protokoly/TAKE_XXX_vYY_protocol.txt
-
-Przykład:
-
-TAKE_001_v02_protocol.txt
-
-Moduł eksportu:
-
-core/tarzanProtokolRuchu.py
-
-------------------------------------------------------------
-
-## 11. Aktualny stan implementacji
-
-Obecnie działają:
-
-✔ wczytywanie TAKE  
-✔ walidacja TAKE  
-✔ analiza segmentów ruchu  
-✔ generacja impulsów STEP  
-✔ budowa timeline osi  
-✔ budowa globalnego timeline  
-✔ eksport protokołu ruchu  
-✔ edycja krzywej ruchu  
-✔ zapis nowej wersji TAKE  
-✔ ghost compare ruchu  
-
-------------------------------------------------------------
-
-## 12. Aktualny pipeline działania
-
-TAKE_001_v01.json
-↓
-edycja krzywej
-↓
-ghost compare
-↓
-TAKE_001_v02.json
-↓
-TAKE_001_v02_protocol.txt
-
-System działa poprawnie.
-
-------------------------------------------------------------
-
-## 13. Aktualny problem matematyczny
-
-Po edycji krzywej pole pod krzywą nie jest jeszcze idealnie zachowane.
-
-Przykład:
-
-Delta pola: 2.81%
-
-Docelowo powinno być:
-
-~0%
-
-Do poprawy:
-
-motion/tarzanKrzyweRuchu.py
-
-Należy wprowadzić iteracyjną normalizację krzywej po edycji.
-
-------------------------------------------------------------
-
-## 14. Zasady projektowe
-
-Podczas edycji kodu:
-
-• nie skracać istniejących plików  
-• nie usuwać metod  
-• nie upraszczać architektury  
-• zachowywać strukturę projektu  
-
-Nowe pliki należy najpierw dopisać do mapy projektu.
-
-------------------------------------------------------------
-
-## 15. Zasady pracy
-
-Podczas dalszego rozwoju:
-
-• korzystać z istniejących modułów  
-• korzystać z centralnych stałych  
-• zachować strukturę katalogów  
-• każdą zmianę zapisywać w Git  
-
-------------------------------------------------------------
-
-## 16. Repozytorium projektu
-
-https://github.com/katon13/tarzan
-
-Po każdym etapie pracy:
-
-git add .  
-git commit -m "opis etapu"  
-git push  
-
-------------------------------------------------------------
-
-## 17. Następny krok rozwoju
-
-Najbliższy etap:
-
-poprawa matematyki edycji krzywej
-
-należy wprowadzić:
-
-iteracyjną normalizację pola pod krzywą
-
-tak aby:
-
-pole po edycji ≈ pole oryginalne
-
-------------------------------------------------------------
-
-## 18. Kolejne przyszłe etapy
-
-• interaktywny edytor krzywej  
-• operacje operatorskie na krzywej  
-• ghost overlay ruchu  
-• symulacja wielu osi  
-• pełny protokół komunikacyjny  
-• integracja z hardware  
-
-------------------------------------------------------------
-
-## 19. Punkt startowy do kolejnej sesji
-
-Kontynuację należy rozpocząć od:
-
-motion/tarzanKrzyweRuchu.py
-
-Cel:
-
-precyzyjna matematyczna normalizacja krzywej ruchu
-po operacjach edycji
-
-## Handoff — EDYTOR CHOREOGRAFII RUCHU 2
-
-### Aktualny kierunek pracy
-
-Wątek kontynuuje rozwój warstwy:
-
-- protokołu ruchu,
-- modelu choreografii,
-- graficznej edycji sygnałów,
-- logicznego odczytu timeline.
-
-Na tym etapie nie wchodzimy jeszcze w sterowanie płytkami PoKeys.  
-Najpierw ma zostać domknięta warstwa edytora ruchu opartego na protokole czasu i sygnałów.
+Nie należy zmieniać tego bez powodu.
 
 ---
 
-## Najważniejsze założenie
+# 5. Edytor – założenia projektowe
 
-TARZAN nie działa jak CNC z pozycjami docelowymi.  
-Podstawą zapisu ruchu jest:
+Edytor operuje na:
 
-- czas,
-- stan sygnałów,
-- synchronizacja wielu linii,
-- ewentualne dane czujników w tej samej osi czasu.
+```
+jednej ciągłej linii ruchu
+z wieloma węzłami
+```
 
-Edytor choreografii musi więc działać jak edytor przebiegów logicznych, a nie jak edytor pozycji osi.
+Metoda:
 
----
+```
+Wygładź
+```
 
-## Co dokładnie ma powstać teraz
+powinna:
 
-Kolejność realizacji:
-
-1. domknięcie formatu choreografii ruchu,
-2. model danych choreografii,
-3. graficzna edycja linii sygnałowych,
-4. silnik odczytu choreografii,
-5. eksport zgodny z `tarzanProtokolRuchu.py`.
+- wygładzać przebieg
+- **nie dodawać nowych węzłów**
+- **nie usuwać węzłów**
 
 ---
 
-## Ustalony podział odpowiedzialności modułów
+# 6. Kolejne kroki rozwoju
 
-### `core/tarzanProtokolRuchu.py`
+W nowym wątku pracy należy:
 
-Źródło prawdy dla końcowego formatu timeline sygnałów.
+### krok 1
 
-### `core/tarzanChoreografiaModel.py`
+ustabilizować edytor
 
-Roboczy model danych choreografii dla edytora.
+### krok 2
 
-### `app/tarzanEdytorChoreografii.py`
+naprawić pola:
 
-Warstwa aplikacyjna i logika obsługi projektu choreografii.
+```
+START
+STOP
+SMOOTH
+```
 
-### `gui/tarzanEdytorChoreografiiWidget.py`
+### krok 3
 
-Graficzna edycja przebiegów sygnałowych na osi czasu.
+rozbudować mechanikę ograniczeń
 
-### `core/tarzanChoreografiaPlayer.py`
+### krok 4
 
-Logika odczytu choreografii i generowania stanów w czasie.
+przygotować zapis choreografii
 
----
+### krok 5
 
-## Zasady dalszej pracy
-
-- nie dublować nazw plików,
-- każdy nowy plik najpierw dopisać do mapy projektu,
-- nie mieszać GUI z protokołem i modelem,
-- nie przenosić jeszcze logiki hardware do warstwy choreografii,
-- podawać pełne pliki do podmiany,
-- zachować zgodność z pełnym nazewnictwem osi z mapy projektu,
-- trzymać się centralnych ustawień projektu.
+integracja z protokołem ruchu
 
 ---
 
-## Najbliższy krok implementacyjny
+# 7. Status commit
 
-Następny techniczny krok:
-zdefiniować model danych jednej ścieżki sygnału i całej choreografii tak,
-aby później GUI edytora rysowało i edytowało już poprawny model,
-a nie tymczasową strukturę.
+Projekt można teraz wysłać do repozytorium z komentarzem:
 
-Powinno to objąć:
+```
+Editor prototype – requires further work
+```
+lub
 
-- projekt choreografii,
-- listę ścieżek sygnałowych,
-- segmenty czasu,
-- impulsy,
-- stany 0/1,
-- parametry siatki czasu,
-- eksport do formatu protokołu.
+```
+Initial choreography editor prototype
+```
 
 ---
 
-## Cel końcowy tego etapu
+# 8. Jak rozpocząć nowy wątek
 
-Uzyskać działający edytor choreografii ruchu, w którym można:
+W nowej rozmowie należy napisać:
 
-- graficznie edytować linie sygnałów,
-- zapisywać choreografię,
-- odczytywać ją w czasie,
-- eksportować ją do protokołu ruchu,
-- przygotować warstwę pod przyszłą integrację wykonawczą.
+```
+Kontynuujemy projekt TARZAN.
+Poniżej aktualny handoff projektu.
+```
+i wkleić zawartość tego pliku.
+
+---
+
+# Koniec dokumentu

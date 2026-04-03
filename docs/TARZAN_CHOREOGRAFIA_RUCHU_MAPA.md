@@ -1,5 +1,146 @@
 # MAPA EDYTORA CHOREOGRAFII RUCHU TARZANA
 
+# 
+
+## Kluczowa zasada działania edytora
+
+W edytorze choreografii ruchu **myszka nie steruje bezpośrednio krzywą**.
+
+Myszka steruje **parametrem ruchu**, natomiast krzywa jest **wynikiem funkcji matematycznej oraz ograniczeń mechanicznych osi**.
+
+Schemat działania:
+
+MYSZ → PARAMETR → FUNKCJA RUCHU → KRZYWA
+
+Jest to fundamentalna zasada działania edytora ruchu w projekcie TARZAN.
+
+Operator nie ustawia ręcznie wartości krzywej.  
+Operator modyfikuje parametry ruchu, a system generuje krzywą zgodnie z algorytmem ruchu i ograniczeniami mechanicznymi.
+
+---
+
+# Co faktycznie edytuje użytkownik
+
+Użytkownik **nie edytuje amplitudy punktu krzywej bezpośrednio**.
+
+Użytkownik edytuje **parametry ruchu**, takie jak:
+
+- intensywność ruchu – jak szybko oś przyspiesza
+- kształt ruchu – charakter krzywej przyspieszenia
+- timing – moment rozpoczęcia fragmentu ruchu
+- energia ruchu – powierzchnia pod krzywą
+- rozkład dynamiki – gdzie w czasie ruch jest najsilniejszy
+
+W praktyce oznacza to:
+
+ruch myszy → zmiana parametru ruchu
+
+a system:
+
+parametr → przeliczenie funkcji ruchu → aktualizacja krzywej
+
+---
+
+# Model krzywej ruchu
+
+Krzywa ruchu nie jest definiowana jedynie przez kilka punktów amplitudy.
+
+Zamiast modelu:
+
+3 punkty → spline
+
+stosowany jest model segmentowy:
+
+```
+segment ruchu  
+↓  
+model matematyczny  
+↓  
+gęsta krzywa wynikowa
+```
+
+Segment ruchu składa się z:
+
+```
+start  
+control A  
+control B  
+stop
+```
+
+co odpowiada krzywej typu **cubic Bézier**.
+
+---
+
+# Model krzywej Béziera
+
+Każdy segment ruchu definiowany jest przez cztery punkty:
+
+```
+P0 – start  
+P1 – uchwyt kontrolny  
+P2 – uchwyt kontrolny  
+P3 – stop
+```
+
+Model ten jest stosowany w profesjonalnych narzędziach takich jak:
+
+- Corel
+- After Effects
+- Blender
+- DaVinci Resolve
+- Fusion
+
+---
+
+# Zalety modelu Béziera w edytorze TARZAN
+
+Ten model zapewnia:
+
+- lokalną kontrolę nad fragmentem krzywej
+- stabilność podczas edycji
+- brak gwałtownych skoków wykresu
+- przewidywalność zachowania krzywej
+- możliwość zachowania zależności pomiędzy amplitudą i czasem ruchu
+
+---
+
+# Zależność amplituda – czas – impulsy
+
+Model krzywej musi zachować fundamentalną zasadę systemu TARZAN:
+
+większa amplituda  
+→ większa chwilowa prędkość ruchu  
+→ mniejszy czas trwania ruchu  
+→ wcześniejszy punkt STOP
+
+mniejsza amplituda  
+→ mniejsza chwilowa prędkość ruchu  
+→ dłuższy czas trwania ruchu  
+→ przesunięty punkt STOP
+
+Jednocześnie **całkowita liczba impulsów STEP pozostaje stała**, ponieważ droga ruchu osi nie zmienia się.
+
+---
+
+# Ograniczenia mechaniczne
+
+Każda edycja krzywej musi być kontrolowana przez ograniczenia mechaniczne osi.
+
+System musi respektować między innymi:
+
+- maksymalną prędkość osi
+- maksymalne przyspieszenie
+- minimalny czas cyklu
+- kompensację luzów
+- zakres mechaniczny osi
+
+Każda zmiana parametrów krzywej przechodzi przez procedurę:
+
+enforce_axis_constraints()
+
+Dzięki temu edytor nigdy nie generuje ruchu niemożliwego do wykonania przez mechanikę systemu.
+
 ## 1. Cel modułu
 
 Edytor choreografii ruchu TARZANA jest operatorskim narzędziem służącym do:
@@ -109,6 +250,83 @@ Oznacza to że:
 ale nie zmienia:
 
 - geometrii ruchu osi.
+
+## 6.1 Zespolenie krzywej ruchu z czasem trwania ruchu
+
+Krzywa ruchu osi w edytorze TARZANA nie jest jedynie wizualnym wykresem natężenia ruchu.
+Stanowi ona matematyczny model rozkładu ruchu w czasie.
+
+Dlatego zmiana kształtu krzywej nie może być traktowana wyłącznie jako zmiana amplitudy.
+
+Obowiązuje zasada pełnej proporcji matematycznej pomiędzy:
+
+- kształtem krzywej
+- czasem trwania ruchu
+- drogą ruchu osi
+
+Oznacza to że:
+
+- zmiana intensywności krzywej powoduje proporcjonalną zmianę czasu trwania ruchu
+- zmniejszenie natężenia ruchu powoduje wydłużenie czasu ruchu
+- zwiększenie natężenia ruchu powoduje skrócenie czasu ruchu
+
+System zachowuje jednocześnie stałość drogi ruchu osi, wynikającą z liczby impulsów STEP.
+
+Można to zapisać w uproszczonej formie jako zależność:
+
+droga ruchu = całka z natężenia ruchu w czasie
+
+Dlatego podczas edycji:
+
+- zmiana kształtu krzywej powoduje automatyczne przeliczenie czasu jej przebiegu
+- liczba impulsów ruchu pozostaje niezmienna
+- zmienia się jedynie tempo generowania impulsów
+
+Dzięki temu operator edytuje:
+
+- dynamikę ruchu
+- rytm ruchu
+- płynność ruchu
+
+ale nie zmienia:
+
+- geometrii ruchu
+- zakresu mechanicznego osi
+- liczby impulsów ruchu wynikających z nagranego TAKE.
+
+## 6.2 Zespolenie początku i końca ruchu z krzywą
+
+Początek i koniec ruchu osi nie są w systemie TARZAN niezależnymi parametrami.
+
+Granice ruchu wynikają bezpośrednio z krzywej ruchu:
+
+- początek ruchu = pierwszy punkt krzywej
+- koniec ruchu = ostatni punkt krzywej
+
+Edytor może wizualizować te granice jako pionowe linie pomocnicze,
+jednak nie stanowią one oddzielnych danych.
+
+Zmiana początku lub końca ruchu jest w rzeczywistości zmianą:
+
+- pierwszego punktu krzywej
+- ostatniego punktu krzywej
+
+Dzięki temu zachowana jest spójność modelu matematycznego:
+
+- krzywa pozostaje jednym ciągłym przebiegiem
+- nie powstają dwa niezależne ruchy
+- zachowana jest pełna zgodność z protokołem ruchu.## 
+
+# 6.3  Wniosek projektowy
+
+To musi być jednoznaczne:
+
+1. krzywa ruchu nie jest ozdobą, tylko matematycznym modelem ruchu osi
+2. amplituda oznacza chwilową intensywność / tempo ruchu
+3. jeśli amplituda maleje, czas ruchu musi rosnąć
+4. jeśli amplituda rośnie, czas ruchu może maleć
+5. całkowita liczba impulsów dla tego ruchu pozostaje taka sama
+6. generator sygnałów potem rozkłada te impulsy na timeline zgodnie z nową dynamiką. 
 
 ## 7. Dane wejściowe jednej osi
 
@@ -1061,7 +1279,6 @@ W wersji oszczędnej lepiej nie trzymać tu pełnych próbek zawsze, tylko:
 Czyli docelowo lepiej:
 
 ```
-
 "generated_protocol": {
   "export_file": "TAKE_001_v01_protocol.txt",
   "step_count_total": 8420,
@@ -1535,3 +1752,131 @@ Model klas ma być prosty, czytelny i bezpośrednio zgodny z plikiem TAKE. Dzię
 ## Wniosek projektowy
 
 Edytor choreografii ruchu nie jest dodatkiem do systemu, lecz centralnym ogniwem pomiędzy nagraniem ruchu a jego automatycznym odtworzeniem. To właśnie ten moduł przekształca surowy zapis sygnałów w świadomie opracowane ujęcie filmowe gotowe do wykonania przez TARZAN.
+
+# DODATEK: Zasady mechanicznego ograniczania krzywej
+
+To są uwagi związane z pracą nad logiką układu. Dlatego znajduą się na końcu, wynkiły z pracy i założeń.
+
+## Uwaga projektowa – logika maszyny musi być na wejściu
+
+W edytorze choreografii ruchu TARZAN linia nie może być traktowana jak swobodny rysunek geometryczny.  
+Linia jest wizualizacją ruchu wynikającego z protokołu sygnałów i ograniczeń mechaniki osi.
+
+Dlatego kolejność działania musi być następująca:
+
+```text
+mechanika
+→ protokół
+→ dozwolony model ruchu
+→ wizualizacja
+```
+
+a nie:
+
+```text
+mysz rysuje dowolny kształt
+→ system próbuje go później naprawić
+```
+
+To oznacza, że logika maszyny musi być zastosowana **na wejściu**, jeszcze przed rysowaniem finalnej krzywej.
+
+---
+
+## Kluczowa zasada
+
+Użytkownik nie może edytować krzywej w sposób całkowicie swobodny.  
+Użytkownik wskazuje kierunek zmiany, ale edytor może przyjąć tylko taki ruch, który jest zgodny z:
+
+- protokołem ruchu,
+- sygnałami sterującymi,
+- ograniczeniami mechanicznymi osi,
+- centralnymi zmiennymi projektu,
+- dokumentacją TARZAN.
+
+Czyli:
+
+```text
+mysz wskazuje kierunek
+→ mechanika ogranicza
+→ powstaje dozwolony ruch
+→ rysowany jest wynik
+```
+
+---
+
+## Konsekwencje dla edytora
+
+Jeżeli ograniczenia zostaną wprowadzone na początku, wykres nie będzie mógł wykonywać chaotycznych skoków.
+
+W szczególności edytor nie może dopuszczać:
+
+- pionowych ścian krzywej,
+- natychmiastowego startu z wysoką wartością,
+- nielogicznych skoków przy przejściu pod osią,
+- swobodnego „dodawania lub odejmowania pięter w budynku”, czyli lokalnych zmian sprzecznych z mechaniką.
+
+Takie kształty są niezgodne z rzeczywistą pracą maszyny i nie mogą być akceptowane nawet chwilowo w preview operatorskim.
+
+---
+
+## Ograniczenia, które muszą być stosowane przed rysowaniem krzywej
+
+### 1. Minimalny czas między węzłami
+
+Węzły nie mogą być ustawiane tak gęsto, aby tworzyły pionowe uskoki.  
+Muszą respektować krok czasu projektu:
+
+```text
+CZAS_PROBKOWANIA_MS = 10
+```
+
+oraz dodatkowe minimalne odstępy wynikające z modelu mechaniki.
+
+### 2. Maksymalne lokalne nachylenie krzywej
+
+Zmiana wartości w czasie musi mieć limit wynikający z dopuszczalnej dynamiki osi.
+
+Czyli:
+
+```text
+d(wartość)/dt ≤ limit mechaniki osi
+```
+
+### 3. Wymuszona rampa startowa
+
+Maszyna nie może wystartować pionowo.  
+Początek ruchu musi być zrealizowany jako dozwolone narastanie.
+
+### 4. Wymuszona rampa końcowa
+
+Zatrzymanie ruchu także nie może być pionowym załamaniem.  
+Końcowy odcinek musi być zgodny z dopuszczalnym wygaszaniem ruchu.
+
+### 5. Ograniczenie lokalne względem sąsiadów
+
+Przesunięcie jednego węzła nie może tworzyć lokalnego kształtu sprzecznego z sąsiednimi fragmentami przebiegu.
+
+### 6. Ograniczenie przejścia przez zero
+
+Przejścia przez oś i praca pod osią muszą być zgodne z realnym zachowaniem mechaniki i protokołu.  
+Edytor nie może dopuszczać nienaturalnych skoków tylko dlatego, że są matematycznie możliwe.
+
+### 7. Zależność amplituda ↔ czas
+
+Zmiana wysokości przebiegu musi pozostać sprzężona z czasem trwania ruchu.  
+Jeżeli zmienia się intensywność ruchu, system musi przeliczać skutek czasowy zgodnie z ustaloną logiką projektu.
+
+---
+
+## Wniosek projektowy
+
+Edytor nie może działać jak narzędzie do swobodnego rysowania krzywej.  
+Musi działać jak narzędzie do modelowania ruchu wynikającego z mechaniki maszyny.
+
+Krzywa ma być:
+
+- płynna dla operatora,
+- czytelna wizualnie,
+- ale zawsze zespolona z mechaniką, zmiennymi projektu i dokumentacją TARZAN.
+
+To jest zasada obowiązująca przy dalszym rozwijaniu modułu choreografii ruchu.

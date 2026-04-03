@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import copy
@@ -6,13 +5,11 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
-
 from core.tarzanTakeVersioning import TarzanTakeVersioning
-from motion.tarzanGhostMotion import TarzanGhostMotion
+from editor.tarzanEdycjaPunktow import TarzanEdycjaPunktow
+from editor.tarzanWykresOsi import AXIS_DEFINITIONS, DRONE_KEY, AxisTrack, DroneTrack, ensure_take_axes
 from motion.tarzanKrzyweRuchu import TarzanKrzyweRuchu
-from motion.tarzanTakeModel import TarzanTake
+from motion.tarzanTakeModel import TarzanEvent, TarzanTake
 
 
 class TarzanEdytorChoreografiiRuchu(tk.Tk):
@@ -20,97 +17,37 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
     PANEL = "#1F2329"
     PANEL_2 = "#2A3038"
     FG = "#F3F6F8"
-    MUTED = "#AEB7C2"
-    GRID = "#58606B"
-
     BTN_PRIMARY = "#2D6CDF"
     BTN_SUCCESS = "#2E9E5B"
     BTN_WARNING = "#C78B2A"
-    BTN_DANGER = "#B74A4A"
-    BTN_MODE = "#6F42C1"
-    BTN_AXIS = "#3A434E"
-    BTN_AXIS_ACTIVE = "#556274"
-
-    START_COLOR = "#45C46B"
-    STOP_COLOR = "#E65D5D"
-    CURVE_COLOR = "#7DC4FF"
-    GHOST_COLOR = "#B7C0CB"
-    NODE_COLOR = "#FFD166"
-    NODE_SELECTED = "#FF9F1C"
-
-    NODE_PICK_X_TOL = 120
-    NODE_PICK_Y_TOL = 0.55
-    NODE_LINE_X_TOL = 160
-    NODE_LINE_Y_TOL = 0.22
 
     def __init__(self, take_path: str | Path | None = None) -> None:
         super().__init__()
 
         self.title("TARZAN — Edytor Choreografii Ruchu")
-        self.geometry("1680x950")
-        self.minsize(1380, 860)
+        self.geometry("1680x980")
+        self.minsize(1500, 900)
         self.configure(bg=self.BG)
 
         self.base_dir = Path(__file__).resolve().parent.parent
-        self.default_take_path = self._find_default_take_path()
-        self.take_path = Path(take_path) if take_path else self.default_take_path
+        self.take_path = Path(take_path) if take_path else self._find_default_take_path()
 
         self.krzywe = TarzanKrzyweRuchu()
-        self.ghost = TarzanGhostMotion()
         self.versioning = TarzanTakeVersioning()
+        self.edycja = TarzanEdycjaPunktow(getattr(self.krzywe, "TIME_STEP_MS", 10))
 
         self.take: TarzanTake | None = None
         self.original_take: TarzanTake | None = None
-
-        self.selected_axis_key: str | None = None
-        self.axis_pan_modes: dict[str, bool] = {}
-        self.axis_button_widgets: dict[str, tk.Button] = {}
-        self.axis_pan_widgets: dict[str, tk.Button] = {}
         self.axis_lines: dict[str, object] = {}
-        self.selected_node_index: int | None = None
-
+        self.axis_tracks: dict[str, object] = {}
+        self.drone_track = None
+        self.selected_axis_key: str | None = None
         self.status_var = tk.StringVar(value="Gotowy.")
         self.take_path_var = tk.StringVar(value=str(self.take_path) if self.take_path else "")
-        self.interval_start_var = tk.StringVar(value="300")
-        self.interval_end_var = tk.StringVar(value="1450")
-        self.smooth_strength_var = tk.StringVar(value="0.35")
 
-        self.show_nodes_var = tk.BooleanVar(value=True)
-        self.show_ghost_var = tk.BooleanVar(value=True)
-
-        self.drag_mode: str | None = None
-        self.drag_axis_key: str | None = None
-        self.drag_original_line = None
-        self.drag_pan_anchor_x = None
-        self.preview_line = None
-        self.pending_drag_event = None
-        self.drag_after_id = None
-        self.drag_preview_interval_ms = 50
-        self.drag_value_filter = 0.16
-
-        # Dodatkowe wygładzenie preview, żeby operator widział skutek,
-        # a nie drżenie kolejnych przeliczeń.
-        self.drag_preview_blend_alpha = 0.24
-        self.drag_preview_neighbor_alpha = 0.12
-        self.drag_preview_value_deadband = 0.01
-
-        # Wygładzenie samego wyświetlania dla człowieka.
-        # Dane mogą zmieniać się poprawnie matematycznie, ale ekran ma pokazywać
-        # stabilny skutek bez drobnego "drżenia" widocznego dla oka.
-        self.display_preview_blend_alpha = 0.18
-        self.display_preview_sampled = None
-
-        # Ograniczenia operatorskie podczas drag.
-        # Użytkownik ma widzieć skutek zgodny z mechaniką, a nie surowe liczenie.
-        self.drag_preview_max_time_step_ms = 80
-        self.drag_preview_max_value_step = 0.12
-        self.drag_preview_local_value_band = 0.35
-        self.drag_start_node_time = None
-        self.drag_start_node_value = None
+        self.current_xlim: tuple[int, int] | None = None
 
         self._build_ui()
-        self._connect_plot_events()
-        self.bind("<Delete>", lambda _event: self.remove_selected_node())
         self._load_initial_take()
 
     def _build_ui(self) -> None:
@@ -130,14 +67,16 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
 
         top_right = tk.Frame(top, bg=self.BG)
         top_right.pack(side="right")
-        self._make_small_button(top_right, "Otwórz", self.open_take_dialog, self.BTN_PRIMARY).pack(side="left", padx=2)
-        self._make_small_button(top_right, "Przeładuj", self.reload_take, self.BTN_WARNING).pack(side="left", padx=2)
-        self._make_small_button(top_right, "Zapisz", self.save_new_take_version, self.BTN_SUCCESS).pack(side="left", padx=2)
+        self._make_button(top_right, "Otwórz", self.open_take_dialog, self.BTN_PRIMARY).pack(side="left", padx=2)
+        self._make_button(top_right, "Zapisz", self.save_take, self.BTN_SUCCESS).pack(side="left", padx=2)
+        self._make_button(top_right, "Zoom +", self.zoom_in, self.BTN_WARNING).pack(side="left", padx=2)
+        self._make_button(top_right, "Zoom -", self.zoom_out, self.BTN_WARNING).pack(side="left", padx=2)
+        self._make_button(top_right, "Pełny", self.zoom_reset, self.BTN_WARNING).pack(side="left", padx=2)
 
         path_row = tk.Frame(outer, bg=self.BG)
         path_row.pack(fill="x", pady=(0, 8))
         tk.Label(path_row, text="TAKE", bg=self.BG, fg=self.FG, font=("Segoe UI", 9)).pack(side="left")
-        self.take_entry = tk.Entry(
+        tk.Entry(
             path_row,
             textvariable=self.take_path_var,
             bg=self.PANEL_2,
@@ -146,61 +85,29 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             relief="flat",
             font=("Segoe UI", 10),
             bd=5,
-        )
-        self.take_entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
+        ).pack(side="left", fill="x", expand=True, padx=(8, 0))
 
-        content = tk.Frame(outer, bg=self.BG)
-        content.pack(fill="both", expand=True)
+        global_bar_wrap = tk.Frame(outer, bg=self.BG)
+        global_bar_wrap.pack(fill="x", pady=(0, 8))
+        tk.Label(global_bar_wrap, text="GLOBAL TIMELINE", bg=self.BG, fg=self.FG, font=("Segoe UI Semibold", 10)).pack(anchor="w", padx=6)
+        self.global_canvas = tk.Canvas(global_bar_wrap, height=24, bg=self.PANEL_2, highlightthickness=0, bd=0)
+        self.global_canvas.pack(fill="x", padx=6, pady=(2, 0))
+        self.global_canvas.bind("<Configure>", lambda _e: self._draw_global_timeline())
 
-        sidebar = tk.Frame(content, bg=self.PANEL, width=210)
-        sidebar.pack(side="left", fill="y", padx=(0, 10))
-        sidebar.pack_propagate(False)
+        body = tk.Frame(outer, bg=self.BG)
+        body.pack(fill="both", expand=True)
 
-        self.axis_list_frame = tk.Frame(sidebar, bg=self.PANEL)
-        self.axis_list_frame.pack(fill="x", padx=6, pady=(8, 8))
+        self.scroll_canvas = tk.Canvas(body, bg=self.BG, highlightthickness=0, bd=0)
+        self.scroll_canvas.pack(side="left", fill="both", expand=True)
 
-        self._separator(sidebar)
+        scrollbar = tk.Scrollbar(body, orient="vertical", command=self.scroll_canvas.yview)
+        scrollbar.pack(side="right", fill="y")
+        self.scroll_canvas.configure(yscrollcommand=scrollbar.set)
 
-        self._make_check(sidebar, "Węzły", self.show_nodes_var, self._refresh_plot).pack(fill="x", padx=8, pady=(0, 0))
-        self._make_check(sidebar, "Ghost", self.show_ghost_var, self._refresh_plot).pack(fill="x", padx=8, pady=(0, 6))
-
-        self._make_small_button(sidebar, "Wygładź", self.apply_smoothing, self.BTN_PRIMARY).pack(fill="x", padx=8, pady=(6, 4))
-        self._make_small_button(sidebar, "Dodaj węzeł", self.add_node_center, self.BTN_PRIMARY).pack(fill="x", padx=8, pady=(0, 4))
-        self._make_small_button(sidebar, "Usuń węzeł", self.remove_selected_node, self.BTN_DANGER).pack(fill="x", padx=8, pady=(0, 4))
-        self._make_small_button(sidebar, "Reset", self.reset_current_axis, self.BTN_DANGER).pack(fill="x", padx=8, pady=(0, 8))
-
-        self.side_info_label = tk.Label(
-            sidebar,
-            text="START: -\nSTOP: -\nCzas: -\nPole: -\nPAN: OFF\nWęzły: -",
-            bg=self.PANEL_2,
-            fg=self.FG,
-            justify="left",
-            anchor="nw",
-            padx=10,
-            pady=10,
-            font=("Segoe UI", 9),
-        )
-        self.side_info_label.pack(fill="both", expand=True, padx=8, pady=(4, 8))
-
-        chart_wrap = tk.Frame(content, bg=self.BG)
-        chart_wrap.pack(side="left", fill="both", expand=True)
-
-        self.plot_title_label = tk.Label(
-            chart_wrap,
-            text="",
-            bg=self.BG,
-            fg=self.FG,
-            font=("Segoe UI Semibold", 13),
-            anchor="w",
-            pady=2,
-        )
-        self.plot_title_label.pack(fill="x", pady=(0, 4))
-
-        self.figure = Figure(figsize=(12, 7), dpi=100)
-        self.figure.patch.set_facecolor(self.BG)
-        self.ax_curve = self.figure.add_subplot(111)
-        self.canvas = FigureCanvasTkAgg(self.figure, master=chart_wrap)
-        self.canvas.get_tk_widget().pack(fill="both", expand=True)
+        self.tracks_frame = tk.Frame(self.scroll_canvas, bg=self.BG)
+        self.scroll_window = self.scroll_canvas.create_window((0, 0), window=self.tracks_frame, anchor="nw")
+        self.tracks_frame.bind("<Configure>", self._on_tracks_configure)
+        self.scroll_canvas.bind("<Configure>", self._on_canvas_configure)
 
         status = tk.Label(
             outer,
@@ -214,10 +121,7 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         )
         status.pack(fill="x", pady=(8, 0))
 
-    def _separator(self, parent) -> None:
-        tk.Frame(parent, bg=self.PANEL_2, height=2).pack(fill="x", padx=8, pady=(4, 8))
-
-    def _make_small_button(self, parent, text: str, command, color: str) -> tk.Button:
+    def _make_button(self, parent, text: str, command, color: str) -> tk.Button:
         return tk.Button(
             parent,
             text=text,
@@ -234,137 +138,11 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             cursor="hand2",
         )
 
-    def _make_axis_button(self, parent, text: str, command) -> tk.Button:
-        return tk.Button(
-            parent,
-            text=text,
-            command=command,
-            bg=self.BTN_AXIS,
-            fg="white",
-            activebackground=self.BTN_AXIS_ACTIVE,
-            activeforeground="white",
-            relief="flat",
-            bd=0,
-            padx=6,
-            pady=4,
-            anchor="w",
-            font=("Segoe UI", 8),
-            cursor="hand2",
-        )
+    def _on_tracks_configure(self, _event=None):
+        self.scroll_canvas.configure(scrollregion=self.scroll_canvas.bbox("all"))
 
-    def _make_pan_button(self, parent, command) -> tk.Button:
-        return tk.Button(
-            parent,
-            text="PAN",
-            command=command,
-            bg=self.BTN_MODE,
-            fg="white",
-            activebackground=self.BTN_MODE,
-            activeforeground="white",
-            relief="flat",
-            bd=0,
-            padx=6,
-            pady=4,
-            font=("Segoe UI", 8),
-            cursor="hand2",
-            width=5,
-        )
-
-    def _make_check(self, parent, text: str, variable, command):
-        return tk.Checkbutton(
-            parent,
-            text=text,
-            variable=variable,
-            command=command,
-            bg=self.PANEL,
-            fg=self.FG,
-            activebackground=self.PANEL,
-            activeforeground=self.FG,
-            selectcolor=self.PANEL_2,
-            font=("Segoe UI", 9),
-            anchor="w",
-            pady=2,
-        )
-
-    def _make_entry(self, parent, textvariable: tk.StringVar) -> tk.Entry:
-        return tk.Entry(
-            parent,
-            textvariable=textvariable,
-            bg=self.PANEL_2,
-            fg=self.FG,
-            insertbackground=self.FG,
-            relief="flat",
-            font=("Segoe UI", 10),
-            bd=4,
-            width=14,
-            justify="left",
-            highlightthickness=1,
-            highlightbackground=self.PANEL_2,
-            highlightcolor=self.BTN_PRIMARY,
-            selectbackground=self.BTN_PRIMARY,
-            selectforeground="white",
-        )
-
-    def _add_field(self, parent, label_text: str, entry: tk.Entry) -> None:
-        wrap = tk.Frame(parent, bg=self.PANEL)
-        wrap.pack(fill="x", padx=8, pady=(0, 4))
-        tk.Label(wrap, text=label_text, bg=self.PANEL, fg=self.FG, font=("Segoe UI Semibold", 9)).pack(anchor="w")
-        entry.pack(fill="x", pady=(3, 0), in_=wrap)
-
-    def _rebuild_axis_buttons(self) -> None:
-        for child in self.axis_list_frame.winfo_children():
-            child.destroy()
-
-        self.axis_button_widgets.clear()
-        self.axis_pan_widgets.clear()
-
-        if not self.take:
-            return
-
-        for axis_key, axis in self.take.axes.items():
-            row = tk.Frame(self.axis_list_frame, bg=self.PANEL)
-            row.pack(fill="x", pady=2)
-
-            select_btn = self._make_axis_button(row, axis.axis_name, lambda k=axis_key: self.select_axis(k))
-            select_btn.pack(side="left", fill="x", expand=True)
-
-            pan_btn = self._make_pan_button(row, lambda k=axis_key: self.toggle_axis_pan(k))
-            pan_btn.pack(side="left", padx=(3, 0))
-
-            self.axis_button_widgets[axis_key] = select_btn
-            self.axis_pan_widgets[axis_key] = pan_btn
-
-        self._refresh_axis_button_states()
-
-    def _refresh_axis_button_states(self) -> None:
-        for axis_key, btn in self.axis_button_widgets.items():
-            btn.configure(bg=self.BTN_AXIS_ACTIVE if axis_key == self.selected_axis_key else self.BTN_AXIS)
-
-        for axis_key, btn in self.axis_pan_widgets.items():
-            btn.configure(text="ON" if self.axis_pan_modes.get(axis_key, False) else "PAN")
-
-    def select_axis(self, axis_key: str) -> None:
-        self.selected_axis_key = axis_key
-        self.selected_node_index = None
-        self._sync_entries_from_line()
-        self._refresh_axis_button_states()
-        self._refresh_plot(status_override=f"Wybrano oś: {self.take.axes[axis_key].axis_name}")
-
-    def toggle_axis_pan(self, axis_key: str) -> None:
-        self.axis_pan_modes[axis_key] = not self.axis_pan_modes.get(axis_key, False)
-        self.selected_axis_key = axis_key
-        self._sync_entries_from_line()
-        self._refresh_axis_button_states()
-        self._refresh_plot(status_override=f"PAN {'ON' if self.axis_pan_modes[axis_key] else 'OFF'} dla osi: {self.take.axes[axis_key].axis_name}")
-
-    def _connect_plot_events(self) -> None:
-        self.canvas.mpl_connect("button_press_event", self._on_plot_press)
-        self.canvas.mpl_connect("button_release_event", self._on_plot_release)
-        self.canvas.mpl_connect("motion_notify_event", self._on_plot_motion)
-
-    def _log(self, text: str) -> None:
-        print(text)
-        self.status_var.set(text)
+    def _on_canvas_configure(self, event):
+        self.scroll_canvas.itemconfigure(self.scroll_window, width=event.width)
 
     def _find_default_take_path(self) -> Path | None:
         take_dir = self.base_dir / "data" / "take"
@@ -375,42 +153,176 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
 
     def _load_initial_take(self) -> None:
         if not self.take_path:
-            self._log("Nie znaleziono domyślnego pliku TAKE.")
+            self.status_var.set("Nie znaleziono domyślnego TAKE.")
             return
         self._load_take(self.take_path)
 
     def _load_take(self, path: str | Path) -> None:
         take_path = Path(path)
-        if not take_path.exists():
-            self._log(f"Nie znaleziono pliku TAKE: {take_path}")
-            return
-
-        try:
-            loaded_take = TarzanTake.load_json(take_path)
-        except Exception as exc:
-            self._log(f"Błąd ładowania TAKE: {exc}")
-            return
-
+        self.take = TarzanTake.load_json(take_path)
+        ensure_take_axes(self.take)
+        self.original_take = copy.deepcopy(self.take)
         self.take_path = take_path
         self.take_path_var.set(str(take_path))
-        self.take = loaded_take
-        self.original_take = copy.deepcopy(loaded_take)
-        self.axis_lines = {}
 
-        for axis_key, axis in self.take.axes.items():
-            self.axis_pan_modes.setdefault(axis_key, False)
-            try:
-                self.axis_lines[axis_key] = self.krzywe.build_from_axis(axis)
-            except Exception as exc:
-                self._log(f"Błąd budowy linii dla osi {axis.axis_name}: {exc}")
+        self.axis_lines = {definition.key: self.krzywe.build_from_axis(self.take.axes[definition.key]) for definition in AXIS_DEFINITIONS}
+        self.selected_axis_key = AXIS_DEFINITIONS[0].key
+        self.current_xlim = self._full_xlim()
 
-        if not self.selected_axis_key or self.selected_axis_key not in self.take.axes:
-            self.selected_axis_key = next(iter(self.take.axes.keys()), None)
+        self._rebuild_tracks()
+        self._refresh_tracks()
+        self.status_var.set(f"Załadowano TAKE: {take_path.name}")
 
-        self.selected_node_index = None
-        self._rebuild_axis_buttons()
-        self._sync_entries_from_line()
-        self._refresh_plot(status_override=f"Załadowano TAKE: {take_path.name}")
+    def _rebuild_tracks(self) -> None:
+        for child in self.tracks_frame.winfo_children():
+            child.destroy()
+        self.axis_tracks.clear()
+
+        for definition in AXIS_DEFINITIONS:
+            axis_take = self.take.axes[definition.key]
+            track = AxisTrack(
+                self.tracks_frame,
+                axis_key=definition.key,
+                axis_take=axis_take,
+                line=self.axis_lines[definition.key],
+                krzywe=self.krzywe,
+                edycja=self.edycja,
+                on_change=self._on_axis_line_change,
+                on_select=self._on_select_axis,
+                on_status=self._set_status,
+            )
+            track.pack(fill="x", pady=6)
+            self.axis_tracks[definition.key] = track
+
+        event_time = self._get_drone_time()
+        self.drone_track = DroneTrack(
+            self.tracks_frame,
+            event_time_ms=event_time,
+            on_change=self._on_drone_change,
+            edycja=self.edycja,
+        )
+        self.drone_track.pack(fill="x", pady=6)
+
+    def _get_drone_time(self) -> int:
+        for event in getattr(self.take, "events", []):
+            if getattr(event, "event_type", "") == DRONE_KEY and getattr(event, "enabled", True):
+                return int(event.event_time)
+        start, end = self._full_xlim()
+        return int((start + end) // 2)
+
+    def _refresh_tracks(self) -> None:
+        if not self.current_xlim:
+            self.current_xlim = self._full_xlim()
+        view_start, view_end = self.current_xlim
+        for axis_key, track in self.axis_tracks.items():
+            track.axis_take = self.take.axes[axis_key]
+            track.set_line(self.axis_lines[axis_key])
+            track.set_view(view_start, view_end)
+            track.set_selected(axis_key == self.selected_axis_key)
+        if self.drone_track is not None:
+            self.drone_track.set_view(view_start, view_end)
+            self.drone_track.set_selected(self.selected_axis_key == DRONE_KEY)
+        self._draw_global_timeline()
+
+    def _draw_global_timeline(self) -> None:
+        c = self.global_canvas
+        c.delete("all")
+        width = max(100, int(c.winfo_width()))
+        height = max(20, int(c.winfo_height()))
+        c.create_line(10, height // 2, width - 10, height // 2, fill="#AEB7C2", width=2)
+        if not self.current_xlim:
+            return
+        start, end = self.current_xlim
+        step = max(100, int((end - start) / 8))
+        for t in range(start, end + 1, step):
+            rel = 0 if end == start else (t - start) / (end - start)
+            x = 10 + rel * (width - 20)
+            c.create_line(x, 4, x, height - 4, fill="#58606B", width=1)
+            c.create_text(x, height - 2, anchor="n", text=str(t), fill="#F3F6F8", font=("Segoe UI", 8))
+
+    def _full_xlim(self) -> tuple[int, int]:
+        start = int(getattr(self.take.timeline, "take_start", 0))
+        end = int(getattr(self.take.timeline, "take_end", 0))
+        if end <= start:
+            end = start + 10000
+        return start, end
+
+    def zoom_in(self) -> None:
+        if not self.take:
+            return
+        start, end = self.current_xlim or self._full_xlim()
+        center = (start + end) / 2.0
+        half = max(200, int((end - start) * 0.4))
+        self.current_xlim = (int(center - half), int(center + half))
+        self._refresh_tracks()
+        self._set_status("Powiększono timeline")
+
+    def zoom_out(self) -> None:
+        if not self.take:
+            return
+        full_start, full_end = self._full_xlim()
+        start, end = self.current_xlim or (full_start, full_end)
+        center = (start + end) / 2.0
+        half = int((end - start) * 0.65)
+        new_start = max(full_start, int(center - half))
+        new_end = min(full_end, int(center + half))
+        if new_end - new_start < 400:
+            new_end = min(full_end, new_start + 400)
+        self.current_xlim = (new_start, new_end)
+        self._refresh_tracks()
+        self._set_status("Oddalono timeline")
+
+    def zoom_reset(self) -> None:
+        if not self.take:
+            return
+        self.current_xlim = self._full_xlim()
+        self._refresh_tracks()
+        self._set_status("Pełny widok timeline")
+
+    def _on_axis_line_change(self, axis_key: str, line) -> None:
+        self.axis_lines[axis_key] = line
+
+    def _on_select_axis(self, axis_key: str) -> None:
+        self.selected_axis_key = axis_key
+        self._refresh_tracks()
+        self._set_status(f"Wybrano oś: {self.take.axes[axis_key].axis_name}")
+
+    def _on_drone_change(self, event_time_ms: int) -> None:
+        self.selected_axis_key = DRONE_KEY
+        updated = False
+        for event in self.take.events:
+            if getattr(event, "event_type", "") == DRONE_KEY:
+                event.event_time = int(event_time_ms)
+                updated = True
+        if not updated:
+            self.take.events.append(
+                TarzanEvent(
+                    event_id="EV_DRONE_001",
+                    event_type=DRONE_KEY,
+                    event_time=int(event_time_ms),
+                    enabled=True,
+                    note="release",
+                )
+            )
+        self._refresh_tracks()
+        self._set_status(f"Ustawiono DRON release: {int(event_time_ms)} ms")
+
+    def _sync_take_from_lines(self) -> None:
+        for axis_key, line in self.axis_lines.items():
+            self.take.axes[axis_key] = self.krzywe.export_to_axis(self.take.axes[axis_key], line)
+
+    def save_take(self) -> None:
+        if not self.take or not self.take_path:
+            self._set_status("Brak TAKE do zapisania.")
+            return
+        self._sync_take_from_lines()
+        new_take_path = self.versioning.save_new_take(
+            original_take_path=self.take_path,
+            take_dict=self.take.to_dict(),
+        )
+        self.take_path = new_take_path
+        self.take_path_var.set(str(new_take_path))
+        self._set_status(f"Zapisano nową wersję TAKE: {new_take_path.name}")
 
     def open_take_dialog(self) -> None:
         initial_dir = self.base_dir / "data" / "take"
@@ -422,695 +334,8 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         if selected:
             self._load_take(selected)
 
-    def reload_take(self) -> None:
-        if self.take_path:
-            self._load_take(self.take_path)
-
-    def save_new_take_version(self) -> None:
-        if not self.take or not self.take_path:
-            self._log("Brak TAKE do zapisania.")
-            return
-
-        export_take = copy.deepcopy(self.take)
-        for axis_key, line in self.axis_lines.items():
-            export_take.axes[axis_key] = self.krzywe.export_to_axis(export_take.axes[axis_key], line)
-
-        try:
-            new_take_path = self.versioning.save_new_take(
-                original_take_path=self.take_path,
-                take_dict=export_take.to_dict(),
-            )
-        except Exception as exc:
-            self._log(f"Błąd zapisu: {exc}")
-            return
-
-        self.take = export_take
-        self.original_take = copy.deepcopy(export_take)
-        self.take_path = new_take_path
-        self.take_path_var.set(str(new_take_path))
-        self._log(f"Zapisano nową wersję TAKE: {new_take_path.name}")
-
-    def apply_start_stop_from_entries(self) -> None:
-        axis_key = self._get_current_axis_key()
-        if not axis_key:
-            return
-
-        line = self.preview_line if self.preview_line is not None and self.drag_axis_key == axis_key else self.axis_lines[axis_key]
-
-        try:
-            start_ms = int(self.interval_start_var.get())
-            stop_ms = int(self.interval_end_var.get())
-        except ValueError:
-            self._log("Start i Stop muszą być liczbami całkowitymi.")
-            return
-
-        try:
-            edited = self.krzywe.set_line_start_stop(
-                line=line,
-                new_start_ms=start_ms,
-                new_stop_ms=stop_ms,
-                axis=self.take.axes[axis_key],
-                preserve_distance=True,
-            )
-        except Exception as exc:
-            self._log(f"Błąd ustawiania START/STOP: {exc}")
-            return
-
-        self.axis_lines[axis_key] = edited
-        self._sync_entries_from_line()
-        self._refresh_plot(status_override=f"Ustawiono START/STOP dla osi: {self.take.axes[axis_key].axis_name}")
-
-    def apply_smoothing(self) -> None:
-        axis_key = self._get_current_axis_key()
-        if not axis_key:
-            return
-
-        try:
-            strength = float(self.smooth_strength_var.get())
-        except ValueError:
-            self._log("Smooth musi być liczbą.")
-            return
-
-        strength = max(0.0, min(1.0, strength))
-        axis = self.take.axes[axis_key]
-        line = self.axis_lines[axis_key]
-
-        try:
-            self.axis_lines[axis_key] = self.krzywe.smooth_line(
-                line=line,
-                strength=strength,
-                preserve_distance=True,
-                axis=axis,
-            )
-        except Exception as exc:
-            self._log(f"Błąd wygładzania: {exc}")
-            return
-
-        self._sync_entries_from_line()
-        self._refresh_plot(status_override=f"Wygładzono oś: {self.take.axes[axis_key].axis_name}")
-
-    def add_node_center(self) -> None:
-        axis_key = self._get_current_axis_key()
-        if not axis_key:
-            return
-
-        axis = self.take.axes[axis_key]
-        line = self.axis_lines[axis_key]
-
-        start_ms = line.nodes[0].time_ms
-        stop_ms = line.nodes[-1].time_ms
-        mid_time = (start_ms + stop_ms) // 2
-
-        try:
-            sampled = self.krzywe.sample_line(line)
-            nearest = min(sampled, key=lambda p: abs(p[0] - mid_time))
-            mid_value = nearest[1]
-            self.axis_lines[axis_key] = self.krzywe.add_node(line, mid_time, mid_value, axis=axis)
-        except Exception as exc:
-            self._log(f"Błąd dodawania węzła: {exc}")
-            return
-
-        self._refresh_plot(status_override=f"Dodano węzeł osi: {axis.axis_name}")
-
-    def remove_selected_node(self) -> None:
-        axis_key = self._get_current_axis_key()
-        if not axis_key:
-            return
-
-        if self.selected_node_index is None:
-            self._log("Nie wybrano węzła do usunięcia.")
-            return
-
-        if self.selected_node_index <= 0 or self.selected_node_index >= len(self.axis_lines[axis_key].nodes) - 1:
-            self._log("Nie można usunąć START ani STOP. Usuń tylko węzeł wewnętrzny.")
-            return
-
-        try:
-            self.axis_lines[axis_key] = self.krzywe.remove_node(
-                self.axis_lines[axis_key],
-                self.selected_node_index,
-                axis=self.take.axes[axis_key],
-            )
-            self.selected_node_index = None
-        except Exception as exc:
-            self._log(f"Błąd usuwania węzła: {exc}")
-            return
-
-        self._refresh_plot(status_override=f"Usunięto węzeł osi: {self.take.axes[axis_key].axis_name}")
-
-    def reset_current_axis(self) -> None:
-        axis_key = self._get_current_axis_key()
-        if not axis_key or not self.original_take:
-            return
-
-        self.axis_lines[axis_key] = self.krzywe.build_from_axis(self.original_take.axes[axis_key])
-        self.selected_node_index = None
-        self._sync_entries_from_line()
-        self._refresh_plot(status_override=f"Przywrócono oś: {self.take.axes[axis_key].axis_name}")
-
-    def _on_plot_press(self, event) -> None:
-        if event.inaxes != self.ax_curve or event.xdata is None:
-            return
-
-        axis_key = self._get_current_axis_key(silent=True)
-        if not axis_key:
-            return
-
-        self.drag_original_line = copy.deepcopy(self.axis_lines[axis_key])
-        self.preview_line = None
-        self.pending_drag_event = None
-        self._reset_display_preview_smoothing()
-        if self.drag_after_id is not None:
-            try:
-                self.after_cancel(self.drag_after_id)
-            except Exception:
-                pass
-            self.drag_after_id = None
-
-        if self.axis_pan_modes.get(axis_key, False):
-            self.drag_mode = "pan"
-            self.drag_axis_key = axis_key
-            self.drag_pan_anchor_x = event.xdata
-            return
-
-        nearest_index = self._find_nearest_node_index(event.xdata, event.ydata, axis_key)
-        self.selected_node_index = nearest_index
-
-        if nearest_index is not None:
-            self.drag_mode = "node"
-            self.drag_axis_key = axis_key
-            node = self.drag_original_line.nodes[nearest_index]
-            self.drag_start_node_time = node.time_ms
-            self.drag_start_node_value = node.value
-            self._refresh_plot(status_override=f"Wybrano węzeł osi: {self.take.axes[axis_key].axis_name}")
-            return
-
-        self.drag_mode = self._detect_drag_mode(event.xdata, event.ydata, axis_key)
-        self.drag_axis_key = axis_key
-
-        if self.drag_mode in {"start", "stop"}:
-            self._refresh_plot(status_override=f"Wybrano granicę osi: {self.take.axes[axis_key].axis_name}")
-
-    def _on_plot_motion(self, event) -> None:
-        if not self.drag_mode or not self.drag_axis_key:
-            return
-        if event.inaxes != self.ax_curve or event.xdata is None:
-            return
-
-        axis_key = self.drag_axis_key
-        axis = self.take.axes[axis_key]
-        original = self.drag_original_line
-        if original is None:
-            return
-
-        try:
-            if self.drag_mode == "pan":
-                self.preview_line = None
-                delta_ms = self.krzywe.snap_time(event.xdata - self.drag_pan_anchor_x)
-                self.axis_lines[axis_key] = self.krzywe.shift_line_in_time(original, delta_ms, axis)
-
-            elif self.drag_mode == "start":
-                self.preview_line = None
-                self.axis_lines[axis_key] = self.krzywe.set_line_start_stop(
-                    original,
-                    int(event.xdata),
-                    original.nodes[-1].time_ms,
-                    axis=axis,
-                    preserve_distance=True,
-                )
-
-            elif self.drag_mode == "stop":
-                self.preview_line = None
-                self.axis_lines[axis_key] = self.krzywe.set_line_start_stop(
-                    original,
-                    original.nodes[0].time_ms,
-                    int(event.xdata),
-                    axis=axis,
-                    preserve_distance=True,
-                )
-
-            elif self.drag_mode == "node":
-                index = self.selected_node_index
-                if index is not None:
-                    # Preview ma być płynny i kumulatywny.
-                    # Nie liczymy zawsze od linii startowej, bo wtedy węzeł
-                    # zatrzaskuje się w jednym małym kroku.
-                    source_line = self.preview_line if self.preview_line is not None else original
-
-                    preview_time, preview_value = self._constrain_preview_node_target(
-                        source_line=source_line,
-                        original_line=original,
-                        index=index,
-                        target_time=int(event.xdata),
-                        target_value=float(event.ydata) if event.ydata is not None else None,
-                    )
-                    self.preview_line = self._move_node_preview(
-                        source_line,
-                        index=index,
-                        new_time_ms=preview_time,
-                        new_value=preview_value,
-                        axis=axis,
-                    )
-                    # Operator musi widzieć punkt i linię dokładnie tam,
-                    # gdzie są w podglądzie podczas przeciągania.
-                    self.axis_lines[axis_key] = copy.deepcopy(self.preview_line)
-
-            self._sync_entries_from_line()
-
-            self._refresh_plot(status_override=f"Edycja osi: {axis.axis_name}", fast=True)
-
-        except Exception as exc:
-            self._log(f"Błąd edycji wykresu: {exc}")
-
-    def _on_plot_release(self, event) -> None:
-        if not self.drag_mode or not self.drag_axis_key:
-            return
-
-        axis_key = self.drag_axis_key
-        axis_name = self.take.axes[axis_key].axis_name if self.take and axis_key in self.take.axes else axis_key
-
-        try:
-            if self.drag_mode == "node" and self.take and axis_key in self.take.axes:
-                target_area = self.krzywe.compute_area(self.drag_original_line) if self.drag_original_line is not None else None
-                committed = copy.deepcopy(self.preview_line if self.preview_line is not None else self.axis_lines[axis_key])
-                if target_area is not None:
-                    committed = self.krzywe.fit_line_to_area_keep_node_locked(
-                        committed,
-                        target_area=target_area,
-                        locked_index=self.selected_node_index if self.selected_node_index is not None else -1,
-                        axis=self.take.axes[axis_key],
-                    )
-                self.axis_lines[axis_key] = committed
-                self.preview_line = copy.deepcopy(committed)
-
-                if self.selected_node_index is not None:
-                    self.selected_node_index = min(self.selected_node_index, len(committed.nodes) - 1)
-        except Exception as exc:
-            self._log(f"Błąd domknięcia edycji osi: {exc}")
-
-        self.drag_mode = None
-        self.drag_axis_key = None
-        self.drag_original_line = None
-        self.drag_pan_anchor_x = None
-        self.preview_line = None
-        self.drag_start_node_time = None
-        self.drag_start_node_value = None
-        self._reset_display_preview_smoothing()
-
-        self._sync_entries_from_line()
-        self._refresh_plot(status_override=f"Zakończono edycję osi: {axis_name}")
-
-    def _detect_drag_mode(self, xdata: float, ydata: float | None, axis_key: str) -> str | None:
-        line = self.axis_lines[axis_key]
-        start_ms = line.nodes[0].time_ms
-        stop_ms = line.nodes[-1].time_ms
-
-        line_tol = max(30.0, stop_ms * 0.012 if stop_ms > 0 else 30.0)
-        if abs(xdata - start_ms) <= line_tol:
-            return "start"
-        if abs(xdata - stop_ms) <= line_tol:
-            return "stop"
-
-        return None
-
-    def _move_node_preview(self, line, index: int, new_time_ms: int | None = None, new_value: float | None = None, axis=None):
-        """
-        Lekki preview drag dla operatora.
-        Podczas przeciągania punkt ma iść razem z kursorem także w poziomie,
-        bez pełnego domykania mechaniki osi na każdej klatce.
-        Finalna mechanika i zachowanie pola są domykane dopiero po puszczeniu myszy.
-        """
-        preview = copy.deepcopy(line)
-        if index < 0 or index >= len(preview.nodes):
-            return preview
-
-        node = preview.nodes[index]
-        if new_time_ms is not None:
-            snapped = self.krzywe.snap_time(new_time_ms)
-            if 0 < index < len(preview.nodes) - 1:
-                left_limit = preview.nodes[index - 1].time_ms + self.krzywe.MIN_NODE_GAP_MS
-                right_limit = preview.nodes[index + 1].time_ms - self.krzywe.MIN_NODE_GAP_MS
-                node.time_ms = max(left_limit, min(snapped, right_limit))
-            else:
-                node.time_ms = snapped
-
-        if new_value is not None:
-            if index == 0 or index == len(preview.nodes) - 1:
-                node.value = 0.0
-            else:
-                limit = self.krzywe._axis_value_limit(axis)
-                node.value = self.krzywe.clamp_value(new_value, limit)
-
-        preview.nodes.sort(key=lambda item: item.time_ms)
-        for i, preview_node in enumerate(preview.nodes):
-            preview_node.time_ms = self.krzywe.snap_time(preview_node.time_ms)
-            if i == 0 or i == len(preview.nodes) - 1:
-                preview_node.value = 0.0
-        return preview
-
-    def _find_nearest_node_index(self, xdata: float | None, ydata: float | None, axis_key: str) -> int | None:
-        if xdata is None or ydata is None:
-            return None
-
-        line = self.preview_line if self.preview_line is not None and self.drag_axis_key == axis_key else self.axis_lines[axis_key]
-
-        best_index = None
-        best_score = None
-
-        for index, node in enumerate(line.nodes):
-            dx = abs(node.time_ms - xdata)
-            dy = abs(node.value - ydata)
-            if dx <= self.NODE_PICK_X_TOL and dy <= self.NODE_PICK_Y_TOL:
-                score = dx + dy * 110.0
-                if best_score is None or score < best_score:
-                    best_score = score
-                    best_index = index
-
-        if best_index is not None:
-            return best_index
-
-        sampled = self.krzywe.sample_line(line, sample_count=180)
-        nearest_sample = min(sampled, key=lambda p: abs(p[0] - xdata)) if sampled else None
-        if nearest_sample is None:
-            return None
-
-        sx, sy = nearest_sample
-        if abs(sx - xdata) > self.NODE_LINE_X_TOL or abs(sy - ydata) > self.NODE_LINE_Y_TOL:
-            return None
-
-        interior_indexes = list(range(1, max(1, len(line.nodes) - 1)))
-        if not interior_indexes:
-            return None
-
-        return min(interior_indexes, key=lambda idx: abs(line.nodes[idx].time_ms - xdata))
-
-    def _refresh_plot(self, status_override: str | None = None, fast: bool = False) -> None:
-        if not self.take or not self.selected_axis_key or self.selected_axis_key not in self.axis_lines:
-            return
-
-        axis_key = self.selected_axis_key
-        axis = self.take.axes[axis_key]
-        committed_line = self.axis_lines[axis_key]
-        display_line = committed_line
-
-        if self.preview_line is not None and self.drag_mode == "node" and self.drag_axis_key == axis_key:
-            display_line = self.preview_line
-
-        self.plot_title_label.config(text=axis.axis_name)
-        self.ax_curve.clear()
-        self.ax_curve.set_facecolor(self.BG)
-
-        if display_line is self.preview_line:
-            # Podczas drag operator musi widzieć dokładnie bieżący stan punktu,
-            # bez dodatkowego opóźnienia wizualnego.
-            sampled = self.krzywe.sample_line(display_line, sample_count=140 if fast else 320)
-        else:
-            self._reset_display_preview_smoothing()
-            sampled = self.krzywe.sample_line(display_line, sample_count=55 if fast else 800)
-
-        xs = [x for x, _ in sampled]
-        ys = [y for _, y in sampled]
-
-        self.ax_curve.plot(
-            xs,
-            ys,
-            linewidth=3.8,
-            color=self.CURVE_COLOR,
-            solid_capstyle="round",
-        )
-
-        if self.show_ghost_var.get() and self.original_take:
-            try:
-                comparison = self.ghost.compare_axes(
-                    self.original_take.axes[axis_key],
-                    self.krzywe.export_to_axis(copy.deepcopy(axis), committed_line),
-                    sample_count=180 if fast else 800,
-                )
-                self.ax_curve.plot(
-                    comparison.original_times,
-                    comparison.original_amplitudes,
-                    linestyle="--",
-                    linewidth=2.0,
-                    color=self.GHOST_COLOR,
-                    alpha=0.9,
-                )
-            except Exception as exc:
-                self._log(f"Ghost compare warning: {exc}")
-
-        if self.show_nodes_var.get():
-            node_x = [node.time_ms for node in display_line.nodes]
-            node_y = [node.value for node in display_line.nodes]
-
-            colors = []
-            for index in range(len(display_line.nodes)):
-                colors.append(self.NODE_SELECTED if self.selected_node_index == index else self.NODE_COLOR)
-
-            self.ax_curve.scatter(
-                node_x,
-                node_y,
-                s=170,
-                color=colors,
-                edgecolors="black",
-                linewidths=1.0,
-                zorder=6,
-            )
-
-        area = self.krzywe.compute_area(display_line)
-
-        self.side_info_label.config(
-            text=(
-                f"START: {display_line.nodes[0].time_ms} ms\n"
-                f"STOP: {display_line.nodes[-1].time_ms} ms\n"
-                f"Czas: {display_line.nodes[-1].time_ms - display_line.nodes[0].time_ms} ms\n"
-                f"Pole: {area:.4f}\n"
-                f"PAN: {'ON' if self.axis_pan_modes.get(axis_key, False) else 'OFF'}\n"
-                f"Węzły: {len(display_line.nodes)}"
-            )
-        )
-
-        self.ax_curve.axvline(display_line.nodes[0].time_ms, linewidth=3.4, color=self.START_COLOR)
-        self.ax_curve.axvline(display_line.nodes[-1].time_ms, linewidth=3.4, color=self.STOP_COLOR)
-        self.ax_curve.axhline(0.0, linewidth=1.1, color=self.MUTED, alpha=0.35)
-
-        self.ax_curve.set_xlabel("Czas [ms]", color=self.FG, fontsize=12)
-        self.ax_curve.set_ylabel("Natężenie / prędkość względna", color=self.FG, fontsize=12)
-
-        self.ax_curve.grid(True, alpha=0.22, color=self.GRID)
-        self.ax_curve.tick_params(colors=self.FG, labelsize=11)
-        for spine in self.ax_curve.spines.values():
-            spine.set_color(self.MUTED)
-
-        self.figure.tight_layout()
-        self.canvas.draw_idle()
-        self._refresh_axis_button_states()
-
-        if status_override:
-            self.status_var.set(status_override)
-
-
-    def _force_entry_values(self, start_value: str, stop_value: str, smooth_value: str | None = None) -> None:
-        self.interval_start_var.set(str(start_value))
-        self.interval_end_var.set(str(stop_value))
-        if smooth_value is not None:
-            self.smooth_strength_var.set(str(smooth_value))
-
-    def _sync_entries_from_line(self) -> None:
-        axis_key = self._get_current_axis_key(silent=True)
-        if not axis_key:
-            self._force_entry_values(
-                self.interval_start_var.get() or "300",
-                self.interval_end_var.get() or "1450",
-                self.smooth_strength_var.get() or "0.35",
-            )
-            return
-
-        if axis_key in self.axis_lines and len(self.axis_lines[axis_key].nodes) >= 2:
-            line = self.axis_lines[axis_key]
-            start_value = str(line.nodes[0].time_ms)
-            stop_value = str(line.nodes[-1].time_ms)
-        else:
-            axis = self.take.axes.get(axis_key) if self.take else None
-            if axis and getattr(axis.curve, "control_points", None):
-                start_value = str(axis.curve.control_points[0].time)
-                stop_value = str(axis.curve.control_points[-1].time)
-            else:
-                start_value = self.interval_start_var.get() or "300"
-                stop_value = self.interval_end_var.get() or "1450"
-
-        smooth_value = self.smooth_strength_var.get() or "0.35"
-        self._force_entry_values(start_value, stop_value, smooth_value)
-
-
-    def _sync_entries_from_preview(self) -> None:
-        axis_key = self._get_current_axis_key(silent=True)
-        if not axis_key:
-            return
-
-        line = self.preview_line if self.preview_line is not None else self.axis_lines.get(axis_key)
-        if line is None:
-            return
-
-        self._force_entry_values(
-            str(line.nodes[0].time_ms),
-            str(line.nodes[-1].time_ms),
-            self.smooth_strength_var.get() or "0.35",
-        )
-
-
-    def _sample_preview_line_visual(self, line, sample_count: int = 140):
-        """
-        Operatorski preview podczas przeciągania:
-        - pokazuje skutek wizualny,
-        - nie pokazuje matematyki finalnego przeliczenia,
-        - działa jako miękka interpolacja liniowa po aktualnych węzłach.
-        Finalna matematyka domykana jest dopiero po puszczeniu myszy.
-        """
-        if line is None or len(line.nodes) < 2:
-            return []
-
-        xs = [node.time_ms for node in line.nodes]
-        ys = [node.value for node in line.nodes]
-
-        start_x = xs[0]
-        stop_x = xs[-1]
-        if stop_x <= start_x:
-            return list(zip(xs, ys))
-
-        dense_x = []
-        if sample_count < 2:
-            sample_count = 2
-
-        step = max(1, int((stop_x - start_x) / (sample_count - 1)))
-        current = start_x
-        while current < stop_x:
-            dense_x.append(current)
-            current += step
-        dense_x.append(stop_x)
-
-        import numpy as _np
-        dense_y = _np.interp(dense_x, xs, ys)
-
-        sampled = [(int(x), float(y)) for x, y in zip(dense_x, dense_y)]
-        if sampled:
-            sampled[0] = (xs[0], 0.0)
-            sampled[-1] = (xs[-1], 0.0)
-        return sampled
-
-
-    def _constrain_preview_node_target(self, source_line, original_line, index: int, target_time: int | None, target_value: float | None):
-        """
-        Ogranicza preview węzła tak, aby operator nie widział chaotycznego zachowania
-        sprzecznego z mechaniką. Preview ma być jednak płynny, więc ograniczenia
-        liczymy względem aktualnego stanu preview, a nie zawsze względem pozycji
-        początkowej klikniętego węzła.
-        """
-        if index is None or index < 0 or index >= len(source_line.nodes):
-            return target_time, target_value
-
-        node = source_line.nodes[index]
-
-        # --- ograniczenie czasu ---
-        if target_time is not None:
-            if index == 0 or index == len(original_line.nodes) - 1:
-                # START / STOP nadal mają działać, ale preview nie może szarpać.
-                base_time = node.time_ms
-                dt = target_time - base_time
-                if dt > self.drag_preview_max_time_step_ms:
-                    dt = self.drag_preview_max_time_step_ms
-                elif dt < -self.drag_preview_max_time_step_ms:
-                    dt = -self.drag_preview_max_time_step_ms
-                target_time = base_time + dt
-            else:
-                left_limit = source_line.nodes[index - 1].time_ms + self.krzywe.MIN_NODE_GAP_MS
-                right_limit = source_line.nodes[index + 1].time_ms - self.krzywe.MIN_NODE_GAP_MS
-                # W poziomie preview ma iść za kursorem możliwie bezpośrednio.
-                # Ograniczamy tylko sąsiednimi węzłami i krokiem czasu projektu.
-                target_time = max(left_limit, min(self.krzywe.snap_time(target_time), right_limit))
-
-        # --- ograniczenie wartości ---
-        if target_value is not None:
-            if index == 0 or index == len(original_line.nodes) - 1:
-                target_value = 0.0
-            else:
-                left_value = source_line.nodes[index - 1].value
-                right_value = source_line.nodes[index + 1].value
-                center_value = node.value
-
-                # 1) tłumienie względem pozycji startowej
-                dv = target_value - center_value
-                if dv > self.drag_preview_max_value_step:
-                    dv = self.drag_preview_max_value_step
-                elif dv < -self.drag_preview_max_value_step:
-                    dv = -self.drag_preview_max_value_step
-                softened = center_value + dv
-
-                # 2) lokalne pasmo względem sąsiadów – krzywa nie może wystrzelić nielogicznie
-                local_min = min(left_value, center_value, right_value) - self.drag_preview_local_value_band
-                local_max = max(left_value, center_value, right_value) + self.drag_preview_local_value_band
-                target_value = max(local_min, min(softened, local_max))
-
-        return target_time, target_value
-
-
-    def _blend_display_sampled(self, sampled):
-        """
-        Wygładzenie wyłącznie warstwy wyświetlania.
-        Matematyka przebiegu pozostaje ta sama, ale ekran dostaje łagodniejsze
-        przejście między kolejnymi klatkami, żeby człowiek nie widział drżenia.
-        """
-        if not sampled:
-            return sampled
-
-        if self.display_preview_sampled is None:
-            self.display_preview_sampled = list(sampled)
-            return sampled
-
-        prev = self.display_preview_sampled
-
-        prev_dict = {int(x): float(y) for x, y in prev}
-        curr_dict = {int(x): float(y) for x, y in sampled}
-
-        common_x = sorted(set(prev_dict.keys()) & set(curr_dict.keys()))
-        if len(common_x) < max(8, int(len(sampled) * 0.35)):
-            self.display_preview_sampled = list(sampled)
-            return sampled
-
-        blended = []
-        a = self.display_preview_blend_alpha
-        for x in common_x:
-            py = prev_dict[x]
-            cy = curr_dict[x]
-            by = py + (cy - py) * a
-            blended.append((x, by))
-
-        if blended:
-            blended[0] = (sampled[0][0], sampled[0][1])
-            blended[-1] = (sampled[-1][0], sampled[-1][1])
-
-        self.display_preview_sampled = blended
-        return blended
-
-    def _reset_display_preview_smoothing(self):
-        self.display_preview_sampled = None
-
-    def _get_current_axis_key(self, silent: bool = False) -> str | None:
-        if not self.take:
-            if not silent:
-                self._log("Brak załadowanego TAKE.")
-            return None
-
-        axis_key = self.selected_axis_key
-        if not axis_key:
-            if not silent:
-                self._log("Nie wybrano osi.")
-            return None
-
-        if axis_key not in self.take.axes:
-            if not silent:
-                self._log(f"Nie znaleziono osi: {axis_key}")
-            return None
-
-        return axis_key
+    def _set_status(self, text: str) -> None:
+        self.status_var.set(text)
 
 
 def main() -> None:

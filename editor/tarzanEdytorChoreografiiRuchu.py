@@ -38,8 +38,10 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
     NODE_COLOR = "#FFD166"
     NODE_SELECTED = "#FF9F1C"
 
-    NODE_PICK_X_TOL = 80
-    NODE_PICK_Y_TOL = 0.35
+    NODE_PICK_X_TOL = 120
+    NODE_PICK_Y_TOL = 0.55
+    NODE_LINE_X_TOL = 160
+    NODE_LINE_Y_TOL = 0.22
 
     def __init__(self, take_path: str | Path | None = None) -> None:
         super().__init__()
@@ -108,6 +110,7 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
 
         self._build_ui()
         self._connect_plot_events()
+        self.bind("<Delete>", lambda _event: self.remove_selected_node())
         self._load_initial_take()
 
     def _build_ui(self) -> None:
@@ -538,6 +541,10 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             self._log("Nie wybrano węzła do usunięcia.")
             return
 
+        if self.selected_node_index <= 0 or self.selected_node_index >= len(self.axis_lines[axis_key].nodes) - 1:
+            self._log("Nie można usunąć START ani STOP. Usuń tylko węzeł wewnętrzny.")
+            return
+
         try:
             self.axis_lines[axis_key] = self.krzywe.remove_node(
                 self.axis_lines[axis_key],
@@ -587,20 +594,22 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             return
 
         nearest_index = self._find_nearest_node_index(event.xdata, event.ydata, axis_key)
+        self.selected_node_index = nearest_index
+
         if nearest_index is not None:
-            self.selected_node_index = nearest_index
+            self.drag_mode = "node"
+            self.drag_axis_key = axis_key
+            node = self.drag_original_line.nodes[nearest_index]
+            self.drag_start_node_time = node.time_ms
+            self.drag_start_node_value = node.value
+            self._refresh_plot(status_override=f"Wybrano węzeł osi: {self.take.axes[axis_key].axis_name}")
+            return
 
         self.drag_mode = self._detect_drag_mode(event.xdata, event.ydata, axis_key)
         self.drag_axis_key = axis_key
 
-        if self.drag_mode == "node":
-            if self.selected_node_index is not None:
-                node = self.drag_original_line.nodes[self.selected_node_index]
-                self.drag_start_node_time = node.time_ms
-                self.drag_start_node_value = node.value
-            self._refresh_plot(status_override=f"Wybrano węzeł osi: {self.take.axes[axis_key].axis_name}")
-        elif nearest_index is not None:
-            self._refresh_plot(status_override=f"Zaznaczono węzeł osi: {self.take.axes[axis_key].axis_name}")
+        if self.drag_mode in {"start", "stop"}:
+            self._refresh_plot(status_override=f"Wybrano granicę osi: {self.take.axes[axis_key].axis_name}")
 
     def _on_plot_motion(self, event) -> None:
         if not self.drag_mode or not self.drag_axis_key:
@@ -655,16 +664,15 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
                         target_time=int(event.xdata),
                         target_value=float(event.ydata) if event.ydata is not None else None,
                     )
-                    self.preview_line = self.krzywe.move_node(
+                    self.preview_line = self._move_node_preview(
                         source_line,
                         index=index,
                         new_time_ms=preview_time,
                         new_value=preview_value,
                         axis=axis,
-                        preserve_area=False,
                     )
-                    # Operator musi widzieć, że punkt naprawdę jedzie z linią,
-                    # więc aktywna linia robocza jest aktualizowana na żywo.
+                    # Operator musi widzieć punkt i linię dokładnie tam,
+                    # gdzie są w podglądzie podczas przeciągania.
                     self.axis_lines[axis_key] = copy.deepcopy(self.preview_line)
 
             self._sync_entries_from_line()
@@ -686,13 +694,17 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
                 target_area = self.krzywe.compute_area(self.drag_original_line) if self.drag_original_line is not None else None
                 committed = copy.deepcopy(self.preview_line if self.preview_line is not None else self.axis_lines[axis_key])
                 if target_area is not None:
-                    committed = self.krzywe.fit_line_to_area_with_start_locked(
+                    committed = self.krzywe.fit_line_to_area_keep_node_locked(
                         committed,
                         target_area=target_area,
+                        locked_index=self.selected_node_index if self.selected_node_index is not None else -1,
                         axis=self.take.axes[axis_key],
                     )
                 self.axis_lines[axis_key] = committed
                 self.preview_line = copy.deepcopy(committed)
+
+                if self.selected_node_index is not None:
+                    self.selected_node_index = min(self.selected_node_index, len(committed.nodes) - 1)
         except Exception as exc:
             self._log(f"Błąd domknięcia edycji osi: {exc}")
 
@@ -713,10 +725,6 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         start_ms = line.nodes[0].time_ms
         stop_ms = line.nodes[-1].time_ms
 
-        index = self._find_nearest_node_index(xdata, ydata, axis_key)
-        if index is not None:
-            return "node"
-
         line_tol = max(30.0, stop_ms * 0.012 if stop_ms > 0 else 30.0)
         if abs(xdata - start_ms) <= line_tol:
             return "start"
@@ -725,11 +733,46 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
 
         return None
 
+    def _move_node_preview(self, line, index: int, new_time_ms: int | None = None, new_value: float | None = None, axis=None):
+        """
+        Lekki preview drag dla operatora.
+        Podczas przeciągania punkt ma iść razem z kursorem także w poziomie,
+        bez pełnego domykania mechaniki osi na każdej klatce.
+        Finalna mechanika i zachowanie pola są domykane dopiero po puszczeniu myszy.
+        """
+        preview = copy.deepcopy(line)
+        if index < 0 or index >= len(preview.nodes):
+            return preview
+
+        node = preview.nodes[index]
+        if new_time_ms is not None:
+            snapped = self.krzywe.snap_time(new_time_ms)
+            if 0 < index < len(preview.nodes) - 1:
+                left_limit = preview.nodes[index - 1].time_ms + self.krzywe.MIN_NODE_GAP_MS
+                right_limit = preview.nodes[index + 1].time_ms - self.krzywe.MIN_NODE_GAP_MS
+                node.time_ms = max(left_limit, min(snapped, right_limit))
+            else:
+                node.time_ms = snapped
+
+        if new_value is not None:
+            if index == 0 or index == len(preview.nodes) - 1:
+                node.value = 0.0
+            else:
+                limit = self.krzywe._axis_value_limit(axis)
+                node.value = self.krzywe.clamp_value(new_value, limit)
+
+        preview.nodes.sort(key=lambda item: item.time_ms)
+        for i, preview_node in enumerate(preview.nodes):
+            preview_node.time_ms = self.krzywe.snap_time(preview_node.time_ms)
+            if i == 0 or i == len(preview.nodes) - 1:
+                preview_node.value = 0.0
+        return preview
+
     def _find_nearest_node_index(self, xdata: float | None, ydata: float | None, axis_key: str) -> int | None:
         if xdata is None or ydata is None:
             return None
 
-        line = self.axis_lines[axis_key]
+        line = self.preview_line if self.preview_line is not None and self.drag_axis_key == axis_key else self.axis_lines[axis_key]
 
         best_index = None
         best_score = None
@@ -738,12 +781,28 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             dx = abs(node.time_ms - xdata)
             dy = abs(node.value - ydata)
             if dx <= self.NODE_PICK_X_TOL and dy <= self.NODE_PICK_Y_TOL:
-                score = dx + dy * 120.0
+                score = dx + dy * 110.0
                 if best_score is None or score < best_score:
                     best_score = score
                     best_index = index
 
-        return best_index
+        if best_index is not None:
+            return best_index
+
+        sampled = self.krzywe.sample_line(line, sample_count=180)
+        nearest_sample = min(sampled, key=lambda p: abs(p[0] - xdata)) if sampled else None
+        if nearest_sample is None:
+            return None
+
+        sx, sy = nearest_sample
+        if abs(sx - xdata) > self.NODE_LINE_X_TOL or abs(sy - ydata) > self.NODE_LINE_Y_TOL:
+            return None
+
+        interior_indexes = list(range(1, max(1, len(line.nodes) - 1)))
+        if not interior_indexes:
+            return None
+
+        return min(interior_indexes, key=lambda idx: abs(line.nodes[idx].time_ms - xdata))
 
     def _refresh_plot(self, status_override: str | None = None, fast: bool = False) -> None:
         if not self.take or not self.selected_axis_key or self.selected_axis_key not in self.axis_lines:
@@ -964,13 +1023,9 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             else:
                 left_limit = source_line.nodes[index - 1].time_ms + self.krzywe.MIN_NODE_GAP_MS
                 right_limit = source_line.nodes[index + 1].time_ms - self.krzywe.MIN_NODE_GAP_MS
-                base_time = node.time_ms
-                dt = target_time - base_time
-                if dt > self.drag_preview_max_time_step_ms:
-                    dt = self.drag_preview_max_time_step_ms
-                elif dt < -self.drag_preview_max_time_step_ms:
-                    dt = -self.drag_preview_max_time_step_ms
-                target_time = max(left_limit, min(base_time + dt, right_limit))
+                # W poziomie preview ma iść za kursorem możliwie bezpośrednio.
+                # Ograniczamy tylko sąsiednimi węzłami i krokiem czasu projektu.
+                target_time = max(left_limit, min(self.krzywe.snap_time(target_time), right_limit))
 
         # --- ograniczenie wartości ---
         if target_value is not None:

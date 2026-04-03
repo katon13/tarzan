@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from copy import deepcopy
 import numpy as np
 from scipy.interpolate import PchipInterpolator
+
 from mechanics.tarzanMechanikaOsi import TarzanMechanics
 
 
@@ -542,6 +543,100 @@ class TarzanKrzyweRuchu:
         To jest łagodniejsze dla operatora niż bezpośrednie skalowanie amplitudy podczas drag.
         """
         return self._fit_duration_to_target_area(line, target_area, axis)
+
+
+    def fit_line_to_area_keep_node_locked(
+        self,
+        line: TarzanMotionLine,
+        target_area: float,
+        locked_index: int,
+        axis=None,
+    ) -> TarzanMotionLine:
+        """
+        Domyka pole przebiegu tak, aby wybrany przez operatora węzeł
+        pozostał w miejscu po puszczeniu myszy.
+
+        Zasada:
+        - START pozostaje zakotwiczony,
+        - wybrany węzeł pozostaje zakotwiczony,
+        - korekta pola odbywa się głównie przez zmianę długości części przebiegu
+          na prawo od wybranego węzła.
+        """
+        edited = deepcopy(line)
+        if len(edited.nodes) < 2:
+            return edited
+
+        if locked_index <= 0 or locked_index >= len(edited.nodes) - 1:
+            return self.fit_line_to_area_with_start_locked(edited, target_area, axis)
+
+        locked_time = int(edited.nodes[locked_index].time_ms)
+        locked_value = float(edited.nodes[locked_index].value)
+        start_time = int(edited.nodes[0].time_ms)
+
+        if edited.nodes[-1].time_ms <= locked_time + self.TIME_STEP_MS:
+            return self.fit_line_to_area_with_start_locked(edited, target_area, axis)
+
+        best = deepcopy(edited)
+        best_error = abs(self.compute_area(best) - target_area)
+
+        for _ in range(18):
+            current_area = self.compute_area(edited)
+            error = abs(current_area - target_area)
+            if error < best_error:
+                best = deepcopy(edited)
+                best_error = error
+
+            if current_area <= 1e-9 or target_area <= 1e-9:
+                break
+
+            ratio = target_area / current_area
+            if abs(1.0 - ratio) < self.AREA_TOLERANCE:
+                return deepcopy(edited)
+
+            current_right_duration = max(self.TIME_STEP_MS, edited.nodes[-1].time_ms - locked_time)
+            new_right_duration = max(self.TIME_STEP_MS, self.snap_time(current_right_duration * ratio))
+            if new_right_duration == current_right_duration:
+                break
+
+            for index, node in enumerate(edited.nodes):
+                if index == 0:
+                    node.time_ms = start_time
+                    node.value = 0.0
+                elif index < locked_index:
+                    continue
+                elif index == locked_index:
+                    node.time_ms = locked_time
+                    node.value = locked_value
+                else:
+                    rel = (node.time_ms - locked_time) / current_right_duration
+                    node.time_ms = self.snap_time(locked_time + rel * new_right_duration)
+
+            edited.nodes.sort(key=lambda node: node.time_ms)
+
+            # pilnujemy porządku czasu bez przesuwania węzła wybranego przez operatora
+            edited.nodes[0].time_ms = start_time
+            edited.nodes[0].value = 0.0
+            edited.nodes[locked_index].time_ms = locked_time
+            edited.nodes[locked_index].value = locked_value
+
+            for index in range(1, len(edited.nodes)):
+                min_allowed = edited.nodes[index - 1].time_ms + self.MIN_NODE_GAP_MS
+                if index == locked_index:
+                    edited.nodes[index].time_ms = max(locked_time, min_allowed)
+                elif edited.nodes[index].time_ms < min_allowed:
+                    edited.nodes[index].time_ms = min_allowed
+
+            limit = self._axis_value_limit(axis)
+            for index, node in enumerate(edited.nodes):
+                node.time_ms = self.snap_time(node.time_ms)
+                if index == 0 or index == len(edited.nodes) - 1:
+                    node.value = 0.0
+                elif index == locked_index:
+                    node.value = self.clamp_value(locked_value, limit)
+                else:
+                    node.value = self.clamp_value(node.value, limit)
+
+        return best
 
     def scale_line_to_area(self, line: TarzanMotionLine, target_area: float, axis=None) -> TarzanMotionLine:
         edited = deepcopy(line)

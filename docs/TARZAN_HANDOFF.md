@@ -324,6 +324,109 @@ Cel:
 precyzyjna matematyczna normalizacja krzywej ruchu
 po operacjach edycji
 
-------------------------------------------------------------
+## Handoff — EDYTOR CHOREOGRAFII RUCHU 2
 
-KONIEC DOKUMENTU
+### Aktualny kierunek pracy
+
+Wątek kontynuuje rozwój warstwy:
+
+- protokołu ruchu,
+- modelu choreografii,
+- graficznej edycji sygnałów,
+- logicznego odczytu timeline.
+
+Na tym etapie nie wchodzimy jeszcze w sterowanie płytkami PoKeys.  
+Najpierw ma zostać domknięta warstwa edytora ruchu opartego na protokole czasu i sygnałów.
+
+---
+
+## Najważniejsze założenie
+
+TARZAN nie działa jak CNC z pozycjami docelowymi.  
+Podstawą zapisu ruchu jest:
+
+- czas,
+- stan sygnałów,
+- synchronizacja wielu linii,
+- ewentualne dane czujników w tej samej osi czasu.
+
+Edytor choreografii musi więc działać jak edytor przebiegów logicznych, a nie jak edytor pozycji osi.
+
+---
+
+## Co dokładnie ma powstać teraz
+
+Kolejność realizacji:
+
+1. domknięcie formatu choreografii ruchu,
+2. model danych choreografii,
+3. graficzna edycja linii sygnałowych,
+4. silnik odczytu choreografii,
+5. eksport zgodny z `tarzanProtokolRuchu.py`.
+
+---
+
+## Ustalony podział odpowiedzialności modułów
+
+### `core/tarzanProtokolRuchu.py`
+
+Źródło prawdy dla końcowego formatu timeline sygnałów.
+
+### `core/tarzanChoreografiaModel.py`
+
+Roboczy model danych choreografii dla edytora.
+
+### `app/tarzanEdytorChoreografii.py`
+
+Warstwa aplikacyjna i logika obsługi projektu choreografii.
+
+### `gui/tarzanEdytorChoreografiiWidget.py`
+
+Graficzna edycja przebiegów sygnałowych na osi czasu.
+
+### `core/tarzanChoreografiaPlayer.py`
+
+Logika odczytu choreografii i generowania stanów w czasie.
+
+---
+
+## Zasady dalszej pracy
+
+- nie dublować nazw plików,
+- każdy nowy plik najpierw dopisać do mapy projektu,
+- nie mieszać GUI z protokołem i modelem,
+- nie przenosić jeszcze logiki hardware do warstwy choreografii,
+- podawać pełne pliki do podmiany,
+- zachować zgodność z pełnym nazewnictwem osi z mapy projektu,
+- trzymać się centralnych ustawień projektu.
+
+---
+
+## Najbliższy krok implementacyjny
+
+Następny techniczny krok:
+zdefiniować model danych jednej ścieżki sygnału i całej choreografii tak,
+aby później GUI edytora rysowało i edytowało już poprawny model,
+a nie tymczasową strukturę.
+
+Powinno to objąć:
+
+- projekt choreografii,
+- listę ścieżek sygnałowych,
+- segmenty czasu,
+- impulsy,
+- stany 0/1,
+- parametry siatki czasu,
+- eksport do formatu protokołu.
+
+---
+
+## Cel końcowy tego etapu
+
+Uzyskać działający edytor choreografii ruchu, w którym można:
+
+- graficznie edytować linie sygnałów,
+- zapisywać choreografię,
+- odczytywać ją w czasie,
+- eksportować ją do protokołu ruchu,
+- przygotować warstwę pod przyszłą integrację wykonawczą.

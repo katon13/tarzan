@@ -18,19 +18,38 @@ class TarzanPanelOsi(tk.Frame):
         on_remove_node,
     ) -> None:
 
-        super().__init__(parent, bg="#23272E", width=124)
+        super().__init__(parent, bg="#23272E", width=154)
         self.pack_propagate(False)
 
         self._bg_normal = "#23272E"
         self._bg_selected = "#313844"
 
-        self.row1 = tk.Frame(self, bg=self._bg_normal)
+        self.name_wrap = tk.Frame(self, bg=self._bg_normal, width=42)
+        self.name_wrap.pack(side="left", fill="y", padx=(4, 0), pady=6)
+        self.name_wrap.pack_propagate(False)
+
+        self.axis_name_var = tk.StringVar(value="")
+        self.axis_name_label = tk.Label(
+            self.name_wrap,
+            textvariable=self.axis_name_var,
+            bg=self._bg_normal,
+            fg="#F3F6F8",
+            font=("Segoe UI Semibold", 9),
+            justify="center",
+            anchor="center",
+        )
+        self.axis_name_label.pack(fill="both", expand=True)
+
+        self.controls = tk.Frame(self, bg=self._bg_normal)
+        self.controls.pack(side="left", fill="both", expand=True)
+
+        self.row1 = tk.Frame(self.controls, bg=self._bg_normal)
         self.row1.pack(fill="x", padx=6, pady=(8, 2))
 
-        self.row2 = tk.Frame(self, bg=self._bg_normal)
+        self.row2 = tk.Frame(self.controls, bg=self._bg_normal)
         self.row2.pack(fill="x", padx=6, pady=(0, 2))
 
-        self.row3 = tk.Frame(self, bg=self._bg_normal)
+        self.row3 = tk.Frame(self.controls, bg=self._bg_normal)
         self.row3.pack(fill="x", padx=6, pady=(0, 8))
 
         self.btn_pan = self._make_btn(self.row1, "✋", on_pan, "#6B7280")
@@ -41,6 +60,8 @@ class TarzanPanelOsi(tk.Frame):
 
         self.btn_add = self._make_btn(self.row3, "⊕", on_add_node, "#2D6CDF")
         self.btn_remove = self._make_btn(self.row3, "⊖", on_remove_node, "#B74A4A")
+
+        self.set_axis_name(axis_name)
 
     def _make_btn(self, parent, text: str, command, bg_color: str):
         btn = tk.Button(
@@ -62,9 +83,19 @@ class TarzanPanelOsi(tk.Frame):
         btn.pack(side="left", padx=2)
         return btn
 
+    def _format_axis_vertical(self, axis_name: str) -> str:
+        text = str(axis_name or "").upper().replace("OŚ ", "").replace("OS ", "")
+        parts = [part for part in text.split() if part]
+        if not parts:
+            return ""
+        return "\n".join(parts)
+
     def set_selected(self, selected: bool) -> None:
         bg = self._bg_selected if selected else self._bg_normal
         self.configure(bg=bg)
+        self.name_wrap.configure(bg=bg)
+        self.axis_name_label.configure(bg=bg)
+        self.controls.configure(bg=bg)
         self.row1.configure(bg=bg)
         self.row2.configure(bg=bg)
         self.row3.configure(bg=bg)
@@ -73,4 +104,4 @@ class TarzanPanelOsi(tk.Frame):
         self.btn_pan.configure(bg="#6F42C1" if active else "#6B7280")
 
     def set_axis_name(self, axis_name: str) -> None:
-        pass
+        self.axis_name_var.set(self._format_axis_vertical(axis_name))

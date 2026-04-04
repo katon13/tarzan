@@ -136,6 +136,7 @@ class TarzanTakePreviewWindow(tk.Toplevel):
         widget.configure(state="disabled")
 
 
+
     def _build_protocol_rows(
         self,
         axis_take,
@@ -147,7 +148,6 @@ class TarzanTakePreviewWindow(tk.Toplevel):
         if len(points) < 2:
             return [], 0
 
-        target_total_pulses = self._resolve_target_pulses(axis_take, validation_result)
         start_time = int(points[0][0])
         end_time = int(points[-1][0])
 
@@ -158,51 +158,15 @@ class TarzanTakePreviewWindow(tk.Toplevel):
             return [], 0
 
         amps = [self._interpolate_value(points, t) for t in times]
-        abs_sum = sum(abs(v) for v in amps)
+        max_abs_amp = max((abs(v) for v in amps), default=0.0)
 
         rows: list[dict[str, float | int]] = []
-        if abs_sum <= 1e-12 or target_total_pulses <= 0:
-            last_dir = 1
-            step_state = 0
-            cumulative_count = 0
-            for t, amp in zip(times, amps):
-                if amp > 1e-12:
-                    dir_value = 1
-                    last_dir = 1
-                elif amp < -1e-12:
-                    dir_value = 0
-                    last_dir = 0
-                else:
-                    dir_value = last_dir
-
-                rows.append(
-                    {
-                        "count": int(cumulative_count),
-                        "time_ms": int(t),
-                        "dir": int(dir_value),
-                        "step": int(step_state),
-                        "enable": 1,
-                        "amp": float(amp),
-                        "step_events": 0,
-                    }
-                )
-            return rows, 0
-
-        # Zasada TARZAN:
-        # prędkość ruchu wynika z gęstości zmian stanu STEP w czasie.
-        # Nie przełączamy STEP co każdą próbkę 10 ms.
+        last_dir = 1
+        step_state = 0
         accumulator = 0.0
         cumulative_count = 0
-        step_state = 0
-        last_dir = 1
 
         for t, amp in zip(times, amps):
-            density_share = abs(float(amp)) / abs_sum
-            pulses_in_sample_float = density_share * target_total_pulses
-            accumulator += pulses_in_sample_float
-            step_events = int(math.floor(accumulator + 1e-12))
-            accumulator -= step_events
-
             if amp > 1e-12:
                 dir_value = 1
                 last_dir = 1
@@ -212,12 +176,21 @@ class TarzanTakePreviewWindow(tk.Toplevel):
             else:
                 dir_value = last_dir
 
-            # Jedna zmiana stanu STEP = jeden krok.
-            # STEP utrzymuje ostatni stan aż do kolejnej zmiany.
-            if step_events % 2 == 1:
-                step_state = 0 if step_state == 1 else 1
+            density = 0.0 if max_abs_amp <= 1e-12 else min(1.0, abs(float(amp)) / max_abs_amp)
 
-            cumulative_count += step_events
+            # value=1 -> 010101... (toggle every sample)
+            # value=0 -> 000000... (no motion)
+            accumulator += density
+            step_events = 0
+            while accumulator >= 1.0 - 1e-12:
+                accumulator -= 1.0
+                step_state = 0 if step_state == 1 else 1
+                step_events += 1
+                cumulative_count += 1
+
+            if density <= 1e-12:
+                step_state = 0
+
             rows.append(
                 {
                     "count": int(cumulative_count),
@@ -230,19 +203,9 @@ class TarzanTakePreviewWindow(tk.Toplevel):
                 }
             )
 
-        diff = int(target_total_pulses) - cumulative_count
-        if rows and diff != 0:
-            rows[-1]["step_events"] = int(rows[-1]["step_events"]) + diff
-            cumulative_count += diff
-            rows[-1]["count"] = int(cumulative_count)
-            if abs(diff) % 2 == 1:
-                rows[-1]["step"] = 0 if int(rows[-1]["step"]) == 1 else 1
-
         return rows, cumulative_count
 
     def _resolve_target_pulses(self, axis_take, validation_result: Any | None) -> int:
-        # Długość osi i budżet impulsów są święte dla modelu:
-        # preview pracuje na pełnej mechanicznej liczbie impulsów osi.
         full_cycle = float(getattr(axis_take, "full_cycle_pulses", 0) or 0)
         return max(0, int(round(full_cycle)))
 

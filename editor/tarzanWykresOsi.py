@@ -326,7 +326,7 @@ class AxisTrack(tk.Frame):
             font=("Segoe UI Semibold", 10),
             anchor="w",
         )
-        self.title.pack(fill="x", padx=10, pady=(6, 1))
+        # Axis title moved to the left vertical panel.
 
         self.meta_var = tk.StringVar(value="")
         self.meta_label = tk.Label(
@@ -338,7 +338,7 @@ class AxisTrack(tk.Frame):
             anchor="w",
             justify="left",
         )
-        # Meta descriptions removed from main editor area; preview window already contains mechanics/protocol details.
+        # Mechanical descriptions removed from main view; preview window is the reference.
 
         self.canvas = tk.Canvas(
             right,
@@ -349,7 +349,7 @@ class AxisTrack(tk.Frame):
             relief="flat",
             cursor="crosshair",
         )
-        self.canvas.pack(fill="x", padx=10, pady=(4, 10))
+        self.canvas.pack(fill="x", padx=10, pady=(0, 8))
 
         self.canvas.bind("<Configure>", self._on_configure)
         self.canvas.bind("<Button-1>", self._on_press)
@@ -757,6 +757,16 @@ class AxisTrack(tk.Frame):
         c.create_line(x1, 0, x1, self.canvas_height, fill=self.STOP, width=4)
         c.create_text(x0 + 4, 10, anchor="w", text="START", fill=self.START, font=("Segoe UI", 8, "bold"))
         c.create_text(x1 - 4, 10, anchor="e", text="STOP", fill=self.STOP, font=("Segoe UI", 8, "bold"))
+
+        ghost_line = self.original_line
+        ghost_sampled = self._safe_sample(ghost_line, 260)
+        ghost_points = []
+        for time_ms, value in ghost_sampled:
+            x = self.edycja.time_to_x(time_ms, self.view_start, self.view_end, self.canvas_width)
+            y = self.edycja.value_to_y(value, self.canvas_height)
+            ghost_points.extend([x, y])
+        if len(ghost_points) >= 4:
+            c.create_line(*ghost_points, fill="#8B95A1", width=2, dash=(6, 4), smooth=True)
 
         sampled = self._safe_sample(line, 260)
         self.last_curve_points = []

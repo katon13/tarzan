@@ -18,13 +18,13 @@ class TarzanPanelOsi(tk.Frame):
         on_remove_node,
     ) -> None:
 
-        super().__init__(parent, bg="#23272E", width=154)
+        super().__init__(parent, bg="#23272E", width=146)
         self.pack_propagate(False)
 
         self._bg_normal = "#23272E"
         self._bg_selected = "#313844"
 
-        self.name_wrap = tk.Frame(self, bg=self._bg_normal, width=42)
+        self.name_wrap = tk.Frame(self, bg=self._bg_normal, width=36)
         self.name_wrap.pack(side="left", fill="y", padx=(4, 0), pady=6)
         self.name_wrap.pack_propagate(False)
 
@@ -34,7 +34,7 @@ class TarzanPanelOsi(tk.Frame):
             textvariable=self.axis_name_var,
             bg=self._bg_normal,
             fg="#F3F6F8",
-            font=("Segoe UI Semibold", 9),
+            font=("Segoe UI Semibold", 7),
             justify="center",
             anchor="center",
         )
@@ -88,7 +88,7 @@ class TarzanPanelOsi(tk.Frame):
         parts = [part for part in text.split() if part]
         if not parts:
             return ""
-        return "\n".join(parts)
+        return "\n".join(part[:6] for part in parts)
 
     def set_selected(self, selected: bool) -> None:
         bg = self._bg_selected if selected else self._bg_normal

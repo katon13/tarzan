@@ -766,7 +766,7 @@ class AxisTrack(tk.Frame):
             y = self.edycja.value_to_y(value, self.canvas_height)
             ghost_points.extend([x, y])
         if len(ghost_points) >= 4:
-            c.create_line(*ghost_points, fill="#8B95A1", width=2, dash=(6, 4), smooth=True)
+            c.create_line(*ghost_points, fill="#FFD84A", width=2, dash=(14, 6), smooth=True)
 
         sampled = self._safe_sample(line, 260)
         self.last_curve_points = []

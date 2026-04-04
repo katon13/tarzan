@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import tkinter as tk
@@ -35,7 +34,7 @@ class TarzanPanelOsi(tk.Frame):
         self.row3.pack(fill="x", padx=6, pady=(0, 8))
 
         self.btn_select = self._make_btn(self.row1, "✦", on_select, "#4C7DFF")
-        self.btn_pan = self._make_btn(self.row1, "✋", on_pan, "#6F42C1")
+        self.btn_pan = self._make_btn(self.row1, "✋", on_pan, "#6B7280")
 
         self.btn_smooth = self._make_btn(self.row2, "〰", on_smooth, "#0E9F6E")
         self.btn_reset = self._make_btn(self.row2, "✕", on_reset, "#C78B2A")
@@ -72,7 +71,7 @@ class TarzanPanelOsi(tk.Frame):
         self.row3.configure(bg=bg)
 
     def set_pan_active(self, active: bool) -> None:
-        self.btn_pan.configure(bg="#6B7D92" if active else "#6F42C1")
+        self.btn_pan.configure(bg="#6F42C1" if active else "#6B7280")
 
     def set_axis_name(self, axis_name: str) -> None:
         pass

@@ -344,6 +344,10 @@ class AxisTrack(tk.Frame):
         self.canvas.bind("<Button-1>", self._on_press)
         self.canvas.bind("<B1-Motion>", self._on_drag)
         self.canvas.bind("<ButtonRelease-1>", self._on_release)
+        self._update_canvas_cursor()
+
+    def _update_canvas_cursor(self) -> None:
+        self.canvas.configure(cursor="hand2" if self.dragging else "crosshair")
 
     def set_view(self, view_start: int, view_end: int) -> None:
         self.view_start = int(view_start)
@@ -378,9 +382,16 @@ class AxisTrack(tk.Frame):
     def _select(self) -> None:
         self.on_select(self.axis_key)
 
+    def _update_canvas_cursor(self) -> None:
+        self.canvas.configure(cursor="hand2" if self.pan_mode else "crosshair")
+
+    def _is_inside_active_area(self, x: float, y: float, x0: float, x1: float) -> bool:
+        return float(x0) <= float(x) <= float(x1) and 0 <= float(y) <= float(self.canvas_height)
+
     def _toggle_pan(self) -> None:
         self.pan_mode = not self.pan_mode
         self.panel.set_pan_active(self.pan_mode)
+        self._update_canvas_cursor()
         self.on_status(f"PAN {'ON' if self.pan_mode else 'OFF'} dla osi: {self.axis_take.axis_name}")
 
     def _smooth(self) -> None:
@@ -397,10 +408,7 @@ class AxisTrack(tk.Frame):
             self.preview_validation_result = None
             self.on_change(self.axis_key, self.line)
             self.redraw()
-            if result.is_valid:
-                self.on_status(f"Wygładzono oś: {self.axis_take.axis_name}")
-            else:
-                self.on_status(self._format_violation_status(result))
+            self.on_status(f"Wygładzono oś: {self.axis_take.axis_name}")
         except Exception as exc:
             self.on_status(f"Błąd wygładzania: {exc}")
 
@@ -483,7 +491,12 @@ class AxisTrack(tk.Frame):
         )
 
     def _format_violation_status(self, result: AxisValidationResult) -> str:
-        return f"{self.axis_take.axis_name}: {' | '.join(result.violations)}"
+        return (
+            f"{self.axis_take.axis_name}: "
+            f"P={int(round(result.pulses_total))}/{int(round(result.pulses_limit))} | "
+            f"R={int(round(result.peak_rate))}/{int(round(result.rate_limit))} | "
+            f"A={int(round(result.peak_acceleration))}/{int(round(result.acceleration_limit))}"
+        )
 
     def _safe_sample(self, line, sample_count: int = 260):
         try:
@@ -552,6 +565,63 @@ class AxisTrack(tk.Frame):
             return candidate
         return self._scale_line_duration(candidate, factor, locked_index=locked_index)
 
+    def _scale_line_values(self, line, factor: float):
+        candidate = copy.deepcopy(line)
+        factor = max(0.05, min(20.0, float(factor)))
+        for idx, node in enumerate(candidate.nodes):
+            if idx in (0, len(candidate.nodes) - 1):
+                node.value = 0.0
+            else:
+                node.value = max(-1.0, min(1.0, float(node.value) * factor))
+        return candidate
+
+    def _max_abs_amplitude(self, line) -> float:
+        if not getattr(line, "nodes", None):
+            return 0.0
+        return max(abs(float(node.value)) for node in line.nodes[1:-1]) if len(line.nodes) > 2 else 0.0
+
+    def _fit_edge_motion(self, desired, reference, moved_index: int):
+        ref_area = self._compute_area(reference)
+        desired_area = self._compute_area(desired)
+        if ref_area <= 0 or desired_area <= 0:
+            return desired
+
+        scale = ref_area / desired_area
+        scaled = self._scale_line_values(desired, scale)
+        if self._compute_area(scaled) > 0 and self._max_abs_amplitude(scaled) <= 1.0 + 1e-6:
+            return scaled
+
+        original_edge = int(reference.nodes[moved_index].time_ms)
+        target_edge = int(desired.nodes[moved_index].time_ms)
+        if original_edge == target_edge:
+            return self._scale_line_values(reference, 1.0)
+
+        low = original_edge
+        high = target_edge
+        if target_edge < original_edge:
+            low, high = target_edge, original_edge
+
+        best = copy.deepcopy(reference)
+        for _ in range(28):
+            mid = self.edycja.snap((low + high) / 2)
+            probe = self._move_edge(reference, moved_index, mid)
+            probe_area = self._compute_area(probe)
+            if probe_area <= 0:
+                break
+            scaled_probe = self._scale_line_values(probe, ref_area / probe_area)
+            if self._max_abs_amplitude(scaled_probe) <= 1.0 + 1e-6:
+                best = scaled_probe
+                if target_edge >= original_edge:
+                    low = mid
+                else:
+                    high = mid
+            else:
+                if target_edge >= original_edge:
+                    high = mid
+                else:
+                    low = mid
+        return best
+
     def _smooth_line_local(self, line):
         candidate = copy.deepcopy(line)
         nodes = getattr(candidate, "nodes", [])
@@ -613,8 +683,6 @@ class AxisTrack(tk.Frame):
         acceleration_limit = float(self.axis_definition.max_acceleration)
 
         violations: list[str] = []
-        if pulses_total > pulses_limit + max(2.0, pulses_limit * 0.005):
-            violations.append(f"za dużo impulsów {int(round(pulses_total))}>{int(round(pulses_limit))}")
         if peak_rate > rate_limit + max(5.0, rate_limit * 0.01):
             violations.append(f"za duża prędkość {int(round(peak_rate))}>{int(round(rate_limit))} imp/s")
         if peak_acceleration > acceleration_limit + max(10.0, acceleration_limit * 0.02):
@@ -664,11 +732,12 @@ class AxisTrack(tk.Frame):
         self.panel.set_axis_name(self.axis_take.axis_name)
         self.meta_var.set(self._format_metrics_text(result))
         self._draw_limit_panel(result)
+        self._update_canvas_cursor()
 
         x0 = self.edycja.time_to_x(line.nodes[0].time_ms, self.view_start, self.view_end, self.canvas_width)
         x1 = self.edycja.time_to_x(line.nodes[-1].time_ms, self.view_start, self.view_end, self.canvas_width)
         segment_color = self.SEGMENT_COLORS.get(self.axis_key, self.SEGMENT_FILL)
-        c.create_rectangle(x0, 6, x1, self.canvas_height - 6, fill=segment_color, outline="", stipple="gray25")
+        c.create_rectangle(x0, 6, x1, self.canvas_height - 6, fill=segment_color, outline="#6F42C1" if self.pan_mode else "", width=1 if self.pan_mode else 0, stipple="gray25")
 
         y0 = self.edycja.value_to_y(0.0, self.canvas_height)
         c.create_line(0, y0, self.canvas_width, y0, fill=self.MUTED, width=1)
@@ -696,8 +765,6 @@ class AxisTrack(tk.Frame):
             fill = self.NODE_SELECTED if idx == self.selected_node_index else (self.NODE if idx not in (0, len(line.nodes) - 1) else "#D6EAF8")
             c.create_oval(x - r, y - r, x + r, y + r, fill=fill, outline="black", width=1)
 
-        if result.violations:
-            c.create_text(8, self.canvas_height - 10, anchor="w", text=" | ".join(result.violations), fill=self.CURVE_INVALID, font=("Segoe UI", 8, "bold"))
 
     def _nearest_curve_hit(self, x: float, y: float):
         if len(self.last_curve_points) < 2:
@@ -741,11 +808,12 @@ class AxisTrack(tk.Frame):
         hit_start = self.edycja.hit_vertical_marker(x0, event.x)
         hit_stop = self.edycja.hit_vertical_marker(x1, event.x)
         curve_hit = self._nearest_curve_hit(event.x, event.y)
+        hit_active_area = self._is_inside_active_area(event.x, event.y, x0, x1)
 
         if hit is not None:
             self.selected_node_index = hit
 
-        if self.pan_mode and (hit is not None or hit_start or hit_stop or curve_hit is not None):
+        if self.pan_mode and hit_active_area:
             self.drag_mode = "pan"
             self.drag_original = copy.deepcopy(current)
             self.pan_anchor_x = event.x
@@ -849,8 +917,6 @@ class AxisTrack(tk.Frame):
             result = self.validate_line(candidate)
             self.preview_line = candidate
             self.preview_validation_result = result
-            if result.violations:
-                self.on_status(self._format_violation_status(result))
             self.redraw()
         except Exception as exc:
             self.on_status(f"Błąd edycji osi {self.axis_take.axis_name}: {exc}")
@@ -908,6 +974,7 @@ class DroneTrack(tk.Frame):
         self.canvas.bind("<Button-1>", self._on_press)
         self.canvas.bind("<B1-Motion>", self._on_drag)
         self.canvas.bind("<ButtonRelease-1>", self._on_release)
+        self._update_canvas_cursor()
 
     def set_view(self, view_start: int, view_end: int) -> None:
         self.view_start = int(view_start)
@@ -917,6 +984,9 @@ class DroneTrack(tk.Frame):
     def set_selected(self, selected: bool) -> None:
         self.selected = selected
         self.configure(highlightbackground="#5B6A7D" if selected else "#222833")
+
+    def _update_canvas_cursor(self) -> None:
+        self.canvas.configure(cursor="hand2" if self.dragging else "crosshair")
 
     def _on_configure(self, event) -> None:
         self.canvas_width = max(200, int(event.width))
@@ -935,6 +1005,7 @@ class DroneTrack(tk.Frame):
     def _on_press(self, event) -> None:
         x = self.edycja.time_to_x(self.event_time_ms, self.view_start, self.view_end, self.canvas_width)
         self.dragging = abs(event.x - x) <= 14
+        self._update_canvas_cursor()
 
     def _on_drag(self, event) -> None:
         if not self.dragging:
@@ -946,3 +1017,4 @@ class DroneTrack(tk.Frame):
         if self.dragging:
             self.on_change(self.event_time_ms)
         self.dragging = False
+        self._update_canvas_cursor()

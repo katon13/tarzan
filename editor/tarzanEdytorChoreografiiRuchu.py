@@ -348,7 +348,12 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
                 continue
             result = track.get_validation_result()
             if not result.is_valid:
-                errors.append(f"{definition.axis_name}: {' | '.join(result.violations)}")
+                errors.append(
+                    f"{definition.axis_name}: "
+                    f"P={int(round(result.pulses_total))}/{int(round(result.pulses_limit))} | "
+                    f"R={int(round(result.peak_rate))}/{int(round(result.rate_limit))} | "
+                    f"A={int(round(result.peak_acceleration))}/{int(round(result.acceleration_limit))}"
+                )
         return errors
 
     def save_take(self) -> None:

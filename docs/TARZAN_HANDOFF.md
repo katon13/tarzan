@@ -1,285 +1,178 @@
 
-# TARZAN – HANDOFF DOCUMENT
-## Status projektu na moment przekazania (handoff)
+# TARZAN_HANDOFF.md
+Stan projektu i punkt kontynuacji pracy
 
-Ten dokument służy do wznowienia pracy nad projektem **TARZAN – Inteligentne Ramię Kamerowe** w nowym wątku rozmowy lub przez inną sesję.
+Projekt: TARZAN – Intelligent Camera Arm System
 
-Celem jest szybkie odtworzenie kontekstu bez konieczności przeglądania całej historii rozmowy.
-
----
-
-# 1. Projekt
-
-**Nazwa:** TARZAN – Inteligentne Ramię Kamerowe  
-**Repozytorium:** https://github.com/katon13/tarzan  
-
-Projekt buduje system sterowania ramieniem kamerowym oparty o:
-
-- zapis ruchu w funkcji **czasu**
-- protokół sygnałów sterujących
-- edytor choreografii ruchu
-
-System nie działa jak CNC (pozycja → ruch).  
-Zamiast tego zapisuje **stan sygnałów w czasie**.
-
-Czyli:
-
-czas → stan sygnałów STEP / DIR / ENABLE / itd.
-
-To jest kluczowa zasada architektury TARZAN.
+Ten dokument pozwala rozpocząć pracę nad projektem w nowym wątku bez utraty kontekstu architektury, mechaniki i zasad systemu.
 
 ---
 
-# 2. Architektura projektu
+# 1. CEL SYSTEMU TARZAN
 
-Główna struktura repozytorium:
+TARZAN jest systemem sterowania ramieniem kamery umożliwiającym:
 
-```
-/tarzan
-│
-├── main.py
-├── TarzanRejestr.json
-│
-├── core/
-│
-├── hardware/
-│
-├── mechanics/
-│   └── tarzanMechanikaOsi.py
-│
-├── motion/
-│   └── tarzanKrzyweRuchu.py
-│
-├── editor/
-│   └── tarzanEdytorChoreografiiRuchu.py
-│
-└── data/
-    └── take/
-```
+• nagrywanie ruchu kamery  
+• odtwarzanie ruchu kamery  
+• tworzenie choreografii ruchu  
+• synchronizację ruchu z ujęciem filmowym (TAKE)
 
-Najważniejsze moduły:
+System działa **nie jak CNC**.
 
-### mechanics
-Opis mechaniki osi:
+System działa jako **rejestrator i odtwarzacz sygnałów ruchu w czasie**.
 
-- limity ruchu
-- profile startu
-- rampy
-
-Plik:
-```
-mechanics/tarzanMechanikaOsi.py
-```
+Podstawą systemu jest protokół sygnałów STEP/DIR zapisany w czasie.
 
 ---
 
-### motion
+# 2. ZASADA PROTOKOŁU RUCHU
 
-Logika matematyczna krzywych ruchu.
+System nie zapisuje pozycji osi.
 
-Plik:
-```
-motion/tarzanKrzyweRuchu.py
-```
+System zapisuje **stan sygnałów sterujących w czasie**.
 
-Odpowiada za:
+Każda próbka zawiera:
 
-- węzły ruchu
-- normalizację linii
-- ograniczenia mechaniczne
-- interpolację
+czas  
+STEP  
+DIR  
+ENABLE  
+stan czujników  
 
----
+Częstotliwość próbkowania:
 
-### editor
-
-GUI do projektowania ruchu.
-
-Plik:
-```
-editor/tarzanEdytorChoreografiiRuchu.py
-```
-
-Funkcje:
-
-- edycja węzłów
-- wizualizacja krzywej
-- preview ruchu
-- wygładzanie
-- START / STOP
-- tryb PAN
-
----
-
-# 3. Aktualny stan edytora choreografii
-
-Edytor jest **działającym prototypem**, ale **wymaga dalszych prac**.
-
-### Co działa
-
-- wybór osi
-- edycja węzłów
-- przeciąganie punktów
-- podgląd krzywej
-- tryb PAN
-- funkcja wygładzania
-- preview ruchu
-
-### Co wymaga dalszej pracy
-
-1️⃣ stabilizacja UI  
-
-2️⃣ pola:
-```
-START
-STOP
-SMOOTH
-```
-
-3️⃣ synchronizacja z linią ruchu
-
-4️⃣ uporządkowanie logiki:
-
-```
-editor/
-motion/
-mechanics/
-```
-
-5️⃣ optymalizacja kodu
-
-6️⃣ dalsze testy matematyki ruchu
-
----
-
-# 4. Zasady projektu (ważne)
-
-Podczas dalszej pracy należy przestrzegać kilku zasad:
-
-### 1️⃣ Nie zmieniać architektury bez potrzeby
-
-Projekt jest podzielony na:
-
-```
-mechanics
-motion
-editor
-```
-
-Nie należy mieszać tych warstw.
-
----
-
-### 2️⃣ Nie przenosić wszystkiego do jednego pliku
-
-Każdy moduł ma swoją odpowiedzialność.
-
----
-
-### 3️⃣ Zawsze bazować na dokumentacji mechaniki
-
-Plik:
-
-```
-mechanics/tarzanMechanikaOsi.py
-```
-
-definiuje fizykę systemu.
-
----
-
-### 4️⃣ Oś czasu
-
-System działa na:
-
-```
 CZAS_PROBKOWANIA_MS = 10
-```
 
-Nie należy zmieniać tego bez powodu.
+czyli:
 
----
-
-# 5. Edytor – założenia projektowe
-
-Edytor operuje na:
-
-```
-jednej ciągłej linii ruchu
-z wieloma węzłami
-```
-
-Metoda:
-
-```
-Wygładź
-```
-
-powinna:
-
-- wygładzać przebieg
-- **nie dodawać nowych węzłów**
-- **nie usuwać węzłów**
+100 próbek na sekundę
 
 ---
 
-# 6. Kolejne kroki rozwoju
+# 3. OSIE SYSTEMU
 
-W nowym wątku pracy należy:
+Nazwy osi muszą być zgodne z mapą projektu.
 
-### krok 1
+## Osie kamery
 
-ustabilizować edytor
+oś pozioma kamery  
+oś pionowa kamery  
+oś pochyłu kamery  
+oś ostrości kamery  
 
-### krok 2
+## Osie ramienia
 
-naprawić pola:
+oś pionowa ramienia  
+oś pozioma ramienia  
 
-```
-START
-STOP
-SMOOTH
-```
-
-### krok 3
-
-rozbudować mechanikę ograniczeń
-
-### krok 4
-
-przygotować zapis choreografii
-
-### krok 5
-
-integracja z protokołem ruchu
+Nie wolno używać nazw zastępczych.
 
 ---
 
-# 7. Status commit
+# 4. MECHANIKA OSI
 
-Projekt można teraz wysłać do repozytorium z komentarzem:
+Każda oś posiada:
 
-```
-Editor prototype – requires further work
-```
-lub
+• maksymalną liczbę impulsów ruchu  
+• maksymalną prędkość  
+• maksymalne przyspieszenie  
+• ograniczenia zakresu ruchu
 
-```
-Initial choreography editor prototype
-```
+Mechanika nie blokuje edycji.
 
----
-
-# 8. Jak rozpocząć nowy wątek
-
-W nowej rozmowie należy napisać:
-
-```
-Kontynuujemy projekt TARZAN.
-Poniżej aktualny handoff projektu.
-```
-i wkleić zawartość tego pliku.
+Mechanika **ogranicza możliwy wynik ruchu**.
 
 ---
 
-# Koniec dokumentu
+# 5. ZASADA TAKE
+
+TAKE to pojedyncze ujęcie filmowe.
+
+TAKE zawiera:
+
+• czas całkowity
+• przebiegi osi
+• sygnały sterujące
+
+Ten sam TAKE może być odtworzony w różnych prędkościach poprzez zmianę czasu.
+
+---
+
+# 6. EDYTOR CHOREOGRAFII RUCHU
+
+Edytor pozwala projektować ruch osi jako krzywe.
+
+Najważniejsze zasady:
+
+• krzywa określa intensywność ruchu
+• amplituda krzywej określa prędkość
+• znak krzywej określa kierunek
+
+---
+
+# 7. ZASADA MECHANIKI W EDYTORZE
+
+Mechanika powinna wynikać z geometrii krzywej.
+
+Operator powinien odczuwać ograniczenia poprzez:
+
+• maksymalną długość linii
+• maksymalną amplitudę
+• brak możliwości dalszego przeciągania punktów
+
+Nie przez komunikaty tekstowe.
+
+---
+
+# 8. PAN
+
+PAN przesuwa całą oś w czasie.
+
+PAN działa:
+
+• po kliknięciu w obszar aktywnej osi
+• nie tylko po kliknięciu START/STOP
+
+---
+
+# 9. SMOOTH
+
+Funkcja wygładzania:
+
+• wygładza cały przebieg
+• nie dodaje nowych węzłów
+
+---
+
+# 10. WSKAŹNIKI P / R / A
+
+P – impuls  
+R – prędkość  
+A – przyspieszenie  
+
+Są informacyjne i nie blokują edycji.
+
+---
+
+# 11. AKTUALNY STAN EDYTORA
+
+Aktualna wersja zawiera:
+
+• PAN po obszarze osi
+• możliwość edycji punktów
+• integrację z mechaniką osi
+• wskaźniki parametrów ruchu
+
+---
+
+# 12. REPOZYTORIUM
+
+https://github.com/katon13/tarzan
+
+---
+
+# 13. PUNKT STARTOWY DALSZEJ PRACY
+
+Aktualny etap:
+
+Integracja **mechaniki osi z edytorem choreografii ruchu**.

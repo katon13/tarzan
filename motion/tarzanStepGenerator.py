@@ -1,45 +1,42 @@
-from __future__ import annotations
-
-import numpy as np
-
 
 class TarzanStepGenerator:
     """
-    Generator timeline impulsów STEP.
-
-    Zamienia profil gęstości impulsów w czasie
-    na rzeczywiste momenty impulsów STEP.
-
-    Wejście:
-    - time_ms: próbki czasu [ms]
-    - pulse_density: gęstość impulsów [impuls/ms]
-
-    Wyjście:
-    - lista czasów impulsów STEP
+    Generates STEP signal density based on curve amplitudes.
+    STEP toggles only when accumulator crosses 1.
+    Sampling time is fixed (default 10 ms).
     """
 
-    def __init__(self, time_ms, pulse_density) -> None:
-        self.time_ms = np.array(time_ms, dtype=float)
-        self.pulse_density = np.array(pulse_density, dtype=float)
+    def __init__(self, sample_ms=10):
+        self.sample_ms = sample_ms
 
-    def generate_step_times(self) -> list[float]:
-        pulse_times: list[float] = []
+    def generate(self, amplitudes, max_steps):
+        step_state = 0
         accumulator = 0.0
+        steps_done = 0
 
-        for i in range(len(self.time_ms) - 1):
-            t0 = self.time_ms[i]
-            t1 = self.time_ms[i + 1]
-            dt = t1 - t0
+        protocol = []
 
-            if dt <= 0:
-                continue
+        for i, amp in enumerate(amplitudes):
 
-            density = self.pulse_density[i]
-            pulses_expected = density * dt
-            accumulator += pulses_expected
+            # density proportional to amplitude
+            density = abs(amp) * max_steps / len(amplitudes)
+            accumulator += density
 
-            while accumulator >= 1.0:
-                pulse_times.append(float(t0))
-                accumulator -= 1.0
+            step_out = 0
 
-        return pulse_times
+            if accumulator >= 1 and steps_done < max_steps:
+                step_state = 1 - step_state
+                step_out = step_state
+                accumulator -= 1
+                steps_done += 1
+
+            dir_val = 1 if amp >= 0 else 0
+
+            protocol.append({
+                "COUNT": i,
+                "TIME_MS": i * self.sample_ms,
+                "DIR": dir_val,
+                "STEP": step_out
+            })
+
+        return protocol

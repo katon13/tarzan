@@ -293,7 +293,7 @@ class AxisTrack(tk.Frame):
         self.original_area = 0.0
         self.pan_anchor_x = 0
         self.canvas_width = 1100
-        self.canvas_height = 156
+        self.canvas_height = 92
 
         self.panel = TarzanPanelOsi(
             self,
@@ -338,7 +338,7 @@ class AxisTrack(tk.Frame):
             anchor="w",
             justify="left",
         )
-        # Meta descriptions removed from main editor area; preview window already contains mechanics/protocol details.
+        self.meta_label.pack(fill="x", padx=10, pady=(0, 2))
 
         self.canvas = tk.Canvas(
             right,
@@ -349,7 +349,7 @@ class AxisTrack(tk.Frame):
             relief="flat",
             cursor="crosshair",
         )
-        self.canvas.pack(fill="x", padx=10, pady=(4, 10))
+        self.canvas.pack(fill="x", padx=10, pady=(0, 8))
 
         self.canvas.bind("<Configure>", self._on_configure)
         self.canvas.bind("<Button-1>", self._on_press)
@@ -751,7 +751,7 @@ class AxisTrack(tk.Frame):
         c.create_rectangle(x0, 6, x1, self.canvas_height - 6, fill=segment_color, outline="#6F42C1" if self.pan_mode else "", width=1 if self.pan_mode else 0, stipple="gray25")
 
         y0 = self.edycja.value_to_y(0.0, self.canvas_height)
-        c.create_line(0, y0, self.canvas_width, y0, fill="#FF3030", width=4)
+        c.create_line(0, y0, self.canvas_width, y0, fill=self.MUTED, width=1)
 
         c.create_line(x0, 0, x0, self.canvas_height, fill=self.START, width=4)
         c.create_line(x1, 0, x1, self.canvas_height, fill=self.STOP, width=4)

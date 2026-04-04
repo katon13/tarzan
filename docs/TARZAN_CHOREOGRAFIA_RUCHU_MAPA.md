@@ -1880,3 +1880,60 @@ Krzywa ma być:
 - ale zawsze zespolona z mechaniką, zmiennymi projektu i dokumentacją TARZAN.
 
 To jest zasada obowiązująca przy dalszym rozwijaniu modułu choreografii ruchu.
+
+# Dodatki z pracy, logika generowania impulsów STEP
+
+## Zasada sterowania prędkością osi
+
+W systemie TARZAN sterowanie prędkością silnika krokowego **nie polega na stałym rytmie sygnału STEP**. 
+Próbkowanie protokołu odbywa się w stałym kroku czasu:
+
+CZAS_PROBKOWANIA_MS = 10 ms
+
+Każda próbka reprezentuje okno czasu, w którym **może wystąpić lub nie wystąpić zmiana stanu sygnału STEP**.
+
+Silnik krokowy wykonuje krok tylko w momencie **zmiany stanu sygnału STEP (0 → 1 lub 1 → 0)**. 
+Dlatego prędkość osi wynika z **gęstości impulsów w czasie**, a nie z samego faktu generowania sygnału.
+
+## Błędny model (nie stosować)
+
+Stały rytm przełączeń:
+
+0 1 0 1 0 1 0 1
+
+oznacza zawsze tę samą częstotliwość kroków i w efekcie **stałą prędkość silnika**. 
+W takim modelu krzywa choreografii nie wpływa na prędkość ruchu osi.
+
+## Poprawny model TARZAN
+
+Krzywa ruchu określa **gęstość impulsów STEP w czasie**.
+
+Przykłady:
+
+Szybki ruch (duża gęstość impulsów):
+0 1 0 1 0 1 0 1
+
+Wolniejszy ruch:
+1 0 0 0 1 0 0 0 1
+
+Bardzo wolny ruch:
+0 0 0 0 1 0 0 0 0
+
+Zmienne tempo ruchu:
+0 0 0 1 0 1 1 0 0 0 1 1 1
+
+Im **większa amplituda krzywej ruchu**, tym **więcej impulsów STEP w jednostce czasu**.
+
+## Wniosek dla edytora choreografii
+
+Edytor nie generuje stałego sygnału STEP. Zamiast tego:
+
+1. krzywa ruchu definiuje intensywność ruchu,
+2. intensywność przeliczana jest na liczbę kroków w czasie,
+3. kroki są rozkładane w próbkach 10 ms,
+4. zmiana kierunku realizowana jest przez sygnał DIR:
+   - DIR = 1 → ruch w prawo
+   - DIR = 0 → ruch w lewo
+
+Oznacza to, że **odstępy czasowe pomiędzy impulsami STEP muszą być zmienne**, 
+ponieważ to one definiują rzeczywistą prędkość obrotu silnika.

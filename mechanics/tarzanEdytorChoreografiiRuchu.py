@@ -89,6 +89,13 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             bd=5,
         ).pack(side="left", fill="x", expand=True, padx=(8, 0))
 
+        global_bar_wrap = tk.Frame(outer, bg=self.BG)
+        global_bar_wrap.pack(fill="x", pady=(0, 8))
+        tk.Label(global_bar_wrap, text="GLOBAL TIMELINE", bg=self.BG, fg=self.FG, font=("Segoe UI Semibold", 10)).pack(anchor="w", padx=6)
+        self.global_canvas = tk.Canvas(global_bar_wrap, height=24, bg=self.PANEL_2, highlightthickness=0, bd=0)
+        self.global_canvas.pack(fill="x", padx=6, pady=(2, 0))
+        self.global_canvas.bind("<Configure>", lambda _e: self._draw_global_timeline())
+
         body = tk.Frame(outer, bg=self.BG)
         body.pack(fill="both", expand=True)
 
@@ -287,12 +294,11 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         if self.drone_track is not None:
             self.drone_track.set_view(view_start, view_end)
             self.drone_track.set_selected(self.selected_axis_key == DRONE_KEY)
+        self._draw_global_timeline()
         self._refresh_preview_window()
 
     def _draw_global_timeline(self) -> None:
-        c = getattr(self, "global_canvas", None)
-        if c is None:
-            return
+        c = self.global_canvas
         c.delete("all")
         width = max(100, int(c.winfo_width()))
         height = max(20, int(c.winfo_height()))

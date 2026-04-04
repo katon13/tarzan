@@ -135,7 +135,6 @@ class TarzanTakePreviewWindow(tk.Toplevel):
         widget.insert("1.0", text)
         widget.configure(state="disabled")
 
-
     def _build_protocol_rows(
         self,
         axis_take,
@@ -159,49 +158,35 @@ class TarzanTakePreviewWindow(tk.Toplevel):
 
         amps = [self._interpolate_value(points, t) for t in times]
         abs_sum = sum(abs(v) for v in amps)
-
-        rows: list[dict[str, float | int]] = []
-        if abs_sum <= 1e-12 or target_total_pulses <= 0:
-            last_dir = 1
-            step_state = 0
-            cumulative_count = 0
+        if abs_sum <= 1e-12:
+            rows = []
             for t, amp in zip(times, amps):
-                if amp > 1e-12:
-                    dir_value = 1
-                    last_dir = 1
-                elif amp < -1e-12:
-                    dir_value = 0
-                    last_dir = 0
-                else:
-                    dir_value = last_dir
-
                 rows.append(
                     {
-                        "count": int(cumulative_count),
+                        "count": 0,
                         "time_ms": int(t),
-                        "dir": int(dir_value),
-                        "step": int(step_state),
+                        "step": 0,
+                        "dir": 1,
                         "enable": 1,
                         "amp": float(amp),
-                        "step_events": 0,
                     }
                 )
             return rows, 0
 
-        # Zasada TARZAN:
-        # prędkość ruchu wynika z gęstości zmian stanu STEP w czasie.
-        # Nie przełączamy STEP co każdą próbkę 10 ms.
+        # Rozkład impulsów zgodny z zasadą:
+        # amplituda -> gęstość impulsów -> akumulator -> COUNT / STEP
         accumulator = 0.0
-        cumulative_count = 0
-        step_state = 0
+        emitted_total = 0
         last_dir = 1
+        step_level = 0
+        rows: list[dict[str, float | int]] = []
 
         for t, amp in zip(times, amps):
             density_share = abs(float(amp)) / abs_sum
             pulses_in_sample_float = density_share * target_total_pulses
             accumulator += pulses_in_sample_float
-            step_events = int(math.floor(accumulator + 1e-12))
-            accumulator -= step_events
+            step_count = int(math.floor(accumulator + 1e-12))
+            accumulator -= step_count
 
             if amp > 1e-12:
                 dir_value = 1
@@ -212,33 +197,32 @@ class TarzanTakePreviewWindow(tk.Toplevel):
             else:
                 dir_value = last_dir
 
-            # Jedna zmiana stanu STEP = jeden krok.
-            # STEP utrzymuje ostatni stan aż do kolejnej zmiany.
-            if step_events % 2 == 1:
-                step_state = 0 if step_state == 1 else 1
+            if step_count > 0:
+                step_level = 0 if step_level == 1 else 1
+            else:
+                step_level = 0
 
-            cumulative_count += step_events
+            emitted_total += step_count
             rows.append(
                 {
-                    "count": int(cumulative_count),
+                    "count": int(emitted_total + step_count),
                     "time_ms": int(t),
+                    "step": int(step_level),
                     "dir": int(dir_value),
-                    "step": int(step_state),
                     "enable": 1,
                     "amp": float(amp),
-                    "step_events": int(step_events),
                 }
             )
 
-        diff = int(target_total_pulses) - cumulative_count
+        diff = int(target_total_pulses) - emitted_total
         if rows and diff != 0:
-            rows[-1]["step_events"] = int(rows[-1]["step_events"]) + diff
-            cumulative_count += diff
-            rows[-1]["count"] = int(cumulative_count)
-            if abs(diff) % 2 == 1:
-                rows[-1]["step"] = 0 if int(rows[-1]["step"]) == 1 else 1
+            rows[-1]["count"] = int(rows[-1]["count"]) + diff
+            if int(rows[-1]["count"]) > 0:
+                prev_step = int(rows[-2]["step"]) if len(rows) > 1 else 0
+                rows[-1]["step"] = 0 if prev_step == 1 else 1
+            emitted_total += diff
 
-        return rows, cumulative_count
+        return rows, emitted_total
 
     def _resolve_target_pulses(self, axis_take, validation_result: Any | None) -> int:
         # Długość osi i budżet impulsów są święte dla modelu:
@@ -298,9 +282,8 @@ class TarzanTakePreviewWindow(tk.Toplevel):
                 return float(v0 + (v1 - v0) * rel)
         return 0.0
 
-
     def _format_protocol(self, protocol_rows: list[dict[str, float | int]]) -> str:
-        lines = ["COUNT | TIME | DIR | STEP | ENABLE | AMP"]
+        lines = ["COUNT | TIME | STEP | DIR | ENABLE | AMP"]
         if not protocol_rows:
             lines.append("Brak danych protokołu preview.")
             return "\n".join(lines)
@@ -309,8 +292,8 @@ class TarzanTakePreviewWindow(tk.Toplevel):
             lines.append(
                 f"{int(row['count']):>5} | "
                 f"{int(row['time_ms']):>5} | "
-                f"{int(row['dir']):>3} | "
                 f"{int(row['step']):>4} | "
+                f"{int(row['dir']):>3} | "
                 f"{int(row['enable']):>6} | "
                 f"{float(row['amp']):>+.3f}"
             )
@@ -349,7 +332,6 @@ class TarzanTakePreviewWindow(tk.Toplevel):
             )
         return "\n".join(lines)
 
-
     def _build_segments_from_protocol(self, protocol_rows: list[dict[str, float | int]]) -> list[dict[str, int | bool | str]]:
         segments: list[dict[str, int | bool | str]] = []
         if not protocol_rows:
@@ -360,16 +342,11 @@ class TarzanTakePreviewWindow(tk.Toplevel):
         seg_index = 1
 
         for idx, row in enumerate(protocol_rows):
+            count = int(row["count"])
             time_ms = int(row["time_ms"])
             amp = float(row["amp"])
-            step_events = int(row.get("step_events", 0))
-
-            if abs(amp) <= 1e-12 and step_events == 0:
-                direction = 0
-                is_pause = True
-            else:
-                direction = int(row["dir"])
-                is_pause = False
+            direction = int(row["dir"]) if abs(amp) > 1e-12 or count > 0 else 0
+            is_pause = direction == 0 and count == 0
 
             kind = ("pause", 0) if is_pause else ("move", direction)
 
@@ -383,7 +360,7 @@ class TarzanTakePreviewWindow(tk.Toplevel):
                     "start_time": time_ms,
                     "end_time": time_ms,
                     "direction": direction,
-                    "pulse_count": int(step_events),
+                    "pulse_count": count,
                     "is_pause": is_pause,
                     "is_direction_change": False if previous_dir is None else (not is_pause and direction != previous_dir),
                     "kind": kind,
@@ -392,7 +369,7 @@ class TarzanTakePreviewWindow(tk.Toplevel):
                 if not is_pause:
                     previous_dir = direction
             else:
-                current["pulse_count"] = int(current["pulse_count"]) + int(step_events)
+                current["pulse_count"] = int(current["pulse_count"]) + count
 
         if current is not None:
             current["end_time"] = int(protocol_rows[-1]["time_ms"])

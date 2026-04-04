@@ -166,6 +166,7 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
 
         self.axis_lines = {definition.key: self.krzywe.build_from_axis(self.take.axes[definition.key]) for definition in AXIS_DEFINITIONS}
         self.selected_axis_key = AXIS_DEFINITIONS[0].key
+        self._normalize_take_timeline_from_lines()
         self.current_xlim = self._full_xlim()
 
         self._rebuild_tracks()
@@ -208,6 +209,21 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
                 return int(event.event_time)
         start, end = self._full_xlim()
         return int((start + end) // 2)
+
+    def _normalize_take_timeline_from_lines(self) -> None:
+        if not self.take:
+            return
+        starts = []
+        ends = []
+        for line in self.axis_lines.values():
+            if getattr(line, "nodes", None):
+                starts.append(int(line.nodes[0].time_ms))
+                ends.append(int(line.nodes[-1].time_ms))
+        if not starts or not ends:
+            return
+        self.take.timeline.take_start = min(starts)
+        self.take.timeline.take_end = max(ends)
+        self.take.timeline.take_duration = int(self.take.timeline.take_end) - int(self.take.timeline.take_start)
 
     def _refresh_tracks(self) -> None:
         if not self.current_xlim:
@@ -280,6 +296,18 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
 
     def _on_axis_line_change(self, axis_key: str, line) -> None:
         self.axis_lines[axis_key] = line
+        self._normalize_take_timeline_from_lines()
+        self.current_xlim = self._full_xlim()
+        if axis_key == self.selected_axis_key:
+            track = self.axis_tracks.get(axis_key)
+            if track is not None:
+                result = track.get_validation_result()
+                self._set_status(
+                    f"{self.take.axes[axis_key].axis_name} | P={int(round(result.pulses_total))}/{int(round(result.pulses_limit))} | "
+                    f"R={int(round(result.peak_rate))}/{int(round(result.rate_limit))} | "
+                    f"A={int(round(result.peak_acceleration))}/{int(round(result.acceleration_limit))}"
+                )
+        self._refresh_tracks()
 
     def _on_select_axis(self, axis_key: str) -> None:
         self.selected_axis_key = axis_key
@@ -309,11 +337,30 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
     def _sync_take_from_lines(self) -> None:
         for axis_key, line in self.axis_lines.items():
             self.take.axes[axis_key] = self.krzywe.export_to_axis(self.take.axes[axis_key], line)
+        ensure_take_axes(self.take)
+        self._normalize_take_timeline_from_lines()
+
+    def _collect_validation_errors(self) -> list[str]:
+        errors: list[str] = []
+        for definition in AXIS_DEFINITIONS:
+            track = self.axis_tracks.get(definition.key)
+            if track is None:
+                continue
+            result = track.get_validation_result()
+            if not result.is_valid:
+                errors.append(f"{definition.axis_name}: {' | '.join(result.violations)}")
+        return errors
 
     def save_take(self) -> None:
         if not self.take or not self.take_path:
             self._set_status("Brak TAKE do zapisania.")
             return
+
+        errors = self._collect_validation_errors()
+        if errors:
+            self._set_status("Zapis zablokowany: " + " || ".join(errors))
+            return
+
         self._sync_take_from_lines()
         new_take_path = self.versioning.save_new_take(
             original_take_path=self.take_path,

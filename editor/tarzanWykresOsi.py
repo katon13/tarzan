@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import copy
+import math
 import tkinter as tk
 from dataclasses import dataclass
 
 from editor.tarzanPanelOsi import TarzanPanelOsi
 from editor.tarzanEdycjaPunktow import TarzanEdycjaPunktow
 from motion.tarzanTakeModel import TarzanAxisTake, TarzanControlPoint, TarzanCurve
+
+try:
+    from mechanics.tarzanMechanikaOsi import TarzanMechanics
+except Exception:
+    TarzanMechanics = None
 
 
 @dataclass(frozen=True)
@@ -21,16 +27,161 @@ class TarzanAxisDefinition:
     backlash_compensation: int
 
 
-AXIS_DEFINITIONS: list[TarzanAxisDefinition] = [
-    TarzanAxisDefinition("camera_horizontal", "oś pozioma kamery", "tarzanCameraHorizontal", 28800, 3.0, 7200, 1800, 24),
-    TarzanAxisDefinition("camera_vertical", "oś pionowa kamery", "tarzanCameraVertical", 12800, 2.0, 6400, 1600, 24),
-    TarzanAxisDefinition("camera_tilt", "oś pochyłu kamery", "tarzanCameraTilt", 3200, 1.0, 3200, 900, 12),
-    TarzanAxisDefinition("camera_focus", "oś ostrości kamery", "tarzanCameraFocus", 30764, 1.0, 9600, 2400, 12),
-    TarzanAxisDefinition("arm_vertical", "oś pionowa ramienia", "tarzanArmVertical", 28485, 10.0, 3200, 900, 36),
-    TarzanAxisDefinition("arm_horizontal", "oś pozioma ramienia", "tarzanArmHorizontal", 92273, 15.0, 2400, 700, 36),
-]
+@dataclass
+class AxisValidationResult:
+    pulses_total: float
+    pulses_limit: float
+    peak_rate: float
+    rate_limit: float
+    peak_acceleration: float
+    acceleration_limit: float
+    duration_ms: int
+    violations: list[str]
+
+    @property
+    def is_valid(self) -> bool:
+        return not self.violations
+
 
 DRONE_KEY = "drone_release"
+
+
+def _safe_float(value, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+def _safe_int(value, default: int = 0) -> int:
+    try:
+        return int(round(float(value)))
+    except Exception:
+        return default
+
+
+def _derive_acceleration(rate_start: float, rate_ramp: float, time_start: float, time_ramp: float, fallback: int) -> int:
+    total_time = max(0.05, _safe_float(time_start) + _safe_float(time_ramp))
+    delta_rate = max(0.0, _safe_float(rate_ramp) - _safe_float(rate_start))
+    if delta_rate <= 0:
+        return int(fallback)
+    return max(int(fallback), _safe_int(delta_rate / total_time, fallback))
+
+
+def _build_axis_definitions() -> list[TarzanAxisDefinition]:
+    if TarzanMechanics is None:
+        return [
+            TarzanAxisDefinition("camera_horizontal", "oś pozioma kamery", "tarzanCameraHorizontal", 28800, 3.0, 7200, 1800, 24),
+            TarzanAxisDefinition("camera_vertical", "oś pionowa kamery", "tarzanCameraVertical", 12800, 2.0, 6400, 1600, 24),
+            TarzanAxisDefinition("camera_tilt", "oś pochyłu kamery", "tarzanCameraTilt", 3200, 1.0, 3200, 900, 12),
+            TarzanAxisDefinition("camera_focus", "oś ostrości kamery", "tarzanCameraFocus", 30764, 1.0, 9600, 2400, 12),
+            TarzanAxisDefinition("arm_vertical", "oś pionowa ramienia", "tarzanArmVertical", 28485, 10.0, 3200, 900, 36),
+            TarzanAxisDefinition("arm_horizontal", "oś pozioma ramienia", "tarzanArmHorizontal", 92273, 15.0, 2400, 700, 36),
+        ]
+
+    mechanics = TarzanMechanics
+    return [
+        TarzanAxisDefinition(
+            "camera_horizontal",
+            "oś pozioma kamery",
+            "tarzanCameraHorizontal",
+            _safe_int(getattr(mechanics, "cameraHorizontalPulsesPerCycle")()),
+            _safe_float(getattr(mechanics, "CAMERA_HORIZONTAL_MIN_CYCLE_TIME_SEC", 3.0)),
+            _safe_int(getattr(mechanics, "cameraHorizontalCruiseMaxPulsesPerSecond")()),
+            _derive_acceleration(
+                getattr(mechanics, "CAMERA_HORIZONTAL_START_SETTLE_MAX_PULSES_PER_SEC", 300.0),
+                getattr(mechanics, "CAMERA_HORIZONTAL_START_RAMP_MAX_PULSES_PER_SEC", 1500.0),
+                getattr(mechanics, "CAMERA_HORIZONTAL_START_SETTLE_TIME_SEC", 0.30),
+                getattr(mechanics, "CAMERA_HORIZONTAL_START_RAMP_TIME_SEC", 0.90),
+                1800,
+            ),
+            _safe_int(getattr(mechanics, "CAMERA_HORIZONTAL_BACKLASH_COMPENSATION_PULSES", 24)),
+        ),
+        TarzanAxisDefinition(
+            "camera_vertical",
+            "oś pionowa kamery",
+            "tarzanCameraVertical",
+            _safe_int(getattr(mechanics, "cameraVerticalPulsesPerCycle")()),
+            _safe_float(getattr(mechanics, "CAMERA_VERTICAL_MIN_CYCLE_TIME_SEC", 2.0)),
+            _safe_int(getattr(mechanics, "cameraVerticalCruiseMaxPulsesPerSecond")()),
+            _derive_acceleration(
+                getattr(mechanics, "CAMERA_VERTICAL_START_SETTLE_MAX_PULSES_PER_SEC", 250.0),
+                getattr(mechanics, "CAMERA_VERTICAL_START_RAMP_MAX_PULSES_PER_SEC", 1200.0),
+                getattr(mechanics, "CAMERA_VERTICAL_START_SETTLE_TIME_SEC", 0.30),
+                getattr(mechanics, "CAMERA_VERTICAL_START_RAMP_TIME_SEC", 0.90),
+                1600,
+            ),
+            _safe_int(getattr(mechanics, "CAMERA_VERTICAL_BACKLASH_COMPENSATION_PULSES", 24)),
+        ),
+        TarzanAxisDefinition(
+            "camera_tilt",
+            "oś pochyłu kamery",
+            "tarzanCameraTilt",
+            _safe_int(getattr(mechanics, "cameraTiltPulsesPerCycle")()),
+            _safe_float(getattr(mechanics, "CAMERA_TILT_MIN_CYCLE_TIME_SEC", 1.0)),
+            _safe_int(getattr(mechanics, "cameraTiltCruiseMaxPulsesPerSecond")()),
+            _derive_acceleration(
+                getattr(mechanics, "CAMERA_TILT_START_SETTLE_MAX_PULSES_PER_SEC", 150.0),
+                getattr(mechanics, "CAMERA_TILT_START_RAMP_MAX_PULSES_PER_SEC", 600.0),
+                getattr(mechanics, "CAMERA_TILT_START_SETTLE_TIME_SEC", 0.25),
+                getattr(mechanics, "CAMERA_TILT_START_RAMP_TIME_SEC", 0.75),
+                900,
+            ),
+            _safe_int(getattr(mechanics, "CAMERA_TILT_BACKLASH_COMPENSATION_PULSES", 12)),
+        ),
+        TarzanAxisDefinition(
+            "camera_focus",
+            "oś ostrości kamery",
+            "tarzanCameraFocus",
+            _safe_int(getattr(mechanics, "cameraFocusPulsesPerCycle")()),
+            _safe_float(getattr(mechanics, "CAMERA_FOCUS_MIN_CYCLE_TIME_SEC", 1.0)),
+            _safe_int(getattr(mechanics, "cameraFocusCruiseMaxPulsesPerSecond")()),
+            _derive_acceleration(
+                getattr(mechanics, "CAMERA_FOCUS_START_SETTLE_MAX_PULSES_PER_SEC", 400.0),
+                getattr(mechanics, "CAMERA_FOCUS_START_RAMP_MAX_PULSES_PER_SEC", 2000.0),
+                getattr(mechanics, "CAMERA_FOCUS_START_SETTLE_TIME_SEC", 0.20),
+                getattr(mechanics, "CAMERA_FOCUS_START_RAMP_TIME_SEC", 0.50),
+                2400,
+            ),
+            _safe_int(getattr(mechanics, "CAMERA_FOCUS_BACKLASH_COMPENSATION_PULSES", 12)),
+        ),
+        TarzanAxisDefinition(
+            "arm_vertical",
+            "oś pionowa ramienia",
+            "tarzanArmVertical",
+            _safe_int(getattr(mechanics, "armVerticalPulsesPerCycle")()),
+            _safe_float(getattr(mechanics, "ARM_VERTICAL_MIN_CYCLE_TIME_SEC", 10.0)),
+            _safe_int(getattr(mechanics, "armVerticalCruiseMaxPulsesPerSecond")()),
+            _derive_acceleration(
+                getattr(mechanics, "ARM_VERTICAL_START_SETTLE_MAX_PULSES_PER_SEC", 150.0),
+                getattr(mechanics, "ARM_VERTICAL_START_RAMP_MAX_PULSES_PER_SEC", 900.0),
+                getattr(mechanics, "ARM_VERTICAL_START_SETTLE_TIME_SEC", 0.50),
+                getattr(mechanics, "ARM_VERTICAL_START_RAMP_TIME_SEC", 1.00),
+                900,
+            ),
+            _safe_int(getattr(mechanics, "ARM_VERTICAL_BACKLASH_COMPENSATION_PULSES", 36)),
+        ),
+        TarzanAxisDefinition(
+            "arm_horizontal",
+            "oś pozioma ramienia",
+            "tarzanArmHorizontal",
+            _safe_int(getattr(mechanics, "armHorizontalPulsesPerCycle")()),
+            _safe_float(getattr(mechanics, "ARM_HORIZONTAL_MIN_CYCLE_TIME_SEC", 15.0)),
+            _safe_int(getattr(mechanics, "armHorizontalCruiseMaxPulsesPerSecond")()),
+            _derive_acceleration(
+                getattr(mechanics, "ARM_HORIZONTAL_START_SETTLE_MAX_PULSES_PER_SEC", 200.0),
+                getattr(mechanics, "ARM_HORIZONTAL_START_RAMP_MAX_PULSES_PER_SEC", 1200.0),
+                getattr(mechanics, "ARM_HORIZONTAL_START_SETTLE_TIME_SEC", 0.60),
+                getattr(mechanics, "ARM_HORIZONTAL_START_RAMP_TIME_SEC", 1.20),
+                700,
+            ),
+            _safe_int(getattr(mechanics, "ARM_HORIZONTAL_BACKLASH_COMPENSATION_PULSES", 36)),
+        ),
+    ]
+
+
+AXIS_DEFINITIONS: list[TarzanAxisDefinition] = _build_axis_definitions()
+AXIS_DEFINITION_MAP: dict[str, TarzanAxisDefinition] = {item.key: item for item in AXIS_DEFINITIONS}
 
 
 def ensure_take_axes(take) -> None:
@@ -85,11 +236,15 @@ class AxisTrack(tk.Frame):
     FG = "#F3F6F8"
     MUTED = "#8E98A4"
     CURVE = "#D9E7F5"
+    CURVE_INVALID = "#FF8080"
     NODE = "#FFD166"
     NODE_SELECTED = "#FF9F1C"
     START = "#45C46B"
     STOP = "#E65D5D"
     SEGMENT_FILL = "#253040"
+    LIMIT_OK = "#6BD08B"
+    LIMIT_WARN = "#E6B450"
+    LIMIT_BAD = "#FF6B6B"
     SEGMENT_COLORS = {
         "camera_horizontal": "#2D6CDF",
         "camera_vertical": "#0E9F6E",
@@ -103,6 +258,7 @@ class AxisTrack(tk.Frame):
         super().__init__(parent, bg=self.BG, highlightthickness=1, highlightbackground="#222833")
         self.axis_key = axis_key
         self.axis_take = axis_take
+        self.axis_definition = AXIS_DEFINITION_MAP[axis_key]
         self.line = line
         self.original_line = copy.deepcopy(line)
         self.krzywe = krzywe
@@ -119,8 +275,12 @@ class AxisTrack(tk.Frame):
         self.drag_index = None
         self.selected_node_index = None
         self.drag_original = None
-        self.drag_area = 0.0
         self.preview_line = None
+        self.preview_validation_result: AxisValidationResult | None = None
+        self.validation_result: AxisValidationResult | None = None
+        self.last_curve_points = []
+        self.original_area = 0.0
+        self.pan_anchor_x = 0
         self.canvas_width = 1100
         self.canvas_height = 92
 
@@ -137,6 +297,13 @@ class AxisTrack(tk.Frame):
         )
         self.panel.pack(side="left", fill="y")
 
+        self.limit_panel = tk.Frame(self, bg=self.BG, width=128)
+        self.limit_panel.pack(side="left", fill="y", padx=(4, 0))
+        self.limit_panel.pack_propagate(False)
+
+        self.limit_canvas = tk.Canvas(self.limit_panel, width=124, height=76, bg="#1A1E24", highlightthickness=0, bd=0)
+        self.limit_canvas.pack(fill="both", expand=False, pady=(8, 0))
+
         right = tk.Frame(self, bg=self.BG)
         right.pack(side="left", fill="both", expand=True)
 
@@ -148,7 +315,19 @@ class AxisTrack(tk.Frame):
             font=("Segoe UI Semibold", 10),
             anchor="w",
         )
-        self.title.pack(fill="x", padx=10, pady=(6, 2))
+        self.title.pack(fill="x", padx=10, pady=(6, 1))
+
+        self.meta_var = tk.StringVar(value="")
+        self.meta_label = tk.Label(
+            right,
+            textvariable=self.meta_var,
+            bg=self.BG,
+            fg=self.MUTED,
+            font=("Segoe UI", 7),
+            anchor="w",
+            justify="left",
+        )
+        self.meta_label.pack(fill="x", padx=10, pady=(0, 2))
 
         self.canvas = tk.Canvas(
             right,
@@ -180,7 +359,21 @@ class AxisTrack(tk.Frame):
         self.line = line
         if self.selected_node_index is not None and self.selected_node_index >= len(self.line.nodes):
             self.selected_node_index = None
+        self.validation_result = self.validate_line(self.line)
         self.redraw()
+
+    def get_validation_result(self) -> AxisValidationResult:
+        return self.validate_line(self.line)
+
+    def _display_line(self):
+        return self.preview_line if self.preview_line is not None else self.line
+
+    def _display_validation(self) -> AxisValidationResult:
+        if self.preview_line is not None and self.preview_validation_result is not None:
+            return self.preview_validation_result
+        if self.validation_result is None:
+            self.validation_result = self.validate_line(self.line)
+        return self.validation_result
 
     def _select(self) -> None:
         self.on_select(self.axis_key)
@@ -192,16 +385,30 @@ class AxisTrack(tk.Frame):
 
     def _smooth(self) -> None:
         try:
-            self.line = self.krzywe.smooth_line(self.line, strength=0.35, preserve_distance=True, axis=self.axis_take)
+            try:
+                candidate = self.krzywe.smooth_line(self.line, strength=0.35, preserve_distance=True, axis=self.axis_take)
+            except Exception:
+                candidate = self._smooth_line_local(self.line)
+            candidate = self._preserve_motion_area(candidate, self.line, locked_index=None)
+            result = self.validate_line(candidate)
+            self.line = candidate
+            self.validation_result = result
+            self.preview_line = None
+            self.preview_validation_result = None
             self.on_change(self.axis_key, self.line)
             self.redraw()
-            self.on_status(f"Wygładzono oś: {self.axis_take.axis_name}")
+            if result.is_valid:
+                self.on_status(f"Wygładzono oś: {self.axis_take.axis_name}")
+            else:
+                self.on_status(self._format_violation_status(result))
         except Exception as exc:
             self.on_status(f"Błąd wygładzania: {exc}")
 
     def _reset(self) -> None:
         self.line = copy.deepcopy(self.original_line)
         self.preview_line = None
+        self.preview_validation_result = None
+        self.validation_result = self.validate_line(self.line)
         self.selected_node_index = None
         self.on_change(self.axis_key, self.line)
         self.redraw()
@@ -218,9 +425,15 @@ class AxisTrack(tk.Frame):
             sampled = self.krzywe.sample_line(self.line, sample_count=180)
             nearest = min(sampled, key=lambda item: abs(item[0] - mid))
             before_count = len(self.line.nodes)
-            self.line = self.krzywe.add_node(self.line, mid, nearest[1], axis=self.axis_take)
-            if len(self.line.nodes) > before_count:
-                self.selected_node_index = len(self.line.nodes) - 2
+            try:
+                candidate = self.krzywe.add_node(self.line, mid, nearest[1], axis=self.axis_take)
+            except TypeError:
+                candidate = self.krzywe.add_node(self.line, mid, nearest[1])
+            if len(candidate.nodes) > before_count:
+                self.selected_node_index = len(candidate.nodes) - 2
+            candidate = self._preserve_motion_area(candidate, self.line, locked_index=self.selected_node_index)
+            self.line = candidate
+            self.validation_result = self.validate_line(self.line)
             self.on_change(self.axis_key, self.line)
             self.redraw()
             self.on_status(f"Dodano węzeł osi: {self.axis_take.axis_name}")
@@ -235,7 +448,13 @@ class AxisTrack(tk.Frame):
             self.on_status("Nie można usunąć START ani STOP.")
             return
         try:
-            self.line = self.krzywe.remove_node(self.line, self.selected_node_index, axis=self.axis_take)
+            try:
+                candidate = self.krzywe.remove_node(self.line, self.selected_node_index, axis=self.axis_take)
+            except TypeError:
+                candidate = self.krzywe.remove_node(self.line, self.selected_node_index)
+            candidate = self._preserve_motion_area(candidate, self.line, locked_index=None)
+            self.line = candidate
+            self.validation_result = self.validate_line(self.line)
             self.selected_node_index = None
             self.on_change(self.axis_key, self.line)
             self.redraw()
@@ -248,13 +467,203 @@ class AxisTrack(tk.Frame):
         self.canvas_height = max(60, int(event.height))
         self.redraw()
 
-    def _display_line(self):
-        return self.preview_line if self.preview_line is not None else self.line
+    def _rate_to_color(self, ratio: float) -> str:
+        if ratio >= 1.0:
+            return self.LIMIT_BAD
+        if ratio >= 0.8:
+            return self.LIMIT_WARN
+        return self.LIMIT_OK
+
+    def _format_metrics_text(self, result: AxisValidationResult) -> str:
+        return (
+            f"cykl {self.axis_definition.full_cycle_pulses} imp | "
+            f"max {self.axis_definition.max_pulse_rate} imp/s | "
+            f"acc {self.axis_definition.max_acceleration} imp/s² | "
+            f"luz {self.axis_definition.backlash_compensation} imp"
+        )
+
+    def _format_violation_status(self, result: AxisValidationResult) -> str:
+        return f"{self.axis_take.axis_name}: {' | '.join(result.violations)}"
+
+    def _safe_sample(self, line, sample_count: int = 260):
+        try:
+            return self.krzywe.sample_line(line, sample_count=sample_count)
+        except Exception:
+            if not getattr(line, 'nodes', None):
+                return []
+            return [(int(n.time_ms), float(n.value)) for n in line.nodes]
+
+    def _compute_area(self, line) -> float:
+        try:
+            return float(self.krzywe.compute_area(line))
+        except Exception:
+            samples = self._safe_sample(line, 240)
+            if len(samples) < 2:
+                return 0.0
+            area = 0.0
+            for idx in range(1, len(samples)):
+                t0, v0 = samples[idx - 1]
+                t1, v1 = samples[idx]
+                area += ((abs(v0) + abs(v1)) * 0.5) * max(1, (t1 - t0))
+            return float(area)
+
+    def _scale_line_duration(self, line, factor: float, locked_index: int | None = None):
+        candidate = copy.deepcopy(line)
+        nodes = getattr(candidate, "nodes", [])
+        if len(nodes) < 2:
+            return candidate
+        factor = max(0.15, min(8.0, float(factor)))
+        start_time = int(nodes[0].time_ms)
+        step = max(1, getattr(self.edycja, "step_ms", 10))
+
+        locked_time = None
+        if locked_index is not None and 0 <= locked_index < len(nodes):
+            locked_time = int(nodes[locked_index].time_ms)
+
+        for idx, node in enumerate(nodes):
+            if idx == 0:
+                node.time_ms = start_time
+                node.value = 0.0
+                continue
+            offset = int(node.time_ms) - start_time
+            new_offset = self.edycja.snap(offset * factor)
+            node.time_ms = start_time + new_offset
+
+        if locked_time is not None and 0 < locked_index < len(nodes) - 1:
+            shift = locked_time - int(nodes[locked_index].time_ms)
+            for idx in range(locked_index, len(nodes)):
+                nodes[idx].time_ms = int(nodes[idx].time_ms) + shift
+
+        for idx in range(1, len(nodes)):
+            min_time = int(nodes[idx - 1].time_ms) + step
+            if int(nodes[idx].time_ms) < min_time:
+                nodes[idx].time_ms = min_time
+
+        nodes[-1].value = 0.0
+        return candidate
+
+    def _preserve_motion_area(self, candidate, reference, locked_index: int | None = None):
+        ref_area = self._compute_area(reference)
+        cand_area = self._compute_area(candidate)
+        if ref_area <= 0 or cand_area <= 0:
+            return candidate
+        factor = ref_area / cand_area
+        if abs(factor - 1.0) < 0.03:
+            return candidate
+        return self._scale_line_duration(candidate, factor, locked_index=locked_index)
+
+    def _smooth_line_local(self, line):
+        candidate = copy.deepcopy(line)
+        nodes = getattr(candidate, "nodes", [])
+        if len(nodes) <= 2:
+            return candidate
+        original_values = [float(node.value) for node in nodes]
+        for index in range(1, len(nodes) - 1):
+            prev_value = original_values[index - 1]
+            current_value = original_values[index]
+            next_value = original_values[index + 1]
+            nodes[index].value = (prev_value * 0.25) + (current_value * 0.5) + (next_value * 0.25)
+        nodes[0].value = 0.0
+        nodes[-1].value = 0.0
+        return candidate
+
+    def _shift_line_local(self, line, delta_ms: int):
+        candidate = copy.deepcopy(line)
+        nodes = getattr(candidate, "nodes", [])
+        if not nodes:
+            return candidate
+        snapped_delta = self.edycja.snap(delta_ms)
+        for node in nodes:
+            node.time_ms = int(node.time_ms) + snapped_delta
+        return candidate
+
+    def validate_line(self, line) -> AxisValidationResult:
+        samples = self._safe_sample(line, sample_count=max(160, len(getattr(line, 'nodes', [])) * 80))
+        if len(samples) < 2:
+            return AxisValidationResult(0.0, float(self.axis_definition.full_cycle_pulses), 0.0, float(self.axis_definition.max_pulse_rate), 0.0, float(self.axis_definition.max_acceleration), 0, [])
+
+        duration_ms = max(0, int(line.nodes[-1].time_ms) - int(line.nodes[0].time_ms))
+        duration_s = duration_ms / 1000.0 if duration_ms > 0 else 0.0
+        base_rate = self.axis_definition.full_cycle_pulses / max(0.001, self.axis_definition.min_full_cycle_time_s)
+
+        area_ms = 0.0
+        peak_rate = 0.0
+        peak_acceleration = 0.0
+        prev_rate = None
+        prev_time = None
+
+        for index in range(1, len(samples)):
+            t0, v0 = samples[index - 1]
+            t1, v1 = samples[index]
+            dt_ms = max(1, int(t1) - int(t0))
+            avg_abs = (abs(float(v0)) + abs(float(v1))) * 0.5
+            area_ms += avg_abs * dt_ms
+            rate0 = abs(float(v0)) * base_rate
+            rate1 = abs(float(v1)) * base_rate
+            peak_rate = max(peak_rate, rate0, rate1)
+            if prev_rate is not None and prev_time is not None:
+                delta_t = max(0.001, (float(t1) - float(prev_time)) / 1000.0)
+                peak_acceleration = max(peak_acceleration, abs(rate1 - prev_rate) / delta_t)
+            prev_rate = rate1
+            prev_time = t1
+
+        pulses_total = area_ms * base_rate / 1000.0
+        pulses_limit = float(self.axis_definition.full_cycle_pulses)
+        rate_limit = float(self.axis_definition.max_pulse_rate)
+        acceleration_limit = float(self.axis_definition.max_acceleration)
+
+        violations: list[str] = []
+        if pulses_total > pulses_limit + max(2.0, pulses_limit * 0.005):
+            violations.append(f"za dużo impulsów {int(round(pulses_total))}>{int(round(pulses_limit))}")
+        if peak_rate > rate_limit + max(5.0, rate_limit * 0.01):
+            violations.append(f"za duża prędkość {int(round(peak_rate))}>{int(round(rate_limit))} imp/s")
+        if peak_acceleration > acceleration_limit + max(10.0, acceleration_limit * 0.02):
+            violations.append(f"za duże przyspieszenie {int(round(peak_acceleration))}>{int(round(acceleration_limit))} imp/s²")
+        if duration_s < max(0.05, self.axis_definition.min_full_cycle_time_s * 0.08):
+            violations.append("za krótki czas ruchu")
+        if abs(float(line.nodes[0].value)) > 1e-6:
+            violations.append("START musi być 0")
+        if abs(float(line.nodes[-1].value)) > 1e-6:
+            violations.append("STOP musi być 0")
+
+        return AxisValidationResult(
+            pulses_total=pulses_total,
+            pulses_limit=pulses_limit,
+            peak_rate=peak_rate,
+            rate_limit=rate_limit,
+            peak_acceleration=peak_acceleration,
+            acceleration_limit=acceleration_limit,
+            duration_ms=duration_ms,
+            violations=violations,
+        )
+
+    def _draw_limit_panel(self, result: AxisValidationResult) -> None:
+        c = self.limit_canvas
+        c.delete("all")
+        width = max(120, int(c.winfo_width() or 124))
+        c.create_rectangle(0, 0, width, 76, fill="#1A1E24", outline="#2A3038")
+        bars = [
+            ("P", result.pulses_total, result.pulses_limit, 12),
+            ("R", result.peak_rate, result.rate_limit, 32),
+            ("A", result.peak_acceleration, result.acceleration_limit, 52),
+        ]
+        for label, value, limit, y in bars:
+            ratio = 0.0 if limit <= 0 else value / limit
+            c.create_text(12, y, text=label, fill=self.FG, anchor="w", font=("Consolas", 8, "bold"))
+            c.create_rectangle(28, y - 5, width - 10, y + 5, fill="#222833", outline="#3A434E")
+            fill_to = 28 + min(1.0, ratio) * (width - 38)
+            c.create_rectangle(28, y - 5, fill_to, y + 5, fill=self._rate_to_color(ratio), outline="")
+            c.create_text(width - 8, y, text=f"{int(round(value))}/{int(round(limit))}", fill=self.MUTED, anchor="e", font=("Consolas", 7))
 
     def redraw(self) -> None:
         c = self.canvas
         c.delete("all")
         line = self._display_line()
+        result = self._display_validation()
+
+        self.panel.set_axis_name(self.axis_take.axis_name)
+        self.meta_var.set(self._format_metrics_text(result))
+        self._draw_limit_panel(result)
 
         x0 = self.edycja.time_to_x(line.nodes[0].time_ms, self.view_start, self.view_end, self.canvas_width)
         x1 = self.edycja.time_to_x(line.nodes[-1].time_ms, self.view_start, self.view_end, self.canvas_width)
@@ -269,14 +678,16 @@ class AxisTrack(tk.Frame):
         c.create_text(x0 + 4, 10, anchor="w", text="START", fill=self.START, font=("Segoe UI", 8, "bold"))
         c.create_text(x1 - 4, 10, anchor="e", text="STOP", fill=self.STOP, font=("Segoe UI", 8, "bold"))
 
-        sampled = self.krzywe.sample_line(line, sample_count=260)
+        sampled = self._safe_sample(line, 260)
+        self.last_curve_points = []
         points = []
         for time_ms, value in sampled:
             x = self.edycja.time_to_x(time_ms, self.view_start, self.view_end, self.canvas_width)
             y = self.edycja.value_to_y(value, self.canvas_height)
             points.extend([x, y])
+            self.last_curve_points.append((x, y, time_ms, value))
         if len(points) >= 4:
-            c.create_line(*points, fill=self.CURVE, width=3, smooth=True)
+            c.create_line(*points, fill=self.CURVE if result.is_valid else self.CURVE_INVALID, width=3, smooth=True)
 
         for idx, node in enumerate(line.nodes):
             x = self.edycja.time_to_x(node.time_ms, self.view_start, self.view_end, self.canvas_width)
@@ -285,46 +696,138 @@ class AxisTrack(tk.Frame):
             fill = self.NODE_SELECTED if idx == self.selected_node_index else (self.NODE if idx not in (0, len(line.nodes) - 1) else "#D6EAF8")
             c.create_oval(x - r, y - r, x + r, y + r, fill=fill, outline="black", width=1)
 
+        if result.violations:
+            c.create_text(8, self.canvas_height - 10, anchor="w", text=" | ".join(result.violations), fill=self.CURVE_INVALID, font=("Segoe UI", 8, "bold"))
+
+    def _nearest_curve_hit(self, x: float, y: float):
+        if len(self.last_curve_points) < 2:
+            return None
+        best = None
+        best_dist = math.inf
+        for idx in range(len(self.last_curve_points) - 1):
+            x1, y1, *_ = self.last_curve_points[idx]
+            x2, y2, *_ = self.last_curve_points[idx + 1]
+            seg_len2 = (x2 - x1) ** 2 + (y2 - y1) ** 2
+            if seg_len2 <= 0:
+                continue
+            t = ((x - x1) * (x2 - x1) + (y - y1) * (y2 - y1)) / seg_len2
+            t = max(0.0, min(1.0, t))
+            px = x1 + t * (x2 - x1)
+            py = y1 + t * (y2 - y1)
+            dist = math.hypot(x - px, y - py)
+            if dist < best_dist:
+                best_dist = dist
+                best = (idx, dist)
+        if best is None or best[1] > self.edycja.LINE_TOL:
+            return None
+        return best[0]
+
+    def _nearest_node_by_curve_index(self, curve_index: int):
+        if len(self.line.nodes) <= 2:
+            return None
+        sample_ratio = curve_index / max(1, len(self.last_curve_points) - 1)
+        target_time = self.line.nodes[0].time_ms + sample_ratio * (self.line.nodes[-1].time_ms - self.line.nodes[0].time_ms)
+        interior = list(range(1, len(self.line.nodes) - 1))
+        if not interior:
+            return None
+        return min(interior, key=lambda idx: abs(self.line.nodes[idx].time_ms - target_time))
+
     def _on_press(self, event) -> None:
         self.on_select(self.axis_key)
         current = self._display_line()
-
         hit = self.edycja.hit_node(current, event.x, event.y, self.view_start, self.view_end, self.canvas_width, self.canvas_height)
+        x0 = self.edycja.time_to_x(current.nodes[0].time_ms, self.view_start, self.view_end, self.canvas_width)
+        x1 = self.edycja.time_to_x(current.nodes[-1].time_ms, self.view_start, self.view_end, self.canvas_width)
+        hit_start = self.edycja.hit_vertical_marker(x0, event.x)
+        hit_stop = self.edycja.hit_vertical_marker(x1, event.x)
+        curve_hit = self._nearest_curve_hit(event.x, event.y)
+
         if hit is not None:
             self.selected_node_index = hit
 
-        if self.pan_mode:
+        if self.pan_mode and (hit is not None or hit_start or hit_stop or curve_hit is not None):
             self.drag_mode = "pan"
             self.drag_original = copy.deepcopy(current)
             self.pan_anchor_x = event.x
+            self.preview_line = copy.deepcopy(current)
+            self.preview_validation_result = self.validate_line(self.preview_line)
+            return
+
+        if hit_start:
+            self.drag_mode = "start_edge"
+            self.drag_index = 0
+            self.drag_original = copy.deepcopy(current)
+            self.preview_line = copy.deepcopy(current)
+            self.preview_validation_result = self.validate_line(self.preview_line)
+            self.selected_node_index = 0
+            return
+
+        if hit_stop:
+            self.drag_mode = "stop_edge"
+            self.drag_index = len(current.nodes) - 1
+            self.drag_original = copy.deepcopy(current)
+            self.preview_line = copy.deepcopy(current)
+            self.preview_validation_result = self.validate_line(self.preview_line)
+            self.selected_node_index = self.drag_index
             return
 
         if hit is not None:
             self.drag_mode = "node"
             self.drag_index = hit
             self.drag_original = copy.deepcopy(current)
-            self.drag_area = self.krzywe.compute_area(current)
             self.preview_line = copy.deepcopy(current)
+            self.preview_validation_result = self.validate_line(self.preview_line)
+            self.original_area = self._compute_area(current)
             return
 
+        if curve_hit is not None:
+            nearest_node_index = self._nearest_node_by_curve_index(curve_hit)
+            if nearest_node_index is not None:
+                self.drag_mode = "node"
+                self.drag_index = nearest_node_index
+                self.drag_original = copy.deepcopy(current)
+                self.preview_line = copy.deepcopy(current)
+                self.preview_validation_result = self.validate_line(self.preview_line)
+                self.selected_node_index = nearest_node_index
+                self.original_area = self._compute_area(current)
+                return
+
         self.drag_mode = None
+        self.drag_index = None
+        self.drag_original = None
+        self.preview_line = None
+        self.preview_validation_result = None
         self.redraw()
+
+    def _move_edge(self, line, index: int, new_time: int):
+        updated = copy.deepcopy(line)
+        step = max(1, getattr(self.edycja, "step_ms", 10))
+        if index == 0:
+            max_time = updated.nodes[1].time_ms - step if len(updated.nodes) > 1 else updated.nodes[-1].time_ms - step
+            updated.nodes[0].time_ms = min(max_time, new_time)
+            updated.nodes[0].value = 0.0
+        else:
+            min_time = updated.nodes[-2].time_ms + step if len(updated.nodes) > 1 else updated.nodes[0].time_ms + step
+            updated.nodes[-1].time_ms = max(min_time, new_time)
+            updated.nodes[-1].value = 0.0
+        return updated
 
     def _on_drag(self, event) -> None:
         if self.drag_mode is None or self.drag_original is None:
             return
-
         try:
             if self.drag_mode == "pan":
                 t0 = self.edycja.x_to_time(self.pan_anchor_x, self.view_start, self.view_end, self.canvas_width)
                 t1 = self.edycja.x_to_time(event.x, self.view_start, self.view_end, self.canvas_width)
                 delta = t1 - t0
-                self.preview_line = self.krzywe.shift_line_in_time(self.drag_original, delta, axis=self.axis_take)
-
+                try:
+                    candidate = self.krzywe.shift_line_in_time(self.drag_original, delta, axis=self.axis_take)
+                except Exception:
+                    candidate = self._shift_line_local(self.drag_original, delta)
             elif self.drag_mode == "node":
                 new_time = self.edycja.x_to_time(event.x, self.view_start, self.view_end, self.canvas_width)
                 new_value = self.edycja.y_to_value(event.y, self.canvas_height)
-                self.preview_line = self.krzywe.move_node(
+                candidate = self.krzywe.move_node(
                     self.drag_original,
                     index=self.drag_index,
                     new_time_ms=new_time,
@@ -332,7 +835,22 @@ class AxisTrack(tk.Frame):
                     axis=self.axis_take,
                     preserve_area=False,
                 )
+                if self.drag_index not in (0, len(candidate.nodes) - 1):
+                    candidate = self._preserve_motion_area(candidate, self.drag_original, locked_index=self.drag_index)
+            elif self.drag_mode == "start_edge":
+                new_time = self.edycja.x_to_time(event.x, self.view_start, self.view_end, self.canvas_width)
+                candidate = self._move_edge(self.drag_original, 0, new_time)
+            elif self.drag_mode == "stop_edge":
+                new_time = self.edycja.x_to_time(event.x, self.view_start, self.view_end, self.canvas_width)
+                candidate = self._move_edge(self.drag_original, len(self.drag_original.nodes) - 1, new_time)
+            else:
+                return
 
+            result = self.validate_line(candidate)
+            self.preview_line = candidate
+            self.preview_validation_result = result
+            if result.violations:
+                self.on_status(self._format_violation_status(result))
             self.redraw()
         except Exception as exc:
             self.on_status(f"Błąd edycji osi {self.axis_take.axis_name}: {exc}")
@@ -341,18 +859,12 @@ class AxisTrack(tk.Frame):
         if self.drag_mode is None:
             return
         try:
-            if self.preview_line is not None:
-                committed = self.preview_line
-                if self.drag_mode == "node" and hasattr(self.krzywe, "fit_line_to_area_keep_node_locked"):
-                    committed = self.krzywe.fit_line_to_area_keep_node_locked(
-                        self.preview_line,
-                        target_area=self.drag_area,
-                        locked_index=self.drag_index,
-                        axis=self.axis_take,
-                    )
-                self.line = committed
+            if self.preview_line is not None and self.preview_validation_result is not None:
+                self.line = copy.deepcopy(self.preview_line)
+                self.validation_result = self.preview_validation_result
                 self.on_change(self.axis_key, self.line)
             self.preview_line = None
+            self.preview_validation_result = None
             self.redraw()
         finally:
             self.drag_mode = None
@@ -381,6 +893,10 @@ class DroneTrack(tk.Frame):
         left.pack(side="left", fill="y")
         left.pack_propagate(False)
         tk.Label(left, text="◆", bg="#23272E", fg=self.DRONE, font=("Segoe UI Symbol", 14)).pack(anchor="center", pady=(14, 4))
+
+        spacer = tk.Frame(self, width=128, bg=self.BG)
+        spacer.pack(side="left", fill="y")
+        spacer.pack_propagate(False)
 
         right = tk.Frame(self, bg=self.BG)
         right.pack(side="left", fill="both", expand=True)

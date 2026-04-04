@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import tkinter as tk
@@ -44,7 +45,6 @@ class TarzanPanelOsi(tk.Frame):
         self.btn_remove = self._make_btn(self.row3, "⊖", on_remove_node, "#B74A4A")
 
     def _make_btn(self, parent, text: str, command, bg_color: str):
-
         btn = tk.Button(
             parent,
             text=text,
@@ -61,21 +61,17 @@ class TarzanPanelOsi(tk.Frame):
             font=("Segoe UI Symbol", 11),
             cursor="hand2",
         )
-
         btn.pack(side="left", padx=2)
         return btn
 
     def set_selected(self, selected: bool) -> None:
-
         bg = self._bg_selected if selected else self._bg_normal
-
         self.configure(bg=bg)
         self.row1.configure(bg=bg)
         self.row2.configure(bg=bg)
         self.row3.configure(bg=bg)
 
     def set_pan_active(self, active: bool) -> None:
-
         self.btn_pan.configure(bg="#6B7D92" if active else "#6F42C1")
 
     def set_axis_name(self, axis_name: str) -> None:

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 class TarzanEdycjaPunktow:
     NODE_TOL = 10
+    LINE_TOL = 12
+    EDGE_TOL = 9
 
     def __init__(self, step_ms: int = 10):
         self.step_ms = step_ms
@@ -31,3 +33,6 @@ class TarzanEdycjaPunktow:
             if abs(nx - x) < self.NODE_TOL and abs(ny - y) < self.NODE_TOL:
                 return i
         return None
+
+    def hit_vertical_marker(self, marker_x: float, x: float) -> bool:
+        return abs(float(marker_x) - float(x)) <= self.EDGE_TOL

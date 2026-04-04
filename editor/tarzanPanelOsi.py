@@ -33,7 +33,6 @@ class TarzanPanelOsi(tk.Frame):
         self.row3 = tk.Frame(self, bg=self._bg_normal)
         self.row3.pack(fill="x", padx=6, pady=(0, 8))
 
-        self.btn_select = self._make_btn(self.row1, "✦", on_select, "#4C7DFF")
         self.btn_pan = self._make_btn(self.row1, "✋", on_pan, "#6B7280")
 
         self.btn_smooth = self._make_btn(self.row2, "〰", on_smooth, "#0E9F6E")

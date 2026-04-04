@@ -8,6 +8,7 @@ from tkinter import filedialog
 from core.tarzanTakeVersioning import TarzanTakeVersioning
 from editor.tarzanEdycjaPunktow import TarzanEdycjaPunktow
 from editor.tarzanWykresOsi import AXIS_DEFINITIONS, DRONE_KEY, AxisTrack, DroneTrack, ensure_take_axes
+from editor.tarzanTakePreviewWindow import TarzanTakePreviewWindow
 from motion.tarzanKrzyweRuchu import TarzanKrzyweRuchu
 from motion.tarzanTakeModel import TarzanEvent, TarzanTake
 
@@ -45,6 +46,7 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         self.take_path_var = tk.StringVar(value=str(self.take_path) if self.take_path else "")
 
         self.current_xlim: tuple[int, int] | None = None
+        self.preview_window: TarzanTakePreviewWindow | None = None
 
         self._build_ui()
         self._load_initial_take()
@@ -71,6 +73,7 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         self._make_button(top_right, "Zoom +", self.zoom_in, self.BTN_WARNING).pack(side="left", padx=2)
         self._make_button(top_right, "Zoom -", self.zoom_out, self.BTN_WARNING).pack(side="left", padx=2)
         self._make_button(top_right, "Pełny", self.zoom_reset, self.BTN_WARNING).pack(side="left", padx=2)
+        self._make_button(top_right, "Preview", self.open_take_preview_window, self.BTN_PRIMARY).pack(side="left", padx=2)
 
         path_row = tk.Frame(outer, bg=self.BG)
         path_row.pack(fill="x", pady=(0, 8))
@@ -171,6 +174,8 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
 
         self._rebuild_tracks()
         self._refresh_tracks()
+        self._ensure_preview_window()
+        self._refresh_preview_window()
         self.status_var.set(f"Załadowano TAKE: {take_path.name}")
 
     def _rebuild_tracks(self) -> None:
@@ -238,6 +243,7 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             self.drone_track.set_view(view_start, view_end)
             self.drone_track.set_selected(self.selected_axis_key == DRONE_KEY)
         self._draw_global_timeline()
+        self._refresh_preview_window()
 
     def _draw_global_timeline(self) -> None:
         c = self.global_canvas
@@ -312,6 +318,7 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
     def _on_select_axis(self, axis_key: str) -> None:
         self.selected_axis_key = axis_key
         self._refresh_tracks()
+        self._refresh_preview_window()
         self._set_status(f"Wybrano oś: {self.take.axes[axis_key].axis_name}")
 
     def _on_drone_change(self, event_time_ms: int) -> None:
@@ -332,6 +339,7 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
                 )
             )
         self._refresh_tracks()
+        self._refresh_preview_window()
         self._set_status(f"Ustawiono DRON release: {int(event_time_ms)} ms")
 
     def _sync_take_from_lines(self) -> None:
@@ -384,6 +392,34 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         )
         if selected:
             self._load_take(selected)
+
+
+    def _ensure_preview_window(self) -> None:
+        if self.preview_window is not None and self.preview_window.winfo_exists():
+            return
+        self.preview_window = TarzanTakePreviewWindow(self)
+        self.preview_window.protocol("WM_DELETE_WINDOW", self._close_preview_window)
+
+    def _close_preview_window(self) -> None:
+        if self.preview_window is not None and self.preview_window.winfo_exists():
+            self.preview_window.destroy()
+        self.preview_window = None
+
+    def open_take_preview_window(self) -> None:
+        self._ensure_preview_window()
+        if self.preview_window is not None:
+            self.preview_window.deiconify()
+            self.preview_window.lift()
+            self._refresh_preview_window()
+
+    def _refresh_preview_window(self) -> None:
+        if self.preview_window is None or not self.preview_window.winfo_exists() or self.take is None:
+            return
+        axis_key = self.selected_axis_key or (AXIS_DEFINITIONS[0].key if AXIS_DEFINITIONS else DRONE_KEY)
+        track = self.axis_tracks.get(axis_key) if axis_key in self.axis_tracks else None
+        line = self.axis_lines.get(axis_key)
+        validation_result = track.get_validation_result() if track is not None else None
+        self.preview_window.refresh(self.take, axis_key, line, validation_result)
 
     def _set_status(self, text: str) -> None:
         self.status_var.set(text)

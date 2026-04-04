@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from editor.tarzanPanelOsi import TarzanPanelOsi
 from editor.tarzanEdycjaPunktow import TarzanEdycjaPunktow
-from motion.tarzanTakeModel import TarzanAxisTake, TarzanControlPoint, TarzanCurve, TarzanEvent
+from motion.tarzanTakeModel import TarzanAxisTake, TarzanControlPoint, TarzanCurve
 
 
 @dataclass(frozen=True)
@@ -41,9 +41,12 @@ def ensure_take_axes(take) -> None:
         take.timeline.take_end = end
         take.timeline.take_duration = end - start
 
+    if not hasattr(take, "axes") or take.axes is None:
+        take.axes = {}
+
     for definition in AXIS_DEFINITIONS:
         axis = take.axes.get(definition.key)
-        if axis is None:
+        if axis is None or not hasattr(axis, "curve"):
             take.axes[definition.key] = TarzanAxisTake(
                 axis_name=definition.axis_name,
                 axis_enabled=True,
@@ -83,6 +86,7 @@ class AxisTrack(tk.Frame):
     MUTED = "#8E98A4"
     CURVE = "#7DC4FF"
     NODE = "#FFD166"
+    NODE_SELECTED = "#FF9F1C"
     START = "#45C46B"
     STOP = "#E65D5D"
     SEGMENT_FILL = "#253040"
@@ -105,6 +109,7 @@ class AxisTrack(tk.Frame):
         self.pan_mode = False
         self.drag_mode = None
         self.drag_index = None
+        self.selected_node_index = None
         self.drag_original = None
         self.drag_area = 0.0
         self.preview_line = None
@@ -119,6 +124,8 @@ class AxisTrack(tk.Frame):
             on_smooth=self._smooth,
             on_reset=self._reset,
             on_auto=self._auto,
+            on_add_node=self._add_node,
+            on_remove_node=self._remove_node,
         )
         self.panel.pack(side="left", fill="y")
 
@@ -163,6 +170,8 @@ class AxisTrack(tk.Frame):
 
     def set_line(self, line) -> None:
         self.line = line
+        if self.selected_node_index is not None and self.selected_node_index >= len(self.line.nodes):
+            self.selected_node_index = None
         self.redraw()
 
     def _select(self) -> None:
@@ -185,12 +194,46 @@ class AxisTrack(tk.Frame):
     def _reset(self) -> None:
         self.line = copy.deepcopy(self.original_line)
         self.preview_line = None
+        self.selected_node_index = None
         self.on_change(self.axis_key, self.line)
         self.redraw()
         self.on_status(f"Zresetowano oś: {self.axis_take.axis_name}")
 
     def _auto(self) -> None:
-        self.on_status(f"AUTO dla osi {self.axis_take.axis_name} będzie dopięte w kolejnym kroku.")
+        self.on_status(f"AUTO dla osi {self.axis_take.axis_name} będzie dopięte później.")
+
+    def _add_node(self) -> None:
+        try:
+            start = self.line.nodes[0].time_ms
+            stop = self.line.nodes[-1].time_ms
+            mid = (start + stop) // 2
+            sampled = self.krzywe.sample_line(self.line, sample_count=180)
+            nearest = min(sampled, key=lambda item: abs(item[0] - mid))
+            before_count = len(self.line.nodes)
+            self.line = self.krzywe.add_node(self.line, mid, nearest[1], axis=self.axis_take)
+            if len(self.line.nodes) > before_count:
+                self.selected_node_index = len(self.line.nodes) - 2
+            self.on_change(self.axis_key, self.line)
+            self.redraw()
+            self.on_status(f"Dodano węzeł osi: {self.axis_take.axis_name}")
+        except Exception as exc:
+            self.on_status(f"Błąd dodawania węzła: {exc}")
+
+    def _remove_node(self) -> None:
+        if self.selected_node_index is None:
+            self.on_status(f"Najpierw wybierz węzeł osi: {self.axis_take.axis_name}")
+            return
+        if self.selected_node_index <= 0 or self.selected_node_index >= len(self.line.nodes) - 1:
+            self.on_status("Nie można usunąć START ani STOP.")
+            return
+        try:
+            self.line = self.krzywe.remove_node(self.line, self.selected_node_index, axis=self.axis_take)
+            self.selected_node_index = None
+            self.on_change(self.axis_key, self.line)
+            self.redraw()
+            self.on_status(f"Usunięto węzeł osi: {self.axis_take.axis_name}")
+        except Exception as exc:
+            self.on_status(f"Błąd usuwania węzła: {exc}")
 
     def _on_configure(self, event) -> None:
         self.canvas_width = max(200, int(event.width))
@@ -205,16 +248,13 @@ class AxisTrack(tk.Frame):
         c.delete("all")
         line = self._display_line()
 
-        # kolorowe tło odcinka ruchu
         x0 = self.edycja.time_to_x(line.nodes[0].time_ms, self.view_start, self.view_end, self.canvas_width)
         x1 = self.edycja.time_to_x(line.nodes[-1].time_ms, self.view_start, self.view_end, self.canvas_width)
         c.create_rectangle(x0, 6, x1, self.canvas_height - 6, fill=self.SEGMENT_FILL, outline="")
 
-        # linia zero
         y0 = self.edycja.value_to_y(0.0, self.canvas_height)
         c.create_line(0, y0, self.canvas_width, y0, fill=self.MUTED, width=1)
 
-        # start / stop
         c.create_line(x0, 0, x0, self.canvas_height, fill=self.START, width=2)
         c.create_line(x1, 0, x1, self.canvas_height, fill=self.STOP, width=2)
         c.create_text(x0 + 4, 10, anchor="w", text="START", fill=self.START, font=("Segoe UI", 8, "bold"))
@@ -233,12 +273,16 @@ class AxisTrack(tk.Frame):
             x = self.edycja.time_to_x(node.time_ms, self.view_start, self.view_end, self.canvas_width)
             y = self.edycja.value_to_y(node.value, self.canvas_height)
             r = 7 if idx not in (0, len(line.nodes) - 1) else 6
-            fill = self.NODE if idx not in (0, len(line.nodes) - 1) else "#D6EAF8"
+            fill = self.NODE_SELECTED if idx == self.selected_node_index else (self.NODE if idx not in (0, len(line.nodes) - 1) else "#D6EAF8")
             c.create_oval(x - r, y - r, x + r, y + r, fill=fill, outline="black", width=1)
 
     def _on_press(self, event) -> None:
         self.on_select(self.axis_key)
         current = self._display_line()
+
+        hit = self.edycja.hit_node(current, event.x, event.y, self.view_start, self.view_end, self.canvas_width, self.canvas_height)
+        if hit is not None:
+            self.selected_node_index = hit
 
         if self.pan_mode:
             self.drag_mode = "pan"
@@ -246,7 +290,6 @@ class AxisTrack(tk.Frame):
             self.pan_anchor_x = event.x
             return
 
-        hit = self.edycja.hit_test_node(current, event.x, event.y, self.view_start, self.view_end, self.canvas_width, self.canvas_height)
         if hit is not None:
             self.drag_mode = "node"
             self.drag_index = hit
@@ -255,14 +298,8 @@ class AxisTrack(tk.Frame):
             self.preview_line = copy.deepcopy(current)
             return
 
-        line_hit = self.edycja.hit_test_start_stop(current, event.x, self.view_start, self.view_end, self.canvas_width)
-        if line_hit is not None:
-            self.drag_mode = line_hit
-            self.drag_original = copy.deepcopy(current)
-            self.preview_line = copy.deepcopy(current)
-            return
-
         self.drag_mode = None
+        self.redraw()
 
     def _on_drag(self, event) -> None:
         if self.drag_mode is None or self.drag_original is None:
@@ -285,22 +322,6 @@ class AxisTrack(tk.Frame):
                     new_value=new_value,
                     axis=self.axis_take,
                     preserve_area=False,
-                )
-
-            elif self.drag_mode in ("start", "stop"):
-                new_time = self.edycja.x_to_time(event.x, self.view_start, self.view_end, self.canvas_width)
-                start_ms = self.drag_original.nodes[0].time_ms
-                stop_ms = self.drag_original.nodes[-1].time_ms
-                if self.drag_mode == "start":
-                    start_ms = new_time
-                else:
-                    stop_ms = new_time
-                self.preview_line = self.krzywe.set_line_start_stop(
-                    self.drag_original,
-                    new_start_ms=start_ms,
-                    new_stop_ms=stop_ms,
-                    axis=self.axis_take,
-                    preserve_distance=True,
                 )
 
             self.redraw()
@@ -347,7 +368,7 @@ class DroneTrack(tk.Frame):
         self.selected = False
         self.dragging = False
 
-        left = tk.Frame(self, width=150, bg="#23272E")
+        left = tk.Frame(self, width=152, bg="#23272E")
         left.pack(side="left", fill="y")
         left.pack_propagate(False)
         tk.Label(left, text="DRON", bg="#23272E", fg=self.FG, font=("Segoe UI Semibold", 9)).pack(anchor="w", padx=8, pady=(8, 6))
@@ -355,7 +376,6 @@ class DroneTrack(tk.Frame):
 
         right = tk.Frame(self, bg=self.BG)
         right.pack(side="left", fill="both", expand=True)
-
         tk.Label(right, text="DRON", bg=self.BG, fg=self.FG, font=("Segoe UI Semibold", 10), anchor="w").pack(fill="x", padx=10, pady=(6, 2))
 
         self.canvas = tk.Canvas(right, height=72, bg=self.AREA_BG, highlightthickness=0, bd=0)

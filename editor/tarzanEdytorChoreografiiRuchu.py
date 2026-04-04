@@ -14,7 +14,6 @@ from motion.tarzanTakeModel import TarzanEvent, TarzanTake
 
 class TarzanEdytorChoreografiiRuchu(tk.Tk):
     BG = "#16181C"
-    PANEL = "#1F2329"
     PANEL_2 = "#2A3038"
     FG = "#F3F6F8"
     BTN_PRIMARY = "#2D6CDF"

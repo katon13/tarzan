@@ -24,8 +24,8 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         super().__init__()
 
         self.title("TARZAN — Edytor Choreografii Ruchu")
-        self.geometry("1680x980")
-        self.minsize(1500, 900)
+        self.geometry("1920x1180")
+        self.minsize(1920, 1080)
         self.configure(bg=self.BG)
 
         self.base_dir = Path(__file__).resolve().parent.parent

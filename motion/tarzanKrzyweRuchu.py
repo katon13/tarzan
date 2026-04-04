@@ -312,22 +312,49 @@ class TarzanKrzyweRuchu:
     def sample_line(self, line: TarzanMotionLine, sample_count: int | None = None) -> list[tuple[int, float]]:
         sample_count = max(40, sample_count or self.SAMPLE_COUNT)
 
-        times = np.array([node.time_ms for node in line.nodes], dtype=float)
-        values = np.array([node.value for node in line.nodes], dtype=float)
+        raw_times = [self.snap_time(node.time_ms) for node in line.nodes]
+        raw_values = [float(node.value) for node in line.nodes]
 
-        if len(times) < 2:
+        if len(raw_times) < 2:
             return []
+
+        # PCHIP wymaga czasu ściśle rosnącego.
+        # W preview i przy domykaniu pola mogą pojawić się chwilowe kolizje czasu,
+        # więc przed próbkowaniem budujemy bezpieczną sekwencję monotoniczną.
+        strict_times: list[float] = []
+        strict_values: list[float] = []
+        for index, (time_ms, value) in enumerate(zip(raw_times, raw_values)):
+            if not strict_times:
+                strict_times.append(float(time_ms))
+                strict_values.append(float(value))
+                continue
+
+            min_allowed = strict_times[-1] + float(self.TIME_STEP_MS)
+            if index == len(raw_times) - 1:
+                time_ms = max(time_ms, int(min_allowed))
+            elif time_ms <= strict_times[-1]:
+                time_ms = int(min_allowed)
+
+            strict_times.append(float(time_ms))
+            strict_values.append(float(value))
+
+        times = np.array(strict_times, dtype=float)
+        values = np.array(strict_values, dtype=float)
+
+        if len(times) < 2 or times[-1] <= times[0]:
+            return [(int(times[0]), 0.0), (int(times[0] + self.TIME_STEP_MS), 0.0)]
 
         dense_times = np.linspace(times[0], times[-1], sample_count)
 
         if len(times) == 2:
             dense_values = np.interp(dense_times, times, values)
         else:
-            # Lokalny renderer shape-preserving:
-            # spokojniejszy dla operatora niż globalny spline,
-            # ale bez utraty logiki rozszerzania osi czasu.
-            spline = PchipInterpolator(times, values, extrapolate=False)
-            dense_values = spline(dense_times)
+            try:
+                spline = PchipInterpolator(times, values, extrapolate=False)
+                dense_values = spline(dense_times)
+            except ValueError:
+                # Awaryjnie spadamy do interpolacji liniowej zamiast wywracać edytor.
+                dense_values = np.interp(dense_times, times, values)
 
         dense_values = np.nan_to_num(
             dense_values,
@@ -342,12 +369,28 @@ class TarzanKrzyweRuchu:
             dedup[self.snap_time(x)] = float(y)
 
         ordered = sorted(dedup.items(), key=lambda item: item[0])
+        if len(ordered) < 2:
+            ordered = [(int(times[0]), 0.0), (int(times[-1]), 0.0)]
 
-        if ordered:
-            ordered[0] = (line.nodes[0].time_ms, 0.0)
-            ordered[-1] = (line.nodes[-1].time_ms, 0.0)
+        first_time = self.snap_time(raw_times[0])
+        last_time = self.snap_time(max(raw_times[-1], first_time + self.TIME_STEP_MS))
+        ordered[0] = (first_time, 0.0)
+        if last_time <= ordered[0][0]:
+            last_time = ordered[0][0] + self.TIME_STEP_MS
+        ordered[-1] = (last_time, 0.0)
 
-        return ordered
+        # końcowe zabezpieczenie rosnącego czasu po snapie
+        fixed: list[tuple[int, float]] = []
+        for x, y in ordered:
+            if not fixed:
+                fixed.append((int(x), float(y)))
+            else:
+                prev_x = fixed[-1][0]
+                if x <= prev_x:
+                    x = prev_x + self.TIME_STEP_MS
+                fixed.append((int(x), float(y)))
+
+        return fixed
 
     def build_curve_samples(self, axis, sample_count: int = 600) -> tuple[np.ndarray, np.ndarray]:
         line = self.build_from_axis(axis)

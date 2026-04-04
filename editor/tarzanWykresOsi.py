@@ -89,6 +89,7 @@ class AxisTrack(tk.Frame):
     NODE_SELECTED = "#FF9F1C"
     START = "#45C46B"
     STOP = "#E65D5D"
+    SEGMENT_FILL = "#253040"
     SEGMENT_COLORS = {
         "camera_horizontal": "#2D6CDF",
         "camera_vertical": "#0E9F6E",
@@ -257,19 +258,14 @@ class AxisTrack(tk.Frame):
 
         x0 = self.edycja.time_to_x(line.nodes[0].time_ms, self.view_start, self.view_end, self.canvas_width)
         x1 = self.edycja.time_to_x(line.nodes[-1].time_ms, self.view_start, self.view_end, self.canvas_width)
-
-        c.create_rectangle(
-            x0, 6, x1, self.canvas_height - 6,
-            fill=self.SEGMENT_COLORS.get(self.axis_key, "#2A3644"),
-            outline="",
-            stipple="gray25",
-        )
+        segment_color = self.SEGMENT_COLORS.get(self.axis_key, self.SEGMENT_FILL)
+        c.create_rectangle(x0, 6, x1, self.canvas_height - 6, fill=segment_color, outline="", stipple="gray25")
 
         y0 = self.edycja.value_to_y(0.0, self.canvas_height)
         c.create_line(0, y0, self.canvas_width, y0, fill=self.MUTED, width=1)
 
-        c.create_line(x0, 0, x0, self.canvas_height, fill=self.START, width=2)
-        c.create_line(x1, 0, x1, self.canvas_height, fill=self.STOP, width=2)
+        c.create_line(x0, 0, x0, self.canvas_height, fill=self.START, width=4)
+        c.create_line(x1, 0, x1, self.canvas_height, fill=self.STOP, width=4)
         c.create_text(x0 + 4, 10, anchor="w", text="START", fill=self.START, font=("Segoe UI", 8, "bold"))
         c.create_text(x1 - 4, 10, anchor="e", text="STOP", fill=self.STOP, font=("Segoe UI", 8, "bold"))
 
@@ -292,6 +288,7 @@ class AxisTrack(tk.Frame):
     def _on_press(self, event) -> None:
         self.on_select(self.axis_key)
         current = self._display_line()
+
         hit = self.edycja.hit_node(current, event.x, event.y, self.view_start, self.view_end, self.canvas_width, self.canvas_height)
         if hit is not None:
             self.selected_node_index = hit
@@ -308,7 +305,6 @@ class AxisTrack(tk.Frame):
             self.drag_original = copy.deepcopy(current)
             self.drag_area = self.krzywe.compute_area(current)
             self.preview_line = copy.deepcopy(current)
-            self.redraw()
             return
 
         self.drag_mode = None
@@ -317,12 +313,14 @@ class AxisTrack(tk.Frame):
     def _on_drag(self, event) -> None:
         if self.drag_mode is None or self.drag_original is None:
             return
+
         try:
             if self.drag_mode == "pan":
                 t0 = self.edycja.x_to_time(self.pan_anchor_x, self.view_start, self.view_end, self.canvas_width)
                 t1 = self.edycja.x_to_time(event.x, self.view_start, self.view_end, self.canvas_width)
                 delta = t1 - t0
                 self.preview_line = self.krzywe.shift_line_in_time(self.drag_original, delta, axis=self.axis_take)
+
             elif self.drag_mode == "node":
                 new_time = self.edycja.x_to_time(event.x, self.view_start, self.view_end, self.canvas_width)
                 new_value = self.edycja.y_to_value(event.y, self.canvas_height)
@@ -334,6 +332,7 @@ class AxisTrack(tk.Frame):
                     axis=self.axis_take,
                     preserve_area=False,
                 )
+
             self.redraw()
         except Exception as exc:
             self.on_status(f"Błąd edycji osi {self.axis_take.axis_name}: {exc}")
@@ -378,14 +377,13 @@ class DroneTrack(tk.Frame):
         self.selected = False
         self.dragging = False
 
-        left = tk.Frame(self, width=112, bg="#23272E")
+        left = tk.Frame(self, width=124, bg="#23272E")
         left.pack(side="left", fill="y")
         left.pack_propagate(False)
-        tk.Label(left, text="◆", bg="#23272E", fg=self.DRONE, font=("Segoe UI Symbol", 12)).pack(anchor="center", pady=(12, 4))
+        tk.Label(left, text="◆", bg="#23272E", fg=self.DRONE, font=("Segoe UI Symbol", 14)).pack(anchor="center", pady=(14, 4))
 
         right = tk.Frame(self, bg=self.BG)
         right.pack(side="left", fill="both", expand=True)
-
         tk.Label(right, text="DRON", bg=self.BG, fg=self.FG, font=("Segoe UI Semibold", 10), anchor="w").pack(fill="x", padx=10, pady=(6, 2))
 
         self.canvas = tk.Canvas(right, height=72, bg=self.AREA_BG, highlightthickness=0, bd=0)

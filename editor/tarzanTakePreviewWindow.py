@@ -6,7 +6,6 @@ from typing import Any
 
 
 from editor.tarzanWykresOsi import DRONE_KEY
-from motion.tarzanStepGenerator import TarzanStepGenerator
 
 
 class TarzanTakePreviewWindow(tk.Toplevel):
@@ -21,7 +20,6 @@ class TarzanTakePreviewWindow(tk.Toplevel):
         self.geometry("1180x860")
         self.configure(bg=self.BG)
         self.current_axis_key = ""
-        self.generator = TarzanStepGenerator()
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -117,13 +115,12 @@ class TarzanTakePreviewWindow(tk.Toplevel):
             return
 
         sample_step = int(getattr(getattr(take, "timeline", None), "sample_step", 10) or 10)
-        generated_protocol = getattr(axis_take, "generated_protocol", {}) or {}
-        protocol_rows = list(generated_protocol.get("protocol_rows", []) or generated_protocol.get("rows", []) or [])
-        total_generated_pulses = int(generated_protocol.get("step_count_total", 0) or 0)
-        if not protocol_rows:
-            regenerated = self.generator.generate_axis_protocol(axis_take=axis_take, line=axis_line, timeline=getattr(take, "timeline", None))
-            protocol_rows = list(regenerated.get("protocol_rows", []) or regenerated.get("rows", []) or [])
-            total_generated_pulses = int(regenerated.get("step_count_total", 0) or total_generated_pulses)
+        protocol_rows, total_generated_pulses = self._build_protocol_rows(
+            axis_take=axis_take,
+            axis_line=axis_line,
+            validation_result=validation_result,
+            sample_step=sample_step,
+        )
         self.header_var.set(
             f"{axis_take.axis_name} | sample_step={sample_step} ms | "
             f"mechanical_pulses={total_generated_pulses} | full_cycle_pulses={int(getattr(axis_take, 'full_cycle_pulses', 0))} | "
@@ -159,66 +156,37 @@ class TarzanTakePreviewWindow(tk.Toplevel):
         validation_result: Any | None,
         sample_step: int,
     ) -> tuple[list[dict[str, float | int]], int]:
+        generated = getattr(axis_take, "generated_protocol", {}) or {}
+        rows = list(generated.get("protocol_rows", []) or generated.get("rows", []) or [])
+        if rows:
+            total = int(generated.get("step_count_total", 0) or rows[-1].get("count", 0) or 0)
+            return rows, total
+
+        # awaryjny fallback tylko gdy generator nie dostarczył danych
         points = self._collect_points(axis_take, axis_line)
         if len(points) < 2:
             return [], 0
-
         start_time = int(points[0][0])
         end_time = int(points[-1][0])
-
         grid_start = self._align_time_down(start_time, sample_step)
         grid_end = self._align_time_up(end_time, sample_step)
         times = list(range(grid_start, grid_end + sample_step, sample_step))
-        if not times:
-            return [], 0
-
         amps = [self._interpolate_value(points, t) for t in times]
-        max_abs_amp = max((abs(v) for v in amps), default=0.0)
-
         rows: list[dict[str, float | int]] = []
-        last_dir = 1
-        step_state = 0
-        accumulator = 0.0
-        cumulative_count = 0
-
+        count = 0
+        last_dir = 0
+        prev_step = 0
         for t, amp in zip(times, amps):
             if amp > 1e-12:
-                dir_value = 1
                 last_dir = 1
             elif amp < -1e-12:
-                dir_value = 0
                 last_dir = 0
-            else:
-                dir_value = last_dir
-
-            density = 0.0 if max_abs_amp <= 1e-12 else min(1.0, abs(float(amp)) / max_abs_amp)
-
-            # value=1 -> 010101... (toggle every sample)
-            # value=0 -> 000000... (no motion)
-            accumulator += density
-            step_events = 0
-            while accumulator >= 1.0 - 1e-12:
-                accumulator -= 1.0
-                step_state = 0 if step_state == 1 else 1
-                step_events += 1
-                cumulative_count += 1
-
-            if density <= 1e-12:
-                step_state = 0
-
-            rows.append(
-                {
-                    "count": int(cumulative_count),
-                    "time_ms": int(t),
-                    "dir": int(dir_value),
-                    "step": int(step_state),
-                    "enable": 1,
-                    "amp": float(amp),
-                    "step_events": int(step_events),
-                }
-            )
-
-        return rows, cumulative_count
+            step = 1 if abs(amp) > 1e-12 and prev_step == 0 else 0
+            if step:
+                count += 1
+            prev_step = step
+            rows.append({"count": count, "time_ms": int(t), "dir": int(last_dir), "step": int(step), "enable": 1, "amp": float(amp), "step_events": int(step)})
+        return rows, count
 
     def _resolve_target_pulses(self, axis_take, validation_result: Any | None) -> int:
         full_cycle = float(getattr(axis_take, "full_cycle_pulses", 0) or 0)
@@ -278,7 +246,7 @@ class TarzanTakePreviewWindow(tk.Toplevel):
 
 
     def _format_protocol(self, protocol_rows: list[dict[str, float | int]]) -> str:
-        lines = ["COUNT | TIME | DIR | STEP | EV | ENABLE | AMP"]
+        lines = ["COUNT | TIME | DIR | STEP | ENABLE | AMP"]
         if not protocol_rows:
             lines.append("Brak danych protokołu preview.")
             return "\n".join(lines)
@@ -289,7 +257,6 @@ class TarzanTakePreviewWindow(tk.Toplevel):
                 f"{int(self._row_get(row, 'time_ms', 0)):>5} | "
                 f"{int(self._row_get(row, 'dir', 0)):>3} | "
                 f"{int(self._row_get(row, 'step', 0)):>4} | "
-                f"{int(self._row_get(row, 'ev', self._row_get(row, 'step_events', 0))):>2} | "
                 f"{int(self._row_get(row, 'enable', 0)):>6} | "
                 f"{float(self._row_get(row, 'amp', 0.0)):>+.3f}"
             )

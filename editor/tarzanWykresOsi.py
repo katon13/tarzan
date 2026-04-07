@@ -291,7 +291,6 @@ class AxisTrack(tk.Frame):
         self.validation_result: AxisValidationResult | None = None
         self.last_curve_points = []
         self.original_area = 0.0
-        self.drag_reference_state = None
         self.pan_anchor_x = 0
         self.canvas_width = 1100
         self.canvas_height = 156
@@ -532,52 +531,6 @@ class AxisTrack(tk.Frame):
                 area += ((abs(v0) + abs(v1)) * 0.5) * max(1, (t1 - t0))
             return float(area)
 
-    def _is_zeroish(self, value: float, eps: float = 1e-9) -> bool:
-        return abs(float(value)) <= eps
-
-    def _find_segment_bounds(self, line, index: int | None) -> tuple[int, int]:
-        nodes = list(getattr(line, "nodes", []) or [])
-        if len(nodes) < 2:
-            return 0, max(0, len(nodes) - 1)
-        if index is None:
-            return 0, len(nodes) - 1
-        idx = max(0, min(int(index), len(nodes) - 1))
-        if idx in (0, len(nodes) - 1):
-            return 0, len(nodes) - 1
-        if self._is_zeroish(nodes[idx].value):
-            if idx + 1 < len(nodes) - 1 and not self._is_zeroish(nodes[idx + 1].value):
-                idx = idx + 1
-            elif idx - 1 > 0 and not self._is_zeroish(nodes[idx - 1].value):
-                idx = idx - 1
-            else:
-                return 0, len(nodes) - 1
-        left = idx
-        while left > 0 and not self._is_zeroish(nodes[left - 1].value):
-            left -= 1
-        if left > 0:
-            left -= 1
-        right = idx
-        while right < len(nodes) - 1 and not self._is_zeroish(nodes[right + 1].value):
-            right += 1
-        if right < len(nodes) - 1:
-            right += 1
-        return max(0, left), min(len(nodes) - 1, right)
-
-    def _extract_segment(self, line, bounds: tuple[int, int]):
-        left, right = bounds
-        return type(line)(nodes=[copy.deepcopy(node) for node in line.nodes[left:right + 1]])
-
-    def _replace_segment(self, line, bounds: tuple[int, int], segment):
-        left, right = bounds
-        rebuilt = copy.deepcopy(line)
-        rebuilt.nodes = (
-            [copy.deepcopy(node) for node in line.nodes[:left]]
-            + [copy.deepcopy(node) for node in getattr(segment, 'nodes', [])]
-            + [copy.deepcopy(node) for node in line.nodes[right + 1:]]
-        )
-        self.krzywe.normalize_line(rebuilt, self.axis_take)
-        return rebuilt
-
     def _scale_line_duration(self, line, factor: float, locked_index: int | None = None):
         candidate = copy.deepcopy(line)
         nodes = getattr(candidate, "nodes", [])
@@ -614,119 +567,35 @@ class AxisTrack(tk.Frame):
         return candidate
 
     def _preserve_motion_area(self, candidate, reference, locked_index: int | None = None):
-        if locked_index is not None and getattr(candidate, "nodes", None) and getattr(reference, "nodes", None):
-            bounds = self._find_segment_bounds(reference, locked_index)
-            ref_segment = self._extract_segment(reference, bounds)
-            cand_segment = self._extract_segment(candidate, bounds)
-            ref_area = self._compute_area(ref_segment)
-            cand_area = self._compute_area(cand_segment)
-            if ref_area > 0 and cand_area > 0:
-                factor = ref_area / cand_area
-                if abs(factor - 1.0) >= 0.01:
-                    cand_segment = self._scale_line_values(cand_segment, factor)
-                rebuilt = self._replace_segment(candidate, bounds, cand_segment)
-                return rebuilt
-            return candidate
-
+        """
+        Zachowuje pole całego odcinka.
+        Przy edycji węzła użytkownik zmienia kształt, więc czas odcinka może się zmienić.
+        Do korekty używamy miękkiego skalowania wartości całego odcinka, nie ponownego
+        rozciągania w czasie.
+        """
         ref_area = self._compute_area(reference)
         cand_area = self._compute_area(candidate)
         if ref_area <= 0 or cand_area <= 0:
             return candidate
         factor = ref_area / cand_area
-        if abs(factor - 1.0) < 0.03:
+        if abs(factor - 1.0) < 0.01:
             return candidate
         return self._scale_line_values(candidate, factor)
 
     def _scale_line_values(self, line, factor: float):
         candidate = copy.deepcopy(line)
         factor = max(0.05, min(20.0, float(factor)))
-        limit = self.krzywe._axis_value_limit(self.axis_take)
         for idx, node in enumerate(candidate.nodes):
             if idx in (0, len(candidate.nodes) - 1):
                 node.value = 0.0
             else:
-                node.value = self.krzywe.clamp_value(float(node.value) * factor, limit)
+                node.value = max(-1.0, min(1.0, float(node.value) * factor))
         return candidate
 
     def _max_abs_amplitude(self, line) -> float:
         if not getattr(line, "nodes", None):
             return 0.0
         return max(abs(float(node.value)) for node in line.nodes[1:-1]) if len(line.nodes) > 2 else 0.0
-
-    def _capture_line_edit_state(self, line):
-        if line is None or not getattr(line, "nodes", None):
-            return None
-        return {
-            "line": copy.deepcopy(line),
-            "area": self._compute_area(line),
-            "start": int(line.nodes[0].time_ms),
-            "stop": int(line.nodes[-1].time_ms),
-            "duration": max(1, int(line.nodes[-1].time_ms) - int(line.nodes[0].time_ms)),
-        }
-
-    def _light_finish_line(self, line, target_area: float | None = None):
-        candidate = copy.deepcopy(line)
-        if target_area is not None and target_area > 1e-9:
-            try:
-                candidate = self.krzywe.scale_line_to_area(candidate, target_area, axis=self.axis_take)
-            except Exception:
-                current_area = self._compute_area(candidate)
-                if current_area > 1e-9:
-                    candidate = self._scale_line_values(candidate, target_area / current_area)
-        try:
-            candidate = self.krzywe.smooth_line(candidate, strength=0.03, preserve_distance=True, axis=self.axis_take)
-        except Exception:
-            candidate = self._smooth_line_local(candidate)
-        if target_area is not None and target_area > 1e-9:
-            current_area = self._compute_area(candidate)
-            if current_area > 1e-9:
-                candidate = self._scale_line_values(candidate, target_area / current_area)
-        return candidate
-
-    def _finalize_edge_release(self, candidate, reference_state):
-        reference = copy.deepcopy((reference_state or {}).get("line") or self.drag_original or self.line)
-        target_area = float((reference_state or {}).get("area") or self._compute_area(reference))
-        start_time = int(candidate.nodes[0].time_ms)
-        stop_time = int(candidate.nodes[-1].time_ms)
-        try:
-            finalized = self.krzywe.set_line_start_stop(
-                reference,
-                new_start_ms=start_time,
-                new_stop_ms=stop_time,
-                axis=self.axis_take,
-                preserve_distance=True,
-            )
-        except Exception:
-            old_duration = max(1, int(reference.nodes[-1].time_ms) - int(reference.nodes[0].time_ms))
-            new_duration = max(1, stop_time - start_time)
-            time_scale = new_duration / old_duration
-            value_scale = old_duration / new_duration
-            finalized = copy.deepcopy(reference)
-            for idx, node in enumerate(finalized.nodes):
-                rel = int(node.time_ms) - int(reference.nodes[0].time_ms)
-                node.time_ms = self.edycja.snap(start_time + rel * time_scale)
-                if idx in (0, len(finalized.nodes) - 1):
-                    node.value = 0.0
-                else:
-                    node.value = float(node.value) * value_scale
-            finalized.nodes[0].time_ms = start_time
-            finalized.nodes[-1].time_ms = stop_time
-        finalized = self._light_finish_line(finalized, target_area=target_area)
-        return finalized
-
-    def _finalize_node_release(self, candidate, reference_state):
-        reference = copy.deepcopy((reference_state or {}).get("line") or self.drag_original or self.line)
-        if self.drag_index is None:
-            return self._light_finish_line(candidate, target_area=self._compute_area(reference))
-
-        bounds = self._find_segment_bounds(reference, self.drag_index)
-        ref_segment = self._extract_segment(reference, bounds)
-        target_area = self._compute_area(ref_segment)
-        cand_segment = self._extract_segment(candidate, bounds)
-        cand_segment = self._light_finish_line(cand_segment, target_area=target_area)
-        finalized = self._replace_segment(candidate, bounds, cand_segment)
-        finalized = self._preserve_motion_area(finalized, reference, locked_index=self.drag_index)
-        return finalized
 
     def _fit_edge_motion(self, desired, reference, moved_index: int):
         ref_area = self._compute_area(reference)
@@ -802,11 +671,8 @@ class AxisTrack(tk.Frame):
         return float(getattr(self.axis_definition, "full_cycle_pulses", 0) or 0)
 
     def validate_line(self, line) -> AxisValidationResult:
-        generated = getattr(self.axis_take, "generated_protocol", {}) or {}
-        protocol_rows = list(generated.get("protocol_rows", []) or [])
-        if protocol_rows and line is self.line:
-            return self._validation_from_protocol(protocol_rows)
-
+        # Walidacja wskaźników P/R/A ma wynikać z krzywej i mechaniki osi,
+        # nie z uproszczonego binarnego preview STEP.
         samples = self._safe_sample(line, sample_count=min(240, max(120, len(getattr(line, 'nodes', [])) * 24)))
         if len(samples) < 2:
             return AxisValidationResult(0.0, max(1.0, self._resolve_target_pulses()), 0.0, float(self.axis_definition.max_pulse_rate), 0.0, float(self.axis_definition.max_acceleration), 0, [])
@@ -869,10 +735,8 @@ class AxisTrack(tk.Frame):
         peak_rate = 0.0
         peak_acceleration = 0.0
         prev_rate = None
-        # R i A liczymy z przebiegu amplitudy/ruchu osi, nie z binarnego STEP.
         for row in protocol_rows:
-            amp = abs(float(row.get("amp", 0.0) or 0.0))
-            rate = amp * rate_limit
+            rate = float(int(row.get("step_events", 0) or 0)) * (1000.0 / sample_ms)
             peak_rate = max(peak_rate, rate)
             if prev_rate is not None:
                 peak_acceleration = max(peak_acceleration, abs(rate - prev_rate) / max(0.001, sample_ms / 1000.0))
@@ -1018,7 +882,6 @@ class AxisTrack(tk.Frame):
             self.pan_anchor_x = event.x
             self.preview_line = copy.deepcopy(current)
             self.preview_validation_result = self.validate_line(self.preview_line)
-            self.drag_reference_state = self._capture_line_edit_state(current)
             return
 
         if hit_start:
@@ -1028,7 +891,6 @@ class AxisTrack(tk.Frame):
             self.preview_line = copy.deepcopy(current)
             self.preview_validation_result = self.validate_line(self.preview_line)
             self.selected_node_index = 0
-            self.drag_reference_state = self._capture_line_edit_state(current)
             return
 
         if hit_stop:
@@ -1038,7 +900,6 @@ class AxisTrack(tk.Frame):
             self.preview_line = copy.deepcopy(current)
             self.preview_validation_result = self.validate_line(self.preview_line)
             self.selected_node_index = self.drag_index
-            self.drag_reference_state = self._capture_line_edit_state(current)
             return
 
         if hit is not None:
@@ -1048,7 +909,6 @@ class AxisTrack(tk.Frame):
             self.preview_line = copy.deepcopy(current)
             self.preview_validation_result = self.validate_line(self.preview_line)
             self.original_area = self._compute_area(current)
-            self.drag_reference_state = self._capture_line_edit_state(current)
             return
 
         if curve_hit is not None:
@@ -1061,7 +921,6 @@ class AxisTrack(tk.Frame):
                 self.preview_validation_result = self.validate_line(self.preview_line)
                 self.selected_node_index = nearest_node_index
                 self.original_area = self._compute_area(current)
-                self.drag_reference_state = self._capture_line_edit_state(current)
                 return
 
         self.drag_mode = None
@@ -1069,7 +928,6 @@ class AxisTrack(tk.Frame):
         self.drag_original = None
         self.preview_line = None
         self.preview_validation_result = None
-        self.drag_reference_state = None
         self.redraw()
 
     def _move_edge(self, line, index: int, new_time: int):
@@ -1108,6 +966,8 @@ class AxisTrack(tk.Frame):
                     axis=self.axis_take,
                     preserve_area=False,
                 )
+                if self.drag_index not in (0, len(candidate.nodes) - 1):
+                    candidate = self._preserve_motion_area(candidate, self.drag_original, locked_index=self.drag_index)
             elif self.drag_mode == "start_edge":
                 new_time = self.edycja.x_to_time(event.x, self.view_start, self.view_end, self.canvas_width)
                 candidate = self._move_edge(self.drag_original, 0, new_time)
@@ -1128,18 +988,12 @@ class AxisTrack(tk.Frame):
         if self.drag_mode is None:
             return
         try:
-            if self.preview_line is not None:
-                finalized = copy.deepcopy(self.preview_line)
-                if self.drag_mode in ("start_edge", "stop_edge"):
-                    finalized = self._finalize_edge_release(finalized, self.drag_reference_state)
-                elif self.drag_mode == "node":
-                    finalized = self._finalize_node_release(finalized, self.drag_reference_state)
-                self.line = copy.deepcopy(finalized)
-                self.validation_result = self.validate_line(self.line)
+            if self.preview_line is not None and self.preview_validation_result is not None:
+                self.line = copy.deepcopy(self.preview_line)
+                self.validation_result = self.preview_validation_result
                 self.on_change(self.axis_key, self.line)
             self.preview_line = None
             self.preview_validation_result = None
-            self.drag_reference_state = None
             self.redraw()
         finally:
             self.drag_mode = None

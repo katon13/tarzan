@@ -327,8 +327,8 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             axis_take.max_pulse_rate = int(definition.max_pulse_rate)
             axis_take.max_acceleration = int(definition.max_acceleration)
             axis_take.backlash_compensation = int(definition.backlash_compensation)
-            # Nie wymuszamy tu ponownego rozciągania linii do stałej długości.
-            # Długość ruchu ma wynikać z edycji krzywej i zachowania pola.
+            if axis_key in self.axis_lines:
+                self.axis_lines[axis_key] = self._stretch_line_to_mechanical_duration(axis_key, self.axis_lines[axis_key])
 
 
     def _axis_curve_has_nonzero_values(self, axis_take) -> bool:

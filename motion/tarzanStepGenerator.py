@@ -228,22 +228,30 @@ class TarzanStepGenerator:
         target_pulses: int,
         sample_ms: int,
     ) -> list[float]:
-        if not amps:
-            return []
-
-        abs_amps = [abs(float(v)) for v in amps]
-        total_weight = sum(abs_amps)
-        if total_weight <= 0.0 or target_pulses <= 0:
-            return [0.0 for _ in amps]
-
-        max_steps_per_sample = self._resolve_max_steps_per_sample(axis_take=axis_take, sample_ms=sample_ms)
-
-        # Najpierw rozkład proporcjonalny do amplitudy.
-        density = [float(target_pulses) * (w / total_weight) for w in abs_amps]
-        density = [min(max_steps_per_sample, max(0.0, d)) for d in density]
-
-        # Po obcięciu limitem prędkości rozdzielamy nadwyżkę po pozostałych próbkach.
-        density = self._redistribute_density(density=density, weights=abs_amps, target_total=float(target_pulses), per_sample_cap=max_steps_per_sample)
+        # Uproszczony rozkład impulsów z krzywej
+        n=len(amps)
+        density=[0.0]*n
+        high=list(range(1,n,2))
+        if not high:
+            return density
+        max_p=len(high)
+        target_pulses=min(int(target_pulses),max_p)
+        weights=[]
+        for hi in high:
+            lo=hi-1
+            w=(abs(amps[lo])+abs(amps[hi]))*0.5
+            weights.append(w)
+        total=sum(weights) or len(weights)
+        cumulative=0.0
+        emitted=0
+        pulses=[0]*len(high)
+        for i,w in enumerate(weights):
+            cumulative+=target_pulses*(w/total)
+            if cumulative>=emitted+1:
+                pulses[i]=1
+                emitted+=1
+        for idx,hi in enumerate(high):
+            density[hi]=float(pulses[idx])
         return density
 
     def _build_segment_aware_density(

@@ -6,6 +6,7 @@ from typing import Any
 
 
 from editor.tarzanWykresOsi import DRONE_KEY
+from motion.tarzanStepGenerator import TarzanStepGenerator
 
 
 class TarzanTakePreviewWindow(tk.Toplevel):
@@ -20,6 +21,7 @@ class TarzanTakePreviewWindow(tk.Toplevel):
         self.geometry("1180x860")
         self.configure(bg=self.BG)
         self.current_axis_key = ""
+        self.generator = TarzanStepGenerator()
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -115,12 +117,13 @@ class TarzanTakePreviewWindow(tk.Toplevel):
             return
 
         sample_step = int(getattr(getattr(take, "timeline", None), "sample_step", 10) or 10)
-        protocol_rows, total_generated_pulses = self._build_protocol_rows(
-            axis_take=axis_take,
-            axis_line=axis_line,
-            validation_result=validation_result,
-            sample_step=sample_step,
-        )
+        generated_protocol = getattr(axis_take, "generated_protocol", {}) or {}
+        protocol_rows = list(generated_protocol.get("protocol_rows", []) or generated_protocol.get("rows", []) or [])
+        total_generated_pulses = int(generated_protocol.get("step_count_total", 0) or 0)
+        if not protocol_rows:
+            regenerated = self.generator.generate_axis_protocol(axis_take=axis_take, line=axis_line, timeline=getattr(take, "timeline", None))
+            protocol_rows = list(regenerated.get("protocol_rows", []) or regenerated.get("rows", []) or [])
+            total_generated_pulses = int(regenerated.get("step_count_total", 0) or total_generated_pulses)
         self.header_var.set(
             f"{axis_take.axis_name} | sample_step={sample_step} ms | "
             f"mechanical_pulses={total_generated_pulses} | full_cycle_pulses={int(getattr(axis_take, 'full_cycle_pulses', 0))} | "
@@ -275,22 +278,21 @@ class TarzanTakePreviewWindow(tk.Toplevel):
 
 
     def _format_protocol(self, protocol_rows: list[dict[str, float | int]]) -> str:
-        lines = ["COUNT | TIME | DIR | STEP | ENABLE | AMP"]
+        lines = ["COUNT | TIME | DIR | STEP | EV | ENABLE | AMP"]
         if not protocol_rows:
             lines.append("Brak danych protokołu preview.")
             return "\n".join(lines)
 
-        for row in protocol_rows[:320]:
+        for row in protocol_rows:
             lines.append(
                 f"{int(self._row_get(row, 'count', 0)):>5} | "
                 f"{int(self._row_get(row, 'time_ms', 0)):>5} | "
                 f"{int(self._row_get(row, 'dir', 0)):>3} | "
                 f"{int(self._row_get(row, 'step', 0)):>4} | "
+                f"{int(self._row_get(row, 'ev', self._row_get(row, 'step_events', 0))):>2} | "
                 f"{int(self._row_get(row, 'enable', 0)):>6} | "
                 f"{float(self._row_get(row, 'amp', 0.0)):>+.3f}"
             )
-        if len(protocol_rows) > 320:
-            lines.append("...")
         return "\n".join(lines)
 
     def _format_segments(

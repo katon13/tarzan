@@ -327,8 +327,8 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
             axis_take.max_pulse_rate = int(definition.max_pulse_rate)
             axis_take.max_acceleration = int(definition.max_acceleration)
             axis_take.backlash_compensation = int(definition.backlash_compensation)
-            if axis_key in self.axis_lines:
-                self.axis_lines[axis_key] = self._stretch_line_to_mechanical_duration(axis_key, self.axis_lines[axis_key])
+            # Nie wymuszamy tu ponownego rozciągania linii do stałej długości.
+            # Długość ruchu ma wynikać z edycji krzywej i zachowania pola.
 
 
     def _axis_curve_has_nonzero_values(self, axis_take) -> bool:
@@ -538,7 +538,7 @@ class TarzanEdytorChoreografiiRuchu(tk.Tk):
         self._set_status("Pełny widok timeline")
 
     def _on_axis_line_change(self, axis_key: str, line) -> None:
-        self.axis_lines[axis_key] = self._stretch_line_to_mechanical_duration(axis_key, line)
+        self.axis_lines[axis_key] = copy.deepcopy(line)
         self._normalize_take_timeline_from_lines()
         self._regenerate_axis_protocol(axis_key)
         self.current_xlim = self._full_xlim()

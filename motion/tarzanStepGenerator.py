@@ -16,15 +16,32 @@ class TarzanProtocolRow:
     count: int
 
     def to_dict(self) -> dict[str, int | float]:
+        sample = int(self.sample_index)
+        time_ms = int(self.time_ms)
+        dir_value = int(self.dir)
+        step_value = int(self.step)
+        ev_value = int(self.ev)
+        enable_value = int(self.enable)
+        amp_value = float(self.amp)
+        count_value = int(self.count)
         return {
-            "SAMPLE": int(self.sample_index),
-            "TIME_MS": int(self.time_ms),
-            "DIR": int(self.dir),
-            "STEP": int(self.step),
-            "EV": int(self.ev),
-            "ENABLE": int(self.enable),
-            "AMP": float(self.amp),
-            "COUNT": int(self.count),
+            "SAMPLE": sample,
+            "TIME_MS": time_ms,
+            "DIR": dir_value,
+            "STEP": step_value,
+            "EV": ev_value,
+            "ENABLE": enable_value,
+            "AMP": amp_value,
+            "COUNT": count_value,
+            "sample": sample,
+            "time_ms": time_ms,
+            "dir": dir_value,
+            "step": step_value,
+            "ev": ev_value,
+            "step_events": ev_value,
+            "enable": enable_value,
+            "amp": amp_value,
+            "count": count_value,
         }
 
 
@@ -35,8 +52,9 @@ class TarzanStepGenerator:
     Założenia klasy:
     - pracuje wyłącznie w globalnym kroku czasu systemu,
     - buduje pełny timeline osi od początku do końca TAKE,
-    - w każdej próbce zapisuje pojedynczy stan STEP = 0 lub 1,
-    - COUNT rośnie wyłącznie wtedy, gdy w danej próbce STEP = 1,
+    - zapisuje STEP jako stan logiczny obecności impulsu w próbce,
+    - EV oznacza liczbę impulsów przypadających na próbkę,
+    - COUNT rośnie o pełne EV, nie tylko o 0/1,
     - DIR i ENABLE są stanami próbek, nie osobnym preview,
     - preview ma czytać wynik tej klasy, a nie liczyć po swojemu.
 
@@ -102,9 +120,10 @@ class TarzanStepGenerator:
         amps = self._sample_axis_amplitudes(axis_take=axis_take, line=line, times_ms=times_ms)
         direction = self._build_direction_samples(amps)
         target_pulses = self._resolve_target_pulses(axis_take, len(times_ms))
-        density = self._build_density_from_amplitudes(
-            amps=amps,
+        density = self._build_segment_aware_density(
             axis_take=axis_take,
+            times_ms=times_ms,
+            amps=amps,
             target_pulses=target_pulses,
             sample_ms=sample_ms,
         )
@@ -118,6 +137,7 @@ class TarzanStepGenerator:
             dir_samples=direction,
             amp_samples=amps,
         )
+        rows = self._ensure_exact_total(rows=rows, requested_pulses=int(target_pulses))
 
         messages = self._build_messages(axis_take=axis_take, rows=rows, requested_pulses=target_pulses)
         validated = len(messages) == 0
@@ -128,11 +148,13 @@ class TarzanStepGenerator:
         amp_samples = [float(row.amp) for row in rows]
         count_samples = [int(row.count) for row in rows]
 
+        serialized_rows = [row.to_dict() for row in rows]
         protocol = {
             "sample_ms": int(sample_ms),
             "take_start": int(times_ms[0]),
             "take_end": int(times_ms[-1]),
-            "rows": [row.to_dict() for row in rows],
+            "rows": serialized_rows,
+            "protocol_rows": serialized_rows,
             "step_samples": step_samples,
             "dir_samples": dir_samples,
             "enable_samples": enable_samples,
@@ -167,11 +189,11 @@ class TarzanStepGenerator:
             d = float(density[index]) if index < len(density) else 0.0
             accumulator += max(0.0, d)
 
-            step = 0
-            if accumulator >= 1.0:
-                step = 1
-                accumulator -= 1.0
-                count += 1
+            ev = int(accumulator)
+            if ev > 0:
+                accumulator -= float(ev)
+                count += ev
+            step = 1 if ev > 0 else 0
 
             dir_value = (
                 int(dir_samples[index])
@@ -190,7 +212,7 @@ class TarzanStepGenerator:
                     time_ms=int(time_ms),
                     dir=dir_value,
                     step=int(step),
-                    ev=int(step),
+                    ev=int(ev),
                     enable=int(enable),
                     amp=float(amp),
                     count=int(count),
@@ -224,6 +246,69 @@ class TarzanStepGenerator:
         density = self._redistribute_density(density=density, weights=abs_amps, target_total=float(target_pulses), per_sample_cap=max_steps_per_sample)
         return density
 
+    def _build_segment_aware_density(
+        self,
+        axis_take,
+        times_ms: Sequence[int],
+        amps: Sequence[float],
+        target_pulses: int,
+        sample_ms: int,
+    ) -> list[float]:
+        if not amps:
+            return []
+        density = [0.0 for _ in amps]
+        segments = self._find_active_segments(amps)
+        if not segments:
+            return density
+
+        declared = [seg for seg in getattr(axis_take, "segments", []) or [] if not getattr(seg, "is_pause", False) and int(getattr(seg, "pulse_count", 0) or 0) > 0]
+        areas = [sum(abs(float(amps[i])) for i in range(start, end + 1)) for start, end, _ in segments]
+        total_area = sum(areas)
+        targets: list[int] = []
+        if len(declared) == len(segments):
+            targets = [max(0, int(getattr(seg, "pulse_count", 0) or 0)) for seg in declared]
+        else:
+            allocated = 0
+            for idx, area in enumerate(areas):
+                if idx == len(areas) - 1:
+                    seg_target = max(0, int(target_pulses) - allocated)
+                elif total_area > 0:
+                    seg_target = max(0, int(round(float(target_pulses) * (area / total_area))))
+                    allocated += seg_target
+                else:
+                    seg_target = 0
+                    allocated += seg_target
+                targets.append(seg_target)
+
+        for (start, end, sign), seg_target in zip(segments, targets):
+            local_amps = [abs(float(v)) for v in amps[start:end + 1]]
+            local_density = self._build_density_from_amplitudes(
+                amps=local_amps,
+                axis_take=axis_take,
+                target_pulses=seg_target,
+                sample_ms=sample_ms,
+            )
+            for offset, value in enumerate(local_density):
+                density[start + offset] = float(value)
+        return density
+
+    def _find_active_segments(self, amps: Sequence[float], eps: float = 1e-9) -> list[tuple[int, int, int]]:
+        segments: list[tuple[int, int, int]] = []
+        idx = 0
+        while idx < len(amps):
+            while idx < len(amps) and abs(float(amps[idx])) <= eps:
+                idx += 1
+            if idx >= len(amps):
+                break
+            sign = 1 if float(amps[idx]) > 0 else -1
+            start = idx
+            end = idx
+            while end + 1 < len(amps) and abs(float(amps[end + 1])) > eps and (1 if float(amps[end + 1]) > 0 else -1) == sign:
+                end += 1
+            segments.append((start, end, sign))
+            idx = end + 1
+        return segments
+
     def _redistribute_density(
         self,
         density: Sequence[float],
@@ -253,7 +338,69 @@ class TarzanStepGenerator:
                 share = missing * (weighted_free[idx] / denom)
                 out[idx] += min(capacity, share)
 
+        residual = target_total - sum(out)
+        if residual > 1e-9:
+            free = [max(0.0, per_sample_cap - v) for v in out]
+            for idx in sorted(range(len(out)), key=lambda i: (max(0.0, weights[i]), free[i]), reverse=True):
+                if residual <= 1e-9:
+                    break
+                capacity = free[idx]
+                if capacity <= 0.0:
+                    continue
+                delta = min(capacity, residual)
+                out[idx] += delta
+                residual -= delta
+
         return out
+
+
+    def _ensure_exact_total(self, rows: list[TarzanProtocolRow], requested_pulses: int) -> list[TarzanProtocolRow]:
+        if not rows:
+            return rows
+        requested_pulses = max(0, int(requested_pulses))
+        current_total = int(rows[-1].count)
+        if current_total == requested_pulses:
+            return rows
+
+        adjusted = list(rows)
+        target_index = None
+        for idx in range(len(adjusted) - 1, -1, -1):
+            if abs(float(adjusted[idx].amp)) > 1e-12:
+                target_index = idx
+                break
+        if target_index is None:
+            target_index = len(adjusted) - 1
+
+        delta = requested_pulses - current_total
+        row = adjusted[target_index]
+        new_ev = max(0, int(row.ev) + delta)
+        new_step = 1 if new_ev > 0 else 0
+        adjusted[target_index] = TarzanProtocolRow(
+            sample_index=row.sample_index,
+            time_ms=row.time_ms,
+            dir=row.dir,
+            step=new_step,
+            ev=new_ev,
+            enable=row.enable,
+            amp=row.amp,
+            count=0,
+        )
+
+        cumulative = 0
+        rebuilt: list[TarzanProtocolRow] = []
+        for row in adjusted:
+            cumulative += int(row.ev)
+            rebuilt.append(TarzanProtocolRow(
+                sample_index=row.sample_index,
+                time_ms=row.time_ms,
+                dir=row.dir,
+                step=row.step,
+                ev=row.ev,
+                enable=row.enable,
+                amp=row.amp,
+                count=cumulative,
+            ))
+        return rebuilt
 
     # ------------------------------------------------------------------
     # Timeline / sampling helpers
@@ -350,27 +497,34 @@ class TarzanStepGenerator:
 
     def _resolve_target_pulses(self, axis_take, sample_count: int) -> int:
         requested = 0
-        generated = getattr(axis_take, "generated_protocol", {}) or {}
-        if isinstance(generated, dict):
-            requested = int(generated.get("step_count_total", 0) or 0)
 
-        if requested <= 0:
-            requested = int(sum(int(getattr(seg, "pulse_count", 0) or 0) for seg in getattr(axis_take, "segments", []) or []))
+        # 1. jawna liczba impulsów z segmentów TAKE jest nadrzędna
+        requested = int(sum(int(getattr(seg, "pulse_count", 0) or 0) for seg in getattr(axis_take, "segments", []) or []))
 
+        # 2. jeśli brak segmentów, sprawdzamy sygnał źródłowy
         if requested <= 0:
             raw_signal = getattr(axis_take, "raw_signal", {}) or {}
             if isinstance(raw_signal, dict):
                 requested = int(raw_signal.get("step_count_total", 0) or 0)
 
-        requested = max(0, requested)
-        return min(requested, max(0, int(sample_count)))
+        # 3. dopiero na końcu używamy mechaniki osi jako źródła prawdy dla pełnego ruchu generatora
+        if requested <= 0:
+            requested = int(getattr(axis_take, "full_cycle_pulses", 0) or 0)
+
+        # 4. fallback do poprzedniego protokołu tylko gdy nie ma nic lepszego
+        if requested <= 0:
+            generated = getattr(axis_take, "generated_protocol", {}) or {}
+            if isinstance(generated, dict):
+                requested = int(generated.get("requested_step_count_total", 0) or generated.get("step_count_total", 0) or 0)
+
+        return max(0, int(requested))
 
     def _resolve_max_steps_per_sample(self, axis_take, sample_ms: int) -> float:
         max_rate = float(getattr(axis_take, "max_pulse_rate", 0) or 0)
         if max_rate <= 0.0:
-            return 1.0
+            return float(1_000_000)
         mechanical_cap = max_rate * (float(sample_ms) / 1000.0)
-        return min(1.0, max(0.0, mechanical_cap))
+        return max(0.0, mechanical_cap)
 
     # ------------------------------------------------------------------
     # Diagnostics

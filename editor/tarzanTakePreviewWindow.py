@@ -136,6 +136,18 @@ class TarzanTakePreviewWindow(tk.Toplevel):
         widget.configure(state="disabled")
 
 
+    def _row_get(self, row: dict[str, float | int], key: str, default: float | int = 0) -> float | int:
+        if key in row:
+            return row[key]
+        upper = key.upper()
+        if upper in row:
+            return row[upper]
+        lower = key.lower()
+        if lower in row:
+            return row[lower]
+        return default
+
+
 
     def _build_protocol_rows(
         self,
@@ -270,12 +282,12 @@ class TarzanTakePreviewWindow(tk.Toplevel):
 
         for row in protocol_rows[:320]:
             lines.append(
-                f"{int(row['count']):>5} | "
-                f"{int(row['time_ms']):>5} | "
-                f"{int(row['dir']):>3} | "
-                f"{int(row['step']):>4} | "
-                f"{int(row['enable']):>6} | "
-                f"{float(row['amp']):>+.3f}"
+                f"{int(self._row_get(row, 'count', 0)):>5} | "
+                f"{int(self._row_get(row, 'time_ms', 0)):>5} | "
+                f"{int(self._row_get(row, 'dir', 0)):>3} | "
+                f"{int(self._row_get(row, 'step', 0)):>4} | "
+                f"{int(self._row_get(row, 'enable', 0)):>6} | "
+                f"{float(self._row_get(row, 'amp', 0.0)):>+.3f}"
             )
         if len(protocol_rows) > 320:
             lines.append("...")
@@ -323,15 +335,15 @@ class TarzanTakePreviewWindow(tk.Toplevel):
         seg_index = 1
 
         for idx, row in enumerate(protocol_rows):
-            time_ms = int(row["time_ms"])
-            amp = float(row["amp"])
-            step_events = int(row.get("step_events", 0))
+            time_ms = int(self._row_get(row, "time_ms", 0))
+            amp = float(self._row_get(row, "amp", 0.0))
+            step_events = int(self._row_get(row, "step_events", self._row_get(row, "ev", self._row_get(row, "step", 0))))
 
             if abs(amp) <= 1e-12 and step_events == 0:
                 direction = 0
                 is_pause = True
             else:
-                direction = int(row["dir"])
+                direction = int(self._row_get(row, "dir", 0))
                 is_pause = False
 
             kind = ("pause", 0) if is_pause else ("move", direction)

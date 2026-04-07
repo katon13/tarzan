@@ -1,6 +1,105 @@
 # MAPA EDYTORA CHOREOGRAFII RUCHU TARZANA
 
-# 
+## ZASADA NADRZĘDNA GENEROWANIA IMPULSÓW STEP W TARZANIE
+
+To jest zasada absolutnie nadrzędna dla całego edytora choreografii ruchu, generatora impulsów oraz protokołu wykonawczego TARZANA.
+
+## Kluczowa zasada
+
+W systemie TARZAN **nie wystarczy**, że zgadza się całkowita liczba impulsów STEP oraz całkowita droga ruchu osi.
+
+To jest warunek konieczny, ale **niewystarczający**.
+
+Równie ważna jest **płynność czasowego rozkładu kolejnych impulsów STEP**.
+
+Oznacza to, że:
+
+- kolejne impulsy STEP muszą następować w sposób płynny,
+- odstępy czasu pomiędzy kolejnymi impulsami muszą zmieniać się łagodnie,
+- gęstość impulsów nie może zmieniać się skokowo ani nerwowo,
+- lokalny rytm impulsów musi odpowiadać płynnej zmianie natężenia ruchu osi.
+
+## Co to oznacza fizycznie
+
+Jeżeli amplituda krzywej ruchu zmienia się płynnie, to silnik nie może otrzymywać impulsów w sposób nerwowy, przypadkowy lub skokowy.
+
+Nie wolno dopuszczać sytuacji, w której przebieg STEP przy gładkiej krzywej daje sekwencje typu:
+
+```text
+000001010000101011110000
+```
+
+albo inne lokalnie poszarpane układy impulsów.
+
+Taki przebieg może dawać poprawną sumaryczną liczbę kroków, ale fizycznie powoduje, że:
+
+- silnik pracuje nerwowo,
+- ruch osi staje się szarpany,
+- pojawiają się mikrodrgania,
+- przebieg ruchu przestaje być filmowy,
+- oś zachowuje się nienaturalnie mimo poprawnej całki ruchu.
+
+## Wniosek wykonawczy
+
+Generator STEP w TARZANIE musi pilnować jednocześnie trzech rzeczy:
+
+1. zgodności całkowitej liczby impulsów z drogą ruchu osi,
+2. zgodności kierunku ruchu z przebiegiem krzywej,
+3. płynności lokalnego rozkładu impulsów w czasie.
+
+To oznacza, że poprawny generator STEP nie może być oceniany wyłącznie po:
+
+- całkowitej liczbie impulsów,
+- zgodności COUNT,
+- zgodności pola pod krzywą.
+
+Musi być oceniany także po tym, czy **kolejne impulsy tworzą czasowo płynny rytm ruchu osi**.
+
+## Zasada interpretacyjna
+
+Im płynniej zmienia się funkcja natężenia ruchu, tym płynniej musi zmieniać się rytm impulsów STEP.
+
+Czyli:
+
+- płynny wzrost amplitudy -> płynne zagęszczanie impulsów,
+- płynny spadek amplitudy -> płynne rozrzedzanie impulsów,
+- brak ruchu -> brak impulsów,
+- zmiana kierunku -> płynne przejście zgodne z logiką mechaniczną osi.
+
+Nie wolno dopuścić do sytuacji, w której przy gładkiej krzywej rytm impulsów zmienia się gwałtownie i lokalnie chaotycznie.
+
+## Status tej zasady
+
+Ta zasada jest **jedną z najważniejszych zasad całego projektu TARZAN**.
+
+Należy ją traktować jako zasadę nadrzędną przy:
+
+- projektowaniu generatora impulsów,
+- walidacji przebiegu osi,
+- budowie preview protokołu,
+- ocenie jakości ruchu,
+- dalszym rozwijaniu edytora choreografii ruchu.
+
+## Formuła skrócona
+
+W TARZANIE ma być zachowana nie tylko:
+
+```text
+poprawna liczba impulsów
+```
+
+ale również:
+
+```text
+poprawna płynność kolejnych impulsów
+```
+
+Bo tylko wtedy ruch osi będzie jednocześnie:
+
+- matematycznie poprawny,
+- mechanicznie poprawny,
+- fizycznie płynny,
+- filmowo naturalny. 
 
 ## Kluczowa zasada działania edytora
 
@@ -1937,3 +2036,389 @@ Edytor nie generuje stałego sygnału STEP. Zamiast tego:
 
 Oznacza to, że **odstępy czasowe pomiędzy impulsami STEP muszą być zmienne**, 
 ponieważ to one definiują rzeczywistą prędkość obrotu silnika.
+
+# Wnioski implementacyjne z pracy nad EHR (Edytor Choreografii Ruchu) wynikające z procesu pracy
+
+Dokument zbiera wnioski wynikające z analizy implementacji generatora STEP, działania edytora oraz modelu matematycznego TARZANA. 
+Celem jest doprecyzowanie zasad architektury systemu, aby uniknąć rozbieżności pomiędzy dokumentacją a implementacją.
+
+---
+
+# 1. Fundamentalna zasada czasu systemowego
+
+W całym systemie TARZAN obowiązuje jedna globalna jednostka czasu:
+
+CZAS_PROBKOWANIA_MS = 10
+
+Jednostka ta jest wspólnym mianownikiem dla:
+
+- elektroniki sterującej
+- mechaniki układu
+- generatora STEP
+- symulacji
+- protokołu ruchu
+- edytora choreografii
+- preview i playera
+
+Nie wolno wprowadzać lokalnych kroków czasu w poszczególnych modułach.
+
+Każdy moduł musi korzystać z tej wartości z centralnego pliku:
+
+core/tarzanUstawienia.py
+
+Model czasu:
+
+t_n = n * Δt
+Δt = 10 ms
+
+---
+
+# 2. Model matematyczny generatora STEP
+
+Dokumentacja definiuje model ruchu osi jako funkcję czasu.
+
+A(t) – natężenie ruchu osi
+
+Gęstość impulsów:
+
+ρ(t) = k * |A(t)|
+
+Liczba impulsów:
+
+N = ∫ ρ(t) dt
+
+Generator STEP działa jako akumulator:
+
+accumulator += ρ(t) * dt
+
+jeśli accumulator ≥ 1:
+ emit STEP
+ accumulator -= 1
+
+Kierunek:
+
+DIR = sign(A(t))
+
+---
+
+# 3. Pipeline generowania ruchu
+
+Poprawny przepływ danych:
+
+punkty kontrolne
+↓
+interpolacja spline
+↓
+funkcja ruchu A(t)
+↓
+gęstość impulsów ρ(t)
+↓
+integracja
+↓
+STEP / DIR
+↓
+generated_protocol
+
+Generator STEP musi być jedynym źródłem prawdy dla protokołu ruchu.
+
+---
+
+# 4. Błąd architektury wykryty podczas implementacji
+
+W aktualnej implementacji występuje konflikt pomiędzy:
+
+- danymi TAKE
+- parametrami mechaniki (full_cycle_pulses)
+- lokalnymi obliczeniami preview
+- krzywą edytora
+
+Powoduje to sytuację, w której:
+
+edytor osi
+↓
+preview
+↓
+generator STEP
+
+zamiast:
+
+edytor osi
+↓
+generator STEP
+↓
+preview
+
+Generator STEP musi być centralnym elementem pipeline.
+
+---
+
+# 5. Budżet impulsów osi
+
+Budżet impulsów TAKE nie może być liczony z parametrów mechanicznych.
+
+Prawidłowa kolejność źródeł:
+
+1. generated_protocol.step_count_total
+2. suma segments[].pulse_count
+3. raw_signal.step_count_total
+
+Parametr full_cycle_pulses wolno używać tylko do walidacji ograniczeń mechanicznych.
+
+---
+
+# 6. Generator musi działać na całym TAKE
+
+Choreografia ruchu jest globalna.
+
+Generator STEP musi znać wszystkie osie.
+
+TAKE
+├─ axis_1
+├─ axis_2
+├─ axis_3
+└─ ...
+
+Generator działa w pętli czasu:
+
+dla każdej próbki czasu:
+ dla każdej osi:
+ aktualizuj akumulator
+ generuj STEP
+
+Nie wolno generować STEP dla jednej osi w izolacji.
+
+---
+
+# 7. Rozdzielenie funkcji EHR
+
+Edytor Choreografii Ruchu (EHR) pełni kilka funkcji systemowych.
+Aby uniknąć konfliktów architektury należy wprowadzić jawne tryby pracy.
+
+Proponowane tryby systemu:
+
+GENERATOR
+EDYTOR
+PLAYER
+RECORDER
+LIVE
+
+Tryby te powinny być reprezentowane przez duże przyciski w interfejsie.
+
+---
+
+# 8. Tryb GENERATOR
+
+W trybie GENERATOR:
+
+- wszystkie osie są generowane syntetycznie
+- STEP powstaje bezpośrednio z krzywych
+- wynik zapisywany jest jako protokół TAKE
+
+Pipeline:
+
+krzywe
+↓
+generator STEP
+↓
+protokół
+↓
+zapis TAKE
+
+W tym trybie nie występuje konflikt między edycją a rekonstrukcją sygnału.
+
+---
+
+# 9. Tryb EDYTOR
+
+W trybie EDYTOR:
+
+START:
+protokół STEP
+
+↓
+
+analiza segmentów
+
+↓
+
+rekonstrukcja krzywej ruchu
+
+↓
+
+edycja parametrów
+
+↓
+
+nowy generator STEP
+
+Pipeline:
+
+STEP → analiza → krzywa → STEP
+
+---
+
+# 10. Tryb PLAYER
+
+PLAYER odpowiada wyłącznie za odtwarzanie TAKE.
+Nie wykonuje żadnej syntezy STEP.
+
+---
+
+# 11. Tryb RECORDER
+
+RECORDER zapisuje rzeczywisty ruch osi do protokołu STEP.
+
+Pipeline:
+
+sprzęt → STEP → zapis TAKE
+
+---
+
+# 12. Tryb LIVE
+
+LIVE umożliwia bezpośrednie sterowanie układem bez zapisu TAKE.
+
+---
+
+# 13. Struktura danych osi
+
+Każda oś powinna być reprezentowana przez jeden obiekt logiczny:
+
+AxisTakeState
+
+axis_key
+raw_protocol
+segments
+editable_curve
+mechanics_limits
+generated_protocol
+validation
+
+UI nigdy nie powinno korzystać bezpośrednio z:
+
+raw_signal
+segments
+mechanics
+
+Tylko z obiektu AxisTakeState.
+
+---
+
+# 14. Ograniczenia mechaniczne osi
+
+Ograniczenia mechaniczne nie mogą być traktowane symetrycznie.
+
+Oś może mieć różne warunki ruchu dla:
+
+- kierunku dodatniego
+- kierunku ujemnego
+
+Dlatego ograniczenia powinny być przypisane osobno dla:
+
+- kierunku
+
+- kierunku
+
+W interfejsie należy je prezentować jako:
+
+limity nad osią
+lub
+limity pod osią
+
+---
+
+# 15. Wnioski końcowe
+
+Dokumentacja matematyczna TARZANA jest spójna.
+
+Główne problemy implementacyjne wynikają z:
+
+- braku jednego źródła prawdy dla STEP
+- mieszania danych mechanicznych z danymi choreografii
+- braku jawnych trybów pracy EHR
+- lokalnych obliczeń preview
+
+Po wprowadzeniu:
+
+- centralnego generatora STEP
+- globalnego czasu 10 ms
+- jawnych trybów EHR
+- jednego obiektu AxisTakeState
+
+system powinien odzyskać spójność architektury.
+
+# WNIOSKI KOŃCOWE WYNIKAJĄCE Z PRACY: Zasada generowania impulsów STEP w systemie TARZAN (EHR)
+
+## Interpretacja krzywej ruchu
+
+W edytorze choreografii ruchu TARZANA krzywa nie oznacza pozycji osi ani bezpośrednio prędkości fizycznej.
+Krzywa oznacza **gęstość impulsów STEP w czasie**.
+
+Interpretacja:
+
+- wyższa krzywa → większa gęstość impulsów STEP → szybszy ruch osi
+- niższa krzywa → mniejsza gęstość impulsów STEP → wolniejszy ruch osi
+- krzywa równa 0 → brak impulsów STEP → brak ruchu
+
+Przykładowe przebiegi:
+
+01 → jeden krok silnika  
+0101 → dwa kroki silnika w krótkim czasie  
+000010000 → jeden krok, ale rozciągnięty w czasie (wolny ruch)
+
+## Powiązanie z mechaniką osi
+
+Każda oś posiada parametry mechaniczne określone w module mechaniki:
+
+- `max_speed_axis` – maksymalna liczba impulsów STEP na sekundę
+- `max_steps_axis` – maksymalna liczba kroków wynikająca z zakresu ruchu osi
+
+Parametry te wynikają z:
+
+- przełożenia mechanicznego
+- ustawienia mikrokroku sterownika
+- dopuszczalnej prędkości pracy mechaniki
+
+## Ograniczenie krzywej
+
+Krzywa w edytorze **zawsze jest automatycznie ograniczana przez mechanikę osi**.
+
+Oznacza to:
+
+curve_amplitude → skalowanie do `max_speed_axis`
+
+Jeżeli amplituda krzywej przekracza dopuszczalną prędkość osi, generator STEP automatycznie przycina ją do wartości:
+
+`max_speed_axis`
+
+Dzięki temu:
+
+- oś nigdy nie przekroczy bezpiecznej prędkości
+- ruch pozostaje zgodny z możliwościami mechaniki
+- krzywa w edytorze może być rysowana swobodnie, ale wykonanie zawsze pozostaje ograniczone fizycznie
+
+## Generator STEP
+
+Generator STEP przelicza krzywą na sygnał binarny STEP/DIR.
+
+Dla każdego kroku czasu (np. 10 ms):
+
+1. obliczana jest gęstość impulsów z krzywej
+2. gęstość jest ograniczana do `max_speed_axis`
+3. akumulator impulsów generuje sygnał STEP
+
+Kierunek ruchu określany jest znakiem krzywej:
+
+- krzywa dodatnia → DIR = +1
+- krzywa ujemna → DIR = −1
+
+## Zasada bezpieczeństwa
+
+Mechanika osi jest zawsze nadrzędna wobec krzywej choreografii.
+
+Krzywa definiuje **profil ruchu**, ale:
+
+- prędkość jest ograniczana przez `max_speed_axis`
+- zakres ruchu przez `max_steps_axis`
+
+Dzięki temu system TARZAN może generować płynne choreografie ruchu przy jednoczesnym zachowaniu bezpieczeństwa mechaniki.

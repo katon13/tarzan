@@ -487,9 +487,9 @@ class AxisTrack(tk.Frame):
         self.redraw()
 
     def _rate_to_color(self, ratio: float) -> str:
-        if ratio >= 1.0:
+        if ratio > 1.0:
             return self.LIMIT_BAD
-        if ratio >= 0.8:
+        if ratio >= 0.95:
             return self.LIMIT_WARN
         return self.LIMIT_OK
 
@@ -658,48 +658,55 @@ class AxisTrack(tk.Frame):
             node.time_ms = int(node.time_ms) + snapped_delta
         return candidate
 
+    def _resolve_target_pulses(self) -> float:
+        full_cycle = float(getattr(self.axis_take, "full_cycle_pulses", 0) or 0)
+        if full_cycle > 0:
+            return full_cycle
+        return float(getattr(self.axis_definition, "full_cycle_pulses", 0) or 0)
+
     def validate_line(self, line) -> AxisValidationResult:
-        samples = self._safe_sample(line, sample_count=max(160, len(getattr(line, 'nodes', [])) * 80))
+        generated = getattr(self.axis_take, "generated_protocol", {}) or {}
+        protocol_rows = list(generated.get("protocol_rows", []) or [])
+        if protocol_rows and line is self.line:
+            return self._validation_from_protocol(protocol_rows)
+
+        samples = self._safe_sample(line, sample_count=min(240, max(120, len(getattr(line, 'nodes', [])) * 24)))
         if len(samples) < 2:
-            return AxisValidationResult(0.0, float(self.axis_definition.full_cycle_pulses), 0.0, float(self.axis_definition.max_pulse_rate), 0.0, float(self.axis_definition.max_acceleration), 0, [])
+            return AxisValidationResult(0.0, max(1.0, self._resolve_target_pulses()), 0.0, float(self.axis_definition.max_pulse_rate), 0.0, float(self.axis_definition.max_acceleration), 0, [])
 
         duration_ms = max(0, int(line.nodes[-1].time_ms) - int(line.nodes[0].time_ms))
-        duration_s = duration_ms / 1000.0 if duration_ms > 0 else 0.0
-        base_rate = self.axis_definition.full_cycle_pulses / max(0.001, self.axis_definition.min_full_cycle_time_s)
+        max_rate = float(self.axis_definition.max_pulse_rate)
+        rate_limit = float(self.axis_definition.max_pulse_rate)
+        acceleration_limit = float(self.axis_definition.max_acceleration)
+        pulses_limit = float(self._resolve_target_pulses())
 
-        area_ms = 0.0
+        pulses_total = 0.0
         peak_rate = 0.0
         peak_acceleration = 0.0
         prev_rate = None
-        prev_time = None
 
         for index in range(1, len(samples)):
             t0, v0 = samples[index - 1]
             t1, v1 = samples[index]
             dt_ms = max(1, int(t1) - int(t0))
-            avg_abs = (abs(float(v0)) + abs(float(v1))) * 0.5
-            area_ms += avg_abs * dt_ms
-            rate0 = abs(float(v0)) * base_rate
-            rate1 = abs(float(v1)) * base_rate
+            dt_s = dt_ms / 1000.0
+            rate0 = abs(float(v0)) * max_rate
+            rate1 = abs(float(v1)) * max_rate
+            avg_rate = (rate0 + rate1) * 0.5
+            pulses_total += avg_rate * dt_s
             peak_rate = max(peak_rate, rate0, rate1)
-            if prev_rate is not None and prev_time is not None:
-                delta_t = max(0.001, (float(t1) - float(prev_time)) / 1000.0)
-                peak_acceleration = max(peak_acceleration, abs(rate1 - prev_rate) / delta_t)
+            if prev_rate is not None:
+                peak_acceleration = max(peak_acceleration, abs(rate1 - prev_rate) / max(0.001, dt_s))
             prev_rate = rate1
-            prev_time = t1
 
-        pulses_total = area_ms * base_rate / 1000.0
-        pulses_limit = float(self.axis_definition.full_cycle_pulses)
-        rate_limit = float(self.axis_definition.max_pulse_rate)
-        acceleration_limit = float(self.axis_definition.max_acceleration)
+        if pulses_limit <= 0:
+            pulses_limit = max(1.0, pulses_total)
 
         violations: list[str] = []
         if peak_rate > rate_limit + max(5.0, rate_limit * 0.01):
             violations.append(f"za duża prędkość {int(round(peak_rate))}>{int(round(rate_limit))} imp/s")
         if peak_acceleration > acceleration_limit + max(10.0, acceleration_limit * 0.02):
             violations.append(f"za duże przyspieszenie {int(round(peak_acceleration))}>{int(round(acceleration_limit))} imp/s²")
-        if duration_s < max(0.05, self.axis_definition.min_full_cycle_time_s * 0.08):
-            violations.append("za krótki czas ruchu")
         if abs(float(line.nodes[0].value)) > 1e-6:
             violations.append("START musi być 0")
         if abs(float(line.nodes[-1].value)) > 1e-6:
@@ -708,6 +715,38 @@ class AxisTrack(tk.Frame):
         return AxisValidationResult(
             pulses_total=pulses_total,
             pulses_limit=pulses_limit,
+            peak_rate=peak_rate,
+            rate_limit=rate_limit,
+            peak_acceleration=peak_acceleration,
+            acceleration_limit=acceleration_limit,
+            duration_ms=duration_ms,
+            violations=violations,
+        )
+
+    def _validation_from_protocol(self, protocol_rows) -> AxisValidationResult:
+        sample_ms = max(1, int(protocol_rows[1]["time_ms"] - protocol_rows[0]["time_ms"])) if len(protocol_rows) > 1 else 10
+        rate_limit = float(self.axis_definition.max_pulse_rate)
+        acceleration_limit = float(self.axis_definition.max_acceleration)
+        pulses_limit = float(self._resolve_target_pulses())
+        pulses_total = float((getattr(self.axis_take, 'generated_protocol', {}) or {}).get('step_count_total', 0) or protocol_rows[-1].get('count', 0) or 0)
+        peak_rate = 0.0
+        peak_acceleration = 0.0
+        prev_rate = None
+        for row in protocol_rows:
+            rate = float(int(row.get("step_events", 0) or 0)) * (1000.0 / sample_ms)
+            peak_rate = max(peak_rate, rate)
+            if prev_rate is not None:
+                peak_acceleration = max(peak_acceleration, abs(rate - prev_rate) / max(0.001, sample_ms / 1000.0))
+            prev_rate = rate
+        violations: list[str] = []
+        if peak_rate > rate_limit + max(5.0, rate_limit * 0.01):
+            violations.append(f"za duża prędkość {int(round(peak_rate))}>{int(round(rate_limit))} imp/s")
+        if peak_acceleration > acceleration_limit + max(10.0, acceleration_limit * 0.02):
+            violations.append(f"za duże przyspieszenie {int(round(peak_acceleration))}>{int(round(acceleration_limit))} imp/s²")
+        duration_ms = int(protocol_rows[-1]["time_ms"] - protocol_rows[0]["time_ms"]) if len(protocol_rows) > 1 else 0
+        return AxisValidationResult(
+            pulses_total=pulses_total,
+            pulses_limit=max(1.0, pulses_limit),
             peak_rate=peak_rate,
             rate_limit=rate_limit,
             peak_acceleration=peak_acceleration,

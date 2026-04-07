@@ -7,6 +7,7 @@ import numpy as np
 from scipy.interpolate import PchipInterpolator
 
 from mechanics.tarzanMechanikaOsi import TarzanMechanics
+from core.tarzanUstawienia import CZAS_PROBKOWANIA_MS, GESTOSC_INTERPOLACJI
 
 
 @dataclass
@@ -43,10 +44,10 @@ class TarzanKrzyweRuchu:
     - wynik eksportowany jest do control_points osi TAKE
     """
 
-    TIME_STEP_MS = 10
+    TIME_STEP_MS = CZAS_PROBKOWANIA_MS
     MIN_NODE_GAP_MS = 20
     VALUE_LIMIT = 1.0
-    SAMPLE_COUNT = 800
+    SAMPLE_COUNT = GESTOSC_INTERPOLACJI
     AREA_TOLERANCE = 0.01
 
     def snap_time(self, value: float | int) -> int:

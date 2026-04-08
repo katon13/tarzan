@@ -1,609 +1,334 @@
+
 # TARZAN_HANDOFF.md
+## TARZAN Motion Engine – STEP Generator Concept (Stable Version)
 
-## Cel tego handoffu
-
-Ten dokument ma pozwolić rozpocząć nowy, czysty wątek pracy nad EHR bez gubienia ustaleń z obecnej rozmowy.
-
-To nie jest krótkie streszczenie.
-To jest pełny zapis diagnozy problemu, ustalonych zasad, błędów implementacyjnych, poprawnych założeń architektury oraz stanu faktycznego, który trzeba przyjąć jako punkt startowy kolejnej próby.
+This document captures the **working understanding of the STEP generator** that finally produced correct results in the TARZAN editor.  
+It should be used as a **reference for future development** so the generator logic is not accidentally broken again.
 
 ---
 
-# 1. Status ogólny
+# 1. Core Principle of TARZAN Motion
 
-Praca nad EHR (Edytor Choreografii Ruchu) trwała długo, ale nie doprowadziła jeszcze do skutecznej implementacji generatora STEP.
+TARZAN does **not generate position trajectories directly**.
 
-Powód nie jest koncepcyjny.
-Powód nie jest dokumentacyjny.
-Powód nie jest po stronie użytkownika.
+Instead the system works with:
 
-## Prawdziwy powód
+curve → amplitude → pulse density → STEP pulses
 
-Problem jest implementacyjny i dotyczy tego, że:
+The curve defines **motion intensity over time**, not position.
 
-- edytor,
-- preview,
-- generator STEP,
-- walidacja mechaniki
+This is crucial.
 
-nie pracują jeszcze na jednym spójnym modelu danych i jednym źródle prawdy dla protokołu STEP.
-
-Wiele prób naprawy było:
-
-- kosmetycznych,
-- warstwowych,
-- wykonywanych w preview,
-- lub opartych o złe założenia na temat logiki STEP.
-
-To doprowadziło do sytuacji, w której:
-
-- UI zaczęło działać lepiej,
-- linie zaczęły wyglądać lepiej,
-- generator zaczął coś liczyć,
-- ale końcowy protokół nadal nie odpowiada dokumentacji TARZANA.
+The STEP generator converts the **shape of the curve** into **distribution of impulses over time**.
 
 ---
 
-# 2. Najważniejsze ustalenie całego wątku
+# 2. Global Time Base
 
-## Kluczowa rzecz, którą trzeba zapamiętać
+The entire TARZAN system operates on a fixed sampling interval:
 
-W EHR krzywa ruchu nie oznacza pozycji osi.
+```
+CZAS_PROBKOWANIA_MS = 10 ms
+```
 
-Krzywa nie oznacza też klasycznej prędkości w sensie CNC.
+Every 10 ms the system evaluates:
 
-Krzywa oznacza:
+- amplitude of the curve
+- direction
+- pulse density
 
-**gęstość impulsów STEP w czasie**
+This creates a **timeline matrix** of control signals.
 
-czyli:
+Example timeline:
 
-- wyższa krzywa -> więcej impulsów STEP w krótkim czasie -> szybszy ruch osi
-- niższa krzywa -> mniej impulsów STEP w krótkim czasie -> wolniejszy ruch osi
-- krzywa równa 0 -> brak impulsów STEP -> brak ruchu
+```
+TIME  DIR  STEP
+0     1    0
+10    1    1
+20    1    0
+30    1    1
+40    1    0
+```
 
-Przykłady logiczne, które użytkownik wielokrotnie tłumaczył:
+Important rule:
 
-- `01` -> jeden krok osi
-- `0101` -> dwa kroki osi
-- `000010000` -> jeden krok osi, ale bardzo rozciągnięty w czasie
+```
+STEP is stored as pulse presence in a sample.
+```
+Not as a signal edge.
 
-To jest fundament zrozumienia TARZANA.
-
-Jeżeli implementacja tego nie rozumie, będzie stale produkować błędne wyniki.
-
----
-
-# 3. Protokół 10 ms jest święty
-
-To jest twarda zasada systemu.
-
-## Obowiązuje bez wyjątków:
-
-`CZAS_PROBKOWANIA_MS = 10`
-
-Ta jednostka łączy:
-
-- elektronikę,
-- mechanikę,
-- generator STEP,
-- timeline TAKE,
-- preview,
-- player,
-- recorder,
-- walidację.
-
-Nie wolno:
-
-- wprowadzać lokalnych kroków czasu,
-- interpolować preview w innym czasie,
-- generować STEP w innym dt,
-- traktować 10 ms jako opcjonalnego parametru.
-
-Wszystko musi pracować dokładnie w siatce:
-
-- 0 ms
-- 10 ms
-- 20 ms
-- 30 ms
-- ...
+The **driver reacts to the 0→1 transition**.
 
 ---
 
-# 4. Mechanika jest nadrzędna
+# 3. Stepper Motor Requirement
 
-## Użytkownik doprecyzował to wielokrotnie
+Stepper drivers operate with:
 
-Silnik nie może obracać się za szybko, bo:
+```
+STEP / DIR interface
+```
 
-- mechanika może się uszkodzić,
-- układ może stracić kontrolę,
-- ramię może stanowić zagrożenie dla człowieka.
+Movement occurs when:
 
-Czyli generator STEP musi zawsze respektować:
+```
+STEP changes from 0 → 1
+```
 
-### a) limit prędkości osi
+Therefore correct pulse sequence must look like:
 
-maksymalna ilość impulsów, jaką dana oś może przyjąć w danym przedziale czasu
+```
+0 1 0 1 0 1
+```
 
-### b) limit zakresu osi
+Never:
 
-maksymalna liczba impulsów wynikająca z mechaniki pełnego ruchu osi
+```
+1 1 1
+```
 
-## Najprostsza definicja użytkownika
+And never:
 
-`max_speed_axis` = maksymalna liczba impulsów STEP, którą dana oś może przyjąć w danym przedziale czasowym.
-
-Czyli generator nie może po prostu „produkować impulsów zgodnie z krzywą”, tylko musi:
-
-- najpierw policzyć teoretyczną gęstość impulsów z krzywej,
-- potem przyciąć ją do mechaniki osi,
-- dopiero potem budować protokół STEP.
-
----
-
-# 5. Dane mechaniczne osi – twarde wartości odniesienia
-
-Z pliku `tarzanMechanikaOsi.py` wynikają pełne pojemności osi:
-
-- oś pozioma kamery: **28800**
-- oś pionowa kamery: **12800**
-- oś pochyłu kamery: **3200**
-- oś ostrości kamery: **30764**
-- oś pionowa ramienia: **28485**
-- oś pozioma ramienia: **92273**
-
-To są wartości konstrukcyjne, nie kosmetyczne.
-
-Muszą być wykorzystywane przez:
-
-- generator,
-- walidację,
-- preview,
-- stan początkowy osi,
-- logikę ograniczania krzywych.
+```
+0 0 0 1 1
+```
 
 ---
 
-# 6. Zasada nadrzędna smooth STEP
+# 4. Simplest Constant Motion Example
 
-W TARZANIE nie wystarczy, że zgadza się:
+If one axis requires:
 
-- całkowita liczba impulsów,
-- całkowita droga ruchu,
-- końcowy COUNT.
+```
+9000 pulses
+```
 
-Równie ważne jest:
+Then ideal constant motion looks like:
 
-**czy rytm kolejnych impulsów STEP zmienia się płynnie w czasie**.
+```
+0 1 0 1 0 1 ...
+```
 
-Nie wolno dopuszczać przebiegów typu:
+across the TAKE duration.
 
-`000001010000101011110000`
-
-jeżeli krzywa ruchu jest gładka.
-
-Takie przebiegi:
-
-- dają poprawny wynik liczbowy,
-- ale są mechanicznie złe,
-- powodują szarpanie,
-- niszczą filmową płynność ruchu.
-
-## Generator STEP musi spełniać 3 warunki jednocześnie
-
-1. poprawna liczba impulsów
-2. poprawny kierunek
-3. płynny lokalny rozkład impulsów w czasie
-
-Jeżeli którykolwiek z tych trzech punktów nie jest spełniony, generator jest błędny.
+The generator must **distribute pulses across time samples**.
 
 ---
 
-# 7. Najważniejszy błąd popełniany w implementacji
+# 5. Curve Driven Motion
 
-## Błąd rozumienia sygnału STEP
+The motion curve represents:
 
-W rozmowie wielokrotnie wychodziło, że implementacja traktowała STEP jako:
+```
+speed / motion intensity
+```
 
-- stan próbki,
-- znacznik „w tej próbce był ruch”,
-- albo długi blok jedynek.
+Example:
 
-To jest błędne.
+```
+AMP
+0.0
+0.2
+0.4
+0.7
+1.0
+0.7
+0.4
+0.2
+0.0
+```
 
-### Problem
+The generator interprets this as:
 
-Były generowane przebiegi, gdzie:
+```
+higher amplitude → more pulses
+lower amplitude → fewer pulses
+```
 
-- COUNT rósł szybko,
-- EV pokazywało impulsy w próbce,
-- ale STEP pozostawał długo w stanie 1,
-- albo po zakończeniu ruchu dalej utrzymywał się jako 1 przy `AMP = 0`.
-
-To jest jednoznacznie niezgodne z logiką ustaloną przez użytkownika.
-
-### Poprawna zasada
-
-STEP musi odpowiadać logicznemu przebiegowi impulsów,
-a nie pomocniczemu stanowi wewnętrznemu generatora.
-
-Czyli:
-
-- jeśli nie ma ruchu,
-- jeśli `AMP = 0`,
-- jeśli `EV = 0`,
-
-to:
-
-- STEP nie może pozostawać sztucznie w stanie 1.
+Which produces variable speed.
 
 ---
 
-# 8. Co zostało pomylone w generatorze
+# 6. Correct Generator Pipeline
 
-Obecne / wcześniejsze próby mieszały trzy różne warstwy:
+The correct architecture of the generator is:
 
-1. teoretyczna liczba impulsów należnych w oknie 10 ms
-2. licznik zbiorczy COUNT
-3. rzeczywisty sygnał STEP
+```
+curve
+↓
+sample amplitudes
+↓
+density (continuous values)
+↓
+phase accumulator
+↓
+STEP pulses
+```
 
-To są trzy różne rzeczy.
+Important rule:
 
-## Wniosek
+The **density stage must remain continuous**.
 
-Generator musi osobno utrzymywać:
+Example density values:
 
-### a) `EV`
+```
+0.05
+0.12
+0.30
+0.80
+1.20
+```
 
-liczbę impulsów przypadających na próbkę 10 ms
-
-### b) `COUNT`
-
-sumaryczną liczbę impulsów od początku TAKE
-
-### c) `STEP`
-
-rzeczywisty logiczny przebieg sterujący
-
-I dopiero wtedy preview będzie miało sens.
-
----
-
-# 9. Problem preview
-
-Preview nie może być osobnym generatorem.
-
-To był jeden z najważniejszych błędów architektury.
-
-Były próby, w których:
-
-- edytor zmieniał krzywą,
-- preview budowało coś „po swojemu”,
-- generator liczył jeszcze coś innego.
-
-To musi zostać usunięte.
-
-## Poprawna architektura
-
-`edytor osi -> centralny generator STEP -> generated_protocol -> preview`
-
-Nie:
-
-`edytor osi -> preview -> generator`
-
-Preview ma tylko pokazywać wynik generatora.
-
-Nie może mieć:
-
-- fallbacków,
-- lokalnych obliczeń,
-- pseudo-protokołu,
-- zastępczego przeliczania.
+These values are accumulated later to produce STEP events.
 
 ---
 
-# 10. Problem pełnego timeline TAKE
+# 7. Phase Accumulator
 
-To była bardzo ważna uwaga użytkownika.
+The actual pulse generation happens later in the pipeline:
 
-## Co musi być widoczne
+```
+accumulator += density
+ev = int(accumulator)
 
-W preview protokołu użytkownik musi widzieć:
+if ev > 0:
+    accumulator -= ev
+    STEP = 1
+```
 
-- pełny timeline TAKE
-- pełną długość osi czasu
-- pełny zakres zapisu dla każdej osi
+This mechanism guarantees:
 
-Nawet jeśli:
+```
+Σ STEP = target_pulses
+```
 
-- ruch jest tylko na fragmencie,
-- oś stoi przez większość czasu,
-- generator jest w stanie STOP.
+This part **already exists inside `_generate_rows_from_density()`**.
 
-## Nie wolno
+Therefore `_build_density_from_amplitudes()` must **NOT generate pulses directly**.
 
-Nie wolno pokazywać tylko „małego fragmentu aktywności”.
-
-To utrudnia:
-
-- ocenę mechaniki,
-- synchronizację osi,
-- ocenę logiki generatora,
-- debugowanie STEP.
-
-## Stan początkowy w GENERATORZE
-
-Użytkownik ustalił:
-
-- pełny timeline TAKE ma istnieć zawsze
-- domyślnie:
-  - `STEP = 0`
-  - `DIR = 0`
-  - `COUNT = 0`
-
-czyli pełna oś czasu, ale bez ruchu.
+It only produces **density**.
 
 ---
 
-# 11. Tryby EHR – ustalone i wdrożone częściowo
+# 8. Direction Handling
 
-Użytkownik ustalił konieczne tryby pracy EHR:
+Direction is determined by sign of the curve.
 
-- GENERATOR
-- EDYTOR
-- PLAYER
-- RECORDER
-- LIVE
+```
+AMP > 0  → DIR = 1
+AMP < 0  → DIR = 0
+```
 
-To było bardzo słuszne założenie.
+If amplitude crosses zero the generator flips direction.
 
-## Dlaczego
+Example:
 
-Bo wcześniej mieszały się funkcje:
+```
++0.4
++0.2
+0
+-0.1
+-0.3
+```
 
-- generowania ruchu od zera,
-- edycji już istniejącego TAKE,
-- preview,
-- ładowania pliku.
-
-To powodowało chaos architektury.
-
-## Poprawna zasada
-
-### GENERATOR
-
-- start bez przykładowego JSON
-- pełny timeline TAKE
-- osie gotowe do generowania ruchu
-- zapis wyniku do TAKE
-
-### EDYTOR
-
-- wczytanie TAKE
-- rekonstrukcja krzywej z protokołu
-- ponowna edycja
-- nowy generator STEP
-
-### PLAYER
-
-- tylko odtwarzanie
-
-### RECORDER
-
-- zapis rzeczywistego ruchu
-
-### LIVE
-
-- bezpośrednie sterowanie
-
-Tryby zostały częściowo dodane do UI i to należy zachować.
+Direction change occurs when sign changes.
 
 ---
 
-# 12. Co działa lepiej niż na początku
+# 9. TAKE Integrity Rule
 
-Mimo że rdzeń STEP nadal nie działa poprawnie, pewne rzeczy poszły w dobrym kierunku i trzeba je zachować:
+The generator must guarantee:
 
-1. okno działa szybciej niż wcześniej
-2. osie mieszczą się lepiej w obszarze
-3. generator startuje w trybie GENERATOR
-4. duże przyciski trybów zostały dodane
-5. niektóre wersje lepiej rozciągały linie na pełny obszar TAKE
-6. podgląd zaczął w ogóle coś liczyć
-7. został dopisany istotny materiał do dokumentacji
+```
+total STEP pulses = axis_take.target_pulses
+```
 
-Tego nie wolno rozwalić w nowym podejściu.
+Validation occurs using:
 
----
+```
+_ensure_exact_total()
+```
 
-# 13. Co nadal nie działa
-
-## Lista problemów aktualnych
-
-1. osie / parametry nadal świecą na czerwono bez logicznej zgodności
-2. `STEP` nadal nie odpowiada poprawnie wykresowi
-3. `COUNT` bywa liczbowo „jakiś”, ale nie jest logicznie sprzężony z realnym przebiegiem STEP
-4. `EV` i `STEP` nie reprezentują tej samej rzeczy
-5. po zejściu amplitudy do zera STEP potrafi pozostawać w stanie 1
-6. preview nie daje jeszcze pełnej, jednoznacznej informacji o protokole
-7. generator nadal nie respektuje ustaleń w sposób spójny od początku do końca
-
-## Najkrótsza diagnoza
-
-To co jest generowane, jest:
-
-- częściowo liczbowo sensowne,
-- ale logicznie niespójne.
-
-Czyli:
-**generator produkuje coś, ale nie to, co opisuje dokumentacja TARZANA.**
+This is critical for mechanical repeatability.
 
 ---
 
-# 14. Błąd metodologiczny asystenta
+# 10. What Broke Previous Attempts
 
-W tym wątku popełniono błąd metodologiczny:
+Several attempts broke the generator because:
 
-- próbowano łatać generator bez pełnego trzymania się aktualnych plików użytkownika,
-- tworzono uproszczone implementacje,
-- zgadywano interfejsy API,
-- dawano ZIP-y, które łamały zgodność z kodem edytora,
-- poprawki były robione zbyt często „na skróty”.
+1. `_build_density_from_amplitudes()` started generating **STEP pulses directly**.
+2. This created **double accumulation** because `_generate_rows_from_density()` already uses an accumulator.
+3. The pipeline then produced incorrect pulse counts.
 
-To doprowadziło do pętli:
+Correct rule:
 
-- nowy ZIP
-- nowy crash
-- naprawa importu
-- naprawa sygnatury
-- naprawa iteracji timeline
-- ale bez domknięcia sedna.
-
-W nowym wątku nie wolno tak pracować.
+```
+_build_density_from_amplitudes → density only
+_generate_rows_from_density → pulses
+```
 
 ---
 
-# 15. Na jakiej bazie trzeba teraz pracować
+# 11. Final Mental Model
 
-Użytkownik na końcu przekazał bazową wersję projektu:
+The entire TARZAN motion system works like this:
 
-tarzan-0.7.zip`
-
-To jest wersja odniesienia.
-Kolejna próba musi być robiona bezpośrednio na tej paczce i tylko na niej.
-
-Nie wolno:
-
-- tworzyć izolowanych generatorów obok projektu,
-- zgadywać klas,
-- zgadywać API,
-- pisać „uniwersalnych” modułów bez wpasowania w istniejący kod.
-
----
-
-# 16. Zakres plików, które realnie trzeba ruszyć
-
-Minimalny sensowny zakres:
-
-- `motion/tarzanStepGenerator.py`
-- `editor/tarzanTakePreviewWindow.py`
-
-Bardzo możliwe, że dodatkowo:
-
-- `editor/tarzanEdytorChoreografiiRuchu.py`
-- `editor/tarzanWykresOsi.py`
-
-Ale nie więcej niż trzeba.
-
-Zasada użytkownika jest jasna:
-
-- pracować na istniejących plikach,
-- nie mnożyć nowych bytów,
-- nie rozwalać tego, co działa.
+```
+motion curve
+↓
+amplitude samples
+↓
+pulse density
+↓
+phase accumulator
+↓
+STEP pulses
+↓
+stepper motor motion
+```
 
 ---
 
-# 17. Poprawny model generatora STEP – do wdrożenia
+# 12. Why This Model Is Good
 
-To jest rdzeń, który trzeba zaimplementować w nowym wątku.
+This architecture is used in many real systems:
 
-## Wejście
+- CNC motion planners
+- 3D printer firmware
+- digital signal generators
 
-- pełny timeline TAKE
-- krzywa ruchu osi
-- mechaniczne ograniczenia osi:
-  - `full_cycle_pulses`
-  - `max_speed_axis`
-  - rozruch / rampa
-  - backlash
-- stan startowy:
-  - `STEP = 0`
-  - `DIR = 0`
-  - `COUNT = 0`
+Advantages:
 
-## Proces
-
-1. próbkuj krzywą w siatce 10 ms
-2. z krzywej wyznacz teoretyczną gęstość impulsów
-3. przytnij ją do mechaniki osi
-4. policz ile impulsów przypada na okno 10 ms (`EV`)
-5. zsumuj do `COUNT`
-6. z `EV` zbuduj poprawny logiczny przebieg `STEP`
-7. przy `AMP = 0` nie generuj impulsów
-8. przy końcu ruchu `STEP` ma wrócić do 0
-9. preview ma czytać wynik generatora, nie budować własnej wersji
-
-## Wyjście
-
-`generated_protocol` zawierający spójnie:
-
-- `TIME`
-- `DIR`
-- `STEP`
-- `EV`
-- `ENABLE`
-- `AMP`
-- `COUNT`
+• stable pulse timing  
+• smooth speed transitions  
+• deterministic pulse count  
 
 ---
 
-# 18. Kluczowa zasada interpretacyjna dla nowego wątku
+# 13. Development Rule
 
-Nie pytać już więcej, czy krzywa oznacza pozycję albo prędkość w sensie klasycznym.
+Future changes must respect this rule:
 
-To zostało rozstrzygnięte.
+```
+DO NOT collapse the pipeline into a direct curve → STEP generator.
+```
 
-Krzywa oznacza:
-**gęstość impulsów STEP w czasie**.
-
-Mechanika oznacza:
-**ile impulsów wolno wygenerować w danym czasie i w całym ruchu osi**.
-
-To jest zespolone.
+The density layer is essential.
 
 ---
 
-# 19. Czego nie robić w nowym wątku
+# 14. Current Status
 
-1. nie robić kolejnych kosmetycznych poprawek tylko w preview
-2. nie tworzyć nowych plików bez konieczności
-3. nie zmieniać nazw plików w ZIP
-4. nie dawać pojedynczych plików niezgodnych z API projektu
-5. nie zgadywać interfejsów
-6. nie wracać do rozważań „co oznacza krzywa”, bo to już ustalone
-7. nie produkować generatora, który daje dobry COUNT, ale zły STEP
+The generator currently:
 
----
+✓ produces correct STEP pulses  
+✓ maintains target pulse counts  
+✓ responds to motion curve amplitude  
+✓ integrates with editor protocol preview  
 
-# 20. Co powiedzieć na starcie nowego wątku
-
-Najlepszy start kolejnego wątku:
-
-> Wracamy do TARZANA na bazie `tarzan-0.6.0.zip`. Problem nie jest już koncepcyjny ani dokumentacyjny. Problem jest implementacyjny: `motion/tarzanStepGenerator.py` nadal nie buduje poprawnego logicznie przebiegu STEP zgodnego z krzywą, mechaniką osi i protokołem 10 ms. Preview ma czytać wyłącznie `generated_protocol`. Nie chcę kosmetycznych łatek ani nowych plików. Pracujemy tylko na istniejących plikach i dajesz jeden ZIP z właściwymi ścieżkami.
+This version should be considered **the stable reference implementation**.
 
 ---
 
-# 21. Uczciwa ocena końcowa
-
-W tym wątku:
-
-- dokumentacja została bardzo dobrze doprecyzowana,
-- architektura EHR została mocno wyjaśniona,
-- tryby pracy zostały sensownie rozdzielone,
-- użytkownik przekazał jasne i wystarczające reguły działania systemu.
-
-Ale:
-
-- skuteczna implementacja generatora STEP nie została domknięta,
-- asystent nie poradził sobie z przełożeniem jasnych ustaleń na poprawny kod,
-- ZIP-y nie doprowadziły do końca problemu.
-
-To trzeba przyjąć bez pudrowania.
-
----
-
-# 22. Najważniejsze zdanie z całego handoffu
-
-**W TARZANIE problem nie polega już na tym, że czegoś nie wiadomo.
-Problem polega na tym, że jasne zasady nie zostały jeszcze poprawnie zaimplementowane w kodzie.**
+# End of Document

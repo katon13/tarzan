@@ -83,6 +83,14 @@ MECHANICS_PRESETS: Dict[str, AxisMechanics] = {
         start_ramp_ms=60000,
         sample_ms=10,
     ),
+    "DRON": AxisMechanics(
+        axis_name="DRON",
+        full_cycle_pulses=1,
+        min_full_cycle_time_s=60.0,
+        start_settle_ms=0,
+        start_ramp_ms=0,
+        sample_ms=10,
+    ),
 }
 
 
@@ -209,13 +217,20 @@ class AxisCurveModel:
         self.mechanics = copy.deepcopy(MECHANICS_PRESETS.get(axis_def.axis_name, MECHANICS_PRESETS["oś wzorcowa"]))
         self.sandbox = AxisSandboxSettings()
         self.step_tuning = StepTuning()
+        self.is_release_axis = axis_def.axis_id == "dron"
+        self.release_time_ms: int | None = None
+        self.axis_take_duration_ms: int | None = None
         self.nodes: List[AxisNode] = self._build_default_nodes()
+        if self.is_release_axis:
+            self.release_time_ms = self.snap_time(self.take_duration_ms * 0.5)
         self.original_nodes: List[AxisNode] = copy.deepcopy(self.nodes)
         self._curve_cache: tuple[tuple[int, float], ...] | None = None
         self._step_cache: tuple[dict, ...] | None = None
 
     @property
     def take_duration_ms(self) -> int:
+        if self.axis_take_duration_ms is not None:
+            return self.axis_take_duration_ms
         return self.mechanics.take_duration_ms
 
     @property
@@ -236,6 +251,42 @@ class AxisCurveModel:
     def set_mechanics(self, mechanics: AxisMechanics) -> None:
         self.mechanics = copy.deepcopy(mechanics)
         self.nodes = self._build_default_nodes()
+        if self.is_release_axis:
+            self.release_time_ms = self.snap_time(self.take_duration_ms * 0.5)
+        self.clone_original_state()
+        self._invalidate_cache()
+
+    def set_axis_take_duration_ms(self, take_duration_ms: int | None) -> None:
+        old_duration = max(self.sample_ms, self.take_duration_ms)
+        if take_duration_ms is None:
+            self.axis_take_duration_ms = None
+        else:
+            snapped = self.snap_time(max(self.sample_ms, int(take_duration_ms)))
+            self.axis_take_duration_ms = snapped
+        new_duration = max(self.sample_ms, self.take_duration_ms)
+
+        if self.is_release_axis:
+            if self.release_time_ms is None:
+                self.release_time_ms = self.snap_time(new_duration * 0.5)
+            else:
+                scaled_release = int(round(self.release_time_ms * new_duration / old_duration))
+                self.release_time_ms = self.snap_time(max(0, min(new_duration, scaled_release)))
+            self.nodes = [AxisNode(0, 0.0), AxisNode(new_duration, 0.0)]
+            self.clone_original_state()
+            self._invalidate_cache()
+            return
+
+        scaled_nodes: List[AxisNode] = []
+        for index, node in enumerate(self.nodes):
+            if index == 0:
+                scaled_nodes.append(AxisNode(0, 0.0))
+            elif index == len(self.nodes) - 1:
+                scaled_nodes.append(AxisNode(new_duration, 0.0))
+            else:
+                scaled_time = int(round(node.time_ms * new_duration / old_duration))
+                scaled_nodes.append(AxisNode(self.snap_time(scaled_time), node.y))
+        self.nodes = scaled_nodes
+        self.sort_and_fix_nodes()
         self.clone_original_state()
         self._invalidate_cache()
 
@@ -246,6 +297,8 @@ class AxisCurveModel:
 
     def _build_default_nodes(self) -> List[AxisNode]:
         d = self.take_duration_ms
+        if self.is_release_axis:
+            return [AxisNode(0, 0.0), AxisNode(d, 0.0)]
         return [
             AxisNode(0, 0.0),
             AxisNode(int(d * 0.18), 18.0),
@@ -383,6 +436,24 @@ class AxisCurveModel:
         self.sort_and_fix_nodes()
         self._invalidate_cache()
 
+    def set_release_time(self, time_ms: int) -> None:
+        if not self.is_release_axis:
+            return
+        self.release_time_ms = self.snap_time(max(0, min(self.take_duration_ms, int(time_ms))))
+
+    def protocol_rows(self) -> List[dict]:
+        rows = self.build_step_rows()
+        release_time = self.release_time_ms if self.is_release_axis else None
+        protocol: List[dict] = []
+        for row in rows:
+            protocol.append({
+                "time_ms": int(row["time_ms"]),
+                "dir": int(row["dir"]),
+                "step": int(row["step"]),
+                "event": "RELEASE" if release_time is not None and int(row["time_ms"]) == int(release_time) else "",
+            })
+        return protocol
+
     def _edge_slope(self, h0: float, h1: float, d0: float, d1: float) -> float:
         m = ((2 * h0 + h1) * d0 - h0 * d1) / (h0 + h1) if (h0 + h1) != 0 else 0.0
         if (m > 0) != (d0 > 0):
@@ -457,10 +528,25 @@ class AxisCurveModel:
         if self._step_cache is not None:
             return [dict(r) for r in self._step_cache]
         rows: List[dict] = []
-        tuning = copy.deepcopy(self.step_tuning)
-        tuning.clamp()
         sample_ms = self.sample_ms
         steps = self.take_duration_ms // sample_ms
+        if self.is_release_axis:
+            for i in range(steps + 1):
+                rows.append(
+                    {
+                        "time_ms": i * sample_ms,
+                        "y": 0.0,
+                        "dir": 1,
+                        "step": 0,
+                        "count": 0,
+                        "rate": 0.0,
+                        "acc": 0.0,
+                    }
+                )
+            self._step_cache = tuple(dict(r) for r in rows)
+            return [dict(r) for r in self._step_cache]
+        tuning = copy.deepcopy(self.step_tuning)
+        tuning.clamp()
         accumulator = tuning.accumulator_bias
         count = 0
         prev_sign = 0
@@ -536,9 +622,13 @@ class AxisCurveModel:
         rows = self.build_step_rows()
         peak_abs_y = max((abs(r["y"]) for r in rows), default=0.0)
         peak_rate = max((r["rate"] for r in rows), default=0.0)
+        release_text = "-"
+        if self.is_release_axis and self.release_time_ms is not None:
+            release_text = f"{self.release_time_ms} ms"
         return (
             f"oś               : {self.axis_def.axis_name}\n"
             f"węzły             : {len(self.nodes)}\n"
+            f"release          : {release_text}\n"
             f"budżet impulsów   : {pulse_count} / {budget}\n"
             f"wypełnienie       : {ratio * 100:6.2f} %\n"
             f"max |Y|           : {peak_abs_y:6.2f}\n"
@@ -558,4 +648,5 @@ DEFAULT_AXIS_DEFINITIONS: list[EhrAxisDefinition] = [
     EhrAxisDefinition("cam_f", "oś ostrości kamery", "#A9DC76"),
     EhrAxisDefinition("arm_v", "oś pionowa ramienia", "#AB9DF2"),
     EhrAxisDefinition("arm_h", "oś pozioma ramienia", "#FC9867"),
+    EhrAxisDefinition("dron", "DRON", "#F472B6"),
 ]

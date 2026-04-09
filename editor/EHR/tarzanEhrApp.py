@@ -54,6 +54,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self.mouse_y_precision = tk.DoubleVar(value=self.model.sandbox.mouse_y_precision)
         self.top_bottom_margin = tk.IntVar(value=self.model.sandbox.top_bottom_margin)
         self.mechanics_preset_var = tk.StringVar(value=self.model.mechanics.axis_name)
+        self.axis_take_ms = tk.IntVar(value=self.model.take_duration_ms)
         self.status_var = tk.StringVar(value="Gotowy.")
         self.metrics_var = tk.StringVar(value="")
 
@@ -191,6 +192,28 @@ class AxisSettingsDialog(tk.Toplevel):
         om["menu"].configure(bg="#2A3038", fg=self.master_window.FG)
         om.pack(fill="x", padx=10, pady=(0, 8))
         self._btn(mechanics_box, "WCZYTAJ Z MECHANIKI", self._apply_mechanics_preset, "#2563EB").pack(fill="x", padx=10, pady=(0, 10))
+
+        take_box = tk.Frame(parent, bg=self.master_window.PANEL)
+        take_box.pack(fill="x", pady=(0, 10))
+        tk.Label(
+            take_box,
+            text="CZAS TAKE OSI (ms)",
+            bg=self.master_window.PANEL,
+            fg=self.master_window.FG,
+            anchor="w",
+            font=("Segoe UI Semibold", 9),
+        ).pack(fill="x", padx=10, pady=(8, 4))
+        take_entry = tk.Entry(
+            take_box,
+            textvariable=self.axis_take_ms,
+            bg="#39424E",
+            fg=self.master_window.FG,
+            relief="flat",
+            insertbackground=self.master_window.FG,
+        )
+        take_entry.pack(fill="x", padx=10, pady=(0, 6))
+        take_entry.bind("<Return>", lambda _e: self._apply_take_time())
+        self._btn(take_box, "ZASTOSUJ CZAS TAKE OSI", self._apply_take_time, "#0F766E").pack(fill="x", padx=10, pady=(0, 10))
 
         box = tk.Frame(parent, bg=self.master_window.PANEL)
         box.pack(fill="x", pady=(0, 10))
@@ -378,7 +401,22 @@ class AxisSettingsDialog(tk.Toplevel):
     def _apply_mechanics_preset(self) -> None:
         mechanics = copy.deepcopy(MECHANICS_PRESETS[self.mechanics_preset_var.get()])
         self.model.set_mechanics(mechanics)
+        self.axis_take_ms.set(self.model.take_duration_ms)
         self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")
+        self.master_window._refresh_all()
+
+    def _apply_take_time(self) -> None:
+        try:
+            value = int(self.axis_take_ms.get())
+        except (tk.TclError, ValueError):
+            self.status_var.set("Nieprawidłowy czas TAKE osi.")
+            return
+        if value < self.model.sample_ms * 10:
+            self.status_var.set("Czas TAKE osi jest za mały.")
+            return
+        self.model.set_axis_take_duration_ms(value)
+        self.axis_take_ms.set(self.model.take_duration_ms)
+        self._refresh_all("Zastosowano czas TAKE osi.")
         self.master_window._refresh_all()
 
     def _save_tuning_txt(self) -> None:
@@ -475,7 +513,8 @@ class AxisSettingsDialog(tk.Toplevel):
             c.create_line(left, py, right, py, fill=color if yv != 0 else "#FF3030", width=width, dash=dash)
             c.create_text(left - 8, py, text=str(yv), fill=self.master_window.MUTED, anchor="e", font=("Consolas", 8))
 
-        for minute in range(0, int(self.model.mechanics.min_full_cycle_time_s // 60) + 1):
+        total_minutes = max(1, self.model.take_duration_ms // 60_000)
+        for minute in range(0, total_minutes + 1):
             t_ms = minute * 60_000
             if t_ms > self.model.take_duration_ms:
                 continue
@@ -639,6 +678,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.configure(bg=self.BG)
 
         self.config_model = EhrEditorConfig()
+        self.global_take_duration_ms = 60000
         self.axis_models = [AxisCurveModel(axis_def, self.config_model) for axis_def in DEFAULT_AXIS_DEFINITIONS]
         self.active_axis_index = 0
         self.selected_index: int | None = None
@@ -651,6 +691,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.axis_rects: dict[int, AxisViewportRect] = {}
         self.gear_rects: dict[int, GearRect] = {}
         self.settings_dialogs: dict[int, AxisSettingsDialog] = {}
+        self.drag_release_anchor_time = 0
 
         self.axis_info_var = tk.StringVar(value="")
         self.status_var = tk.StringVar(value="Gotowy.")
@@ -668,6 +709,21 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         top = tk.Frame(outer, bg=self.BG)
         top.pack(fill="x", pady=(0, 8))
         tk.Label(top, text="TARZAN — EHR", bg=self.BG, fg=self.FG, font=("Segoe UI Semibold", 16)).pack(side="left")
+        tk.Button(
+            top,
+            text="⚙",
+            command=self._open_take_settings,
+            bg="#39424E",
+            fg=self.FG,
+            activebackground="#39424E",
+            activeforeground=self.FG,
+            relief="flat",
+            bd=0,
+            padx=10,
+            pady=4,
+            font=("Segoe UI Symbol", 12),
+            cursor="hand2",
+        ).pack(side="left", padx=(8, 0))
 
         body = tk.Frame(outer, bg=self.BG)
         body.pack(fill="both", expand=True)
@@ -692,6 +748,63 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         status = tk.Label(outer, textvariable=self.status_var, bg=self.PANEL2, fg=self.FG, anchor="w", padx=10, pady=8, font=("Segoe UI", 9))
         status.pack(fill="x", pady=(8, 0))
 
+    def _open_take_settings(self) -> None:
+        win = tk.Toplevel(self)
+        win.title("Ustawienia TAKE")
+        win.configure(bg=self.BG)
+        win.transient(self)
+        win.grab_set()
+
+        minutes_var = tk.DoubleVar(value=self.global_take_duration_ms / 60000.0)
+
+        frame = tk.Frame(win, bg=self.PANEL, padx=16, pady=16)
+        frame.pack(fill="both", expand=True, padx=12, pady=12)
+
+        tk.Label(
+            frame,
+            text="GLOBALNY CZAS TAKE (min)",
+            bg=self.PANEL,
+            fg=self.FG,
+            anchor="w",
+            font=("Segoe UI Semibold", 10),
+        ).pack(fill="x", pady=(0, 6))
+
+        entry = tk.Entry(
+            frame,
+            textvariable=minutes_var,
+            bg="#39424E",
+            fg=self.FG,
+            relief="flat",
+            insertbackground=self.FG,
+        )
+        entry.pack(fill="x", pady=(0, 10))
+
+        def save() -> None:
+            try:
+                minutes = float(minutes_var.get())
+            except (tk.TclError, ValueError):
+                self.status_var.set("Nieprawidłowy globalny czas TAKE.")
+                return
+            if minutes <= 0:
+                self.status_var.set("Globalny czas TAKE musi być dodatni.")
+                return
+            take_ms = max(1000, int(round(minutes * 60000.0)))
+            self.global_take_duration_ms = take_ms
+            for axis in self.axis_models:
+                axis.set_axis_take_duration_ms(take_ms)
+            self._refresh_all(f"Ustawiono globalny czas TAKE: {minutes:.2f} min.")
+            for dlg in list(self.settings_dialogs.values()):
+                if dlg.winfo_exists():
+                    dlg.axis_take_ms.set(dlg.model.take_duration_ms)
+                    dlg._refresh_all()
+            win.destroy()
+
+        btns = tk.Frame(frame, bg=self.PANEL)
+        btns.pack(fill="x")
+        self._btn(btns, "ZASTOSUJ DO CAŁEGO TAKE", save, "#0F766E").pack(side="left")
+        self._btn(btns, "ZAMKNIJ", win.destroy, "#4B5563").pack(side="right")
+        entry.focus_set()
+
     def _build_left_panel(self, parent: tk.Misc) -> None:
         tk.Label(parent, text="AKTYWNA OŚ", bg=self.BG, fg=self.FG, anchor="w", font=("Segoe UI Semibold", 12)).pack(fill="x", pady=(0, 8))
         active_box = tk.Frame(parent, bg=self.PANEL)
@@ -700,11 +813,20 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         tk.Label(active_box, textvariable=self.active_axis_name_var, bg=self.PANEL, fg=self.FG, anchor="w", font=("Segoe UI Semibold", 10), padx=10, pady=10).pack(fill="x")
         tk.Label(parent, textvariable=self.axis_info_var, bg=self.BG, fg=self.MUTED, justify="left", anchor="w", font=("Consolas", 9)).pack(fill="x", pady=(0, 12))
 
-        bottom_actions = tk.Frame(parent, bg=self.BG)
-        bottom_actions.pack(fill="both", expand=True)
+        self.protocol_label_var = tk.StringVar(value=f"PODGLĄD PROTOKOŁU — {self._active_model().axis_def.axis_name}")
+        protocol_label = tk.Label(parent, textvariable=self.protocol_label_var, bg=self.BG, fg=self.FG, anchor="w", font=("Segoe UI Semibold", 11))
+        protocol_label.pack(fill="x", pady=(0, 6))
 
-        smooth_box = tk.Frame(bottom_actions, bg=self.PANEL)
-        smooth_box.pack(side="bottom", fill="x", pady=(0, 10))
+        protocol_box = tk.Frame(parent, bg=self.PANEL)
+        protocol_box.pack(fill="both", expand=True, pady=(0, 10))
+        self.protocol_text = tk.Text(protocol_box, height=24, bg=self.PANEL, fg=self.FG, relief="flat", wrap="none", font=("Consolas", 8))
+        self.protocol_text.pack(side="left", fill="both", expand=True, padx=(8, 0), pady=8)
+        protocol_scroll = tk.Scrollbar(protocol_box, orient="vertical", command=self.protocol_text.yview)
+        protocol_scroll.pack(side="right", fill="y", padx=(0, 8), pady=8)
+        self.protocol_text.configure(yscrollcommand=protocol_scroll.set, state="disabled")
+
+        smooth_box = tk.Frame(parent, bg=self.PANEL)
+        smooth_box.pack(fill="x", pady=(0, 10))
         self._btn(smooth_box, "WYGŁADŹ OŚ", self._smooth_active, "#2563EB").pack(fill="x", padx=10, pady=(10, 8))
         self._scale_row(smooth_box, "SIŁA WYGŁADZANIA", self.smooth_strength_var, 0.0, 1.0, 0.05)
         self._scale_row(smooth_box, "ILOŚĆ PRZEJŚĆ", self.smooth_passes_var, 1, 8, 1)
@@ -778,6 +900,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             return None
         rect = self.axis_rects[axis_index]
         model = self.axis_models[axis_index]
+        if model.is_release_axis:
+            return None
         radius = model.step_tuning.node_hit_radius_px
         for i, n in enumerate(model.nodes):
             px = self._time_to_x(model, n.time_ms, rect.left, rect.right)
@@ -785,6 +909,17 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             if abs(px - x) <= radius and abs(py - y) <= radius:
                 return i
         return None
+
+    def _hit_release(self, axis_index: int, x: float, y: float) -> bool:
+        if axis_index not in self.axis_rects:
+            return False
+        model = self.axis_models[axis_index]
+        if not model.is_release_axis or model.release_time_ms is None:
+            return False
+        rect = self.axis_rects[axis_index]
+        px = self._time_to_x(model, model.release_time_ms, rect.left, rect.right)
+        py = (rect.top + rect.bottom) / 2.0
+        return abs(px - x) <= 14 and abs(py - y) <= 14
 
     def _axis_layout(self) -> list[tuple[int, AxisViewportRect]]:
         left, top, right, bottom = self._curve_area_rect()
@@ -809,7 +944,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         c.create_rectangle(left, top, right, bottom, fill="#1B2028", outline="#303A45")
 
         active = self._active_model()
-        for minute in range(0, int(active.mechanics.min_full_cycle_time_s // 60) + 1):
+        active_total_minutes = max(1, active.take_duration_ms // 60_000)
+        for minute in range(0, active_total_minutes + 1):
             t_ms = minute * 60_000
             if t_ms > active.take_duration_ms:
                 continue
@@ -831,26 +967,46 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             c.create_line(rect.left, mid, rect.right, mid, fill="#48525E", dash=(4, 5))
             c.create_text(rect.left - 12, mid, text=model.axis_def.axis_name, fill=self.FG, anchor="e", font=("Segoe UI", 9, "bold"))
 
-            gear = GearRect(rect.left - 44, rect.top + 8, rect.left - 16, rect.top + 36)
-            self.gear_rects[axis_index] = gear
-            c.create_rectangle(gear.left, gear.top, gear.right, gear.bottom, fill="#39424E", outline="#55606D")
-            c.create_text((gear.left + gear.right) / 2.0, (gear.top + gear.bottom) / 2.0, text="⚙", fill=self.FG, font=("Segoe UI Symbol", 12))
+            if not model.is_release_axis:
+                gear = GearRect(rect.left - 44, rect.top + 8, rect.left - 16, rect.top + 36)
+                self.gear_rects[axis_index] = gear
+                c.create_rectangle(gear.left, gear.top, gear.right, gear.bottom, fill="#39424E", outline="#55606D")
+                c.create_text((gear.left + gear.right) / 2.0, (gear.top + gear.bottom) / 2.0, text="⚙", fill=self.FG, font=("Segoe UI Symbol", 12))
 
-            samples = model.sample_curve(900)
-            pts: list[float] = []
-            for t_ms, y in samples:
-                pts.extend([self._time_to_x(model, t_ms, rect.left, rect.right), self._logical_y_to_canvas(model, y, rect.top, rect.bottom)])
-            if len(pts) >= 4:
-                c.create_line(*pts, fill=model.axis_def.color, width=3 if is_active else 2, smooth=True)
+            minute_count = max(1, model.take_duration_ms // 60_000)
+            for minute in range(0, minute_count + 1):
+                t_ms = minute * 60_000
+                if t_ms > model.take_duration_ms:
+                    continue
+                px = self._time_to_x(model, t_ms, rect.left, rect.right)
+                c.create_line(px, rect.top, px, rect.bottom, fill="#303842", dash=(2, 6))
+                if minute < minute_count:
+                    c.create_text(px + 2, rect.top + 4, text=f"{minute}m", fill=self.MUTED, anchor="nw", font=("Consolas", 7))
 
-            node_r = max(4, min(9, model.step_tuning.node_hit_radius_px // 2))
-            for i, n in enumerate(model.nodes):
-                px = self._time_to_x(model, n.time_ms, rect.left, rect.right)
-                py = self._logical_y_to_canvas(model, n.y, rect.top, rect.bottom)
-                fill = self.NODE_SEL if (axis_index == self.drag_axis_index and i == self.selected_index) else self.NODE
-                if i == 0 or i == len(model.nodes) - 1:
-                    fill = "#D6EAF8"
-                c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill=fill, outline="black")
+            if not model.is_release_axis:
+                samples = model.sample_curve(900)
+                pts: list[float] = []
+                for t_ms, y in samples:
+                    pts.extend([self._time_to_x(model, t_ms, rect.left, rect.right), self._logical_y_to_canvas(model, y, rect.top, rect.bottom)])
+                if len(pts) >= 4:
+                    c.create_line(*pts, fill=model.axis_def.color, width=3 if is_active else 2, smooth=True)
+
+                node_r = max(4, min(9, model.step_tuning.node_hit_radius_px // 2))
+                for i, n in enumerate(model.nodes):
+                    px = self._time_to_x(model, n.time_ms, rect.left, rect.right)
+                    py = self._logical_y_to_canvas(model, n.y, rect.top, rect.bottom)
+                    fill = self.NODE_SEL if (axis_index == self.drag_axis_index and i == self.selected_index) else self.NODE
+                    if i == 0 or i == len(model.nodes) - 1:
+                        fill = "#D6EAF8"
+                    c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill=fill, outline="black")
+
+            if model.is_release_axis and model.release_time_ms is not None:
+                rx = self._time_to_x(model, model.release_time_ms, rect.left, rect.right)
+                ry = (rect.top + rect.bottom) / 2.0
+                r = 9
+                fill = "#F59E0B" if self.drag_mode == 'release' and axis_index == self.drag_axis_index else "#F472B6"
+                c.create_polygon(rx, ry - r, rx + r, ry, rx, ry + r, rx - r, ry, fill=fill, outline='black')
+                c.create_text(rx + 14, ry - 12, text='RELEASE', fill='#F9A8D4', anchor='w', font=('Segoe UI', 8, 'bold'))
 
     def _on_canvas_configure(self, _event=None) -> None:
         self._refresh_all()
@@ -859,13 +1015,69 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.active_axis_name_var.set(self._active_model().axis_def.axis_name)
         self.axis_info_var.set(self._active_model().metrics_summary())
 
+    def _refresh_protocol_preview(self) -> None:
+        model = self._active_model()
+        rows = model.protocol_rows()
+        self.protocol_label_var.set(f"PODGLĄD PROTOKOŁU — {model.axis_def.axis_name}")
+
+        if not rows:
+            lines = [f"OŚ: {model.axis_def.axis_name}\n", "Brak danych protokołu.\n"]
+        else:
+            first_active_idx = 0
+            for idx, row in enumerate(rows):
+                if int(row['step']) == 1 or str(row['event']).strip():
+                    first_active_idx = idx
+                    break
+
+            pre_roll = 40
+            main_window = 420
+            start_idx = max(0, first_active_idx - pre_roll)
+            end_idx = min(len(rows), start_idx + main_window)
+            window_rows = rows[start_idx:end_idx]
+
+            bit_chunks = []
+            chunk_size = 64
+            for i in range(0, len(window_rows), chunk_size):
+                chunk_rows = window_rows[i:i + chunk_size]
+                chunk_bits = ''.join(str(int(r['step'])) for r in chunk_rows)
+                chunk_time = chunk_rows[0]['time_ms'] if chunk_rows else 0
+                bit_chunks.append(f"{chunk_time:7d} ms | {chunk_bits}\n")
+
+            lines = [
+                f"OŚ ZAZNACZONA: {model.axis_def.axis_name}\n",
+                f"PODGLĄD TEJ OSI — próbka {model.sample_ms} ms\n",
+                f"OKNO PODGLĄDU: {window_rows[0]['time_ms']} ms .. {window_rows[-1]['time_ms']} ms\n",
+                "\n",
+                "STEP STRUMIEŃ 0/1 (każdy znak = 10 ms)\n",
+                "----------------------------------------\n",
+                *bit_chunks,
+                "\n",
+                "TIME_MS | DIR | STEP | EVENT\n",
+            ]
+            for row in window_rows:
+                lines.append(f"{row['time_ms']:7d} |  {row['dir']}  |   {row['step']}  | {row['event']}\n")
+
+            if end_idx < len(rows):
+                lines.append("...\n")
+                tail = rows[-1]
+                lines.append(f"{tail['time_ms']:7d} |  {tail['dir']}  |   {tail['step']}  | {tail['event']}\n")
+
+        self.protocol_text.configure(state='normal')
+        self.protocol_text.delete('1.0', 'end')
+        self.protocol_text.insert('1.0', ''.join(lines))
+        self.protocol_text.configure(state='disabled')
+
     def _refresh_all(self, status: str | None = None) -> None:
         self._refresh_axis_info()
+        self._refresh_protocol_preview()
         self._draw_main_canvas()
         self.status_var.set(status if status is not None else "EHR gotowy.")
 
     def _open_settings(self, axis_index: int) -> None:
         self.active_axis_index = axis_index
+        if self.axis_models[axis_index].is_release_axis:
+            self._refresh_all(f"Oś {self.axis_models[axis_index].axis_def.axis_name} nie ma okna ustawień.")
+            return
         dlg = self.settings_dialogs.get(axis_index)
         if dlg is not None and dlg.winfo_exists():
             dlg.lift()
@@ -885,8 +1097,16 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if axis_index is None:
             return
         self.active_axis_index = axis_index
-        node_index = self._hit_node(axis_index, event.x, event.y)
         model = self.axis_models[axis_index]
+        if self._hit_release(axis_index, event.x, event.y):
+            self.drag_axis_index = axis_index
+            self.selected_index = None
+            self.drag_mode = "release"
+            self.drag_anchor_x = event.x
+            self.drag_release_anchor_time = int(model.release_time_ms or 0)
+            self._refresh_all(f"Wybrano RELEASE osi: {model.axis_def.axis_name}.")
+            return
+        node_index = self._hit_node(axis_index, event.x, event.y)
         if node_index is not None:
             self.drag_axis_index = axis_index
             self.selected_index = node_index
@@ -917,6 +1137,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             new_t = self.drag_anchor_node_time if abs(delta_t) < threshold_ms else self.drag_anchor_node_time + delta_t
             model.move_node(self.selected_index, new_t, new_y)
             self._draw_main_canvas()
+        elif self.drag_mode == "release":
+            new_time = self._x_to_time(model, event.x, rect.left, rect.right)
+            model.set_release_time(new_time)
+            self._draw_main_canvas()
         elif self.drag_mode == "pan":
             new_time = self._x_to_time(model, event.x, rect.left, rect.right)
             old_time = self._x_to_time(model, self.drag_anchor_x, rect.left, rect.right)
@@ -943,6 +1167,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         rect = self.axis_rects[axis_index]
         self.active_axis_index = axis_index
         t_ms = self._x_to_time(model, event.x, rect.left, rect.right)
+        if model.is_release_axis and abs(event.y - ((rect.top + rect.bottom) / 2.0)) <= 20:
+            model.set_release_time(t_ms)
+            self._refresh_all(f"Ustawiono RELEASE na osi: {model.axis_def.axis_name}.")
+            return
         y = self._canvas_to_logical_y(model, event.y, rect.top, rect.bottom)
         model.add_node(t_ms, y)
         self._refresh_all(f"Dodano punkt na osi: {model.axis_def.axis_name}.")

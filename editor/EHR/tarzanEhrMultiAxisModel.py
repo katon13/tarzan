@@ -235,7 +235,8 @@ class AxisCurveModel:
         if not getattr(main_take_settings, "snap_to_zero_enabled", False):
             return value
         threshold = float(getattr(main_take_settings, "snap_to_zero_threshold", 0.0))
-        return 0.0 if abs(value) <= threshold else value
+        effective_threshold = max(0.0, threshold * 0.35)
+        return 0.0 if abs(value) <= effective_threshold else value
 
     def _build_default_nodes(self) -> List[AxisNode]:
         d = self.take_duration_ms

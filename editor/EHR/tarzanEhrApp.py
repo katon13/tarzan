@@ -123,7 +123,7 @@ class AxisSettingsDialog(tk.Toplevel):
         top.pack(fill="x", pady=(0, 8))
         tk.Label(
             top,
-            text="TARZAN — SANDBOX OSI",
+            text="TARZAN — USTAWIENIA OSI",
             bg=self.master_window.BG,
             fg=self.master_window.FG,
             font=("Segoe UI Semibold", 16),
@@ -142,7 +142,7 @@ class AxisSettingsDialog(tk.Toplevel):
         body = tk.Frame(outer, bg=self.master_window.BG)
         body.pack(fill="both", expand=True)
 
-        left = tk.Frame(body, bg=self.master_window.BG, width=300)
+        left = tk.Frame(body, bg=self.master_window.BG, width=240)
         left.pack(side="left", fill="y", padx=(0, 8))
         left.pack_propagate(False)
 
@@ -160,7 +160,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self.curve_canvas.bind("<Button-3>", self._on_curve_right_click)
 
         self.step_canvas = tk.Canvas(right, bg="#1A1E24", height=255, highlightthickness=0)
-        self.step_canvas.pack(fill="x")
+        self.step_canvas.pack(fill="both", expand=True)
 
         self._build_step_tuning_panel(right)
 
@@ -199,6 +199,11 @@ class AxisSettingsDialog(tk.Toplevel):
         self._scale_row(box, "VIEW Y SCALE", self.display_y_scale, 200.0, 800.0, 10.0, self._apply_visual_settings)
         self._scale_row(box, "MOUSE PRECISION", self.mouse_y_precision, 0.10, 1.00, 0.05, self._apply_visual_settings)
         self._scale_row(box, "TOP/BOTTOM MARGIN", self.top_bottom_margin, 8, 60, 1, self._apply_visual_settings)
+
+        save_row = tk.Frame(parent, bg=self.master_window.BG)
+        save_row.pack(fill="x", pady=(0, 10))
+        self._btn(save_row, "ZAPISZ USTAWIENIA OSI", self._save_axis_settings_txt, "#0F766E").pack(fill="x", pady=(0, 6))
+        self._btn(save_row, "WCZYTAJ USTAWIENIA OSI", self._load_axis_settings_txt, "#7C3AED").pack(fill="x")
 
     def _build_step_tuning_panel(self, parent: tk.Misc) -> None:
         panel = tk.Frame(parent, bg=self.master_window.PANEL, padx=10, pady=10)
@@ -370,6 +375,80 @@ class AxisSettingsDialog(tk.Toplevel):
         self._metrics_cache_text = ""
         self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")
         self._mark_main_take_dirty(f"Mechanika osi gotowa. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE: {mechanics.axis_name}.")
+
+
+    def _axis_settings_to_text(self) -> str:
+        tuning_text = self.model.step_tuning.to_text(self.model.mechanics).strip().splitlines()
+        lines = [
+            "AXIS_SANDBOX_SETTINGS_V1",
+            f"display_y_scale={float(self.display_y_scale.get())}",
+            f"mouse_y_precision={float(self.mouse_y_precision.get())}",
+            f"top_bottom_margin={int(self.top_bottom_margin.get())}",
+            "",
+            *tuning_text,
+            "",
+        ]
+        return "\n".join(lines)
+
+    def _load_axis_settings_from_text(self, text: str) -> None:
+        raw = {}
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or "=" not in line:
+                continue
+            key, value = [part.strip() for part in line.split("=", 1)]
+            raw[key] = value
+        try:
+            if "display_y_scale" in raw:
+                self.display_y_scale.set(float(raw["display_y_scale"]))
+            if "mouse_y_precision" in raw:
+                self.mouse_y_precision.set(float(raw["mouse_y_precision"]))
+            if "top_bottom_margin" in raw:
+                self.top_bottom_margin.set(int(float(raw["top_bottom_margin"])))
+        except ValueError:
+            pass
+
+        self.model.sandbox.display_y_scale = float(self.display_y_scale.get())
+        self.model.sandbox.mouse_y_precision = float(self.mouse_y_precision.get())
+        self.model.sandbox.top_bottom_margin = int(self.top_bottom_margin.get())
+
+        tuning, mechanics = StepTuning.from_text(text)
+        self._write_step_tuning_to_ui(tuning)
+        self.model.set_step_tuning(tuning)
+        if mechanics is not None:
+            self.model.set_mechanics(mechanics)
+            self.mechanics_preset_var.set(mechanics.axis_name)
+            self.model.set_axis_take_duration_ms(self.master_window.global_take_duration_ms)
+
+    def _save_axis_settings_txt(self) -> None:
+        default_name = self.model.axis_def.axis_name.replace(" ", "_") + "_axis_settings.txt"
+        path = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            initialdir=str(self._default_data_dir()),
+            initialfile=default_name,
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            title="Zapisz ustawienia osi do TXT",
+        )
+        if not path:
+            return
+        Path(path).write_text(self._axis_settings_to_text(), encoding="utf-8")
+        self.status_var.set(f"Zapisano ustawienia osi: {path}")
+
+    def _load_axis_settings_txt(self) -> None:
+        path = filedialog.askopenfilename(
+            initialdir=str(self._default_data_dir()),
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            title="Wczytaj ustawienia osi z TXT",
+        )
+        if not path:
+            return
+        self._load_axis_settings_from_text(Path(path).read_text(encoding="utf-8"))
+        self._curve_needs_redraw = True
+        self._step_needs_redraw = True
+        self._metrics_cache_key = None
+        self._metrics_cache_text = ""
+        self._refresh_all(f"Wczytano ustawienia osi: {path}")
+        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _save_tuning_txt(self) -> None:
         tuning = self.model.step_tuning
@@ -1130,19 +1209,26 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                     fill = self.NODE_SEL if (axis_index == self.drag_axis_index and i == self.selected_index) else self.NODE
                     if i == 0 or i == len(model.nodes) - 1:
                         if self.main_take_settings.show_start_stop_squares:
-                            c.create_rectangle(px - square_half, py - square_half, px + square_half, py + square_half, fill="#D6EAF8", outline="black")
+                            c.create_rectangle(px - square_half, py - square_half, px + square_half, py + square_half, fill=self.main_take_settings.zero_line_color, outline="black")
                         else:
                             c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill="#D6EAF8", outline="black")
                     else:
                         c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill=fill, outline="black")
 
             if model.is_release_axis and model.release_time_ms is not None:
+                inner_top = rect.top + max(12, (rect.bottom - rect.top) // 3)
+                inner_bottom = rect.bottom - max(12, (rect.bottom - rect.top) // 3)
+                inner_mid = (inner_top + inner_bottom) / 2.0
+                c.create_rectangle(rect.left, inner_top, rect.right, inner_bottom, fill=panel_fill, outline="")
+                c.create_line(rect.left, inner_mid, rect.right, inner_mid,
+                              fill=self.main_take_settings.zero_line_color,
+                              width=self.main_take_settings.zero_line_width)
                 rx = self._time_to_x(model.release_time_ms, rect.left, rect.right)
-                ry = (rect.top + rect.bottom) / 2.0
-                r = 9
+                ry = inner_mid
+                r = 7
                 fill = "#F59E0B" if self.drag_mode == 'release' and axis_index == self.drag_axis_index else axis_color
                 c.create_polygon(rx, ry - r, rx + r, ry, rx, ry + r, rx - r, ry, fill=fill, outline='black')
-                c.create_text(rx + 14, ry - 12, text='RELEASE', fill=axis_color, anchor='w', font=('Segoe UI', 8, 'bold'))
+                c.create_text(rx + 14, ry - 10, text='RELEASE', fill=axis_color, anchor='w', font=('Segoe UI', 8, 'bold'))
 
         for minute in range(0, total_minutes + 1):
             t_ms = minute * 60000

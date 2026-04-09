@@ -115,6 +115,32 @@ class AxisSandboxSettings:
 
 
 @dataclass
+class MainTakeSettings:
+    zero_snap_y: float = 12.0
+    zero_line_width: int = 1
+    active_curve_width: int = 4
+    inactive_curve_width: int = 3
+    zero_line_color: str = "#E03A3A"
+    minute_line_color: str = "#36414C"
+    show_protocol_preview: bool = True
+    show_axis_metrics: bool = True
+    show_axis_names: bool = True
+    show_gear_buttons: bool = True
+    show_status_bar: bool = True
+    show_minute_grid: bool = True
+
+    def clamp(self) -> None:
+        self.zero_snap_y = max(0.0, min(30.0, float(self.zero_snap_y)))
+        self.zero_line_width = max(1, min(4, int(round(self.zero_line_width))))
+        self.active_curve_width = max(1, min(8, int(round(self.active_curve_width))))
+        self.inactive_curve_width = max(1, min(8, int(round(self.inactive_curve_width))))
+        if not str(self.zero_line_color).strip():
+            self.zero_line_color = "#E03A3A"
+        if not str(self.minute_line_color).strip():
+            self.minute_line_color = "#36414C"
+
+
+@dataclass
 class StepTuning:
     dead_zone_y: float = 5.0
     input_max_y: float = 100.0
@@ -441,6 +467,42 @@ class AxisCurveModel:
             return
         self.release_time_ms = self.snap_time(max(0, min(self.take_duration_ms, int(time_ms))))
 
+    def axis_time_to_main_take_time(self, axis_time_ms: int, main_take_duration_ms: int) -> int:
+        main_take_duration_ms = max(self.sample_ms, int(main_take_duration_ms))
+        if self.is_release_axis:
+            return self.snap_time(max(0, min(main_take_duration_ms, int(axis_time_ms))))
+        if self.take_duration_ms <= 0:
+            return 0
+        scaled = int(round(int(axis_time_ms) * main_take_duration_ms / self.take_duration_ms))
+        return self.snap_time(max(0, min(main_take_duration_ms, scaled)))
+
+    def main_take_time_to_axis_time(self, main_take_time_ms: int, main_take_duration_ms: int) -> int:
+        main_take_duration_ms = max(self.sample_ms, int(main_take_duration_ms))
+        if self.is_release_axis:
+            return self.snap_time(max(0, min(main_take_duration_ms, int(main_take_time_ms))))
+        scaled = int(round(int(main_take_time_ms) * self.take_duration_ms / main_take_duration_ms))
+        return self.snap_time(max(0, min(self.take_duration_ms, scaled)))
+
+    def sample_curve_for_main_take(self, main_take_duration_ms: int, steps: int = 900) -> List[tuple[int, float]]:
+        main_take_duration_ms = max(self.sample_ms, int(main_take_duration_ms))
+        if self.is_release_axis:
+            return [(0, 0.0), (main_take_duration_ms, 0.0)]
+        samples = self.sample_curve(max(steps, 120))
+        return [(self.axis_time_to_main_take_time(t, main_take_duration_ms), y) for t, y in samples]
+
+    def protocol_rows_for_main_take(self, main_take_duration_ms: int) -> List[dict]:
+        rows = self.build_step_rows_for_duration(main_take_duration_ms)
+        release_time = self.release_time_ms if self.is_release_axis else None
+        protocol: List[dict] = []
+        for row in rows:
+            protocol.append({
+                "time_ms": int(row["time_ms"]),
+                "dir": int(row["dir"]),
+                "step": int(row["step"]),
+                "event": "RELEASE" if release_time is not None and int(row["time_ms"]) == int(release_time) else "",
+            })
+        return protocol
+
     def protocol_rows(self) -> List[dict]:
         rows = self.build_step_rows()
         release_time = self.release_time_ms if self.is_release_axis else None
@@ -527,9 +589,14 @@ class AxisCurveModel:
     def build_step_rows(self) -> List[dict]:
         if self._step_cache is not None:
             return [dict(r) for r in self._step_cache]
+        rows = self.build_step_rows_for_duration(self.take_duration_ms)
+        return rows
+
+    def build_step_rows_for_duration(self, duration_ms: int) -> List[dict]:
         rows: List[dict] = []
         sample_ms = self.sample_ms
-        steps = self.take_duration_ms // sample_ms
+        duration_ms = self.snap_time(max(sample_ms, int(duration_ms)))
+        steps = duration_ms // sample_ms
         if self.is_release_axis:
             for i in range(steps + 1):
                 rows.append(
@@ -543,15 +610,14 @@ class AxisCurveModel:
                         "acc": 0.0,
                     }
                 )
-            self._step_cache = tuple(dict(r) for r in rows)
-            return [dict(r) for r in self._step_cache]
+            return rows
         tuning = copy.deepcopy(self.step_tuning)
         tuning.clamp()
         accumulator = tuning.accumulator_bias
         count = 0
         prev_sign = 0
         prev_rate = 0.0
-        samples = self.sample_curve(800)
+        samples = self.sample_curve_for_main_take(duration_ms, 800) if duration_ms != self.take_duration_ms or self.is_release_axis else self.sample_curve(800)
         if not samples:
             return []
         sample_idx = 0
@@ -608,8 +674,7 @@ class AxisCurveModel:
                     "acc": accumulator,
                 }
             )
-        self._step_cache = tuple(dict(r) for r in rows)
-        return [dict(r) for r in self._step_cache]
+        return rows
 
     def current_pulse_count(self) -> int:
         rows = self.build_step_rows()

@@ -300,23 +300,34 @@ class AxisCurveModel:
         self.sort_and_fix_nodes()
         self._invalidate_cache()
 
-    def move_node(self, index: int, time_ms: int | None = None, y: float | None = None) -> None:
+    def move_node(self, index: int, time_ms: int | None = None, y: float | None = None) -> bool:
         if index < 0 or index >= len(self.nodes):
-            return
+            return False
         node = self.nodes[index]
+        old_time = int(node.time_ms)
+        old_y = float(node.y)
         if time_ms is not None:
             node.time_ms = self.snap_time(time_ms)
         if y is not None:
             node.y = self.clamp_y(y)
         if index == 0 or index == len(self.nodes) - 1:
             node.y = 0.0
+        changed = (node.time_ms != old_time) or (abs(node.y - old_y) > 1e-9)
+        if not changed:
+            return False
         self.sort_and_fix_nodes()
+        changed_after = (self.nodes[index].time_ms != old_time) or (abs(self.nodes[index].y - old_y) > 1e-9)
+        if not changed_after:
+            return False
         self._invalidate_cache()
+        return True
 
-    def shift_all(self, delta_ms: int) -> None:
+    def shift_all(self, delta_ms: int) -> bool:
         if len(self.nodes) <= 2:
-            return
+            return False
         delta_ms = self.snap_time(delta_ms)
+        if delta_ms == 0:
+            return False
         inner = copy.deepcopy(self.nodes[1:-1])
         for n in inner:
             n.time_ms += delta_ms
@@ -332,9 +343,14 @@ class AxisCurveModel:
                 correction = right_limit - max_shifted if correction == 0 else correction
             for n in inner:
                 n.time_ms += correction
+        old_state = tuple((n.time_ms, n.y) for n in self.nodes)
         self.nodes = [self.nodes[0]] + inner + [self.nodes[-1]]
         self.sort_and_fix_nodes()
+        new_state = tuple((n.time_ms, n.y) for n in self.nodes)
+        if new_state == old_state:
+            return False
         self._invalidate_cache()
+        return True
 
     def smooth_all(self, strength: float = 0.45, passes: int = 1) -> None:
         if len(self.nodes) <= 2:
@@ -353,10 +369,14 @@ class AxisCurveModel:
         self.sort_and_fix_nodes()
         self._invalidate_cache()
 
-    def set_release_time(self, time_ms: int) -> None:
+    def set_release_time(self, time_ms: int) -> bool:
         if not self.is_release_axis:
-            return
-        self.release_time_ms = self.snap_time(max(0, min(self.take_duration_ms, int(time_ms))))
+            return False
+        new_time = self.snap_time(max(0, min(self.take_duration_ms, int(time_ms))))
+        if self.release_time_ms == new_time:
+            return False
+        self.release_time_ms = new_time
+        return True
 
     def protocol_rows(self, duration_ms: int | None = None) -> List[dict]:
         rows = self.build_step_rows(duration_ms=duration_ms)

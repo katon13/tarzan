@@ -36,8 +36,11 @@ class MainTakeSettingsDialog(tk.Toplevel):
         self.show_grid_var = tk.BooleanVar(value=settings.show_minute_grid)
         self.show_background_tint_var = tk.BooleanVar(value=settings.show_axis_background_tint)
         self.background_strength_var = tk.IntVar(value=settings.axis_background_strength_percent)
+        self.active_axis_emphasis_var = tk.IntVar(value=getattr(settings, 'active_axis_emphasis_percent', 10))
         self.show_start_stop_squares_var = tk.BooleanVar(value=settings.show_start_stop_squares)
         self.show_activity_markers_var = tk.BooleanVar(value=settings.show_axis_activity_markers)
+        self.smooth_strength_default_var = tk.DoubleVar(value=getattr(settings, 'smooth_strength_default', 0.35))
+        self.smooth_passes_default_var = tk.IntVar(value=getattr(settings, 'smooth_passes_default', 2))
         self.axis_color_vars = {
             axis.axis_id: tk.StringVar(value=settings.axis_color_overrides.get(axis.axis_id, DEFAULT_AXIS_COLORS.get(axis.axis_id, axis.color)))
             for axis in DEFAULT_AXIS_DEFINITIONS
@@ -79,8 +82,13 @@ class MainTakeSettingsDialog(tk.Toplevel):
         self._section_label(frame, "WYGLĄD FILMOWY MAIN TAKE")
         self._check_row(frame, "POKAŻ DELIKATNE TŁO OSI W KOLORZE LINII", self.show_background_tint_var)
         self._entry_row(frame, "SIŁA TŁA OSI (%)", self.background_strength_var)
+        self._entry_row(frame, "MOC PODBICIA AKTYWNEJ OSI (%)", self.active_axis_emphasis_var)
         self._check_row(frame, "POKAŻ KWADRATY START / STOP", self.show_start_stop_squares_var)
         self._check_row(frame, "POKAŻ MARKERY CZASU DZIAŁANIA OSI", self.show_activity_markers_var)
+
+        self._section_label(frame, "DOMYŚLNE WYGŁADZANIE")
+        self._entry_row(frame, "DOMYŚLNA SIŁA WYGŁADZANIA", self.smooth_strength_default_var)
+        self._entry_row(frame, "DOMYŚLNA ILOŚĆ PRZEJŚĆ", self.smooth_passes_default_var)
 
         self._section_label(frame, "KOLORY POSZCZEGÓLNYCH OSI")
         color_grid = tk.Frame(frame, bg=self.master_window.PANEL)
@@ -102,8 +110,18 @@ class MainTakeSettingsDialog(tk.Toplevel):
         tk.Button(btns, text="ZAMKNIJ", command=self.destroy, bg="#4B5563", fg="white", relief="flat", bd=0, padx=10, pady=6).pack(side="right")
 
     def _bind_color_preview(self, canvas: tk.Canvas, var: tk.StringVar) -> None:
+        def _safe_color(value: str) -> str:
+            value = (value or "").strip()
+            if len(value) == 7 and value.startswith("#"):
+                try:
+                    int(value[1:], 16)
+                    return value
+                except ValueError:
+                    pass
+            return "#39424E"
+
         def draw(*_args) -> None:
-            color = var.get().strip() or "#000000"
+            color = _safe_color(var.get())
             canvas.delete("all")
             canvas.create_rectangle(2, 2, 34, 16, fill=color, outline="#66707C")
         var.trace_add("write", draw)
@@ -149,8 +167,11 @@ class MainTakeSettingsDialog(tk.Toplevel):
             show_minute_grid=bool(self.show_grid_var.get()),
             show_axis_background_tint=bool(self.show_background_tint_var.get()),
             axis_background_strength_percent=int(self.background_strength_var.get()),
+            active_axis_emphasis_percent=int(self.active_axis_emphasis_var.get()),
             show_start_stop_squares=bool(self.show_start_stop_squares_var.get()),
             show_axis_activity_markers=bool(self.show_activity_markers_var.get()),
+            smooth_strength_default=float(self.smooth_strength_default_var.get()),
+            smooth_passes_default=int(self.smooth_passes_default_var.get()),
             axis_color_overrides={axis_id: var.get().strip() or DEFAULT_AXIS_COLORS.get(axis_id, "#FFFFFF") for axis_id, var in self.axis_color_vars.items()},
         )
         settings.clamp()

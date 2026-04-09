@@ -1,7 +1,7 @@
 {
   "take_duration_minutes": 3.0,
   "zero_line_color": "#E03A3A",
-  "zero_line_width": 1,
+  "zero_line_width": 2,
   "curve_line_width": 5,
   "active_curve_line_width": 5,
   "snap_to_zero_enabled": true,
@@ -13,16 +13,16 @@
   "show_status_bar": true,
   "show_minute_grid": true,
   "show_axis_background_tint": true,
-  "axis_background_strength_percent": 23,
+  "axis_background_strength_percent": 20,
   "show_start_stop_squares": true,
   "show_axis_activity_markers": true,
   "axis_color_overrides": {
-    "cam_h": "#78DCE8",
+    "cam_h": "#EC7575",
     "cam_v": "#FFD866",
     "cam_t": "#FF6188",
     "cam_f": "#A9DC76",
     "arm_v": "#AB9DF2",
     "arm_h": "#FC9867",
-    "dron": "#F472B6"
+    "dron": "#414141"
   }
 }

@@ -17,6 +17,14 @@ from editor.EHR.tarzanEhrMultiAxisModel import (
 )
 from editor.EHR.tarzanEhrTakeModel import EhrTakeModel
 
+try:
+    from core.tarzanProfiler import profile_method
+except Exception:
+    def profile_method(name=None):
+        def decorator(func):
+            return func
+        return decorator
+
 
 @dataclass
 class AxisViewportRect:
@@ -31,6 +39,17 @@ class AxisViewportRect:
 
 @dataclass
 class GearRect:
+    left: int
+    top: int
+    right: int
+    bottom: int
+
+    def contains(self, x: float, y: float) -> bool:
+        return self.left <= x <= self.right and self.top <= y <= self.bottom
+
+
+@dataclass
+class WaveRect:
     left: int
     top: int
     right: int
@@ -551,6 +570,7 @@ class AxisSettingsDialog(tk.Toplevel):
         c.create_text(left, top - 2, text="STEP 0/1 preview", fill=self.master_window.FG, anchor="sw", font=("Segoe UI Semibold", 9))
         c.create_text(right, top - 2, text=f"rows={len(rows)}  pulses={rows[-1]['count']}", fill=self.master_window.MUTED, anchor="se", font=("Consolas", 8))
 
+    @profile_method('EHR._refresh_all')
     def _refresh_all(self, status: str | None = None) -> None:
         self.model.sort_and_fix_nodes()
         self._refresh_metrics()
@@ -600,19 +620,19 @@ class AxisSettingsDialog(tk.Toplevel):
             delta_t = self._x_to_time(event.x, left, right) - self._x_to_time(self.drag_anchor_x, left, right)
             threshold_ms = self.model.sample_ms * tuning.time_drag_threshold_samples
             new_t = self.drag_anchor_node_time if abs(delta_t) < threshold_ms else self.drag_anchor_node_time + delta_t
-            self.model.move_node(self.selected_index, new_t, new_y)
-            self._curve_needs_redraw = True
-            self._step_needs_redraw = True
-            self._draw_curve()
+            if self.model.move_node(self.selected_index, new_t, new_y):
+                self._curve_needs_redraw = True
+                self._step_needs_redraw = True
+                self._draw_curve()
         elif self.drag_mode == "pan":
             new_time = self._x_to_time(event.x, left, right)
             old_time = self._x_to_time(self.drag_anchor_x, left, right)
             delta = new_time - old_time
             self.drag_anchor_x = event.x
-            self.model.shift_all(delta)
-            self._curve_needs_redraw = True
-            self._step_needs_redraw = True
-            self._draw_curve()
+            if self.model.shift_all(delta):
+                self._curve_needs_redraw = True
+                self._step_needs_redraw = True
+                self._draw_curve()
 
     def _on_curve_release(self, _event) -> None:
         self.drag_mode = None
@@ -696,14 +716,13 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.drag_anchor_node_y = 0.0
         self.axis_rects: dict[int, AxisViewportRect] = {}
         self.gear_rects: dict[int, GearRect] = {}
+        self.wave_rects: dict[int, WaveRect] = {}
         self.settings_dialogs: dict[int, AxisSettingsDialog] = {}
         self.drag_release_anchor_time = 0
         self.dirty_axis_indices: set[int] = set()
 
         self.axis_info_var = tk.StringVar(value="")
         self.status_var = tk.StringVar(value="Gotowy.")
-        self.smooth_strength_var = tk.DoubleVar(value=0.35)
-        self.smooth_passes_var = tk.IntVar(value=2)
         self.protocol_cache_key = None
         self.protocol_cache_text = ""
         self.axis_info_cache_key = None
@@ -712,6 +731,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._take_model_dirty = True
         self._protocol_dirty = True
         self._axis_info_dirty = True
+        self._configure_after_id = None
 
         self._build_ui()
         self.update_idletasks()
@@ -784,12 +804,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         protocol_scroll.pack(side="right", fill="y", padx=(0, 8), pady=8)
         self.protocol_text.configure(yscrollcommand=protocol_scroll.set, state="disabled")
 
-        smooth_box = tk.Frame(parent, bg=self.PANEL)
-        smooth_box.pack(fill="x", pady=(0, 10))
-        self._btn(smooth_box, "WYGŁADŹ OŚ", self._smooth_active, "#2563EB").pack(fill="x", padx=10, pady=(10, 8))
-        self._scale_row(smooth_box, "SIŁA WYGŁADZANIA", self.smooth_strength_var, 0.0, 1.0, 0.05)
-        self._scale_row(smooth_box, "ILOŚĆ PRZEJŚĆ", self.smooth_passes_var, 1, 8, 1)
-
     def _apply_visibility_settings(self) -> None:
         self.axis_info_label.pack_forget()
         self.protocol_label.pack_forget()
@@ -810,6 +824,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if axis_index == self.active_axis_index:
             self._protocol_dirty = True
             self._axis_info_dirty = True
+        self._configure_after_id = None
         self.status_var.set(status or f"Oś zmieniona lokalnie: {self.axis_models[axis_index].axis_def.axis_name}.")
 
     def _rebuild_take_model(self) -> None:
@@ -823,6 +838,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if axis_index == self.active_axis_index:
             self._protocol_dirty = True
             self._axis_info_dirty = True
+        self._configure_after_id = None
         self._refresh_all(light=False, status=status)
 
     def _open_take_settings(self) -> None:
@@ -847,6 +863,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._take_model_dirty = True
         self._protocol_dirty = True
         self._axis_info_dirty = True
+        self._configure_after_id = None
         for dlg in list(self.settings_dialogs.values()):
             if dlg.winfo_exists():
                 dlg._curve_needs_redraw = True
@@ -928,6 +945,37 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 return axis_index
         return None
 
+    def _wave_axis_from_point(self, x: float, y: float) -> int | None:
+        for axis_index, rect in self.wave_rects.items():
+            if rect.contains(x, y):
+                return axis_index
+        return None
+
+    def _smooth_axis_idx(self, axis_index: int) -> None:
+        model = self.axis_models[axis_index]
+        strength = float(getattr(self.main_take_settings, "smooth_strength_default", 0.35))
+        passes = int(getattr(self.main_take_settings, "smooth_passes_default", 2))
+        model.smooth_all(strength=strength, passes=passes)
+        self.active_axis_index = axis_index
+        self._main_canvas_needs_redraw = True
+        self._take_model_dirty = True
+        self._protocol_dirty = True
+        self._axis_info_dirty = True
+        self._refresh_all(light=False, status=f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.")
+
+    def _schedule_configure_refresh(self) -> None:
+        if self._configure_after_id is not None:
+            try:
+                self.after_cancel(self._configure_after_id)
+            except Exception:
+                pass
+        self._configure_after_id = self.after(40, self._flush_configure_refresh)
+
+    def _flush_configure_refresh(self) -> None:
+        self._configure_after_id = None
+        self._main_canvas_needs_redraw = True
+        self._refresh_all(light=True)
+
     def _hit_node(self, axis_index: int, x: float, y: float) -> int | None:
         if axis_index not in self.axis_rects:
             return None
@@ -993,13 +1041,18 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         base = "#232A33" if is_active else "#1C2128"
         if not self.main_take_settings.show_axis_background_tint:
             return base
-        return self._blend_hex(base, axis_color, self.main_take_settings.axis_background_strength_percent)
+        strength = self.main_take_settings.axis_background_strength_percent
+        if is_active:
+            strength = min(40, strength + int(getattr(self.main_take_settings, "active_axis_emphasis_percent", 10)))
+        return self._blend_hex(base, axis_color, strength)
 
+    @profile_method('EHR._draw_main_canvas')
     def _draw_main_canvas(self) -> None:
         c = self.timeline_canvas
         c.delete("all")
         self.axis_rects.clear()
         self.gear_rects.clear()
+        self.wave_rects.clear()
         left, top, right, bottom = self._curve_area_rect()
         c.create_rectangle(left, top, right, bottom, fill="#1B2028", outline="#303A45")
 
@@ -1030,12 +1083,18 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 c.create_text(rect.left - 12, mid, text=model.axis_def.axis_name, fill=self.FG, anchor="e",
                               font=("Segoe UI", 9, "bold"))
 
-            if (not model.is_release_axis) and self.main_take_settings.show_axis_gears:
-                gear = GearRect(rect.left - 44, rect.top + 8, rect.left - 16, rect.top + 36)
-                self.gear_rects[axis_index] = gear
-                c.create_rectangle(gear.left, gear.top, gear.right, gear.bottom, fill="#39424E", outline="#55606D")
-                c.create_text((gear.left + gear.right) / 2.0, (gear.top + gear.bottom) / 2.0, text="⚙", fill=self.FG,
-                              font=("Segoe UI Symbol", 12))
+            if not model.is_release_axis:
+                if self.main_take_settings.show_axis_gears:
+                    gear = GearRect(rect.left - 44, rect.top + 8, rect.left - 16, rect.top + 36)
+                    self.gear_rects[axis_index] = gear
+                    c.create_rectangle(gear.left, gear.top, gear.right, gear.bottom, fill="#39424E", outline="#55606D")
+                    c.create_text((gear.left + gear.right) / 2.0, (gear.top + gear.bottom) / 2.0, text="⚙", fill=self.FG,
+                                  font=("Segoe UI Symbol", 12))
+                wave = WaveRect(rect.left - 76, rect.top + 8, rect.left - 48, rect.top + 36)
+                self.wave_rects[axis_index] = wave
+                c.create_rectangle(wave.left, wave.top, wave.right, wave.bottom, fill="#39424E", outline="#55606D")
+                c.create_text((wave.left + wave.right) / 2.0, (wave.top + wave.bottom) / 2.0, text="≈", fill=self.FG,
+                              font=("Segoe UI Semibold", 12))
 
             if self.main_take_settings.show_minute_grid:
                 for minute in range(0, total_minutes + 1):
@@ -1093,9 +1152,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             c.create_text(px, bottom + 8, text=f"{minute}m", fill=self.MUTED, anchor="n", font=("Consolas", 8))
 
     def _on_canvas_configure(self, _event=None) -> None:
-        self._main_canvas_needs_redraw = True
-        self._refresh_all(light=True)
+        self._schedule_configure_refresh()
 
+    @profile_method('EHR._refresh_axis_info')
     def _refresh_axis_info(self, force: bool = False) -> None:
         model = self._active_model()
         self.active_axis_name_var.set(model.axis_def.axis_name)
@@ -1117,6 +1176,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self._axis_info_dirty = False
         self.axis_info_var.set(self.axis_info_cache_text)
 
+    @profile_method('EHR._refresh_protocol_preview')
     def _refresh_protocol_preview(self, force: bool = False) -> None:
         if not self.main_take_settings.show_protocol_preview:
             return
@@ -1175,6 +1235,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.protocol_text.insert('1.0', text)
         self.protocol_text.configure(state='disabled')
 
+    @profile_method('EHR._refresh_all')
     def _refresh_all(self, light: bool = False, status: str | None = None) -> None:
         self._refresh_axis_info(force=not light)
         if not light:
@@ -1207,6 +1268,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if gear_axis is not None:
             self._open_settings(gear_axis)
             return
+        wave_axis = self._wave_axis_from_point(event.x, event.y)
+        if wave_axis is not None:
+            self._smooth_axis_idx(wave_axis)
+            return
 
         axis_index = self._axis_index_from_point(event.x, event.y)
         if axis_index is None:
@@ -1215,6 +1280,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.active_axis_index = axis_index
             self._protocol_dirty = True
             self._axis_info_dirty = True
+        self._configure_after_id = None
         model = self.axis_models[axis_index]
         if self._hit_release(axis_index, event.x, event.y):
             self.drag_axis_index = axis_index
@@ -1257,22 +1323,22 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             delta_t = self._x_to_time(event.x, rect.left, rect.right) - self._x_to_time(self.drag_anchor_x, rect.left, rect.right)
             threshold_ms = model.sample_ms * model.step_tuning.time_drag_threshold_samples
             new_t = self.drag_anchor_node_time if abs(delta_t) < threshold_ms else self.drag_anchor_node_time + delta_t
-            model.move_node(self.selected_index, new_t, new_y)
-            self._main_canvas_needs_redraw = True
-            self._draw_main_canvas()
+            if model.move_node(self.selected_index, new_t, new_y):
+                self._main_canvas_needs_redraw = True
+                self._draw_main_canvas()
         elif self.drag_mode == "release":
             new_time = self._x_to_time(event.x, rect.left, rect.right)
-            model.set_release_time(new_time)
-            self._main_canvas_needs_redraw = True
-            self._draw_main_canvas()
+            if model.set_release_time(new_time):
+                self._main_canvas_needs_redraw = True
+                self._draw_main_canvas()
         elif self.drag_mode == "pan":
             new_time = self._x_to_time(event.x, rect.left, rect.right)
             old_time = self._x_to_time(self.drag_anchor_x, rect.left, rect.right)
             delta = new_time - old_time
             self.drag_anchor_x = event.x
-            model.shift_all(delta)
-            self._main_canvas_needs_redraw = True
-            self._draw_main_canvas()
+            if model.shift_all(delta):
+                self._main_canvas_needs_redraw = True
+                self._draw_main_canvas()
 
     def _on_canvas_release(self, _event) -> None:
         self.drag_axis_index = None
@@ -1284,24 +1350,25 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._take_model_dirty = True
         self._protocol_dirty = True
         self._axis_info_dirty = True
+        self._configure_after_id = None
         self._refresh_all(light=False, status="Gotowy.")
 
     def _on_canvas_double_click(self, event) -> None:
         axis_index = self._axis_index_from_point(event.x, event.y)
         if axis_index is None:
             return
-        if self._gear_axis_from_point(event.x, event.y) is not None:
+        if self._gear_axis_from_point(event.x, event.y) is not None or self._wave_axis_from_point(event.x, event.y) is not None:
             return
         model = self.axis_models[axis_index]
         rect = self.axis_rects[axis_index]
         self.active_axis_index = axis_index
         t_ms = self._x_to_time(event.x, rect.left, rect.right)
         if model.is_release_axis and abs(event.y - ((rect.top + rect.bottom) / 2.0)) <= 20:
-            model.set_release_time(t_ms)
-            self._main_canvas_needs_redraw = True
-            self._take_model_dirty = True
-            self._protocol_dirty = True
-            self._axis_info_dirty = True
+            if model.set_release_time(t_ms):
+                self._main_canvas_needs_redraw = True
+                self._take_model_dirty = True
+                self._protocol_dirty = True
+                self._axis_info_dirty = True
             self._refresh_all(light=False, status=f"Ustawiono RELEASE na osi: {model.axis_def.axis_name}.")
             return
         y = self._canvas_to_logical_y(model, event.y, rect.top, rect.bottom)
@@ -1310,13 +1377,14 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._take_model_dirty = True
         self._protocol_dirty = True
         self._axis_info_dirty = True
+        self._configure_after_id = None
         self._refresh_all(light=False, status=f"Dodano punkt na osi: {model.axis_def.axis_name}.")
 
     def _on_canvas_right_click(self, event) -> None:
         axis_index = self._axis_index_from_point(event.x, event.y)
         if axis_index is None:
             return
-        if self._gear_axis_from_point(event.x, event.y) is not None:
+        if self._gear_axis_from_point(event.x, event.y) is not None or self._wave_axis_from_point(event.x, event.y) is not None:
             return
         node_index = self._hit_node(axis_index, event.x, event.y)
         if node_index is None:
@@ -1327,17 +1395,19 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._take_model_dirty = True
         self._protocol_dirty = True
         self._axis_info_dirty = True
+        self._configure_after_id = None
         self._refresh_all(light=False, status=f"Usunięto punkt z osi: {model.axis_def.axis_name}.")
 
     def _smooth_active(self) -> None:
         model = self._active_model()
-        strength = max(0.0, min(1.0, float(self.smooth_strength_var.get())))
-        passes = max(1, min(8, int(self.smooth_passes_var.get())))
+        strength = max(0.0, min(1.0, float(getattr(self.main_take_settings, "smooth_strength_default", 0.35))))
+        passes = max(1, min(8, int(getattr(self.main_take_settings, "smooth_passes_default", 2))))
         model.smooth_all(strength=strength, passes=passes)
         self._main_canvas_needs_redraw = True
         self._take_model_dirty = True
         self._protocol_dirty = True
         self._axis_info_dirty = True
+        self._configure_after_id = None
         self._refresh_all(light=False, status=f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.")
 
 

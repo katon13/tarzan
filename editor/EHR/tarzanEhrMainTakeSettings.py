@@ -33,8 +33,11 @@ class MainTakeSettings:
     show_minute_grid: bool = True
     show_axis_background_tint: bool = True
     axis_background_strength_percent: int = 10
+    active_axis_emphasis_percent: int = 10
     show_start_stop_squares: bool = True
     show_axis_activity_markers: bool = True
+    smooth_strength_default: float = 0.35
+    smooth_passes_default: int = 2
     axis_color_overrides: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_AXIS_COLORS))
 
     def clamp(self) -> None:
@@ -44,6 +47,9 @@ class MainTakeSettings:
         self.active_curve_line_width = max(self.curve_line_width, min(12, int(self.active_curve_line_width)))
         self.snap_to_zero_threshold = max(0.0, min(30.0, float(self.snap_to_zero_threshold)))
         self.axis_background_strength_percent = max(0, min(30, int(self.axis_background_strength_percent)))
+        self.active_axis_emphasis_percent = max(0, min(40, int(self.active_axis_emphasis_percent)))
+        self.smooth_strength_default = max(0.0, min(1.0, float(self.smooth_strength_default)))
+        self.smooth_passes_default = max(1, min(8, int(self.smooth_passes_default)))
         merged = dict(DEFAULT_AXIS_COLORS)
         raw = dict(self.axis_color_overrides or {})
         for key, default in DEFAULT_AXIS_COLORS.items():

@@ -710,7 +710,7 @@ class AxisSettingsDialog(tk.Toplevel):
             return 0.0
         return value
 
-    @profile_method('EHR._refresh_all')
+    @profile_method('EHR_AXIS_DIALOG._refresh_all')
     def _refresh_all(self, status: str | None = None) -> None:
         self.model.sort_and_fix_nodes()
         self._refresh_metrics()
@@ -1256,7 +1256,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             strength = min(40, strength + int(getattr(self.main_take_settings, "active_axis_emphasis_percent", 10)))
         return self._blend_hex(base, axis_color, strength)
 
-    @profile_method('EHR._draw_main_canvas')
+    @profile_method('EHR_MAIN._draw_main_canvas')
     def _draw_main_canvas(self) -> None:
         c = self.timeline_canvas
         c.delete("all")
@@ -1371,7 +1371,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
     def _on_canvas_configure(self, _event=None) -> None:
         self._schedule_configure_refresh()
 
-    @profile_method('EHR._refresh_axis_info')
+    @profile_method('EHR_MAIN._refresh_axis_info')
     def _refresh_axis_info(self, force: bool = False) -> None:
         model = self._active_model()
         self.active_axis_name_var.set(model.axis_def.axis_name)
@@ -1397,7 +1397,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self._axis_info_dirty = False
         self.axis_info_var.set(self.axis_info_cache_text)
 
-    @profile_method('EHR._refresh_protocol_preview')
+    @profile_method('EHR_MAIN._refresh_protocol_preview')
     def _refresh_protocol_preview(self, force: bool = False) -> None:
         if not self.main_take_settings.show_protocol_preview:
             return
@@ -1503,7 +1503,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             force_protocol=refresh_protocol,
         )
 
-    @profile_method('EHR._refresh_all')
+    @profile_method('EHR_MAIN._refresh_all')
     def _refresh_all(self, light: bool = False, status: str | None = None) -> None:
         if self._main_canvas_needs_redraw:
             self._draw_main_canvas()

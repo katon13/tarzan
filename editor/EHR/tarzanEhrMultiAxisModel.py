@@ -4,14 +4,6 @@ import copy
 from dataclasses import asdict, dataclass
 from typing import Dict, List
 
-try:
-    from mechanics.tarzanMechanikaOsi import TarzanMechanics
-except Exception:
-    try:
-        from tarzanMechanikaOsi import TarzanMechanics
-    except Exception:
-        TarzanMechanics = None
-
 
 @dataclass
 class AxisNode:
@@ -41,91 +33,16 @@ class AxisMechanics:
         return 1000.0 / float(self.sample_ms)
 
 
-def _mechanics_sample_ms() -> int:
-    return 10
-
-
-def _axis_mechanics_from_tarzan(
-    axis_name: str,
-    *,
-    pulses: float,
-    min_cycle_time_s: float,
-    start_settle_time_s: float,
-    start_ramp_time_s: float,
-) -> AxisMechanics:
-    return AxisMechanics(
-        axis_name=axis_name,
-        full_cycle_pulses=max(1, int(round(pulses))),
-        min_full_cycle_time_s=max(0.1, float(min_cycle_time_s)),
-        start_settle_ms=max(0, int(round(float(start_settle_time_s) * 1000.0))),
-        start_ramp_ms=max(0, int(round(float(start_ramp_time_s) * 1000.0))),
-        sample_ms=_mechanics_sample_ms(),
-    )
-
-
-def _build_mechanics_presets() -> Dict[str, AxisMechanics]:
-    presets: Dict[str, AxisMechanics] = {
-        "oś wzorcowa": AxisMechanics(sample_ms=_mechanics_sample_ms()),
-        "DRON": AxisMechanics("DRON", 1, 60.0, 0, 0, _mechanics_sample_ms()),
-    }
-
-    if TarzanMechanics is None:
-        presets.update({
-            "oś pozioma kamery": AxisMechanics("oś pozioma kamery", 28800, 180.0, 12000, 24000, _mechanics_sample_ms()),
-            "oś pionowa kamery": AxisMechanics("oś pionowa kamery", 12800, 120.0, 9000, 18000, _mechanics_sample_ms()),
-            "oś pochyłu kamery": AxisMechanics("oś pochyłu kamery", 3200, 60.0, 5000, 9000, _mechanics_sample_ms()),
-            "oś ostrości kamery": AxisMechanics("oś ostrości kamery", 30764, 60.0, 3000, 7000, _mechanics_sample_ms()),
-            "oś pionowa ramienia": AxisMechanics("oś pionowa ramienia", 28485, 600.0, 20000, 40000, _mechanics_sample_ms()),
-            "oś pozioma ramienia": AxisMechanics("oś pozioma ramienia", 92273, 900.0, 30000, 60000, _mechanics_sample_ms()),
-        })
-        return presets
-
-    presets["oś pozioma kamery"] = _axis_mechanics_from_tarzan(
-        "oś pozioma kamery",
-        pulses=TarzanMechanics.cameraHorizontalPulsesPerCycle(),
-        min_cycle_time_s=TarzanMechanics.CAMERA_HORIZONTAL_MIN_CYCLE_TIME_SEC,
-        start_settle_time_s=TarzanMechanics.CAMERA_HORIZONTAL_START_SETTLE_TIME_SEC,
-        start_ramp_time_s=TarzanMechanics.CAMERA_HORIZONTAL_START_RAMP_TIME_SEC,
-    )
-    presets["oś pionowa kamery"] = _axis_mechanics_from_tarzan(
-        "oś pionowa kamery",
-        pulses=TarzanMechanics.cameraVerticalPulsesPerCycle(),
-        min_cycle_time_s=TarzanMechanics.CAMERA_VERTICAL_MIN_CYCLE_TIME_SEC,
-        start_settle_time_s=TarzanMechanics.CAMERA_VERTICAL_START_SETTLE_TIME_SEC,
-        start_ramp_time_s=TarzanMechanics.CAMERA_VERTICAL_START_RAMP_TIME_SEC,
-    )
-    presets["oś pochyłu kamery"] = _axis_mechanics_from_tarzan(
-        "oś pochyłu kamery",
-        pulses=TarzanMechanics.cameraTiltPulsesPerCycle(),
-        min_cycle_time_s=TarzanMechanics.CAMERA_TILT_MIN_CYCLE_TIME_SEC,
-        start_settle_time_s=TarzanMechanics.CAMERA_TILT_START_SETTLE_TIME_SEC,
-        start_ramp_time_s=TarzanMechanics.CAMERA_TILT_START_RAMP_TIME_SEC,
-    )
-    presets["oś ostrości kamery"] = _axis_mechanics_from_tarzan(
-        "oś ostrości kamery",
-        pulses=TarzanMechanics.cameraFocusPulsesPerCycle(),
-        min_cycle_time_s=TarzanMechanics.CAMERA_FOCUS_MIN_CYCLE_TIME_SEC,
-        start_settle_time_s=TarzanMechanics.CAMERA_FOCUS_START_SETTLE_TIME_SEC,
-        start_ramp_time_s=TarzanMechanics.CAMERA_FOCUS_START_RAMP_TIME_SEC,
-    )
-    presets["oś pionowa ramienia"] = _axis_mechanics_from_tarzan(
-        "oś pionowa ramienia",
-        pulses=TarzanMechanics.armVerticalPulsesPerCycle(),
-        min_cycle_time_s=TarzanMechanics.ARM_VERTICAL_MIN_CYCLE_TIME_SEC,
-        start_settle_time_s=TarzanMechanics.ARM_VERTICAL_START_SETTLE_TIME_SEC,
-        start_ramp_time_s=TarzanMechanics.ARM_VERTICAL_START_RAMP_TIME_SEC,
-    )
-    presets["oś pozioma ramienia"] = _axis_mechanics_from_tarzan(
-        "oś pozioma ramienia",
-        pulses=TarzanMechanics.armHorizontalPulsesPerCycle(),
-        min_cycle_time_s=TarzanMechanics.ARM_HORIZONTAL_MIN_CYCLE_TIME_SEC,
-        start_settle_time_s=TarzanMechanics.ARM_HORIZONTAL_START_SETTLE_TIME_SEC,
-        start_ramp_time_s=TarzanMechanics.ARM_HORIZONTAL_START_RAMP_TIME_SEC,
-    )
-    return presets
-
-
-MECHANICS_PRESETS: Dict[str, AxisMechanics] = _build_mechanics_presets()
+MECHANICS_PRESETS: Dict[str, AxisMechanics] = {
+    "oś wzorcowa": AxisMechanics(),
+    "oś pozioma kamery": AxisMechanics("oś pozioma kamery", 28800, 180.0, 12000, 24000, 10),
+    "oś pionowa kamery": AxisMechanics("oś pionowa kamery", 12800, 120.0, 9000, 18000, 10),
+    "oś pochyłu kamery": AxisMechanics("oś pochyłu kamery", 3200, 60.0, 5000, 9000, 10),
+    "oś ostrości kamery": AxisMechanics("oś ostrości kamery", 30764, 60.0, 3000, 7000, 10),
+    "oś pionowa ramienia": AxisMechanics("oś pionowa ramienia", 28485, 600.0, 20000, 40000, 10),
+    "oś pozioma ramienia": AxisMechanics("oś pozioma ramienia", 92273, 900.0, 30000, 60000, 10),
+    "DRON": AxisMechanics("DRON", 1, 60.0, 0, 0, 10),
+}
 
 
 @dataclass

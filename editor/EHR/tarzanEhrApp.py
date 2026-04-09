@@ -913,6 +913,33 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             cur_top += band_h + gap
         return layout
 
+    def _hex_to_rgb(self, color: str) -> tuple[int, int, int]:
+        color = (color or "#000000").strip()
+        if color.startswith("#") and len(color) == 7:
+            try:
+                return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+            except ValueError:
+                return 0, 0, 0
+        return 0, 0, 0
+
+    def _blend_hex(self, base: str, overlay: str, strength_percent: int) -> str:
+        strength = max(0.0, min(1.0, float(strength_percent) / 100.0))
+        br, bg, bb = self._hex_to_rgb(base)
+        or_, og, ob = self._hex_to_rgb(overlay)
+        rr = int(round(br * (1.0 - strength) + or_ * strength))
+        rg = int(round(bg * (1.0 - strength) + og * strength))
+        rb = int(round(bb * (1.0 - strength) + ob * strength))
+        return f"#{rr:02X}{rg:02X}{rb:02X}"
+
+    def _axis_curve_color(self, model: AxisCurveModel) -> str:
+        return self.main_take_settings.axis_color(model.axis_def.axis_id, model.axis_def.color)
+
+    def _axis_panel_fill(self, axis_color: str, is_active: bool) -> str:
+        base = "#232A33" if is_active else "#1C2128"
+        if not self.main_take_settings.show_axis_background_tint:
+            return base
+        return self._blend_hex(base, axis_color, self.main_take_settings.axis_background_strength_percent)
+
     def _draw_main_canvas(self) -> None:
         c = self.timeline_canvas
         c.delete("all")
@@ -934,10 +961,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.axis_rects[axis_index] = rect
             model = self.axis_models[axis_index]
             is_active = axis_index == self.active_axis_index
-            panel_fill = "#232A33" if is_active else "#1C2128"
+            axis_color = self._axis_curve_color(model)
+            panel_fill = self._axis_panel_fill(axis_color, is_active)
             c.create_rectangle(rect.left, rect.top, rect.right, rect.bottom, fill=panel_fill, outline="")
             if is_active:
-                c.create_line(rect.left, rect.top + 2, rect.left, rect.bottom - 2, fill=model.axis_def.color, width=3)
+                c.create_line(rect.left, rect.top + 2, rect.left, rect.bottom - 2, fill=axis_color, width=3)
 
             mid = (rect.top + rect.bottom) / 2.0
             c.create_line(rect.left, mid, rect.right, mid,
@@ -963,32 +991,44 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                     c.create_line(px, rect.top, px, rect.bottom, fill="#303842", dash=(2, 6))
 
             if not model.is_release_axis:
+                if self.main_take_settings.show_axis_activity_markers and len(model.nodes) >= 4:
+                    first_edit = model.nodes[1]
+                    last_edit = model.nodes[-2]
+                    for node in (first_edit, last_edit):
+                        mx = self._time_to_x(node.time_ms, rect.left, rect.right)
+                        c.create_line(mx, rect.top + 4, mx, rect.bottom - 4, fill=axis_color, width=1, dash=(3, 5))
+
                 samples = model.sample_curve(900, duration_ms=self.global_take_duration_ms)
                 pts = []
                 for t_ms, y in samples:
                     pts.extend([self._time_to_x(t_ms, rect.left, rect.right),
                                 self._logical_y_to_canvas(model, y, rect.top, rect.bottom)])
                 if len(pts) >= 4:
-                    c.create_line(*pts, fill=model.axis_def.color,
+                    c.create_line(*pts, fill=axis_color,
                                   width=self.main_take_settings.active_curve_line_width if is_active else self.main_take_settings.curve_line_width,
                                   smooth=True)
 
                 node_r = max(4, min(9, model.step_tuning.node_hit_radius_px // 2))
+                square_half = max(5, node_r)
                 for i, n in enumerate(model.nodes):
                     px = self._time_to_x(n.time_ms, rect.left, rect.right)
                     py = self._logical_y_to_canvas(model, n.y, rect.top, rect.bottom)
                     fill = self.NODE_SEL if (axis_index == self.drag_axis_index and i == self.selected_index) else self.NODE
                     if i == 0 or i == len(model.nodes) - 1:
-                        fill = "#D6EAF8"
-                    c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill=fill, outline="black")
+                        if self.main_take_settings.show_start_stop_squares:
+                            c.create_rectangle(px - square_half, py - square_half, px + square_half, py + square_half, fill="#D6EAF8", outline="black")
+                        else:
+                            c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill="#D6EAF8", outline="black")
+                    else:
+                        c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill=fill, outline="black")
 
             if model.is_release_axis and model.release_time_ms is not None:
                 rx = self._time_to_x(model.release_time_ms, rect.left, rect.right)
                 ry = (rect.top + rect.bottom) / 2.0
                 r = 9
-                fill = "#F59E0B" if self.drag_mode == 'release' and axis_index == self.drag_axis_index else "#F472B6"
+                fill = "#F59E0B" if self.drag_mode == 'release' and axis_index == self.drag_axis_index else axis_color
                 c.create_polygon(rx, ry - r, rx + r, ry, rx, ry + r, rx - r, ry, fill=fill, outline='black')
-                c.create_text(rx + 14, ry - 12, text='RELEASE', fill='#F9A8D4', anchor='w', font=('Segoe UI', 8, 'bold'))
+                c.create_text(rx + 14, ry - 12, text='RELEASE', fill=axis_color, anchor='w', font=('Segoe UI', 8, 'bold'))
 
         for minute in range(0, total_minutes + 1):
             t_ms = minute * 60000

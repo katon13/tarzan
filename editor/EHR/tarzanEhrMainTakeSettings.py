@@ -1,8 +1,19 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
+
+
+DEFAULT_AXIS_COLORS = {
+    "cam_h": "#78DCE8",
+    "cam_v": "#FFD866",
+    "cam_t": "#FF6188",
+    "cam_f": "#A9DC76",
+    "arm_v": "#AB9DF2",
+    "arm_h": "#FC9867",
+    "dron": "#F472B6",
+}
 
 
 @dataclass
@@ -20,6 +31,11 @@ class MainTakeSettings:
     show_axis_gears: bool = True
     show_status_bar: bool = True
     show_minute_grid: bool = True
+    show_axis_background_tint: bool = True
+    axis_background_strength_percent: int = 10
+    show_start_stop_squares: bool = True
+    show_axis_activity_markers: bool = True
+    axis_color_overrides: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_AXIS_COLORS))
 
     def clamp(self) -> None:
         self.take_duration_minutes = max(0.1, min(240.0, float(self.take_duration_minutes)))
@@ -27,6 +43,18 @@ class MainTakeSettings:
         self.curve_line_width = max(1, min(10, int(self.curve_line_width)))
         self.active_curve_line_width = max(self.curve_line_width, min(12, int(self.active_curve_line_width)))
         self.snap_to_zero_threshold = max(0.0, min(30.0, float(self.snap_to_zero_threshold)))
+        self.axis_background_strength_percent = max(0, min(30, int(self.axis_background_strength_percent)))
+        merged = dict(DEFAULT_AXIS_COLORS)
+        raw = dict(self.axis_color_overrides or {})
+        for key, default in DEFAULT_AXIS_COLORS.items():
+            value = str(raw.get(key, default)).strip() or default
+            merged[key] = value
+        self.axis_color_overrides = merged
+
+
+    def axis_color(self, axis_id: str, fallback: str) -> str:
+        self.clamp()
+        return self.axis_color_overrides.get(axis_id, fallback) or fallback
 
     def take_duration_ms(self) -> int:
         self.clamp()

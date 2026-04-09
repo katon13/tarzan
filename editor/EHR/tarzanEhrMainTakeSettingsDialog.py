@@ -62,13 +62,13 @@ class MainTakeSettingsDialog(tk.Toplevel):
         self._section_label(frame, "CZAS I LINIE GŁÓWNE")
         self._entry_row(frame, "GLOBALNY CZAS MAIN TAKE (min)", self.minutes_var)
         self._entry_row(frame, "KOLOR LINII 0", self.zero_line_color_var)
-        self._scale_row(frame, "GRUBOŚĆ LINII 0", self.zero_line_width_var, 1, 3, 1)
-        self._scale_row(frame, "GRUBOŚĆ LINII OSI", self.curve_line_width_var, 1, 10, 1)
-        self._scale_row(frame, "GRUBOŚĆ AKTYWNEJ OSI", self.active_curve_line_width_var, 1, 12, 1)
+        self._entry_row(frame, "GRUBOŚĆ LINII 0", self.zero_line_width_var)
+        self._entry_row(frame, "GRUBOŚĆ LINII OSI", self.curve_line_width_var)
+        self._entry_row(frame, "GRUBOŚĆ AKTYWNEJ OSI", self.active_curve_line_width_var)
 
         self._section_label(frame, "PROSTOTA INTERFEJSU")
         self._check_row(frame, "PRZYCIĄGANIE DO 0", self.snap_enabled_var)
-        self._scale_row(frame, "PRÓG PRZYCIĄGANIA DO 0", self.snap_threshold_var, 0.0, 30.0, 0.5)
+        self._entry_row(frame, "PRÓG PRZYCIĄGANIA DO 0", self.snap_threshold_var)
         self._check_row(frame, "POKAŻ PODGLĄD PROTOKOŁU", self.show_protocol_var)
         self._check_row(frame, "POKAŻ METRYKI OSI", self.show_metrics_var)
         self._check_row(frame, "POKAŻ NAZWY OSI", self.show_labels_var)
@@ -78,7 +78,7 @@ class MainTakeSettingsDialog(tk.Toplevel):
 
         self._section_label(frame, "WYGLĄD FILMOWY MAIN TAKE")
         self._check_row(frame, "POKAŻ DELIKATNE TŁO OSI W KOLORZE LINII", self.show_background_tint_var)
-        self._scale_row(frame, "SIŁA TŁA OSI (%)", self.background_strength_var, 0, 30, 1)
+        self._entry_row(frame, "SIŁA TŁA OSI (%)", self.background_strength_var)
         self._check_row(frame, "POKAŻ KWADRATY START / STOP", self.show_start_stop_squares_var)
         self._check_row(frame, "POKAŻ MARKERY CZASU DZIAŁANIA OSI", self.show_activity_markers_var)
 

@@ -15,6 +15,7 @@ from editor.EHR.tarzanEhrMultiAxisModel import (
     MECHANICS_PRESETS,
     StepTuning,
 )
+from editor.EHR.tarzanEhrTakeModel import EhrTakeModel
 
 
 @dataclass
@@ -114,6 +115,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._btn(btns, "ZERO CROSS", self._zero_cross_test, "#0F766E").pack(side="left", padx=3)
         self._btn(btns, "FLAT 0", self._flat_zero, "#C78B2A").pack(side="left", padx=3)
         self._btn(btns, "RESET", self._reset_nodes, "#BE185D").pack(side="left", padx=3)
+        self._btn(btns, "SET UP -> MAIN TAKE", self._apply_to_main_take, "#047857").pack(side="left", padx=3)
         self._btn(btns, "ZAMKNIJ", self._on_close, "#4B5563").pack(side="left", padx=3)
 
         body = tk.Frame(outer, bg=self.master_window.BG)
@@ -314,20 +316,26 @@ class AxisSettingsDialog(tk.Toplevel):
         data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir
 
+    def _mark_main_take_dirty(self, status: str | None = None) -> None:
+        self.master_window.mark_axis_dirty(self.axis_index, status=status)
+
+    def _apply_to_main_take(self) -> None:
+        self.master_window.sync_axis_from_dialog(self.axis_index, status=f"Zaktualizowano MAIN TAKE z osi: {self.model.axis_def.axis_name}.")
+
     def _apply_visual_settings(self) -> None:
         self.model.sandbox.display_y_scale = float(self.display_y_scale.get())
         self.model.sandbox.mouse_y_precision = float(self.mouse_y_precision.get())
         self.model.sandbox.top_bottom_margin = int(self.top_bottom_margin.get())
         self._curve_needs_redraw = True
         self._refresh_all("Zastosowano ustawienia osi.")
-        self.master_window._refresh_all(light=True, status="Zastosowano ustawienia osi.")
+        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _apply_step_tuning_live(self) -> None:
         self.model.set_step_tuning(self._read_step_tuning_from_ui())
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._refresh_all("Zastosowano strojenie STEP.")
-        self.master_window._refresh_all(light=True, status="Zastosowano strojenie STEP.")
+        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _apply_mechanics_preset(self) -> None:
         mechanics = copy.deepcopy(MECHANICS_PRESETS[self.mechanics_preset_var.get()])
@@ -336,7 +344,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")
-        self.master_window._refresh_all(light=False, status=f"Wczytano mechanikę: {mechanics.axis_name}.")
+        self._mark_main_take_dirty(f"Mechanika osi gotowa. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE: {mechanics.axis_name}.")
 
     def _save_tuning_txt(self) -> None:
         tuning = self._read_step_tuning_from_ui()
@@ -371,7 +379,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._refresh_all(f"Wczytano preset TXT: {path}")
-        self.master_window._refresh_all(light=True)
+        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _reset_step_tuning(self) -> None:
         tuning = StepTuning()
@@ -380,7 +388,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._refresh_all("Przywrócono domyślne parametry STEP.")
-        self.master_window._refresh_all(light=True)
+        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _sinus_test(self) -> None:
         self.model.set_sinus_test()
@@ -388,7 +396,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._refresh_all("Sinus test ustawiony.")
-        self.master_window._refresh_all(light=False, status="Sinus test ustawiony.")
+        self._mark_main_take_dirty("Sinus test gotowy lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _negative_test(self) -> None:
         self.model.set_negative_test()
@@ -396,7 +404,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._refresh_all("Negative test ustawiony.")
-        self.master_window._refresh_all(light=False, status="Negative test ustawiony.")
+        self._mark_main_take_dirty("Negative test gotowy lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _zero_cross_test(self) -> None:
         self.model.set_zero_cross_test()
@@ -404,7 +412,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._refresh_all("Zero cross test ustawiony.")
-        self.master_window._refresh_all(light=False, status="Zero cross test ustawiony.")
+        self._mark_main_take_dirty("Zero cross test gotowy lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _flat_zero(self) -> None:
         self.model.set_flat_zero()
@@ -412,14 +420,14 @@ class AxisSettingsDialog(tk.Toplevel):
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._refresh_all("Linia wyzerowana.")
-        self.master_window._refresh_all(light=False, status="Linia wyzerowana.")
+        self._mark_main_take_dirty("Linia osi wyzerowana lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _reset_nodes(self) -> None:
         self.model.reset_to_original_state()
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._refresh_all("Przywrócono ostatni stan bazowy.")
-        self.master_window._refresh_all(light=False, status="Przywrócono ostatni stan bazowy.")
+        self._mark_main_take_dirty("Stan bazowy osi przywrócony lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _refresh_metrics(self) -> None:
         self.metrics_var.set(self.model.metrics_summary())
@@ -579,7 +587,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._refresh_all("Gotowy.")
-        self.master_window._refresh_all(light=False)
+        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _on_curve_double_click(self, event) -> None:
         left, top, right, bottom = self._curve_rect()
@@ -589,7 +597,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._refresh_all("Dodano punkt.")
-        self.master_window._refresh_all(light=False)
+        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _on_curve_right_click(self, event) -> None:
         idx = self._hit_node(event.x, event.y)
@@ -600,9 +608,10 @@ class AxisSettingsDialog(tk.Toplevel):
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._refresh_all("Usunięto punkt.")
-        self.master_window._refresh_all(light=False)
+        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _on_close(self) -> None:
+        self.master_window.sync_axis_from_dialog(self.axis_index, status=f"Zamknięto edytor osi i zsynchronizowano MAIN TAKE: {self.model.axis_def.axis_name}.")
         self.master_window.settings_dialogs.pop(self.axis_index, None)
         self.destroy()
 
@@ -636,6 +645,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.axis_models = [AxisCurveModel(axis_def, self.config_model) for axis_def in DEFAULT_AXIS_DEFINITIONS]
         for axis in self.axis_models:
             axis.set_axis_take_duration_ms(self.global_take_duration_ms)
+        self.take_model = EhrTakeModel.from_runtime(self.global_take_duration_ms, self.main_take_settings, self.axis_models)
         self.active_axis_index = 0
         self.selected_index: int | None = None
         self.drag_axis_index: int | None = None
@@ -648,6 +658,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.gear_rects: dict[int, GearRect] = {}
         self.settings_dialogs: dict[int, AxisSettingsDialog] = {}
         self.drag_release_anchor_time = 0
+        self.dirty_axis_indices: set[int] = set()
 
         self.axis_info_var = tk.StringVar(value="")
         self.status_var = tk.StringVar(value="Gotowy.")
@@ -747,6 +758,21 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.status.pack(fill="x", pady=(8, 0))
         else:
             self.status.pack_forget()
+
+    def mark_axis_dirty(self, axis_index: int, status: str | None = None) -> None:
+        self.dirty_axis_indices.add(axis_index)
+        self.status_var.set(status or f"Oś zmieniona lokalnie: {self.axis_models[axis_index].axis_def.axis_name}.")
+
+    def _rebuild_take_model(self) -> None:
+        self.take_model = EhrTakeModel.from_runtime(self.global_take_duration_ms, self.main_take_settings, self.axis_models)
+
+    def sync_axis_from_dialog(self, axis_index: int, status: str | None = None) -> None:
+        self.dirty_axis_indices.discard(axis_index)
+        self.protocol_cache_key = None
+        self._main_canvas_needs_redraw = True
+        self._rebuild_take_model()
+        self._rebuild_take_model()
+        self._refresh_all(light=False, status=status)
 
     def _open_take_settings(self) -> None:
         dlg = MainTakeSettingsDialog(
@@ -1040,6 +1066,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
     def _refresh_all(self, light: bool = False, status: str | None = None) -> None:
         self._refresh_axis_info()
         if not light:
+            self._rebuild_take_model()
             self._refresh_protocol_preview(force=True)
         if self._main_canvas_needs_redraw:
             self._draw_main_canvas()

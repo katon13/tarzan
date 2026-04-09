@@ -108,6 +108,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
+        self._curve_redraw_after_id = None
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self._build_ui()
@@ -649,6 +650,21 @@ class AxisSettingsDialog(tk.Toplevel):
         c.create_text(left, top - 2, text="STEP 0/1 preview", fill=self.master_window.FG, anchor="sw", font=("Segoe UI Semibold", 9))
         c.create_text(right, top - 2, text=f"rows={len(rows)}  pulses={rows[-1]['count']}", fill=self.master_window.MUTED, anchor="se", font=("Consolas", 8))
 
+    def _set_status(self, status: str | None = None) -> None:
+        self.status_var.set(status if status is not None else "Sandbox osi gotowy do strojenia.")
+
+    def _request_curve_redraw(self) -> None:
+        self._curve_needs_redraw = True
+        if self._curve_redraw_after_id is not None:
+            return
+        self._curve_redraw_after_id = self.after_idle(self._flush_curve_redraw)
+
+    def _flush_curve_redraw(self) -> None:
+        self._curve_redraw_after_id = None
+        if self._curve_needs_redraw:
+            self._draw_curve()
+            self._curve_needs_redraw = False
+
     @profile_method('EHR._refresh_all')
     def _refresh_all(self, status: str | None = None) -> None:
         self.model.sort_and_fix_nodes()
@@ -659,7 +675,7 @@ class AxisSettingsDialog(tk.Toplevel):
         if self._step_needs_redraw:
             self._draw_step()
             self._step_needs_redraw = False
-        self.status_var.set(status if status is not None else "Sandbox osi gotowy do strojenia.")
+        self._set_status(status)
 
     def _hit_node(self, x: float, y: float) -> int | None:
         left, top, right, bottom = self._curve_rect()
@@ -680,14 +696,14 @@ class AxisSettingsDialog(tk.Toplevel):
             self.drag_anchor_y = event.y
             self.drag_anchor_node_time = int(self.model.nodes[idx].time_ms)
             self.drag_anchor_node_y = float(self.model.nodes[idx].y)
-            self._curve_needs_redraw = True
-            self._refresh_all(f"Wybrano punkt {idx}.")
+            self._request_curve_redraw()
+            self._set_status(f"Wybrano punkt {idx}.")
             return
         self.selected_index = None
         self.drag_mode = "pan"
         self.drag_anchor_x = event.x
-        self._curve_needs_redraw = True
-        self._refresh_all("PAN linii.")
+        self._request_curve_redraw()
+        self._set_status("PAN linii.")
 
     def _on_curve_drag(self, event) -> None:
         left, top, right, bottom = self._curve_rect()
@@ -702,7 +718,7 @@ class AxisSettingsDialog(tk.Toplevel):
             if self.model.move_node(self.selected_index, new_t, new_y):
                 self._curve_needs_redraw = True
                 self._step_needs_redraw = True
-                self._draw_curve()
+                self._request_curve_redraw()
         elif self.drag_mode == "pan":
             new_time = self._x_to_time(event.x, left, right)
             old_time = self._x_to_time(self.drag_anchor_x, left, right)
@@ -711,7 +727,7 @@ class AxisSettingsDialog(tk.Toplevel):
             if self.model.shift_all(delta):
                 self._curve_needs_redraw = True
                 self._step_needs_redraw = True
-                self._draw_curve()
+                self._request_curve_redraw()
 
     def _on_curve_release(self, _event) -> None:
         self.drag_mode = None
@@ -811,6 +827,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._protocol_dirty = True
         self._axis_info_dirty = True
         self._configure_after_id = None
+        self._main_canvas_redraw_after_id = None
 
         self._build_ui()
         self.update_idletasks()
@@ -904,7 +921,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self._protocol_dirty = True
             self._axis_info_dirty = True
         self._configure_after_id = None
-        self.status_var.set(status or f"Oś zmieniona lokalnie: {self.axis_models[axis_index].axis_def.axis_name}.")
+        self._set_status(status or f"Oś zmieniona lokalnie: {self.axis_models[axis_index].axis_def.axis_name}.")
 
     def _rebuild_take_model(self) -> None:
         self.take_model = EhrTakeModel.from_runtime(self.global_take_duration_ms, self.main_take_settings, self.axis_models)
@@ -1321,33 +1338,56 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.protocol_text.insert('1.0', text)
         self.protocol_text.configure(state='disabled')
 
+    def _set_status(self, status: str | None = None) -> None:
+        self.status_var.set(status if status is not None else "EHR gotowy.")
+
+    def _request_main_canvas_redraw(self) -> None:
+        self._main_canvas_needs_redraw = True
+        if self._main_canvas_redraw_after_id is not None:
+            return
+        self._main_canvas_redraw_after_id = self.after_idle(self._flush_main_canvas_redraw)
+
+    def _flush_main_canvas_redraw(self) -> None:
+        self._main_canvas_redraw_after_id = None
+        if self._main_canvas_needs_redraw:
+            self._draw_main_canvas()
+            self._main_canvas_needs_redraw = False
+
+    def _refresh_light_ui(self, status: str | None = None, refresh_axis_info: bool = False) -> None:
+        if refresh_axis_info or self._axis_info_dirty:
+            self._refresh_axis_info(force=False)
+        self._request_main_canvas_redraw()
+        self._set_status(status)
+
     @profile_method('EHR._refresh_all')
     def _refresh_all(self, light: bool = False, status: str | None = None) -> None:
-        self._refresh_axis_info(force=not light)
+        if (not light) or self._axis_info_dirty:
+            self._refresh_axis_info(force=not light)
         if not light:
             if self._take_model_dirty:
                 self._rebuild_take_model()
                 self._take_model_dirty = False
-            self._refresh_protocol_preview(force=self._protocol_dirty)
-            self._protocol_dirty = False
+            if self._protocol_dirty or self.protocol_cache_key is None:
+                self._refresh_protocol_preview(force=self._protocol_dirty)
+                self._protocol_dirty = False
         if self._main_canvas_needs_redraw:
             self._draw_main_canvas()
             self._main_canvas_needs_redraw = False
-        self.status_var.set(status if status is not None else "EHR gotowy.")
+        self._set_status(status)
 
     def _open_settings(self, axis_index: int) -> None:
         self.active_axis_index = axis_index
         if self.axis_models[axis_index].is_release_axis:
-            self._refresh_all(light=True, status=f"Oś {self.axis_models[axis_index].axis_def.axis_name} nie ma okna ustawień.")
+            self._refresh_light_ui(status=f"Oś {self.axis_models[axis_index].axis_def.axis_name} nie ma okna ustawień.", refresh_axis_info=True)
             return
         dlg = self.settings_dialogs.get(axis_index)
         if dlg is not None and dlg.winfo_exists():
             dlg.lift()
             dlg.focus_force()
-            self._refresh_all(light=True, status=f"Wybrano oś: {self._active_model().axis_def.axis_name}.")
+            self._refresh_light_ui(status=f"Wybrano oś: {self._active_model().axis_def.axis_name}.", refresh_axis_info=True)
             return
         self.settings_dialogs[axis_index] = AxisSettingsDialog(self, axis_index)
-        self._refresh_all(light=True, status=f"Otwarto ustawienia osi: {self._active_model().axis_def.axis_name}.")
+        self._refresh_light_ui(status=f"Otwarto ustawienia osi: {self._active_model().axis_def.axis_name}.", refresh_axis_info=True)
 
     def _on_canvas_press(self, event) -> None:
         gear_axis = self._gear_axis_from_point(event.x, event.y)
@@ -1362,11 +1402,14 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         axis_index = self._axis_index_from_point(event.x, event.y)
         if axis_index is None:
             return
-        if self.active_axis_index != axis_index:
+        axis_changed = self.active_axis_index != axis_index
+        if axis_changed:
             self.active_axis_index = axis_index
             self._protocol_dirty = True
             self._axis_info_dirty = True
         self._configure_after_id = None
+        if axis_changed:
+            self._refresh_axis_info(force=False)
         model = self.axis_models[axis_index]
         if self._hit_release(axis_index, event.x, event.y):
             self.drag_axis_index = axis_index
@@ -1374,8 +1417,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.drag_mode = "release"
             self.drag_anchor_x = event.x
             self.drag_release_anchor_time = int(model.release_time_ms or 0)
-            self._main_canvas_needs_redraw = True
-            self._refresh_all(light=True, status=f"Wybrano RELEASE osi: {model.axis_def.axis_name}.")
+            self._request_main_canvas_redraw()
+            self._set_status(f"Wybrano RELEASE osi: {model.axis_def.axis_name}.")
             return
         node_index = self._hit_node(axis_index, event.x, event.y)
         if node_index is not None:
@@ -1386,15 +1429,15 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.drag_anchor_y = event.y
             self.drag_anchor_node_time = int(model.nodes[node_index].time_ms)
             self.drag_anchor_node_y = float(model.nodes[node_index].y)
-            self._main_canvas_needs_redraw = True
-            self._refresh_all(light=True, status=f"Wybrano punkt osi: {model.axis_def.axis_name}.")
+            self._request_main_canvas_redraw()
+            self._set_status(f"Wybrano punkt osi: {model.axis_def.axis_name}.")
             return
         self.drag_axis_index = axis_index
         self.selected_index = None
         self.drag_mode = "pan"
         self.drag_anchor_x = event.x
-        self._main_canvas_needs_redraw = True
-        self._refresh_all(light=True, status=f"PAN osi: {model.axis_def.axis_name}.")
+        self._request_main_canvas_redraw()
+        self._set_status(f"PAN osi: {model.axis_def.axis_name}.")
 
     def _on_canvas_drag(self, event) -> None:
         axis_index = self.drag_axis_index
@@ -1410,21 +1453,18 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             threshold_ms = model.sample_ms * model.step_tuning.time_drag_threshold_samples
             new_t = self.drag_anchor_node_time if abs(delta_t) < threshold_ms else self.drag_anchor_node_time + delta_t
             if model.move_node(self.selected_index, new_t, new_y):
-                self._main_canvas_needs_redraw = True
-                self._draw_main_canvas()
+                self._request_main_canvas_redraw()
         elif self.drag_mode == "release":
             new_time = self._x_to_time(event.x, rect.left, rect.right)
             if model.set_release_time(new_time):
-                self._main_canvas_needs_redraw = True
-                self._draw_main_canvas()
+                self._request_main_canvas_redraw()
         elif self.drag_mode == "pan":
             new_time = self._x_to_time(event.x, rect.left, rect.right)
             old_time = self._x_to_time(self.drag_anchor_x, rect.left, rect.right)
             delta = new_time - old_time
             self.drag_anchor_x = event.x
             if model.shift_all(delta):
-                self._main_canvas_needs_redraw = True
-                self._draw_main_canvas()
+                self._request_main_canvas_redraw()
 
     def _on_canvas_release(self, _event) -> None:
         self.drag_axis_index = None

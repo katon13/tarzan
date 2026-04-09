@@ -35,62 +35,13 @@ class AxisMechanics:
 
 MECHANICS_PRESETS: Dict[str, AxisMechanics] = {
     "oś wzorcowa": AxisMechanics(),
-    "oś pozioma kamery": AxisMechanics(
-        axis_name="oś pozioma kamery",
-        full_cycle_pulses=28800,
-        min_full_cycle_time_s=180.0,
-        start_settle_ms=12000,
-        start_ramp_ms=24000,
-        sample_ms=10,
-    ),
-    "oś pionowa kamery": AxisMechanics(
-        axis_name="oś pionowa kamery",
-        full_cycle_pulses=12800,
-        min_full_cycle_time_s=120.0,
-        start_settle_ms=9000,
-        start_ramp_ms=18000,
-        sample_ms=10,
-    ),
-    "oś pochyłu kamery": AxisMechanics(
-        axis_name="oś pochyłu kamery",
-        full_cycle_pulses=3200,
-        min_full_cycle_time_s=60.0,
-        start_settle_ms=5000,
-        start_ramp_ms=9000,
-        sample_ms=10,
-    ),
-    "oś ostrości kamery": AxisMechanics(
-        axis_name="oś ostrości kamery",
-        full_cycle_pulses=30764,
-        min_full_cycle_time_s=60.0,
-        start_settle_ms=3000,
-        start_ramp_ms=7000,
-        sample_ms=10,
-    ),
-    "oś pionowa ramienia": AxisMechanics(
-        axis_name="oś pionowa ramienia",
-        full_cycle_pulses=28485,
-        min_full_cycle_time_s=600.0,
-        start_settle_ms=20000,
-        start_ramp_ms=40000,
-        sample_ms=10,
-    ),
-    "oś pozioma ramienia": AxisMechanics(
-        axis_name="oś pozioma ramienia",
-        full_cycle_pulses=92273,
-        min_full_cycle_time_s=900.0,
-        start_settle_ms=30000,
-        start_ramp_ms=60000,
-        sample_ms=10,
-    ),
-    "DRON": AxisMechanics(
-        axis_name="DRON",
-        full_cycle_pulses=1,
-        min_full_cycle_time_s=60.0,
-        start_settle_ms=0,
-        start_ramp_ms=0,
-        sample_ms=10,
-    ),
+    "oś pozioma kamery": AxisMechanics("oś pozioma kamery", 28800, 180.0, 12000, 24000, 10),
+    "oś pionowa kamery": AxisMechanics("oś pionowa kamery", 12800, 120.0, 9000, 18000, 10),
+    "oś pochyłu kamery": AxisMechanics("oś pochyłu kamery", 3200, 60.0, 5000, 9000, 10),
+    "oś ostrości kamery": AxisMechanics("oś ostrości kamery", 30764, 60.0, 3000, 7000, 10),
+    "oś pionowa ramienia": AxisMechanics("oś pionowa ramienia", 28485, 600.0, 20000, 40000, 10),
+    "oś pozioma ramienia": AxisMechanics("oś pozioma ramienia", 92273, 900.0, 30000, 60000, 10),
+    "DRON": AxisMechanics("DRON", 1, 60.0, 0, 0, 10),
 }
 
 
@@ -112,32 +63,6 @@ class AxisSandboxSettings:
     display_y_scale: float = 500.0
     mouse_y_precision: float = 0.45
     top_bottom_margin: int = 24
-
-
-@dataclass
-class MainTakeSettings:
-    zero_snap_y: float = 12.0
-    zero_line_width: int = 1
-    active_curve_width: int = 4
-    inactive_curve_width: int = 3
-    zero_line_color: str = "#E03A3A"
-    minute_line_color: str = "#36414C"
-    show_protocol_preview: bool = True
-    show_axis_metrics: bool = True
-    show_axis_names: bool = True
-    show_gear_buttons: bool = True
-    show_status_bar: bool = True
-    show_minute_grid: bool = True
-
-    def clamp(self) -> None:
-        self.zero_snap_y = max(0.0, min(30.0, float(self.zero_snap_y)))
-        self.zero_line_width = max(1, min(4, int(round(self.zero_line_width))))
-        self.active_curve_width = max(1, min(8, int(round(self.active_curve_width))))
-        self.inactive_curve_width = max(1, min(8, int(round(self.inactive_curve_width))))
-        if not str(self.zero_line_color).strip():
-            self.zero_line_color = "#E03A3A"
-        if not str(self.minute_line_color).strip():
-            self.minute_line_color = "#36414C"
 
 
 @dataclass
@@ -206,21 +131,11 @@ class StepTuning:
             if hasattr(tuning, key):
                 current = getattr(tuning, key)
                 try:
-                    if isinstance(current, int):
-                        setattr(tuning, key, int(float(value)))
-                    else:
-                        setattr(tuning, key, float(value))
+                    setattr(tuning, key, int(float(value)) if isinstance(current, int) else float(value))
                 except ValueError:
                     pass
         tuning.clamp()
-        mechanic_keys = {
-            "axis_name",
-            "full_cycle_pulses",
-            "min_full_cycle_time_s",
-            "start_settle_ms",
-            "start_ramp_ms",
-            "sample_ms",
-        }
+        mechanic_keys = {"axis_name", "full_cycle_pulses", "min_full_cycle_time_s", "start_settle_ms", "start_ramp_ms", "sample_ms"}
         if mechanic_keys.intersection(raw.keys()):
             try:
                 mechanics = AxisMechanics(
@@ -250,14 +165,12 @@ class AxisCurveModel:
         if self.is_release_axis:
             self.release_time_ms = self.snap_time(self.take_duration_ms * 0.5)
         self.original_nodes: List[AxisNode] = copy.deepcopy(self.nodes)
-        self._curve_cache: tuple[tuple[int, float], ...] | None = None
-        self._step_cache: tuple[dict, ...] | None = None
+        self._curve_cache: dict[tuple[int, int], tuple[tuple[int, float], ...]] = {}
+        self._step_cache: dict[int, tuple[dict, ...]] = {}
 
     @property
     def take_duration_ms(self) -> int:
-        if self.axis_take_duration_ms is not None:
-            return self.axis_take_duration_ms
-        return self.mechanics.take_duration_ms
+        return self.axis_take_duration_ms if self.axis_take_duration_ms is not None else self.mechanics.take_duration_ms
 
     @property
     def sample_ms(self) -> int:
@@ -271,8 +184,8 @@ class AxisCurveModel:
         self._invalidate_cache()
 
     def _invalidate_cache(self) -> None:
-        self._curve_cache = None
-        self._step_cache = None
+        self._curve_cache.clear()
+        self._step_cache.clear()
 
     def set_mechanics(self, mechanics: AxisMechanics) -> None:
         self.mechanics = copy.deepcopy(mechanics)
@@ -284,11 +197,7 @@ class AxisCurveModel:
 
     def set_axis_take_duration_ms(self, take_duration_ms: int | None) -> None:
         old_duration = max(self.sample_ms, self.take_duration_ms)
-        if take_duration_ms is None:
-            self.axis_take_duration_ms = None
-        else:
-            snapped = self.snap_time(max(self.sample_ms, int(take_duration_ms)))
-            self.axis_take_duration_ms = snapped
+        self.axis_take_duration_ms = None if take_duration_ms is None else self.snap_time(max(self.sample_ms, int(take_duration_ms)))
         new_duration = max(self.sample_ms, self.take_duration_ms)
 
         if self.is_release_axis:
@@ -321,17 +230,18 @@ class AxisCurveModel:
         self.step_tuning = copy.deepcopy(tuning)
         self._invalidate_cache()
 
+    def apply_zero_snap(self, main_take_settings, value: float) -> float:
+        value = self.clamp_y(value)
+        if not getattr(main_take_settings, "snap_to_zero_enabled", False):
+            return value
+        threshold = float(getattr(main_take_settings, "snap_to_zero_threshold", 0.0))
+        return 0.0 if abs(value) <= threshold else value
+
     def _build_default_nodes(self) -> List[AxisNode]:
         d = self.take_duration_ms
         if self.is_release_axis:
             return [AxisNode(0, 0.0), AxisNode(d, 0.0)]
-        return [
-            AxisNode(0, 0.0),
-            AxisNode(int(d * 0.18), 18.0),
-            AxisNode(int(d * 0.40), 42.0),
-            AxisNode(int(d * 0.68), 16.0),
-            AxisNode(d, 0.0),
-        ]
+        return [AxisNode(0, 0.0), AxisNode(int(d * 0.18), 18.0), AxisNode(int(d * 0.40), 42.0), AxisNode(int(d * 0.68), 16.0), AxisNode(d, 0.0)]
 
     def set_flat_zero(self) -> None:
         d = self.take_duration_ms
@@ -340,36 +250,17 @@ class AxisCurveModel:
 
     def set_sinus_test(self) -> None:
         d = self.take_duration_ms
-        self.nodes = [
-            AxisNode(0, 0.0),
-            AxisNode(int(d * 0.16), 22.0),
-            AxisNode(int(d * 0.30), 52.0),
-            AxisNode(int(d * 0.50), 78.0),
-            AxisNode(int(d * 0.72), 34.0),
-            AxisNode(d, 0.0),
-        ]
+        self.nodes = [AxisNode(0, 0.0), AxisNode(int(d * 0.16), 22.0), AxisNode(int(d * 0.30), 52.0), AxisNode(int(d * 0.50), 78.0), AxisNode(int(d * 0.72), 34.0), AxisNode(d, 0.0)]
         self._invalidate_cache()
 
     def set_negative_test(self) -> None:
         d = self.take_duration_ms
-        self.nodes = [
-            AxisNode(0, 0.0),
-            AxisNode(int(d * 0.15), -18.0),
-            AxisNode(int(d * 0.38), -48.0),
-            AxisNode(int(d * 0.62), -22.0),
-            AxisNode(d, 0.0),
-        ]
+        self.nodes = [AxisNode(0, 0.0), AxisNode(int(d * 0.15), -18.0), AxisNode(int(d * 0.38), -48.0), AxisNode(int(d * 0.62), -22.0), AxisNode(d, 0.0)]
         self._invalidate_cache()
 
     def set_zero_cross_test(self) -> None:
         d = self.take_duration_ms
-        self.nodes = [
-            AxisNode(0, 0.0),
-            AxisNode(int(d * 0.18), 38.0),
-            AxisNode(int(d * 0.42), -24.0),
-            AxisNode(int(d * 0.70), 46.0),
-            AxisNode(d, 0.0),
-        ]
+        self.nodes = [AxisNode(0, 0.0), AxisNode(int(d * 0.18), 38.0), AxisNode(int(d * 0.42), -24.0), AxisNode(int(d * 0.70), 46.0), AxisNode(d, 0.0)]
         self._invalidate_cache()
 
     def clamp_y(self, value: float) -> float:
@@ -467,54 +358,15 @@ class AxisCurveModel:
             return
         self.release_time_ms = self.snap_time(max(0, min(self.take_duration_ms, int(time_ms))))
 
-    def axis_time_to_main_take_time(self, axis_time_ms: int, main_take_duration_ms: int) -> int:
-        main_take_duration_ms = max(self.sample_ms, int(main_take_duration_ms))
-        if self.is_release_axis:
-            return self.snap_time(max(0, min(main_take_duration_ms, int(axis_time_ms))))
-        if self.take_duration_ms <= 0:
-            return 0
-        scaled = int(round(int(axis_time_ms) * main_take_duration_ms / self.take_duration_ms))
-        return self.snap_time(max(0, min(main_take_duration_ms, scaled)))
-
-    def main_take_time_to_axis_time(self, main_take_time_ms: int, main_take_duration_ms: int) -> int:
-        main_take_duration_ms = max(self.sample_ms, int(main_take_duration_ms))
-        if self.is_release_axis:
-            return self.snap_time(max(0, min(main_take_duration_ms, int(main_take_time_ms))))
-        scaled = int(round(int(main_take_time_ms) * self.take_duration_ms / main_take_duration_ms))
-        return self.snap_time(max(0, min(self.take_duration_ms, scaled)))
-
-    def sample_curve_for_main_take(self, main_take_duration_ms: int, steps: int = 900) -> List[tuple[int, float]]:
-        main_take_duration_ms = max(self.sample_ms, int(main_take_duration_ms))
-        if self.is_release_axis:
-            return [(0, 0.0), (main_take_duration_ms, 0.0)]
-        samples = self.sample_curve(max(steps, 120))
-        return [(self.axis_time_to_main_take_time(t, main_take_duration_ms), y) for t, y in samples]
-
-    def protocol_rows_for_main_take(self, main_take_duration_ms: int) -> List[dict]:
-        rows = self.build_step_rows_for_duration(main_take_duration_ms)
+    def protocol_rows(self, duration_ms: int | None = None) -> List[dict]:
+        rows = self.build_step_rows(duration_ms=duration_ms)
         release_time = self.release_time_ms if self.is_release_axis else None
-        protocol: List[dict] = []
-        for row in rows:
-            protocol.append({
-                "time_ms": int(row["time_ms"]),
-                "dir": int(row["dir"]),
-                "step": int(row["step"]),
-                "event": "RELEASE" if release_time is not None and int(row["time_ms"]) == int(release_time) else "",
-            })
-        return protocol
-
-    def protocol_rows(self) -> List[dict]:
-        rows = self.build_step_rows()
-        release_time = self.release_time_ms if self.is_release_axis else None
-        protocol: List[dict] = []
-        for row in rows:
-            protocol.append({
-                "time_ms": int(row["time_ms"]),
-                "dir": int(row["dir"]),
-                "step": int(row["step"]),
-                "event": "RELEASE" if release_time is not None and int(row["time_ms"]) == int(release_time) else "",
-            })
-        return protocol
+        return [{
+            "time_ms": int(row["time_ms"]),
+            "dir": int(row["dir"]),
+            "step": int(row["step"]),
+            "event": "RELEASE" if release_time is not None and int(row["time_ms"]) == int(release_time) else "",
+        } for row in rows]
 
     def _edge_slope(self, h0: float, h1: float, d0: float, d1: float) -> float:
         m = ((2 * h0 + h1) * d0 - h0 * d1) / (h0 + h1) if (h0 + h1) != 0 else 0.0
@@ -546,16 +398,21 @@ class AxisCurveModel:
         m[-1] = self._edge_slope(h[-1], h[-2], delta[-1], delta[-2])
         return m
 
-    def sample_curve(self, steps: int = 800) -> List[tuple[int, float]]:
+    def sample_curve(self, steps: int = 800, duration_ms: int | None = None) -> List[tuple[int, float]]:
         self.sort_and_fix_nodes()
-        if self._curve_cache is not None:
-            return list(self._curve_cache)
+        duration = max(self.sample_ms, int(duration_ms or self.take_duration_ms))
+        cache_key = (steps, duration)
+        if cache_key in self._curve_cache:
+            return list(self._curve_cache[cache_key])
+
         xs = [float(node.time_ms) for node in self.nodes]
         ys = [float(node.y) for node in self.nodes]
         if len(xs) < 2:
             return []
+        if duration != self.take_duration_ms and self.take_duration_ms > 0:
+            scale = duration / float(self.take_duration_ms)
+            xs = [x * scale for x in xs]
         m = self._pchip_slopes(xs, ys)
-        duration = self.take_duration_ms
         dense = max(steps, 120)
         result: List[tuple[int, float]] = []
         seg = 0
@@ -576,8 +433,8 @@ class AxisCurveModel:
                 h11 = u**3 - u**2
                 y = h00 * y0 + h10 * h * m[seg] + h01 * y1 + h11 * h * m[seg + 1]
             result.append((int(round(t)), self.clamp_y(y)))
-        self._curve_cache = tuple(result)
-        return list(self._curve_cache)
+        self._curve_cache[cache_key] = tuple(result)
+        return list(self._curve_cache[cache_key])
 
     def _zone_gain(self, normalized: float, tuning: StepTuning) -> float:
         if normalized <= 1 / 3:
@@ -586,38 +443,26 @@ class AxisCurveModel:
             return tuning.mid_zone_gain
         return tuning.high_zone_gain
 
-    def build_step_rows(self) -> List[dict]:
-        if self._step_cache is not None:
-            return [dict(r) for r in self._step_cache]
-        rows = self.build_step_rows_for_duration(self.take_duration_ms)
-        return rows
-
-    def build_step_rows_for_duration(self, duration_ms: int) -> List[dict]:
+    def build_step_rows(self, duration_ms: int | None = None) -> List[dict]:
+        duration = max(self.sample_ms, int(duration_ms or self.take_duration_ms))
+        if duration in self._step_cache:
+            return [dict(r) for r in self._step_cache[duration]]
         rows: List[dict] = []
         sample_ms = self.sample_ms
-        duration_ms = self.snap_time(max(sample_ms, int(duration_ms)))
-        steps = duration_ms // sample_ms
+        steps = duration // sample_ms
         if self.is_release_axis:
             for i in range(steps + 1):
-                rows.append(
-                    {
-                        "time_ms": i * sample_ms,
-                        "y": 0.0,
-                        "dir": 1,
-                        "step": 0,
-                        "count": 0,
-                        "rate": 0.0,
-                        "acc": 0.0,
-                    }
-                )
-            return rows
+                rows.append({"time_ms": i * sample_ms, "y": 0.0, "dir": 1, "step": 0, "count": 0, "rate": 0.0, "acc": 0.0})
+            self._step_cache[duration] = tuple(dict(r) for r in rows)
+            return [dict(r) for r in self._step_cache[duration]]
+
         tuning = copy.deepcopy(self.step_tuning)
         tuning.clamp()
         accumulator = tuning.accumulator_bias
         count = 0
         prev_sign = 0
         prev_rate = 0.0
-        samples = self.sample_curve_for_main_take(duration_ms, 800) if duration_ms != self.take_duration_ms or self.is_release_axis else self.sample_curve(800)
+        samples = self.sample_curve(800, duration_ms=duration)
         if not samples:
             return []
         sample_idx = 0
@@ -646,8 +491,7 @@ class AxisCurveModel:
                 span = max(1e-6, tuning.input_max_y - tuning.dead_zone_y)
                 normalized = (min(abs_y, tuning.input_max_y) - tuning.dead_zone_y) / span
                 normalized = max(0.0, min(1.0, normalized))
-                curve = normalized ** tuning.input_gamma
-                curve *= self._zone_gain(normalized, tuning)
+                curve = (normalized ** tuning.input_gamma) * self._zone_gain(normalized, tuning)
                 rate = curve * self.mechanics.max_step_rate_per_s
                 rate *= tuning.step_rate_gain
                 rate *= tuning.step_rate_max_percent / 100.0
@@ -655,41 +499,30 @@ class AxisCurveModel:
                 alpha = max(0.0, min(0.95, tuning.preview_rate_smoothing))
                 rate = prev_rate * alpha + rate * (1.0 - alpha)
             prev_rate = rate
-            density = rate * (sample_ms / 1000.0)
-            density = max(0.0, min(float(self.mechanics.max_step_per_sample), density))
+            density = max(0.0, min(float(self.mechanics.max_step_per_sample), rate * (sample_ms / 1000.0)))
             accumulator += density
             step = 0
             if accumulator >= tuning.emit_threshold:
                 step = 1
                 accumulator -= tuning.emit_threshold
                 count += 1
-            rows.append(
-                {
-                    "time_ms": t,
-                    "y": y,
-                    "dir": dir_bit,
-                    "step": step,
-                    "count": count,
-                    "rate": rate,
-                    "acc": accumulator,
-                }
-            )
-        return rows
+            rows.append({"time_ms": t, "y": y, "dir": dir_bit, "step": step, "count": count, "rate": rate, "acc": accumulator})
+        self._step_cache[duration] = tuple(dict(r) for r in rows)
+        return [dict(r) for r in self._step_cache[duration]]
 
-    def current_pulse_count(self) -> int:
-        rows = self.build_step_rows()
+    def current_pulse_count(self, duration_ms: int | None = None) -> int:
+        rows = self.build_step_rows(duration_ms=duration_ms)
         return int(rows[-1]["count"]) if rows else 0
 
-    def metrics_summary(self) -> str:
-        pulse_count = self.current_pulse_count()
+    def metrics_summary(self, duration_ms: int | None = None) -> str:
+        rows = self.build_step_rows(duration_ms=duration_ms)
+        pulse_count = int(rows[-1]["count"]) if rows else 0
         budget = self.mechanics.full_cycle_pulses
         ratio = (pulse_count / budget) if budget else 0.0
-        rows = self.build_step_rows()
         peak_abs_y = max((abs(r["y"]) for r in rows), default=0.0)
         peak_rate = max((r["rate"] for r in rows), default=0.0)
-        release_text = "-"
-        if self.is_release_axis and self.release_time_ms is not None:
-            release_text = f"{self.release_time_ms} ms"
+        release_text = f"{self.release_time_ms} ms" if self.is_release_axis and self.release_time_ms is not None else "-"
+        summary_duration = max(self.sample_ms, int(duration_ms or self.take_duration_ms))
         return (
             f"oś               : {self.axis_def.axis_name}\n"
             f"węzły             : {len(self.nodes)}\n"
@@ -700,7 +533,7 @@ class AxisCurveModel:
             f"max rate          : {peak_rate:6.2f} step/s\n"
             f"sample            : {self.sample_ms} ms\n"
             f"zakres operatora  : ±{int(round(self.sandbox.display_y_scale))}\n"
-            f"czas TAKE         : {self.take_duration_ms / 1000.0:6.1f} s\n"
+            f"czas MAIN TAKE    : {summary_duration / 1000.0:6.1f} s\n"
             f"pełny cykl min    : {self.mechanics.min_full_cycle_time_s:6.1f} s\n"
             f"settle+ramp       : {(self.mechanics.start_settle_ms + self.mechanics.start_ramp_ms) / 1000.0:6.1f} s\n"
         )

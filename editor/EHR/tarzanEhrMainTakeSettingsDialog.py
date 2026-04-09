@@ -37,6 +37,7 @@ class MainTakeSettingsDialog(tk.Toplevel):
         self.show_background_tint_var = tk.BooleanVar(value=settings.show_axis_background_tint)
         self.background_strength_var = tk.IntVar(value=settings.axis_background_strength_percent)
         self.active_axis_emphasis_var = tk.IntVar(value=getattr(settings, 'active_axis_emphasis_percent', 10))
+        self.active_axis_border_width_var = tk.IntVar(value=getattr(settings, 'active_axis_border_width', 3))
         self.show_start_stop_squares_var = tk.BooleanVar(value=settings.show_start_stop_squares)
         self.show_activity_markers_var = tk.BooleanVar(value=settings.show_axis_activity_markers)
         self.smooth_strength_default_var = tk.DoubleVar(value=getattr(settings, 'smooth_strength_default', 0.35))
@@ -79,10 +80,11 @@ class MainTakeSettingsDialog(tk.Toplevel):
         self._check_row(frame, "POKAŻ PASEK STATUSU", self.show_status_var)
         self._check_row(frame, "POKAŻ SIATKĘ MINUT", self.show_grid_var)
 
-        self._section_label(frame, "WYGLĄD FILMOWY MAIN TAKE")
+        self._section_label(frame, "PODŚWIETLANIE AKTYWNEJ OSI")
         self._check_row(frame, "POKAŻ DELIKATNE TŁO OSI W KOLORZE LINII", self.show_background_tint_var)
-        self._entry_row(frame, "SIŁA TŁA OSI (%)", self.background_strength_var)
-        self._entry_row(frame, "MOC PODBICIA AKTYWNEJ OSI (%)", self.active_axis_emphasis_var)
+        self._entry_row(frame, "PRZEŹROCZYSTOŚĆ / SIŁA TŁA OSI (%)", self.background_strength_var)
+        self._entry_row(frame, "DODATKOWE PODBICIE AKTYWNEJ OSI (%)", self.active_axis_emphasis_var)
+        self._entry_row(frame, "GRUBOŚĆ LEWEGO ZNACZNIKA AKTYWNEJ OSI", self.active_axis_border_width_var)
         self._check_row(frame, "POKAŻ KWADRATY START / STOP", self.show_start_stop_squares_var)
         self._check_row(frame, "POKAŻ MARKERY CZASU DZIAŁANIA OSI", self.show_activity_markers_var)
 
@@ -168,6 +170,7 @@ class MainTakeSettingsDialog(tk.Toplevel):
             show_axis_background_tint=bool(self.show_background_tint_var.get()),
             axis_background_strength_percent=int(self.background_strength_var.get()),
             active_axis_emphasis_percent=int(self.active_axis_emphasis_var.get()),
+            active_axis_border_width=int(self.active_axis_border_width_var.get()),
             show_start_stop_squares=bool(self.show_start_stop_squares_var.get()),
             show_axis_activity_markers=bool(self.show_activity_markers_var.get()),
             smooth_strength_default=float(self.smooth_strength_default_var.get()),

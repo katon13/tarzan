@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from dataclasses import dataclass
 from pathlib import Path
 import tkinter as tk
@@ -67,7 +68,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self.model = master.axis_models[axis_index]
 
         self.title(f"Ustawienia osi — {self.model.axis_def.axis_name}")
-        self.geometry("1760x1120")
+        self.geometry("1880x1120")
         self.minsize(1500, 960)
         self.configure(bg=master.BG)
         self.transient(master)
@@ -143,7 +144,7 @@ class AxisSettingsDialog(tk.Toplevel):
         body = tk.Frame(outer, bg=self.master_window.BG)
         body.pack(fill="both", expand=True)
 
-        left = tk.Frame(body, bg=self.master_window.BG, width=240)
+        left = tk.Frame(body, bg=self.master_window.BG, width=210)
         left.pack(side="left", fill="y", padx=(0, 8))
         left.pack_propagate(False)
 
@@ -152,7 +153,7 @@ class AxisSettingsDialog(tk.Toplevel):
 
         self._build_left_panel(left)
 
-        self.curve_canvas = tk.Canvas(right, bg="#1B2028", height=420, highlightthickness=0)
+        self.curve_canvas = tk.Canvas(right, bg="#1B2028", width=1520, height=420, highlightthickness=0)
         self.curve_canvas.pack(fill="both", expand=True, pady=(0, 8))
         self.curve_canvas.bind("<Button-1>", self._on_curve_press)
         self.curve_canvas.bind("<B1-Motion>", self._on_curve_drag)
@@ -160,7 +161,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self.curve_canvas.bind("<Double-Button-1>", self._on_curve_double_click)
         self.curve_canvas.bind("<Button-3>", self._on_curve_right_click)
 
-        self.step_canvas = tk.Canvas(right, bg="#1A1E24", height=255, highlightthickness=0)
+        self.step_canvas = tk.Canvas(right, bg="#1A1E24", width=1520, height=255, highlightthickness=0)
         self.step_canvas.pack(fill="both", expand=True)
 
         self._build_step_tuning_panel(right)
@@ -203,8 +204,8 @@ class AxisSettingsDialog(tk.Toplevel):
 
         save_row = tk.Frame(parent, bg=self.master_window.BG)
         save_row.pack(fill="x", pady=(0, 10))
-        self._btn(save_row, "ZAPISZ USTAWIENIA OSI", self._save_axis_settings_txt, "#0F766E").pack(fill="x", pady=(0, 6))
-        self._btn(save_row, "WCZYTAJ USTAWIENIA OSI", self._load_axis_settings_txt, "#7C3AED").pack(fill="x")
+        self._small_btn(save_row, "SAVE JSON", self._save_axis_settings_json, "#0F766E").pack(side="left", fill="x", expand=True, padx=(0, 4))
+        self._small_btn(save_row, "LOAD JSON", self._load_axis_settings_json, "#7C3AED").pack(side="left", fill="x", expand=True)
 
     def _build_step_tuning_panel(self, parent: tk.Misc) -> None:
         panel = tk.Frame(parent, bg=self.master_window.PANEL, padx=10, pady=10)
@@ -266,6 +267,11 @@ class AxisSettingsDialog(tk.Toplevel):
         return tk.Button(parent, text=text, command=cmd, bg=color, fg="white", activebackground=color,
                          activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
                          font=("Segoe UI Semibold", 9), cursor="hand2")
+
+    def _small_btn(self, parent, text, cmd, color):
+        return tk.Button(parent, text=text, command=cmd, bg=color, fg="white", activebackground=color,
+                         activeforeground="white", relief="flat", bd=0, padx=8, pady=4,
+                         font=("Segoe UI Semibold", 8), cursor="hand2")
 
     def _curve_rect(self) -> tuple[int, int, int, int]:
         w = max(300, int(self.curve_canvas.winfo_width() or 1200))
@@ -378,72 +384,91 @@ class AxisSettingsDialog(tk.Toplevel):
         self._mark_main_take_dirty(f"Mechanika osi gotowa. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE: {mechanics.axis_name}.")
 
 
-    def _axis_settings_to_text(self) -> str:
-        tuning_text = self.model.step_tuning.to_text(self.model.mechanics).strip().splitlines()
-        lines = [
-            "AXIS_SANDBOX_SETTINGS_V1",
-            f"display_y_scale={float(self.display_y_scale.get())}",
-            f"mouse_y_precision={float(self.mouse_y_precision.get())}",
-            f"top_bottom_margin={int(self.top_bottom_margin.get())}",
-            "",
-            *tuning_text,
-            "",
-        ]
-        return "\n".join(lines)
+    def _axis_settings_to_json_text(self) -> str:
+        payload = {
+            "format": "AXIS_SANDBOX_SETTINGS_JSON_V1",
+            "axis_id": self.model.axis_def.axis_id,
+            "axis_name": self.model.axis_def.axis_name,
+            "visual": {
+                "display_y_scale": float(self.display_y_scale.get()),
+                "mouse_y_precision": float(self.mouse_y_precision.get()),
+                "top_bottom_margin": int(self.top_bottom_margin.get()),
+            },
+            "step_tuning": {key: getattr(self.model.step_tuning, key) for key in self.step_vars},
+            "mechanics": {
+                "axis_name": self.model.mechanics.axis_name,
+                "full_cycle_pulses": self.model.mechanics.full_cycle_pulses,
+                "min_full_cycle_time_s": self.model.mechanics.min_full_cycle_time_s,
+                "start_settle_ms": self.model.mechanics.start_settle_ms,
+                "start_ramp_ms": self.model.mechanics.start_ramp_ms,
+                "sample_ms": self.model.mechanics.sample_ms,
+            },
+        }
+        return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
 
-    def _load_axis_settings_from_text(self, text: str) -> None:
-        raw = {}
-        for line in text.splitlines():
-            line = line.strip()
-            if not line or "=" not in line:
-                continue
-            key, value = [part.strip() for part in line.split("=", 1)]
-            raw[key] = value
-        try:
-            if "display_y_scale" in raw:
-                self.display_y_scale.set(float(raw["display_y_scale"]))
-            if "mouse_y_precision" in raw:
-                self.mouse_y_precision.set(float(raw["mouse_y_precision"]))
-            if "top_bottom_margin" in raw:
-                self.top_bottom_margin.set(int(float(raw["top_bottom_margin"])))
-        except ValueError:
-            pass
+    def _load_axis_settings_from_json_text(self, text: str) -> None:
+        data = json.loads(text)
+        visual = dict(data.get("visual") or {})
+        if "display_y_scale" in visual:
+            self.display_y_scale.set(float(visual["display_y_scale"]))
+        if "mouse_y_precision" in visual:
+            self.mouse_y_precision.set(float(visual["mouse_y_precision"]))
+        if "top_bottom_margin" in visual:
+            self.top_bottom_margin.set(int(float(visual["top_bottom_margin"])))
 
         self.model.sandbox.display_y_scale = float(self.display_y_scale.get())
         self.model.sandbox.mouse_y_precision = float(self.mouse_y_precision.get())
         self.model.sandbox.top_bottom_margin = int(self.top_bottom_margin.get())
 
-        tuning, mechanics = StepTuning.from_text(text)
+        step_data = dict(data.get("step_tuning") or {})
+        tuning = StepTuning()
+        for key, value in step_data.items():
+            if hasattr(tuning, key):
+                setattr(tuning, key, value)
+        tuning.clamp()
         self._write_step_tuning_to_ui(tuning)
         self.model.set_step_tuning(tuning)
-        if mechanics is not None:
-            self.model.set_mechanics(mechanics)
-            self.mechanics_preset_var.set(mechanics.axis_name)
-            self.model.set_axis_take_duration_ms(self.master_window.global_take_duration_ms)
 
-    def _save_axis_settings_txt(self) -> None:
-        default_name = self.model.axis_def.axis_name.replace(" ", "_") + "_axis_settings.txt"
+        mechanics_data = dict(data.get("mechanics") or {})
+        if mechanics_data:
+            try:
+                mechanics = self.model.mechanics.__class__(
+                    axis_name=str(mechanics_data.get("axis_name", self.model.mechanics.axis_name)),
+                    full_cycle_pulses=int(mechanics_data.get("full_cycle_pulses", self.model.mechanics.full_cycle_pulses)),
+                    min_full_cycle_time_s=float(mechanics_data.get("min_full_cycle_time_s", self.model.mechanics.min_full_cycle_time_s)),
+                    start_settle_ms=int(mechanics_data.get("start_settle_ms", self.model.mechanics.start_settle_ms)),
+                    start_ramp_ms=int(mechanics_data.get("start_ramp_ms", self.model.mechanics.start_ramp_ms)),
+                    sample_ms=int(mechanics_data.get("sample_ms", self.model.mechanics.sample_ms)),
+                )
+                self.model.set_mechanics(mechanics)
+                self.mechanics_preset_var.set(mechanics.axis_name)
+                self.model.set_axis_take_duration_ms(self.master_window.global_take_duration_ms)
+            except Exception:
+                pass
+
+    def _save_axis_settings_json(self) -> None:
+        default_name = self.model.axis_def.axis_name.replace(" ", "_") + "_axis_settings.json"
         path = filedialog.asksaveasfilename(
-            defaultextension=".txt",
+            defaultextension=".json",
             initialdir=str(self._default_data_dir()),
             initialfile=default_name,
-            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
-            title="Zapisz ustawienia osi do TXT",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Zapisz ustawienia osi do JSON",
         )
         if not path:
             return
-        Path(path).write_text(self._axis_settings_to_text(), encoding="utf-8")
+        Path(path).write_text(self._axis_settings_to_json_text(), encoding="utf-8")
         self.status_var.set(f"Zapisano ustawienia osi: {path}")
 
-    def _load_axis_settings_txt(self) -> None:
+    def _load_axis_settings_json(self) -> None:
         path = filedialog.askopenfilename(
             initialdir=str(self._default_data_dir()),
-            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
-            title="Wczytaj ustawienia osi z TXT",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Wczytaj ustawienia osi z JSON",
         )
         if not path:
             return
-        self._load_axis_settings_from_text(Path(path).read_text(encoding="utf-8"))
+        self._load_axis_settings_from_json_text(Path(path).read_text(encoding="utf-8"))
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._metrics_cache_key = None
@@ -875,13 +900,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._apply_visibility_settings()
 
     def _build_left_panel(self, parent: tk.Misc) -> None:
-        tk.Label(parent, text="AKTYWNA OŚ", bg=self.BG, fg=self.FG, anchor="w",
-                 font=("Segoe UI Semibold", 12)).pack(fill="x", pady=(0, 8))
-        active_box = tk.Frame(parent, bg=self.PANEL)
-        active_box.pack(fill="x", pady=(0, 10))
         self.active_axis_name_var = tk.StringVar(value=self._active_model().axis_def.axis_name)
-        tk.Label(active_box, textvariable=self.active_axis_name_var, bg=self.PANEL, fg=self.FG, anchor="w",
-                 font=("Segoe UI Semibold", 10), padx=10, pady=10).pack(fill="x")
         self.axis_info_label = tk.Label(parent, textvariable=self.axis_info_var, bg=self.BG, fg=self.MUTED,
                                         justify="left", anchor="w", font=("Consolas", 9))
         self.axis_info_label.pack(fill="x", pady=(0, 12))
@@ -985,6 +1004,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         return tk.Button(parent, text=text, command=cmd, bg=color, fg="white", activebackground=color,
                          activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
                          font=("Segoe UI Semibold", 9), cursor="hand2")
+
+    def _small_btn(self, parent, text, cmd, color):
+        return tk.Button(parent, text=text, command=cmd, bg=color, fg="white", activebackground=color,
+                         activeforeground="white", relief="flat", bd=0, padx=8, pady=4,
+                         font=("Segoe UI Semibold", 8), cursor="hand2")
 
     def _active_model(self) -> AxisCurveModel:
         return self.axis_models[self.active_axis_index]
@@ -1169,7 +1193,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             panel_fill = self._axis_panel_fill(axis_color, is_active)
             c.create_rectangle(rect.left, rect.top, rect.right, rect.bottom, fill=panel_fill, outline="")
             if is_active:
-                c.create_line(rect.left, rect.top + 2, rect.left, rect.bottom - 2, fill=axis_color, width=3)
+                c.create_line(rect.left, rect.top + 2, rect.left, rect.bottom - 2, fill=axis_color, width=max(1, int(getattr(self.main_take_settings, "active_axis_border_width", 3))))
 
             mid = (rect.top + rect.bottom) / 2.0
             c.create_line(rect.left, mid, rect.right, mid,
@@ -1261,6 +1285,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
     def _refresh_axis_info(self, force: bool = False) -> None:
         model = self._active_model()
         self.active_axis_name_var.set(model.axis_def.axis_name)
+        if not self.main_take_settings.show_axis_metrics:
+            self.axis_info_var.set("")
+            self._axis_info_dirty = False
+            return
         cache_key = (
             self.active_axis_index,
             self.global_take_duration_ms,

@@ -31,6 +31,7 @@ class EhrTakeModel:
             "zero_line_width": getattr(main_take_settings, "zero_line_width", 1),
             "curve_line_width": getattr(main_take_settings, "curve_line_width", 4),
             "active_curve_line_width": getattr(main_take_settings, "active_curve_line_width", 5),
+            "active_axis_border_width": getattr(main_take_settings, "active_axis_border_width", 3),
             "snap_to_zero_enabled": getattr(main_take_settings, "snap_to_zero_enabled", True),
             "snap_to_zero_threshold": getattr(main_take_settings, "snap_to_zero_threshold", 9.0),
             "show_protocol_preview": getattr(main_take_settings, "show_protocol_preview", True),

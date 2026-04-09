@@ -34,6 +34,7 @@ class MainTakeSettings:
     show_axis_background_tint: bool = True
     axis_background_strength_percent: int = 10
     active_axis_emphasis_percent: int = 10
+    active_axis_border_width: int = 3
     show_start_stop_squares: bool = True
     show_axis_activity_markers: bool = True
     smooth_strength_default: float = 0.35
@@ -48,6 +49,7 @@ class MainTakeSettings:
         self.snap_to_zero_threshold = max(0.0, min(30.0, float(self.snap_to_zero_threshold)))
         self.axis_background_strength_percent = max(0, min(30, int(self.axis_background_strength_percent)))
         self.active_axis_emphasis_percent = max(0, min(40, int(self.active_axis_emphasis_percent)))
+        self.active_axis_border_width = max(0, min(8, int(self.active_axis_border_width)))
         self.smooth_strength_default = max(0.0, min(1.0, float(self.smooth_strength_default)))
         self.smooth_passes_default = max(1, min(8, int(self.smooth_passes_default)))
         merged = dict(DEFAULT_AXIS_COLORS)

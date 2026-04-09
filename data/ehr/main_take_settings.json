@@ -14,7 +14,7 @@
   "show_minute_grid": true,
   "show_axis_background_tint": true,
   "axis_background_strength_percent": 15,
-  "active_axis_emphasis_percent": 10,
+  "active_axis_emphasis_percent": 25,
   "show_start_stop_squares": true,
   "show_axis_activity_markers": true,
   "smooth_strength_default": 0.35,

@@ -85,7 +85,8 @@ class AxisSettingsDialog(tk.Toplevel):
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self._build_ui()
-        self._refresh_all()
+        self.update_idletasks()
+        self.after_idle(self._refresh_all)
         self.grab_set()
 
     def _build_ui(self) -> None:
@@ -657,7 +658,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.smooth_passes_var = tk.IntVar(value=2)
 
         self._build_ui()
-        self._refresh_all()
+        self.update_idletasks()
+        self.after_idle(self._refresh_all)
 
     def _build_ui(self) -> None:
         outer = tk.Frame(self, bg=self.BG)
@@ -680,6 +682,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
         self.timeline_canvas = tk.Canvas(right, bg="#1B2028", highlightthickness=0)
         self.timeline_canvas.pack(fill="both", expand=True)
+        self.timeline_canvas.bind("<Configure>", self._on_canvas_configure)
         self.timeline_canvas.bind("<Button-1>", self._on_canvas_press)
         self.timeline_canvas.bind("<B1-Motion>", self._on_canvas_drag)
         self.timeline_canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
@@ -848,6 +851,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 if i == 0 or i == len(model.nodes) - 1:
                     fill = "#D6EAF8"
                 c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill=fill, outline="black")
+
+    def _on_canvas_configure(self, _event=None) -> None:
+        self._refresh_all()
 
     def _refresh_axis_info(self) -> None:
         self.active_axis_name_var.set(self._active_model().axis_def.axis_name)

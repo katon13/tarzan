@@ -820,6 +820,8 @@ class AxisSettingsDialog(tk.Toplevel):
 
 class TarzanEhrMultiAxisWindow(tk.Tk):
     BG = "#16181C"
+    MAIN_CURVE_SAMPLES_IDLE = 900
+    MAIN_CURVE_SAMPLES_DRAG = 180
     PANEL = "#23272E"
     PANEL2 = "#2A3038"
     FG = "#F3F6F8"
@@ -1237,6 +1239,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         rb = int(round(bb * (1.0 - strength) + ob * strength))
         return f"#{rr:02X}{rg:02X}{rb:02X}"
 
+    def _main_curve_sample_count(self) -> int:
+        if self.drag_mode is not None and self.drag_axis_index is not None:
+            return self.MAIN_CURVE_SAMPLES_DRAG
+        return self.MAIN_CURVE_SAMPLES_IDLE
+
     def _axis_curve_color(self, model: AxisCurveModel) -> str:
         return self.main_take_settings.axis_color(model.axis_def.axis_id, model.axis_def.color)
 
@@ -1315,7 +1322,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                         mx = self._time_to_x(node.time_ms, rect.left, rect.right)
                         c.create_line(mx, rect.top + 4, mx, rect.bottom - 4, fill=axis_color, width=1, dash=(3, 5))
 
-                samples = model.sample_curve(900, duration_ms=self.global_take_duration_ms)
+                samples = model.sample_curve(self._main_curve_sample_count(), duration_ms=self.global_take_duration_ms)
                 pts = []
                 for t_ms, y in samples:
                     pts.extend([self._time_to_x(t_ms, rect.left, rect.right),

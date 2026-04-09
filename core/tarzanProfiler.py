@@ -73,7 +73,7 @@ class TarzanProfiler:
     def __init__(self) -> None:
         self._stats: Dict[str, _Stat] = {}
         self._lock = threading.RLock()
-        self._enabled = True
+        self._enabled = False
         self._report_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._report_interval_s = 2.0

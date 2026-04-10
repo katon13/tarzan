@@ -18,8 +18,8 @@
   "active_axis_border_width": 3,
   "show_start_stop_squares": true,
   "show_axis_activity_markers": true,
-  "smooth_strength_default": 0.35,
-  "smooth_passes_default": 2,
+  "smooth_strength_default": 0.1,
+  "smooth_passes_default": 1,
   "axis_color_overrides": {
     "cam_h": "#4783ff",
     "cam_v": "#61ff95",

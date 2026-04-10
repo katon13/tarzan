@@ -6,8 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/ehr/main_take_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/main_take_settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/TARZAN_EDITOR_STATUS.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v02.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/TARZAN_TAKE.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/TARZAN_TAKE.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanPlayhead.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanPresetyWygladzania.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanZoomTimeline.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -44,50 +47,52 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Python.analyze_file.executor&quot;: &quot;Run&quot;,
-    &quot;Python.axisSandboxEngine (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.axisSandboxEngine.executor&quot;: &quot;Run&quot;,
-    &quot;Python.ehrMultiAxisSandbox (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.ehrMultiAxisSandbox.executor&quot;: &quot;Run&quot;,
-    &quot;Python.ehrMultiAxisSandbox_ehrShell.executor&quot;: &quot;Run&quot;,
-    &quot;Python.ehrMultiAxisSandbox_ehrShell_v1.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanAxisSandbox (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanAxisSandbox.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanEHR.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanEdytorChoreografiiRuchu.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanEdytorChoreografiiRuchuNowy.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanEdytorChoreografiiRuchu_v2.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanKrzyweRuchu.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanProfiler.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanProtokolRuchu.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanStepGenerator.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanTakeModel.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanZmienneSygnalowe.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tmp.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ChatTagsLlmMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ClientConfigCleanupMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyAccountHistoryMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyAccountsIdsRefresh&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyAssignOrphanedChatsToActiveAccount&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyConvertUrlToCodebaseName&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyHistoryLlmMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyMigrateChatHistory-v2&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyProjectSettingsMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.DeprecatedChatLlmMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ToggleCodyToolWindowAfterMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.TarzanEhrTakeSandbox.executor": "Run",
+    "Python.TarzanEhrTakeSandbox_impl.executor": "Run",
+    "Python.analyze_file.executor": "Run",
+    "Python.axisSandboxEngine (1).executor": "Run",
+    "Python.axisSandboxEngine.executor": "Run",
+    "Python.ehrMultiAxisSandbox (1).executor": "Run",
+    "Python.ehrMultiAxisSandbox.executor": "Run",
+    "Python.ehrMultiAxisSandbox_ehrShell.executor": "Run",
+    "Python.ehrMultiAxisSandbox_ehrShell_v1.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.tarzanAxisSandbox (1).executor": "Run",
+    "Python.tarzanAxisSandbox.executor": "Run",
+    "Python.tarzanEHR.executor": "Run",
+    "Python.tarzanEdytorChoreografiiRuchu.executor": "Run",
+    "Python.tarzanEdytorChoreografiiRuchuNowy.executor": "Run",
+    "Python.tarzanEdytorChoreografiiRuchu_v2.executor": "Run",
+    "Python.tarzanKrzyweRuchu.executor": "Run",
+    "Python.tarzanProfiler.executor": "Run",
+    "Python.tarzanProtokolRuchu.executor": "Run",
+    "Python.tarzanStepGenerator.executor": "Run",
+    "Python.tarzanTakeModel.executor": "Run",
+    "Python.tarzanZmienneSygnalowe.executor": "Run",
+    "Python.tmp.executor": "Run",
+    "RunOnceActivity.ChatTagsLlmMigration": "true",
+    "RunOnceActivity.ClientConfigCleanupMigration": "true",
+    "RunOnceActivity.CodyAccountHistoryMigration": "true",
+    "RunOnceActivity.CodyAccountsIdsRefresh": "true",
+    "RunOnceActivity.CodyAssignOrphanedChatsToActiveAccount": "true",
+    "RunOnceActivity.CodyConvertUrlToCodebaseName": "true",
+    "RunOnceActivity.CodyHistoryLlmMigration": "true",
+    "RunOnceActivity.CodyMigrateChatHistory-v2": "true",
+    "RunOnceActivity.CodyProjectSettingsMigration": "true",
+    "RunOnceActivity.DeprecatedChatLlmMigration": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.ToggleCodyToolWindowAfterMigration": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "settings.editor.selected.configurable": "preferences.pluginManager"
   }
-}</component>
-  <component name="RunManager" selected="Python.tarzanEHR">
-    <configuration name="tarzanAxisSandbox (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+}]]></component>
+  <component name="RunManager" selected="Python.TarzanEhrTakeSandbox">
+    <configuration name="TarzanEhrTakeSandbox" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -96,11 +101,33 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$USER_HOME$/Downloads/tarzan-arch/editor" />
-      <option name="IS_MODULE_SDK" value="false" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor" />
+      <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$USER_HOME$/Downloads/tarzan-arch/editor/tarzanAxisSandbox.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/TarzanEhrTakeSandbox.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="TarzanEhrTakeSandbox_impl" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="tarzan" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/TarzanEhrTakeSandbox_impl.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -153,28 +180,6 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="tarzanEdytorChoreografiiRuchuNowy" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="tarzan" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/tarzanEdytorChoreografiiRuchuNowy.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <configuration name="tarzanProfiler" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
@@ -199,11 +204,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.TarzanEhrTakeSandbox" />
+        <item itemvalue="Python.TarzanEhrTakeSandbox_impl" />
         <item itemvalue="Python.tarzanEHR" />
         <item itemvalue="Python.tarzanProfiler" />
         <item itemvalue="Python.tarzanAxisSandbox" />
-        <item itemvalue="Python.tarzanEdytorChoreografiiRuchuNowy" />
-        <item itemvalue="Python.tarzanAxisSandbox (1)" />
       </list>
     </recent_temporary>
   </component>

@@ -1,104 +1,184 @@
-# TARZAN – TAKE PROTOCOL (EHR)
+# # TARZAN TAKE PROTOCOL SANDBOX UI v2
 
-Sandbox służy do dopracowania logiki i UI obsługi TAKE przed pełną integracją z EHR.  
-Na tym etapie NIE wczytujemy realnych danych – tylko symulujemy działanie.
+## Cel tej wersji
 
----
+Ta wersja sandboxa służy wyłącznie do dopracowania układu, grafiki i logiki operatora dla modułu TAKE PROTOCOL przed integracją z właściwym EHR.
 
-## Struktura katalogów
+Na tym etapie:
 
-```
-data/
- └── take/                      # wszystkie pliki TAKE
- └── ehr/
-      └── take_protocol_slots.json
-
-editor/
- └── EHR/
-      └── TarzanEhrTakeSandbox.py
-```
+- nie ma realnego ładowania danych do osi,
+- nie ma integracji z MAIN TAKE,
+- są tylko komunikaty statusu typu „dane wczytane” i „zapisany”.
 
 ---
 
-## Sloty TAKE
+## Główne zasady UI v2
 
-- 10 slotów w jednym rzędzie
-- Każdy slot może być:
-  - EMPTY
-  - LOADED
-  - ACTIVE
+### 1. Osobne okno testowe, ale w proporcjach pasa TAKE PROTOCOL
+
+Sandbox ma działać jako osobne okno testowe, ale jego układ ma być przygotowany dokładnie pod przyszłe osadzenie w obszarze TAKE PROTOCOL w MAIN TAKE WINDOW.
+
+### 2. Dark mode
+
+Całość ma być utrzymana w dark mode zgodnym z EHR.
+Nie używamy jasnych kafli ani białych teł wokół ikon.
+
+### 3. 10 ikon w jednym rzędzie
+
+- dokładnie 10 ikon,
+- bez scrolla,
+- bez przewijania poziomego,
+- ikony możliwie blisko siebie,
+- wszystko ma zmieścić się w jednym rzędzie w pasie TAKE PROTOCOL.
+
+### 4. Prawdziwe ikony TAKE
+
+Używamy gotowych ikon dla stanów:
+
+- open,
+- closed,
+- active.
+
+Stany:
+
+- EMPTY → open,
+- LOADED → closed,
+- ACTIVE → active.
+
+### 5. Numer TAKE
+
+- tylko numer, np. `001`,
+- bez nazwy pliku pod ikoną,
+- numer ma być duży,
+- numer ma trafiać centralnie w tabliczkę ikony,
+- numer ma być wpisany tak, jakby był napisany na klapsie,
+- kolor biały, w stylu kredy,
+- używamy dostarczonej czcionki z katalogu `font`.
+
+### 6. EDIT
+
+- tylko dla wybranego i edytowanego TAKE,
+- bardzo mały napis,
+- pozycja: dolny lewy róg tabliczki,
+- traktowany jako mini etykieta.
+
+### 7. SAVE
+
+- tylko dla aktywnego TAKE,
+- pozycja: dolny prawy róg tabliczki,
+- ma być wkomponowany w ikonę,
+- ma mieć zielone tło,
+- kolor zieleni stonowany, nie agresywny,
+- ma być większy niż poprzednio, ale nadal ma wyglądać jak część tabliczki.
+
+### 8. Hover i akcja
+
+Zamiast double click:
+
+- po najechaniu myszką na ikonę pojawia się małe czerwone kółko akcji,
+- klik w czerwone kółko działa jak dawne „aktywuj / wczytaj”,
+- czerwone kółko jest widoczne tylko na hover,
+- nie jest stale wyświetlane na wszystkich TAKE.
+
+### 9. Kliknięcia
+
+- zwykły klik na slot → wybór / podmiana pliku TAKE,
+- klik w czerwone kółko → aktywacja TAKE,
+- klik w SAVE → zapis aktywnego TAKE,
+- aktywny może być tylko jeden TAKE.
+
+### 10. Status i komunikaty
+
+Komunikaty mają trafiać do dolnego paska statusu, tak jak w głównym EHR.
+
+Przykłady:
+
+- TAKE 001 podpięty,
+- TAKE 001 aktywowany,
+- dane wczytane,
+- TAKE 001 zapisany.
 
 ---
 
-## Stany ikon
+## Zasady techniczne
 
-- EMPTY → ikona otwarta
-- LOADED → zamknięta + numer TAKE
-- ACTIVE → zamknięta + czerwona + numer TAKE
+### 1. Zakaz `_refresh_all`
+
+To jest zasada krytyczna.
+
+W sandboxie NIE używamy:
+
+- `_refresh_all`,
+- globalnego przerysowania całego układu po jednej akcji,
+- masowego odświeżania wszystkiego przy hover lub kliknięciu.
+
+### 2. Tylko lokalne aktualizacje
+
+Odświeżamy tylko to, czego dotyczy akcja:
+
+- tylko aktywny slot,
+- tylko slot pod myszką,
+- tylko slot zmieniony po wyborze pliku,
+- status bar osobno.
+
+### 3. Cache ikon
+
+Ikony i zasoby graficzne mają być ładowane do cache.
+Nie wczytujemy assetów od nowa przy każdym ruchu myszy.
+
+### 4. Obsługa pojedynczego kliknięcia
+
+Ponieważ single click i double click w Tkinter potrafią się gryźć, stosujemy bezpieczny model:
+
+- single click z krótkim opóźnieniem,
+- hover action zamiast double click.
 
 ---
 
-## Interakcja
+## Logika slotów
 
 ### Single click
 
-- EMPTY → wybór pliku → zapis do slotu
-- LOADED → wybór nowego pliku → nadpisanie
+- EMPTY → wybór pliku → zapis do slotu,
+- LOADED → wybór nowego pliku → nadpisanie przypięcia.
 
-### Double click
+### Action click (czerwone kółko)
 
-- EMPTY → wybór → aktywacja → komunikat „dane wczytane”
-- LOADED → aktywacja → komunikat „dane wczytane”
+- EMPTY → najpierw wybór pliku, potem aktywacja,
+- LOADED → aktywacja,
+- wynik: komunikat „dane wczytane”.
 
-👉 tylko jeden slot może być ACTIVE
+### SAVE
 
----
-
-## Numer TAKE
-
-- tylko numer (np. 001)
-- wyświetlany na ikonie (jak tabliczka)
-- font: kredowy (z katalogu `/font`)
-- kolor: biały (styl kredy)
-- pozycja: centralnie
+- działa tylko dla aktywnego TAKE,
+- na tym etapie symulacja,
+- docelowo zapis do pliku TAKE.
 
 ---
 
-## SAVE
+## Import plików TAKE
 
-- tylko dla aktywnego TAKE
-- pozycja: po prawej stronie ikony (na dole)
-- działanie (na tym etapie): symulacja
-
----
-
-## Etykieta aktywnego TAKE
-
-- tekst: `EDIT`
-- mała etykieta przy aktywnej ikonie
-
----
-
-## Import plików
-
-- dialog startuje w `data/take/`
-- można wybrać plik spoza katalogu
-- plik kopiowany do `data/take/`
-- konflikt nazwy → `_import_01`, `_import_02`, itd.
+- dialog startuje domyślnie w `data/take/`,
+- można wskazać plik spoza tego katalogu,
+- po wyborze plik trafia do `data/take/`,
+- jeśli istnieje plik o tej samej nazwie, tworzymy nową nazwę:
+  - `_import_01`,
+  - `_import_02`,
+  - itd.
 
 ---
 
 ## Storage slotów
 
-Plik:
+Plik pamięci slotów:
 
-```
+```text
 data/ehr/take_protocol_slots.json
 ```
 
 Przykład:
 
-```
+```json
 {
   "slots": [
     {"path": "data/take/TAKE_001_v01.json"},
@@ -110,34 +190,12 @@ Przykład:
 
 ---
 
-## Integracja z EHR (docelowo)
+## Docelowy kierunek
 
-Sandbox wywoła:
+Po dopracowaniu sandboxa UI v2:
 
-```
-ehr.load_take_from_file(path)
-```
-
-Na tym etapie:
-
-- tylko komunikaty (bez realnego ładowania)
-
----
-
-## Założenia kluczowe
-
-- TAKE = pełna choreografia wszystkich osi
-- tylko jeden TAKE edytowany naraz
-- globalny czas jest częścią TAKE
-- UI operatora musi być szybkie i proste
-
----
-
-## Status
-
-✔ gotowe do implementacji UI  
-❌ brak integracji z EHR (celowo)  
-✔ przygotowane do wpięcia w MAIN TAKE 
+- moduł ma zostać osadzony w obszarze TAKE PROTOCOL w MAIN TAKE WINDOW,
+- dopiero wtedy dojdzie prawdziwa integracja z EHR i `load_take(...)`.
 
 # TAKE - wybór z dokumentacji
 

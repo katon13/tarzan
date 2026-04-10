@@ -117,80 +117,147 @@ WINDOW_HEIGHT = 520
 @dataclass
 class UiSettings:
     """
-    Lekki zestaw ustawień layoutu TAKE PROTOCOL.
+    Lekki adapter ustawień layoutu TAKE PROTOCOL.
 
-    Źródłem prawdy pozostaje JSON w katalogu data/ehr.
-    Klasa zostawia minimalne wartości domyślne tylko po to,
-    aby testowe uruchomienie nie kończyło się błędem przy braku pliku.
-    To nie jest panel konfiguracji runtime.
+    Źródłem prawdy dla layoutu pozostaje JSON w katalogu ``data/ehr``.
+    Ta klasa nie jest już miejscem ręcznego strojenia UI ani rejestrem
+    wartości projektowych. Jej zadaniem jest wyłącznie:
+
+    - przyjąć komplet ustawień z JSON,
+    - uzupełnić ewentualne braki minimalnym fallbackiem technicznym,
+    - odfiltrować pola nieużywane przez wersję LIGHT,
+    - ochronić rendering przed skrajnie błędnymi wartościami.
+
+    Ważne:
+    - pełny rejestr ustawień pozostaje w pliku JSON,
+    - wersja LIGHT nie zapisuje ani nie zmienia ustawień runtime,
+    - fallback jest tylko bezpiecznikiem, aby moduł nie przestał działać
+      przy brakującym lub uszkodzonym JSON.
     """
 
-    protocol_title_y: int = 70
-    protocol_height: int = 290
-    row_center_y: int = 165
-    protocol_inner_pad_x: int = 12
+    protocol_title_y: int = 0
+    protocol_height: int = 0
+    row_center_y: int = 0
+    protocol_inner_pad_x: int = 0
     row_pad_x: int = 0
 
-    icon_width: int = 167
-    icon_height: int = 168
+    icon_width: int = 0
+    icon_height: int = 0
 
-    number_x: int = 62
-    number_y: int = 87
-    number_font_size: int = 73
-    number_digits: int = 1
-    number_dx: int = 7
+    number_x: int = 0
+    number_y: int = 0
+    number_font_size: int = 0
+    number_digits: int = 0
+    number_dx: int = 0
     number_dy: int = 0
 
-    action_x: int = 106
-    action_y: int = 65
-    action_font_size: int = 30
-    action_icon_text: str = "✋️"
+    action_x: int = 0
+    action_y: int = 0
+    action_font_size: int = 0
+    action_icon_text: str = ""
 
-    edit_x: int = 26
-    edit_y: int = 129
-    edit_font_size: int = 11
+    edit_x: int = 0
+    edit_y: int = 0
+    edit_font_size: int = 0
 
-    saved_x: int = 63
-    saved_y: int = 129
-    saved_font_size: int = 11
+    saved_x: int = 0
+    saved_y: int = 0
+    saved_font_size: int = 0
 
-    load_x: int = 112
-    load_y: int = 129
-    load_font_size: int = 11
+    load_x: int = 0
+    load_y: int = 0
+    load_font_size: int = 0
 
-    save_offset_x: int = 3
-    save_offset_y: int = -35
-    save_width: int = 130
-    save_height: int = 28
-    save_font_size: int = 16
+    save_offset_x: int = 0
+    save_offset_y: int = 0
+    save_width: int = 0
+    save_height: int = 0
+    save_font_size: int = 0
+
+    @classmethod
+    def _field_names(cls) -> set[str]:
+        """Zwraca komplet pól używanych przez wersję LIGHT."""
+        return set(cls.__dataclass_fields__.keys())
+
+    @classmethod
+    def _fallback_values(cls) -> dict[str, Any]:
+        """
+        Zwraca minimalny fallback techniczny dla aktywnych pól layoutu.
+
+        To nie jest drugi rejestr ustawień projektu. Te wartości mają wyłącznie
+        zabezpieczyć testowe uruchomienie, gdy JSON nie istnieje albo brakuje
+        w nim pojedynczych pozycji. W normalnym trybie pracy źródłem prawdy
+        pozostaje ``data/ehr/take_protocol_ui_settings.json``.
+        """
+        return {
+            "protocol_title_y": 70,
+            "protocol_height": 290,
+            "row_center_y": 85,
+            "protocol_inner_pad_x": 12,
+            "row_pad_x": 0,
+            "icon_width": 167,
+            "icon_height": 168,
+            "number_x": 62,
+            "number_y": 87,
+            "number_font_size": 73,
+            "number_digits": 1,
+            "number_dx": 7,
+            "number_dy": 0,
+            "action_x": 106,
+            "action_y": 65,
+            "action_font_size": 30,
+            "action_icon_text": "✋️",
+            "edit_x": 26,
+            "edit_y": 129,
+            "edit_font_size": 11,
+            "saved_x": 63,
+            "saved_y": 129,
+            "saved_font_size": 11,
+            "load_x": 112,
+            "load_y": 129,
+            "load_font_size": 11,
+            "save_offset_x": 3,
+            "save_offset_y": -35,
+            "save_width": 130,
+            "save_height": 28,
+            "save_font_size": 16,
+        }
 
     @classmethod
     def load_or_default(cls, path: Path) -> "UiSettings":
         """
-        Wczytuje ustawienia z JSON.
+        Wczytuje ustawienia z JSON i mapuje je do aktywnych pól wersji LIGHT.
 
-        Zgodnie z decyzją projektową wersja LIGHT nie daje możliwości
-        zmiany tych wartości z poziomu UI. Jeżeli JSON nie istnieje
-        lub jest uszkodzony, zostaje użyty minimalny fallback,
-        aby moduł dało się nadal uruchomić i osadzić testowo.
+        Zasada pracy:
+        - JSON jest głównym rejestrem ustawień,
+        - bierzemy tylko pola realnie używane przez ten plik,
+        - brakujące pola uzupełniamy fallbackiem technicznym,
+        - pola nieużywane przez LIGHT mogą nadal istnieć w JSON, ale nie są
+          mapowane do adaptera, dzięki czemu nie wpływają na działanie modułu.
         """
-        ui = cls()
+        raw: dict[str, Any] = {}
         try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-            for key, value in raw.items():
-                if hasattr(ui, key):
-                    setattr(ui, key, value)
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                raw = loaded
         except Exception:
-            pass
+            raw = {}
+
+        fallback = cls._fallback_values()
+        payload: dict[str, Any] = {}
+        for name in cls._field_names():
+            payload[name] = raw.get(name, fallback[name])
+
+        ui = cls(**payload)
         ui.clamp()
         return ui
 
     def clamp(self) -> None:
         """
-        Ogranicza wartości do bezpiecznych zakresów.
+        Ogranicza wartości liczbowe do bezpiecznych zakresów renderingu.
 
-        To jest ochrona przed uszkodzonym JSON albo wartościami
-        wychodzącymi poza rozsądny zakres renderingu.
+        Clamp zostaje tylko jako ochrona techniczna przed błędnym JSON.
+        Nie zmienia zasad działania UI i nie służy do strojenia wyglądu.
         """
         def ci(name: str, lo: int, hi: int) -> None:
             setattr(self, name, max(lo, min(hi, int(getattr(self, name)))))

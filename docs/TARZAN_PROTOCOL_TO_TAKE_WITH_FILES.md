@@ -1,201 +1,394 @@
-# # TARZAN TAKE PROTOCOL Z SANDBOX
+# TARZAN — PROTOKÓŁ → TAKE (WARSTWA REC / SYMULACJA / DOCELOWA IMPLEMENTACJA)
 
-## Cel tej wersji
+## CEL DOKUMENTU
 
-Ta wersja sandboxa służy wyłącznie do dopracowania układu, grafiki i logiki operatora dla modułu TAKE PROTOCOL przed integracją z właściwym EHR.
+Ten dokument precyzuje:
 
-Na tym etapie:
+- jak w TARZANIE działa i ma działać ścieżka:
+  **PROTOKÓŁ → TAKE**
+- co już jest zaimplementowane jako architektura, symulacja i analiza
+- czego jeszcze brakuje jako pełnego programu / recordera
+- jakie pliki już dziś biorą udział w tworzeniu TAKE oraz protokołu
+- jak to ma zostać wykorzystane przez **EHR**
 
-- nie ma realnego ładowania danych do osi,
-- nie ma integracji z MAIN TAKE,
-- są tylko komunikaty statusu typu „dane wczytane” i „zapisany”.
-
----
-
-## Główne zasady UI v2
-
-### 1. Osobne okno testowe, ale w proporcjach pasa TAKE PROTOCOL
-
-Sandbox ma działać jako osobne okno testowe, ale jego układ ma być przygotowany dokładnie pod przyszłe osadzenie w obszarze TAKE PROTOCOL w MAIN TAKE WINDOW.
-
-### 2. Dark mode
-
-Całość ma być utrzymana w dark mode zgodnym z EHR.
-Nie używamy jasnych kafli ani białych teł wokół ikon.
-
-### 3. 10 ikon w jednym rzędzie
-
-- dokładnie 10 ikon,
-- bez scrolla,
-- bez przewijania poziomego,
-- ikony możliwie blisko siebie,
-- wszystko ma zmieścić się w jednym rzędzie w pasie TAKE PROTOCOL.
-
-### 4. Prawdziwe ikony TAKE
-
-Używamy gotowych ikon dla stanów:
-
-- open,
-- closed,
-- active.
-
-Stany:
-
-- EMPTY → open,
-- LOADED → closed,
-- ACTIVE → active.
-
-### 5. Numer TAKE
-
-- tylko numer, np. `001`,
-- bez nazwy pliku pod ikoną,
-- numer ma być duży,
-- numer ma trafiać centralnie w tabliczkę ikony,
-- numer ma być wpisany tak, jakby był napisany na klapsie,
-- kolor biały, w stylu kredy,
-- używamy dostarczonej czcionki z katalogu `font`.
-
-### 6. EDIT
-
-- tylko dla wybranego i edytowanego TAKE,
-- bardzo mały napis,
-- pozycja: dolny lewy róg tabliczki,
-- traktowany jako mini etykieta.
-
-### 7. SAVE
-
-- tylko dla aktywnego TAKE,
-- pozycja: dolny prawy róg tabliczki,
-- ma być wkomponowany w ikonę,
-- ma mieć zielone tło,
-- kolor zieleni stonowany, nie agresywny,
-- ma być większy niż poprzednio, ale nadal ma wyglądać jak część tabliczki.
-
-### 8. Hover i akcja
-
-Zamiast double click:
-
-- po najechaniu myszką na ikonę pojawia się małe czerwone kółko akcji,
-- klik w czerwone kółko działa jak dawne „aktywuj / wczytaj”,
-- czerwone kółko jest widoczne tylko na hover,
-- nie jest stale wyświetlane na wszystkich TAKE.
-
-### 9. Kliknięcia
-
-- zwykły klik na slot → wybór / podmiana pliku TAKE,
-- klik w czerwone kółko → aktywacja TAKE,
-- klik w SAVE → zapis aktywnego TAKE,
-- aktywny może być tylko jeden TAKE.
-
-### 10. Status i komunikaty
-
-Komunikaty mają trafiać do dolnego paska statusu, tak jak w głównym EHR.
-
-Przykłady:
-
-- TAKE 001 podpięty,
-- TAKE 001 aktywowany,
-- dane wczytane,
-- TAKE 001 zapisany.
+To jest **kluczowy element systemu TARZAN**
 
 ---
 
-## Zasady techniczne
+# 1. FUNDAMENT TARZAN
 
-### 1. Zakaz `_refresh_all`
+## TAKE = timeline sygnałów
 
-To jest zasada krytyczna.
+W TARZANIE TAKE nie jest klasycznym modelem pozycyjnym CNC.
 
-W sandboxie NIE używamy:
+TAKE to zapis ruchu jako przebiegu sygnałów w czasie:
 
-- `_refresh_all`,
-- globalnego przerysowania całego układu po jednej akcji,
-- masowego odświeżania wszystkiego przy hover lub kliknięciu.
+- próbka co 10 ms
+- STEP
+- DIR
+- ENABLE
+- ewentualnie dalsze sygnały sterujące i zdarzenia
 
-### 2. Tylko lokalne aktualizacje
+Najważniejsza zasada:
 
-Odświeżamy tylko to, czego dotyczy akcja:
+- osią nadrzędną jest **czas**
+- nie zapisujemy „pozycji docelowej”
+- zapisujemy **stan sterowania w czasie**
 
-- tylko aktywny slot,
-- tylko slot pod myszką,
-- tylko slot zmieniony po wyborze pliku,
-- status bar osobno.
+Czyli:
 
-### 3. Cache ikon
-
-Ikony i zasoby graficzne mają być ładowane do cache.
-Nie wczytujemy assetów od nowa przy każdym ruchu myszy.
-
-### 4. Obsługa pojedynczego kliknięcia
-
-Ponieważ single click i double click w Tkinter potrafią się gryźć, stosujemy bezpieczny model:
-
-- single click z krótkim opóźnieniem,
-- hover action zamiast double click.
+**TAKE = zapis rzeczywistego lub wygenerowanego ruchu jako funkcji czasu**
 
 ---
 
-## Logika slotów
+# 2. DWA KIERUNKI W SYSTEMIE
 
-### Single click
+W TARZANIE istnieją dwa kierunki pracy:
 
-- EMPTY → wybór pliku → zapis do slotu,
-- LOADED → wybór nowego pliku → nadpisanie przypięcia.
+## A. Aktualnie działający kierunek
 
-### Action click (czerwone kółko)
+**PROTOKÓŁ** → TAKE
 
-- EMPTY → najpierw wybór pliku, potem aktywacja,
-- LOADED → aktywacja,
-- wynik: komunikat „dane wczytane”.
+To jest ścieżka już realnie używana:
 
-### SAVE
+- generator / edytor buduje TAKE
+- z TAKE powstaje generated_protocol
+- z generated_protocol można zbudować eksport i preview i do elektorniki przez protokół
 
-- działa tylko dla aktywnego TAKE,
-- na tym etapie symulacja,
-- docelowo zapis do pliku TAKE.
+To jest obecnie główny działający przepływ.
+
+## B. Kluczowy kierunek docelowy
+
+**PROTOKÓŁ → TAKE**
+
+To jest ścieżka potrzebna dla:
+
+- nagrywania REC
+- odtwarzania rzeczywistego ruchu
+- budowy TAKE z materiału źródłowego
+- późniejszej edycji tego ruchu w EHR
+
+Ta ścieżka jest już **opisana architektonicznie**
+i **częściowo wsparta przez model oraz analizę segmentów**,
+ale nie jest jeszcze zamknięta jako pełny recorder.
 
 ---
 
-## Import plików TAKE
+# 3. CO JUŻ ISTNIEJE
 
-- dialog startuje domyślnie w `data/take/`,
-- można wskazać plik spoza tego katalogu,
-- po wyborze plik trafia do `data/take/`,
-- jeśli istnieje plik o tej samej nazwie, tworzymy nową nazwę:
-  - `_import_01`,
-  - `_import_02`,
-  - itd.
+## 3.1. Dokumentacja architektury ruchu
 
----
-
-## Storage slotów
-
-Plik pamięci slotów:
+Plik:
 
 ```text
-data/ehr/take_protocol_slots.json
+docs/TARZAN_CHOREOGRAFIA_RUCHU_MAPA.md
+docs/MAPA_PROJEKTU_TARZANA.md
 ```
 
-Przykład:
+Ten dokument opisuje kierunek:
 
-```json
-{
-  "slots": [
-    {"path": "data/take/TAKE_001_v01.json"},
-    {"path": null}
-  ],
-  "active_slot": 0
-}
+```text
+TAKE (model ruchu)
+        ↓
+krzywe edytora
+        ↓
+silnik matematyczny
+        ↓
+generator impulsów
+        ↓
+tAA
+        ↓
+PoKeys / sterowanie osiami
 ```
+
+To oznacza, że w projekcie od początku istnieje założenie, że:
+
+- TAKE jest jego logiczną reprezentacją,
+- a edytor i generator pracują już na TAKE.
 
 ---
 
-## Docelowy kierunek
+## 3.2. Model danych TAKE
 
-Po dopracowaniu sandboxa UI v2:
+Plik:
 
-- moduł ma zostać osadzony w obszarze TAKE PROTOCOL w MAIN TAKE WINDOW,
-- dopiero wtedy dojdzie prawdziwa integracja z EHR i `load_take(...)`.
+```text
+motion/tarzanTakeModel.py
+```
+
+Ten plik zawiera model danych TAKE, czyli strukturę gotową do przechowania:
+
+- metadata
+- timeline
+- axes
+- events
+- simulation
+- source
+- validation
+
+oraz w obrębie osi:
+
+- raw_signal
+- segments
+- curve
+- generated_protocol
+
+To znaczy, że **kontener danych TAKE już istnieje**
+i jest przygotowany zarówno do:
+
+- generatora,
+- edytora,
+- jak i przyszłej ścieżki REC → TAKE.
+
+---
+
+## 3.3. Analiza segmentów ruchu
+
+Plik:
+
+```text
+motion/tarzanSegmentAnalyzer.py
+```
+
+To jest bardzo ważny element pośredni.
+
+Ten moduł odpowiada za analizę ruchu na poziomie segmentów.
+To właśnie tutaj znajduje się naturalny most między:
+
+- surowym protokołem sterowania,
+- a logicznym modelem ruchu.
+
+To znaczy:
+
+- z surowego przebiegu STEP / DIR / ENABLE można wykryć:
+  - ruch dodatni,
+  - ruch ujemny,
+  - pauzy,
+  - zmiany kierunku,
+  - granice segmentów,
+- a potem zbudować strukturę segmentów osi,
+- która zasili model TAKE.
+
+To jeszcze nie jest pełny recorder,
+ale to już jest **realny fragment ścieżki PROTOKÓŁ → TAKE**.
+
+---
+
+## 3.4. Tworzenie TAKE w generatorze / edytorze cel
+
+Metoda:
+
+- tworzy obiekt `TarzanTake`
+- buduje metadata
+- buduje timeline
+- tworzy osie
+- ustawia eventy
+- ustawia source jako `GENERATOR`
+
+---
+
+## 3.6. Budowa i eksport protokołu z TAKE
+
+Plik:
+
+```text
+core/tarzanProtokolRuchu.py
+```
+
+To jest warstwa budowania protokołu z modelu TAKE.
+
+Rola tego pliku:
+
+- budowa wierszy protokołu z TAKE
+- operacja na wspólnej osi czasu
+- eksport do TXT / formatu plikowego
+
+Czyli ten plik nie tworzy TAKE z protokołu,
+tylko działa w kierunku:
+
+**TAKE → PROTOKÓŁ**
+
+Jest to jednak kluczowy element,
+bo definiuje docelowy format danych,
+który później recorder będzie musiał czytać w drugą stronę.
+
+---
+
+# Zapis TAKE do wersjonowanego pliku
+
+```
+Ten model do wykorzystania w czasie generowania i zapisywania z TAKE
+```
+
+Plik:
+
+```text
+core/tarzanTakeVersioning.py
+```
+
+To jest warstwa zapisu wersji TAKE.
+
+W praktyce:
+
+- EHR / generator / edytor przygotowuje dane TAKE,
+- a ten moduł zapisuje nową wersję do pliku JSON.
+
+Tu zamyka się obecna ścieżka tworzenia TAKE po stronie generatora.
+
+---
+
+### Kierunek PROTOKÓŁ → TAKE już istnieje:
+
+- w architekturze,
+- w dokumentacji,
+- w modelu TAKE,
+- w analizie segmentów,
+- w logice przepływu systemu.
+
+**brakuje finalnej implementacji programowej,
+a nie samej idei ani podstaw architektury.**
+
+---
+
+## Model TAKE
+
+```text
+motion/
+└── tarzanTakeModel.py
+```
+
+Rola:
+
+- definicja struktury danych TAKE
+- wspólny format dla generatora, edytora i przyszłego recordera
+- kontener dla osi, segmentów, curve i generated_protocol
+
+---
+
+## Analiza ruchu / segmentów
+
+```text
+motion/
+└── tarzanSegmentAnalyzer.py
+```
+
+Rola:
+
+- analiza przebiegu ruchu
+- rozbijanie ruchu na segmenty logiczne
+- naturalny most pomiędzy sygnałem REC a modelem TAKE
+
+To jest ważna warstwa dla przyszłego:
+**PROTOKÓŁ → SEGMENTY → TAKE**
+
+---
+
+## Budowa protokołu i eksport
+
+```text
+core/
+└── tarzanProtokolRuchu.py
+```
+
+Rola:
+
+- budowa finalnego protokołu z TAKE
+- składanie globalnej osi czasu
+- eksport plikowy
+
+To jest produkcyjna warstwa protokołu po stronie generatora.
+
+---
+
+## Zapis wersji TAKE
+
+```text
+core/
+└── tarzanTakeVersioning.py
+```
+
+Rola:
+
+- zapis nowego TAKE do pliku JSON
+- wersjonowanie
+- aktualizacja metadata
+
+---
+
+## 5.8. Docelowy recorder REC → TAKE
+
+```text
+motion/
+└── tarzanTakeRecorder.py
+```
+
+Rola docelowa:
+
+- wejście: surowy protokół REC
+- analiza próbek czasowych
+- budowa osi TAKE
+- budowa raw_signal
+- budowa segmentów
+- wstępna budowa curve lub danych pod curve
+- złożenie pełnego `TarzanTake`
+- przekazanie do EHR / zapis JSON
+
+To jest brakujące ogniwo.
+
+---
+
+# JAK TO POWINNO DZIAŁAĆ DOCELOWO
+
+## Ścieżka GENERATOR / EDYTOR
+
+```text
+EHR / Generator
+    ↓
+TarzanTake
+    ↓
+TarzanStepGenerator
+    ↓
+generated_protocol
+    ↓
+tarzanProtokolRuchu
+    ↓
+plik protokołu / preview / playback
+```
+
+To już w dużej części działa.**
+
+## EHR pracuje na TAKE
+
+nie na surowym protokole
+
+## Dziś w systemie działa realnie:
+
+```text
+TAKE → PROTOKÓŁ
+```
+
+## W systemie istnieje już jako architektura i częściowa warstwa pośrednia:
+
+```text
+PROTOKÓŁ → TAKE
+```
+
+czyli pełnej implementacji recordera REC → TAKE.
+
+To jest brakujące ogniwo,
+ale cały system jest już przygotowany tak,
+aby to ogniwo dopisać bez łamania architektury TARZAN.
+
+# Struktura plików związana z protokołem
+
+```
+motion/tarzanTakeModel.py
+motion/tarzanSegmentAnalyzer.py
+core/tarzanProtokolRuchu.py
+core/tarzanTakeVersioning.py
+```
+
+
 
 # TAKE - wybór z dokumentacji
 
@@ -207,21 +400,23 @@ Rejestr projektu pełni rolę modelu logicznego i organizacyjnego, natomiast rze
 
 Edytor choreografii ruchu TARZANA powinien być oparty na czterech głównych warstwach działania:
 
-### Nagrywanie ruchu
-
-Z protokołu ruchu powstaje zapis TAKE obejmujący przebieg wszystkich osi oraz zdarzeń dodatkowych.
-
 ### Model TAKE
 
 Z surowego zapisu system buduje uproszczoną, operatorską warstwę edycyjną zawierającą:
 
 - czas,
+
 - kierunek,
+
 - natężenie,
+
 - długość segmentów ruchu,
+
 - zależności pomiędzy osiami,
+
 - zdarzenia punktowe takie jak sygnał drona.
-18. Zasada zapisu sygnałów
+
+# Zasada zapisu sygnałów
 
 Poniższy opis jest włączony do dokumentacji jako źródłowa zasada zapisu sygnałów sterujących TARZAN i pozostaje bez modyfikacji treści:
 
@@ -242,14 +437,6 @@ Czyli to ma być de facto:
 - osią nadrzędną nie jest „pozycja”, tylko czas
 
 - każda mikrosekunda albo każdy ustalony tick czasu ma swój rekord
-
-### Protokół komunikacji — rozwinięcie implementacyjne
-
-Powyższa zasada źródłowa pozostaje podstawą. Poniższe rozwinięcie ma już charakter programistyczny i wiąże protokół komunikacji z pakietem danych, czujnikami, trybami pracy oraz strukturą modułów tarzan.
-
-W implementacji tarzan protokół komunikacji ma być budowany jako pakiet danych uporządkowany w osi czasu. Każda próbka protokołu musi odnosić się do ustalonego czasu próbkowania 10 ms i zawierać pełny stan sygnałów potrzebnych do wiernego odtworzenia ruchu, odczytu czujników i kontroli bezpieczeństwa.
-
-Minimalne grupy danych w jednej próbce protokołu: - identyfikacja próbki: numer próbki, czas, aktywny tryb, znaczniki zdarzeń, - domena Play: stany wejść i wyjść związanych z wykonaniem ruchu, - domena Rec: stany rejestrowanego sterowania i mostka sygnałów, - domena CNC / automatyka: sygnały generowane przez warstwę automatyki, - grupa osi: STEP / DIR / ENABLE dla osi kamery i ramienia, - grupa regulatora masy: dodaj / ujmij / stan krańcówek / gotowość, - grupa czujników: TF-Luna, czujnik poziomu, PoSensors i krańcówki, - grupa interfejsu: wybór trybu, przyciski funkcyjne, potwierdzenia operatora i komunikaty zdarzeń.
 
 ### Przykład ramki protokołu z danymi osi, czujników i stanu trybu
 
@@ -503,43 +690,7 @@ STEROWNIKI SILNIKÓW
 OSIE RAMIENIA I KAMERY
 ```
 
-14. ## Format pliku TAKE TARZANA
-
-CAŁOŚĆ NALEŻY POBRAĆ Z IMPELENTACJI PLIKÓW:
-
-```
-Protokuł komunikacji zaimpementowany,
-Take zaimpementowany.
-```
-
-> UWAGA: W impelmentacji zastosowano projekt już wdrożony do systemu.
-
-Każdy TAKE powinien być zapisywany jako osobny plik projektu.
-Zalecany format:
-
-```
-JSON
-```
-
-Przykładowa nazwa pliku:
-
-```
-TAKE_001_v01.json
-TAKE_001_v02.json
-TAKE_002_v01.json
-```
-
-Taki model zapewnia:
-
-- prostą archiwizację,
-
-- czytelne wersjonowanie,
-
-- łatwe porównywanie wersji,
-
-- prosty import i eksport.
-
-## 14.1 Główna struktura pliku TAKE
+## Główna struktura pliku TAKE
 
 Plik TAKE powinien zawierać następujące sekcje:
 
@@ -554,7 +705,7 @@ TAKE
 └── validation
 ```
 
-## 14.2 Sekcja metadata
+## Sekcja metadata
 
 Sekcja opisująca tożsamość TAKE.
 
@@ -571,7 +722,7 @@ Sekcja opisująca tożsamość TAKE.
 }
 ```
 
-## 14.3 Sekcja timeline
+## Sekcja timeline
 
 Sekcja globalna dla całego TAKE.
 
@@ -595,7 +746,7 @@ take_end — koniec TAKE
 take_duration — całkowity czas trwania
 ```
 
-## 14.4 Sekcja axes
+## Sekcja axes
 
 Najważniejsza część pliku.
 Każda oś posiada własny blok.
@@ -612,6 +763,8 @@ Proponowane klucze osi:
 - arm_vertical
 
 - arm_horizontal
+
+- dron
 
 Przykład struktury jednej osi:
 
@@ -684,7 +837,7 @@ Znaczenie:
 
 - direction = 0 — pauza
 
-## 14.6 Sekcja curve
+## Sekcja curve
 
 To jest operatorska warstwa edycyjna.
 
@@ -718,7 +871,7 @@ Znaczenie:
 
 - preserve_distance = true — droga pozostaje stała
 
-## 14.7 Sekcja generated_protocol
+## Sekcja generated_protocol
 
 To jest wynik syntezy po edycji.
 Na początku może być pusta albo generowana dopiero po zapisie wersji.
@@ -751,7 +904,7 @@ Czyli docelowo lepiej:
 
 To będzie lżejsze.
 
-## 14.8 Sekcja events
+## Sekcja events
 
 Na razie tylko dron.
 
@@ -767,7 +920,7 @@ Na razie tylko dron.
 ]
 ```
 
-## 14.9 Sekcja simulation
+## Sekcja simulation
 
 Ustawienia pomocnicze dla symulacji.
 
@@ -783,7 +936,7 @@ Ustawienia pomocnicze dla symulacji.
 
 To nie jest krytyczne dla ruchu, ale wygodne dla GUI.
 
-## 14.10 Sekcja source
+## Sekcja source
 
 Powiązanie z materiałem źródłowym.
 
@@ -795,7 +948,7 @@ Powiązanie z materiałem źródłowym.
 }
 ```
 
-## 14.11 Sekcja validation
+## Sekcja validation
 
 Wynik ostatniej walidacji mechanicznej.
 
@@ -821,7 +974,7 @@ Jeśli coś jest nie tak:
 ]
 ```
 
-## 14.12 Pełny przykład pliku TAKE
+## Pełny przykład pliku TAKE
 
 Poniżej skrócony przykład całości:
 
@@ -926,7 +1079,7 @@ Poniżej skrócony przykład całości:
 }
 ```
 
-## 14.13 Najważniejsze zasady tego formatu
+## Najważniejsze zasady tego formatu
 
 Ten format spełnia wszystko, co ustaliliśmy:
 
@@ -945,80 +1098,6 @@ Ten format spełnia wszystko, co ustaliliśmy:
 - walidacja jest częścią pliku.
 
 To jest bardzo dobry fundament.
-
-## 15. Diagram przepływu danych całego silnika ruchu
-
-Pełny przepływ danych w systemie TARZAN powinien być rozumiany jako ciąg logicznych etapów przejścia od nagrania ruchu do jego ponownego wykonania przez układ automatyczny.
-
-```
-REC (protokół czasu)
-        ↓
-TAKE (model ruchu)
-        ↓
-krzywe edytora
-        ↓
-silnik matematyczny
-        ↓
-generator impulsów
-        ↓
-tAA
-        ↓
-PoKeys / sterowanie osiami
-```
-
-## 15.1 Znaczenie poszczególnych etapów
-
-REC (protokół czasu)
-To warstwa źródłowa, w której zapisane są rzeczywiste sygnały STEP, DIR, ENABLE oraz inne stany systemu w kolejnych próbkach czasu.
-
-#### TAKE (model ruchu)
-
-To logiczna reprezentacja nagranego ujęcia. TAKE porządkuje dane osi, segmentów ruchu, krzywych oraz zdarzeń punktowych takich jak zwolnienie drona.
-
-#### Krzywe edytora
-
-To operatorska warstwa robocza. Operator nie pracuje na impulsach, lecz na ciągłych krzywych natężenia ruchu w czasie.
-
-#### Silnik matematyczny
-
-To warstwa deformacji przebiegu ruchu. Silnik zachowuje stałą drogę ruchu osi, przelicza czas, pilnuje limitów mechanicznych i przygotowuje finalny przebieg wykonawczy.
-
-#### Generator impulsów
-
-To warstwa syntezy sygnałów sterujących STEP, DIR i ENABLE na podstawie krzywych zatwierdzonych po edycji.
-
-#### tAA
-
-To tryb wykonawczy All-Auto, który wykorzystuje zatwierdzony TAKE jako źródło sterowania ruchem automatycznym.
-
-#### PoKeys / sterowanie osiami
-
-To warstwa sprzętowa wykonująca finalnie sygnały wygenerowane przez system i sterująca rzeczywistym ruchem osi ramienia i kamery.
-
-## 15.2 Główna zasada architektoniczna
-
-Najważniejszą zasadą całego przepływu jest rozdzielenie warstwy operatorskiej od warstwy wykonawczej.
-Oznacza to, że:
-
-- operator pracuje na modelu ruchu,
-
-- edytor deformuje dynamikę ruchu,
-
-- silnik matematyczny waliduje przebieg,
-
-- generator zamienia wynik na impulsy,
-
-- sprzęt wykonuje wyłącznie zatwierdzony ruch.
-
-- Dzięki temu system TARZAN zachowuje jednocześnie:
-
-- prostotę pracy operatora,
-
-- zgodność z mechaniką osi,
-
-- bezpieczeństwo wykonania,
-
-- możliwość dalszego rozwoju systemu.
 
 ## Model klas Python dla pliku TAKE TARZANA
 
@@ -1253,8 +1332,8 @@ NACZELNA UWAGA: ZAWSZE ANALIZUJ JUŻ CO JEST ZROBIONE:
 
 1. Pomijamy pliki, które mają wartość 0.
 
-2. Bazuemy na protokołach, które już są zaimpeentowane i foramty zapisów jonson. To już jest.
+2. Mogą pojawić się powtórzenia i niektualne założenia zawsze wóczas pytaj.
 
-3. Przytowoujemy tak implementacje aby można było ją łatwo połączyć z EHR w wyznaczonym miejscu: TAKE PROTOCOL
+3. Wszystko jest w fazie rozowuj i zmian, wynikających z implementacji, czyi zawsze ważne co już jest napisane a co w dokumentacji. 
 
-![Main_take_windows_area.png](X:\tarzan\docs\Main_take_windows_area.png)
+4. Były próby starego EHR, któy działał  błędnie, mogą być jego echa, ale niektóre metody można analizować.

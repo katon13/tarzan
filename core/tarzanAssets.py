@@ -7,6 +7,7 @@ import os
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 IMG_AXES_DIR = os.path.join(BASE_DIR, "img", "axes")
+IMG_TAKE_DIR = os.path.join(BASE_DIR, "img", "take")
 
 
 # =========================================================
@@ -25,7 +26,7 @@ AXIS_ICON_MAP = {
 
 
 # =========================================================
-# ICON PATH BUILDER
+# AXIS ICON PATH BUILDER
 # =========================================================
 
 def axis_icon(axis_name: str, size: int = 64, state: str = "active", ext: str = "png") -> str:
@@ -52,3 +53,21 @@ def axis_icon(axis_name: str, size: int = 64, state: str = "active", ext: str = 
 def axis_icon_by_key(key: str, size: int = 64, state: str = "active", ext: str = "png") -> str:
     filename = f"{key}_{size}_{state}.{ext}"
     return os.path.join(IMG_AXES_DIR, filename)
+
+
+# =========================================================
+# TAKE ICONS
+# =========================================================
+
+def take_icon(size: int = 64, state: str = "closed", ext: str = "png") -> str:
+    """
+    size: 64 / 128 / 256 / 320
+    state:
+        'closed'  -> standard TAKE
+        'open'    -> preview / kolejka
+        'active'  -> aktualny TAKE (czerwone paski)
+    ext: 'png' / 'ico'
+    """
+
+    filename = f"take_{state}_{size}.{ext}"
+    return os.path.join(IMG_TAKE_DIR, filename)

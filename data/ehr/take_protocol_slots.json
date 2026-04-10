@@ -1,13 +1,13 @@
 {
   "slots": [
     {
-      "path": "data/take/TAKE_001_v02_import_01_import_01_import_02.json"
+      "path": "data/take/TAKE_001_v02_import_01_import_01.json"
     },
     {
       "path": null
     },
     {
-      "path": null
+      "path": "data/take/TAKE_001_v01_import_01.json"
     },
     {
       "path": null

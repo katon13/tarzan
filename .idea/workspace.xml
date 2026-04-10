@@ -6,11 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v02.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/TARZAN_TAKE.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/TARZAN_TAKE.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanPlayhead.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanPresetyWygladzania.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanZoomTimeline.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -52,6 +47,7 @@
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "Python.TarzanEhrTakeSandbox.executor": "Run",
     "Python.TarzanEhrTakeSandbox_impl.executor": "Run",
+    "Python.TarzanTakeProtocolLight.executor": "Run",
     "Python.analyze_file.executor": "Run",
     "Python.axisSandboxEngine (1).executor": "Run",
     "Python.axisSandboxEngine.executor": "Run",
@@ -91,7 +87,7 @@
     "settings.editor.selected.configurable": "preferences.pluginManager"
   }
 }]]></component>
-  <component name="RunManager" selected="Python.TarzanEhrTakeSandbox">
+  <component name="RunManager" selected="Python.TarzanTakeProtocolLight">
     <configuration name="TarzanEhrTakeSandbox" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
@@ -136,7 +132,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="tarzanAxisSandbox" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="TarzanTakeProtocolLight" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -149,7 +145,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/tarzanAxisSandbox.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/TarzanTakeProtocolLight.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -204,11 +200,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.TarzanTakeProtocolLight" />
         <item itemvalue="Python.TarzanEhrTakeSandbox" />
         <item itemvalue="Python.TarzanEhrTakeSandbox_impl" />
         <item itemvalue="Python.tarzanEHR" />
         <item itemvalue="Python.tarzanProfiler" />
-        <item itemvalue="Python.tarzanAxisSandbox" />
       </list>
     </recent_temporary>
   </component>

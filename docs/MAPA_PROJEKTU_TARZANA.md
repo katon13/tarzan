@@ -2100,3 +2100,74 @@ Nowe elementy kodu należy dodawać w sposób spójny z istniejącą logiką, st
 Zawsze należy korzystać z najbardziej aktualnej wersji Mapy Projektu, która stanowi podstawowe odniesienie dla struktury programu, protokołów oraz zasad działania systemu.
 
 Zachowanie poprawności logiki programu, jego struktury oraz zgodności z Mapą Projektu jest nadrzędną zasadą przy wszystkich zmianach w kodzie.
+
+#Assety graficzne (ikony osi)
+
+## Lokalizacja
+
+Ikony osi systemu TARZAN są przechowywane w katalogu:
+
+```
+img/axes/
+```
+
+## Zakres
+
+Katalog zawiera:
+
+- Ikony osi kamery:
+  
+  - oś pozioma kamery
+  - oś pionowa kamery
+  - oś pochyłu kamery
+  - oś ostrości kamery
+
+- Ikony osi ramienia:
+  
+  - oś pionowa ramienia
+  - oś pozioma ramienia
+
+- Ikona drona
+
+## Format plików
+
+Dostępne formaty:
+
+- PNG (do UI aplikacji)
+- ICO (do systemu / buildów aplikacji)
+
+## Wersje
+
+Każda ikona występuje w wariantach:
+
+- active (aktywny stan)
+- inactive (nieaktywny stan)
+
+## Rozmiary
+
+Dostępne rozdzielczości:
+
+- 64 px
+- 96 px
+- 128 px
+- 320 px
+
+## Dostęp w kodzie
+
+Dostęp do ikon realizowany jest przez:
+
+```
+core/tarzanAssets.py
+```
+
+Przykład:
+
+```
+axis_icon("oś pozioma kamery", 64, "active")
+```
+
+## Uwagi
+
+- Nie używać bezpośrednich ścieżek w kodzie
+- Zawsze korzystać z warstwy `tarzanAssets`
+- Ikony są wspólne dla całego systemu (EHR, PLAY, przyszłe UI)

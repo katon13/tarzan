@@ -1,7 +1,7 @@
 {
   "take_duration_minutes": 3.0,
-  "zero_line_color": "#E03A3A",
-  "zero_line_width": 2,
+  "zero_line_color": "#ff0000",
+  "zero_line_width": 1,
   "curve_line_width": 6,
   "active_curve_line_width": 6,
   "snap_to_zero_enabled": true,
@@ -13,20 +13,20 @@
   "show_status_bar": true,
   "show_minute_grid": true,
   "show_axis_background_tint": true,
-  "axis_background_strength_percent": 15,
-  "active_axis_emphasis_percent": 25,
+  "axis_background_strength_percent": 10,
+  "active_axis_emphasis_percent": 15,
   "active_axis_border_width": 3,
   "show_start_stop_squares": true,
   "show_axis_activity_markers": true,
   "smooth_strength_default": 0.35,
   "smooth_passes_default": 2,
   "axis_color_overrides": {
-    "cam_h": "#EC7575",
-    "cam_v": "#FFD866",
-    "cam_t": "#FF6188",
-    "cam_f": "#A9DC76",
-    "arm_v": "#AB9DF2",
-    "arm_h": "#FC9867",
-    "dron": "#414141"
+    "cam_h": "#4783ff",
+    "cam_v": "#61ff95",
+    "cam_t": "#ff9561",
+    "cam_f": "#61c9ff",
+    "arm_v": "#ffcd61",
+    "arm_h": "#ff61ca",
+    "dron": "#4783ff"
   }
 }

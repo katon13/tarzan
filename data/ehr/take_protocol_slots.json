@@ -1,34 +1,34 @@
 {
   "slots": [
     {
-      "path": "data/take/TAKE_001_v02_import_01_import_01_import_01_import_01_import_01.json"
+      "path": null
     },
     {
-      "path": "data/take/TAKE_001_v02_import_01_import_01_import_03_import_01.json"
+      "path": null
     },
     {
-      "path": "data/take/TAKE_001_v02_import_01_import_01_import_01.json"
+      "path": null
     },
     {
-      "path": "data/take/TAKE_001_v02_import_01_import_02.json"
+      "path": "data/take/TAKE_001_v03_import_01_import_01_import_01.json"
     },
     {
-      "path": "data/take/TAKE_001_v02_import_01_import_01_import_01_import_01.json"
+      "path": "data/take/TAKE_001_v01_import_02_import_01.json"
     },
     {
       "path": "data/take/TAKE_001_v01_import_02.json"
     },
     {
-      "path": null
+      "path": "data/take/TAKE_001_v02_import_02.json"
     },
     {
-      "path": "data/take/TAKE_001_v02_import_01_import_01_import_01_import_01_import_01_import_01_import_01.json"
+      "path": "data/take/TAKE_001_v02_import_01_import_02_import_01.json"
     },
     {
-      "path": null
+      "path": "data/take/TAKE_001_v01_import_03.json"
     },
     {
-      "path": null
+      "path": "data/take/TAKE_001_v02_import_03.json"
     }
   ],
   "active_slot": 7

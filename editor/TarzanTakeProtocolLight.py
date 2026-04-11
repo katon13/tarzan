@@ -151,6 +151,12 @@ class UiSettings:
     number_dx: int = 0
     number_dy: int = 0
 
+    version_x: int = 0
+    version_y: int = 0
+    version_font_size: int = 0
+    version_dx: int = 0
+    version_dy: int = 0
+
     action_x: int = 0
     action_y: int = 0
     action_font_size: int = 0
@@ -203,6 +209,11 @@ class UiSettings:
             "number_digits": 1,
             "number_dx": 7,
             "number_dy": 0,
+            "version_x": 122,
+            "version_y": 70,
+            "version_font_size": 28,
+            "version_dx": 0,
+            "version_dy": 0,
             "action_x": 106,
             "action_y": 65,
             "action_font_size": 30,
@@ -277,6 +288,12 @@ class UiSettings:
         ci("number_digits", 1, 6)
         ci("number_dx", -100, 100)
         ci("number_dy", -100, 100)
+
+        ci("version_x", 0, 300)
+        ci("version_y", 0, 300)
+        ci("version_font_size", 8, 80)
+        ci("version_dx", -100, 100)
+        ci("version_dy", -100, 100)
 
         ci("action_x", -20, 250)
         ci("action_y", -20, 250)
@@ -404,6 +421,7 @@ class SlotVM:
     index: int
     file_path: Optional[Path] = None
     take_number: str = ""
+    take_version: str = ""
     state: str = SlotState.EMPTY
     is_saved: bool = False
     is_loaded: bool = False
@@ -461,6 +479,16 @@ def extract_number_from_filename(path: Path) -> Optional[str]:
     return match.group(1) if match else None
 
 
+
+def extract_version_from_filename(path: Path) -> str:
+    """Wyciąga wersję zapisu z nazwy pliku, np. _v02.json -> 02."""
+    name = path.stem
+    match = re.search(r"(?:^|[_\- ])v(\d+)(?:$|[_\- ])", name, flags=re.IGNORECASE)
+    if not match:
+        return ""
+    return match.group(1).zfill(2)
+
+
 def read_take_number(path: Path, digits: int) -> str:
     """
     Odczytuje numer TAKE do wyświetlenia na ikonie.
@@ -482,6 +510,12 @@ def read_take_number(path: Path, digits: int) -> str:
     except Exception:
         number = extract_number_from_filename(path)
         return number.zfill(digits) if number else "---"
+
+
+
+def read_take_version(path: Path) -> str:
+    """Odczytuje wersję zapisu wyłącznie z nazwy pliku TAKE."""
+    return extract_version_from_filename(path)
 
 
 def copy_take_into_project(src: Path) -> Path:
@@ -669,6 +703,7 @@ class IconRenderer:
         cache_key = (
             vm.state,
             vm.take_number,
+            vm.take_version,
             vm.is_saved,
             vm.is_loaded,
             self.ui.icon_width,
@@ -713,6 +748,21 @@ class IconRenderer:
                 y = int(self.ui.number_y - text_height / 2 + self.ui.number_dy)
                 for dx, dy in [(0, 0), (1, 0), (0, 1)]:
                     draw.text((x + dx, y + dy), text, font=font, fill=(245, 245, 245, 255))
+
+                if vm.take_version:
+                    version_font = fit_font(
+                        text=vm.take_version,
+                        max_w=int(self.ui.icon_width * 0.22),
+                        max_h=int(self.ui.icon_height * 0.18),
+                        preferred=self.ui.version_font_size,
+                        chalk=True,
+                    )
+                    if version_font is not None:
+                        vbbox = draw.textbbox((0, 0), vm.take_version, font=version_font)
+                        vx = int(self.ui.version_x + self.ui.version_dx)
+                        vy = int(self.ui.version_y + self.ui.version_dy)
+                        for dx, dy in [(0, 0), (1, 0), (0, 1)]:
+                            draw.text((vx + dx, vy + dy), vm.take_version, font=version_font, fill=(245, 245, 245, 255))
 
         if vm.state == SlotState.ACTIVE:
             edit_font = fit_font("EDIT", 90, 20, self.ui.edit_font_size, chalk=False)
@@ -1020,6 +1070,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
             if path is not None:
                 vm.file_path = path
                 vm.take_number = read_take_number(path, self.ui.number_digits)
+                vm.take_version = read_take_version(path)
                 vm.state = SlotState.LINKED
             out.append(vm)
 
@@ -1202,6 +1253,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
 
         vm.file_path = dst
         vm.take_number = read_take_number(dst, self.ui.number_digits)
+        vm.take_version = read_take_version(dst)
         vm.state = SlotState.LINKED
         vm.is_saved = False
         vm.is_loaded = False
@@ -1302,6 +1354,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
         for vm in self.slot_models:
             if vm.file_path is not None:
                 vm.take_number = read_take_number(vm.file_path, self.ui.number_digits)
+                vm.take_version = read_take_version(vm.file_path)
 
         self.protocol_holder.configure(height=self.ui.protocol_height)
 

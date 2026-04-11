@@ -37,5 +37,10 @@
   "save_text_on_icon_y": 37,
   "controls_height": 453,
   "controls_columns": 4,
-  "slider_length": 149
+  "slider_length": 149,
+  "version_x": 122,
+  "version_y": 70,
+  "version_font_size": 28,
+  "version_dx": 0,
+  "version_dy": 0
 }

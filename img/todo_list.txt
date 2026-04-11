@@ -1,0 +1,8 @@
+TODO List:
+1. Explore the project to locate the relevant files for the Choreography Editor and STEP calculation.
+2. Identify the parts of the code responsible for STEP calculation.
+3. Review the implementation details of the STEP calculation logic.
+4. Identify any potential issues or bugs in the STEP calculation.
+5. Propose and implement fixes for any identified issues.
+6. Test the changes to ensure the STEP calculation is correct.
+7. Update the TODO list after completing each task.

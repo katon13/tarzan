@@ -17,6 +17,8 @@ from editor.EHR.tarzanEhrMultiAxisModel import (
     StepTuning,
 )
 from editor.EHR.tarzanEhrTakeModel import EhrTakeModel
+from editor.EHR.TarzanTakeProtocolLight import TarzanTakeProtocolLightWidget
+from editor.EHR.tarzanTakeTxtCore import save_take_txt, load_take_txt, next_take_txt_path
 
 try:
     from core.tarzanProfiler import profile_method
@@ -882,6 +884,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._protocol_dirty = True
         self._configure_after_id = None
         self._main_canvas_redraw_after_id = None
+        self.take_panel_visible = False
+        self.take_panel = None
+        self.take_widget = None
+        self.main_body = None
 
         self._build_ui()
         self.update_idletasks()
@@ -902,8 +908,27 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         tk.Button(top, text="⚙", command=self._open_take_settings, bg="#39424E", fg=self.FG,
                   activebackground="#39424E", activeforeground=self.FG, relief="flat", bd=0, padx=10, pady=4,
                   font=("Segoe UI Symbol", 12), cursor="hand2").pack(side="left", padx=(8, 0))
+        tk.Button(top, text="TAKE", command=self._toggle_take_panel, bg="#2563EB", fg="white",
+                  activebackground="#2563EB", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
+                  font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
+        tk.Button(top, text="SAVE TXT", command=self._save_take_txt_click, bg="#047857", fg="white",
+                  activebackground="#047857", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
+                  font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
+        tk.Button(top, text="LOAD TXT", command=self._load_take_txt_click, bg="#7C3AED", fg="white",
+                  activebackground="#7C3AED", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
+                  font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
+
+        self.take_panel = tk.Frame(outer, bg=self.BG)
+        self.take_widget = TarzanTakeProtocolLightWidget(
+            self.take_panel,
+            status_sink=self._set_status,
+            save_callback=self._save_take_slot,
+            load_callback=self._load_take_from_path,
+        )
+        self.take_widget.pack(fill="x")
 
         body = tk.Frame(outer, bg=self.BG)
+        self.main_body = body
         body.pack(fill="both", expand=True)
 
         self.left = tk.Frame(body, bg=self.BG, width=300)
@@ -994,6 +1019,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 self._mark_protocol_dirty()
             if mark_axis_info:
                 self._mark_axis_metrics_dirty()
+        if self.take_widget is not None:
+            try:
+                self.take_widget.notify_active_take_modified()
+            except Exception:
+                pass
 
     def mark_axis_dirty(self, axis_index: int, status: str | None = None) -> None:
         self.dirty_axis_indices.add(axis_index)
@@ -1738,6 +1768,71 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             force_axis_info=True,
             force_protocol=True,
         )
+
+
+
+    def _protocol_dir(self) -> Path:
+        return Path(__file__).resolve().parents[2] / "data" / "protokoly"
+
+    def _toggle_take_panel(self) -> None:
+        if self.take_panel is None:
+            return
+        if self.take_panel_visible:
+            self.take_panel.pack_forget()
+            self.take_panel_visible = False
+            self._set_status("Panel TAKE ukryty.")
+        else:
+            if self.main_body is not None:
+                self.take_panel.pack(fill="x", pady=(0, 0), before=self.main_body)
+            else:
+                self.take_panel.pack(fill="x", pady=(0, 0))
+            self.take_panel_visible = True
+            self._set_status("Panel TAKE pokazany.")
+
+    def _save_take_to_path(self, path: Path) -> Path:
+        return save_take_txt(self.axis_models, self.global_take_duration_ms, path)
+
+    def _load_take_from_path(self, path: Path) -> None:
+        loaded_duration = load_take_txt(self.axis_models, path)
+        if loaded_duration and loaded_duration != self.global_take_duration_ms:
+            self.global_take_duration_ms = loaded_duration
+        self.protocol_cache_key = None
+        self.axis_info_cache_key = None
+        self._main_canvas_needs_redraw = True
+        self._mark_take_model_dirty()
+        self._mark_protocol_dirty()
+        self._mark_axis_metrics_dirty()
+        self._refresh_all(light=False, status=f"Wczytano TAKE TXT: {path.name}")
+
+    def _save_take_slot(self, slot_index: int, current_path: Path | None) -> Path:
+        path = next_take_txt_path(current_path, self._protocol_dir(), slot_index)
+        saved_path = self._save_take_to_path(path)
+        self._set_status(f"Zapisano TAKE TXT: {saved_path.name}")
+        return saved_path
+
+    def _save_take_txt_click(self) -> None:
+        default_path = next_take_txt_path(None, self._protocol_dir(), 0)
+        path = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            initialdir=str(self._protocol_dir()),
+            initialfile=default_path.name,
+            filetypes=[("TAKE TXT", "*.txt"), ("Text", "*.txt"), ("All files", "*.*")],
+            title="Zapisz TAKE TXT",
+        )
+        if not path:
+            return
+        saved_path = self._save_take_to_path(Path(path))
+        self._set_status(f"Zapisano TAKE TXT: {saved_path.name}")
+
+    def _load_take_txt_click(self) -> None:
+        path = filedialog.askopenfilename(
+            initialdir=str(self._protocol_dir()),
+            filetypes=[("TAKE TXT", "*.txt"), ("Text", "*.txt"), ("All files", "*.*")],
+            title="Wczytaj TAKE TXT",
+        )
+        if not path:
+            return
+        self._load_take_from_path(Path(path))
 
 
 def main() -> None:

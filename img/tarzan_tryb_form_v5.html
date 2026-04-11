@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TARZAN — formularz logiki trybu V5</title>
+<style>
+body{font-family:Arial,sans-serif;background:#111;color:#eee;margin:0}
+header,main{padding:14px 18px}
+header{border-bottom:1px solid #333;background:#161a22}
+section{max-width:1500px;margin:auto}
+.box{background:#1a1f29;border:1px solid #333;border-radius:10px;padding:12px;margin:12px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+label{display:block;font-size:12px;color:#aaa;margin-bottom:4px}
+input,select,textarea,button{width:95%;padding:8px 10px;border-radius:8px;border:1px solid #444;background:#222a36;color:#eee}
+textarea{min-height:20px;resize:vertical;width:98%}
+button{background:#2f6fed;border:0;font-weight:700;cursor:pointer;;width:100%}
+button.sec{background:#38465d}
+button.danger{background:#7a2930}
+.row{margin-bottom:10px}
+.entry{border:1px solid #303848;border-radius:8px;padding:10px;margin-top:10px;background:#151b25}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.info{display:none !important;font-size:12px;color:#b9c3d1;background:#141922;border:1px solid #2a3342;border-radius:8px;padding:8px;margin-top:6px;white-space:pre-wrap}
+.small{font-size:12px;color:#aaa}
+.mono{font-family:Consolas,monospace}
+.scroll{max-height:320px;overflow:auto;border:1px solid #333;border-radius:10px}
+table{width:100%;border-collapse:collapse}
+th,td{border-bottom:1px solid #333;padding:8px 6px;vertical-align:top;font-size:13px}
+th{text-align:left;background:#151a22;position:sticky;top:0}
+.chk{display:flex;align-items:center;gap:8px;justify-content:flex-start}.chk input{width:auto;margin:0}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;border:1px solid #444;margin-right:4px}
+.allow{background:#173320;color:#9fe0b0}
+.readonly{background:#3a3417;color:#f0db8f}
+.forbidden{background:#3b181b;color:#f2aaaa}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+.note{padding:10px;border:1px solid #3a4456;border-radius:8px;background:#141922;color:#cbd5e1;font-size:13px;line-height:1.45}
+.subbox{margin-top:10px;padding:10px;border:1px dashed #3a4456;border-radius:8px;background:#10151d}
+.subttl{font-size:12px;color:#9ec3ff;margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.subgrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.matrixWrap{display:none;margin-top:10px;padding:10px;border:1px dashed #3a4456;border-radius:8px;background:#10151d}
+.matrixWrap.active{display:block}
+.matrixToolbar{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px}
+.matrixGrid{display:grid;grid-template-columns:repeat(8,24px);grid-template-rows:repeat(8,24px);gap:4px;justify-content:start}
+.matrixCell{width:24px;height:24px;border:1px solid #4a566e;border-radius:4px;background:#1a2230;cursor:pointer;padding:0}
+.matrixCell.on{background:#d80000}
+.matrixText{font-family:Consolas,monospace;min-height:150px;white-space:pre}
+@media(max-width:1100px){.grid,.grid3,.grid4,.subgrid3,.matrixToolbar{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1 style="margin:0; text-align:center">TARZAN — projektowanie logiki tyrybu pracy</h1>
+
+</header>
+
+<main><section>
+<div class="box">
+  <div class="grid3">
+    <div class="row"><label>Plik katalogu sygnałów JSON</label><input id="catalogPath" value="tarzan_signals_catalog.json"></div>
+    <div class="row"><label>Plik wynikowy JSON</label><input id="outJson" value="tarzan_tryb_tm.json"></div>
+    <div class="row"><label>Plik wynikowy TXT</label><input id="outTxt" value="tarzan_tryb_tm.txt"></div>
+  </div>
+  <div class="toolbar">
+    <button class="sec" id="pickBtn">Wczytaj liste sygnałów JSON</button>
+    <button class="sec" id="saveDraftBtn">Zapisz roboczo</button>
+    <button class="sec" id="loadDraftBtn">Wczytaj roboczo</button>
+    <button class="sec" id="clearDraftBtn">Wyczyść zapis roboczy</button>
+    <input id="pick" type="file" accept=".json" style="display:none">
+  </div>
+  <div class="small" id="status">Katalog niezaładowany.</div>
+</div>
+
+<div class="box">
+  <h2>Dane trybu</h2>
+  <div class="grid4">
+    <div class="row"><label>Kod trybu</label>
+      <select id="modeCode">
+        <option value="tM">tM — Tryb prosty</option>
+        <option value="tMAS">tMAS — Tryb ręczny wspomagany automatyką</option>
+        <option value="tAA">tAA — All-Auto</option>
+        <option value="tAT">tAT — Auto Tracking</option>
+        <option value="t3D">t3D — All-Auto 3D</option>
+        <option value="tAD">tAD — All-Auto Dron</option>
+        <option value="tFX">tFX — All-Auto Special Effects</option>
+        <option value="tREC">tREC — Record Motion</option>
+        <option value="tPLAY">tPLAY — Play Motion</option>
+      </select>
+    </div>
+    <div class="row"><label>Nazwa trybu</label><input id="modeName" value="Tryb prosty"></div>
+    <div class="row"><label>Status</label><select id="modeStatus"><option>szkic</option><option>test</option><option>aktywny</option><option>zablokowany</option></select></div>
+    <div class="row"><label>Wersja</label><input id="modeVersion" value="v1"></div>
+  </div>
+  <div class="grid">
+    <div class="row"><label>Cel trybu</label><textarea id="modeGoal"></textarea></div>
+    <div class="row"><label>Opis trybu</label><textarea id="modeDescription"></textarea></div>
+  </div>
+  <div class="row"><label>Uwagi ogólne</label><textarea id="modeNotes"></textarea></div>
+</div>
+
+<div class="box">
+  <h2>Katalog sygnałów</h2>
+  <div class="grid4">
+    <div class="row"><label>Szukaj</label><input id="q" placeholder="kamera, limit, mass, F1"></div>
+    <div class="row"><label>Grupa</label><select id="fg"><option value="">Wszystkie</option></select></div>
+    <div class="row"><label>Płytka</label><select id="fb"><option value="">Wszystkie</option></select></div>
+    <div class="row"><label>Klasyfikacja logiki</label><select id="fl"><option value="">Wszystkie</option><option value="DOZWOLONY">DOZWOLONY</option><option value="TYLKO_ODCZYT">TYLKO_ODCZYT</option><option value="ZABRONIONY">ZABRONIONY</option></select></div>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Sygnał</th><th>Opis</th><th>Logika trybów</th><th>Techniczne</th></tr></thead>
+      <tbody id="sigRows"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="box">
+  <h2>Wejście do trybu i warunki</h2>
+  <div class="grid">
+    <div class="row"><label>Sygnał wejścia do trybu</label><select id="entrySig"></select><div class="info" id="entryInfo"></div></div>
+    <div class="row"><label>Komentarz wejścia</label><textarea id="entryComment"></textarea></div>
+  </div>
+  <button class="sec" id="addCond">+ Dodaj warunek wejścia</button>
+  <div id="conditions"></div>
+</div>
+
+<div class="box"><h2>Źródła sterowania</h2><button class="sec" id="addSource">+ Dodaj źródło sterowania</button><div id="sources"></div></div>
+<div class="box"><h2>Osie i moduły wykonawcze</h2><div id="axes"></div></div>
+
+<div class="box">
+  <h2>Dron</h2>
+  <div id="droneModule"></div>
+</div>
+
+<div class="box"><h2>Czujniki</h2><button class="sec" id="addSensor">+ Dodaj czujnik / regułę</button><div id="sensors"></div></div>
+<div class="box"><h2>Kamery</h2><button class="sec" id="addCamera">+ Dodaj kamerę</button><div id="cameras"></div></div>
+<div class="box"><h2>Komunikaty</h2><button class="sec" id="addComm">+ Dodaj komunikat</button><div id="comms"></div></div>
+
+<div class="box">
+  <h2>Komunikaty głosowe</h2>
+  <button class="sec" id="addAudio">+ Dodaj akcję audio</button>
+  <div id="audioActions"></div>
+</div>
+
+<div class="box"><h2>Protokół ruchu</h2><button class="sec" id="addProto">+ Dodaj regułę protokołu</button><div id="protos"></div></div>
+
+<div class="box">
+  <div class="grid3">
+    <button id="previewBtn">Podgląd</button>
+    <button class="sec" id="saveJson">Pobierz JSON</button>
+    <button class="sec" id="saveTxt">Pobierz TXT</button>
+  </div>
+  <div class="row" style="margin-top:10px"><label>Podgląd</label><textarea id="preview" class="mono" style="min-height:260px"></textarea></div>
+</div>
+</section></main>
+
+<script>
+const APP = {
+  signals: [],
+  names: {
+    tM:'Tryb prosty', tMAS:'Tryb ręczny wspomagany automatyką', tAA:'All-Auto', tAT:'Auto Tracking',
+    t3D:'All-Auto 3D', tAD:'All-Auto Dron', tFX:'All-Auto Special Effects', tREC:'Record Motion', tPLAY:'Play Motion'
+  },
+  axes: ['Oś pozioma kamery','Oś pionowa kamery','Oś pochyłu kamery','Oś ostrości kamery','Oś pionowa ramienia','Oś pozioma ramienia','Regulator masy','Wózek'],
+  ledModes: ['off','on','blink_slow','blink_fast','pulse','toggle','alternating']
+};
+
+const E=(t,a={})=>{const n=document.createElement(t);for(const k in a){if(k==='text')n.textContent=a[k];else if(k==='html')n.innerHTML=a[k];else if(k==='class')n.className=a[k];else n.setAttribute(k,a[k]);}return n;};
+const S=n=>APP.signals.find(x=>x.nazwa===n)||null;
+const safe=v=>v===undefined||v===null?'':String(v);
+
+function logicBadge(v){
+  if(v==='DOZWOLONY') return '<span class="badge allow">DOZWOLONY</span>';
+  if(v==='TYLKO_ODCZYT') return '<span class="badge readonly">TYLKO_ODCZYT</span>';
+  return '<span class="badge forbidden">ZABRONIONY</span>';
+}
+
+function info(sig){
+  if(!sig) return 'Brak wybranego sygnału.';
+  return [
+    `nazwa: ${safe(sig.nazwa)}`,
+    `opis: ${safe(sig.opis)}`,
+    `logika_trybow: ${safe(sig.logika_trybow)}`,
+    `rola_logiki: ${safe(sig.rola_logiki)}`,
+    `uwaga_logiki: ${safe(sig.uwaga_logiki)}`,
+    `płytka: ${safe(sig.plytka)}`,
+    `pin: ${sig.pin ?? '-'}`,
+    `typ: ${safe(sig.typ)}`,
+    `kierunek: ${safe(sig.kierunek)}`,
+    `grupa: ${safe(sig.grupa)}`
+  ].join('\n');
+}
+
+function filterSignals(kind){
+  return APP.signals.filter(sig=>{
+    const lt = sig.logika_trybow || 'DOZWOLONY';
+    const role = (sig.rola_logiki || '').toLowerCase();
+    if(lt === 'ZABRONIONY') return false;
+
+    if(kind === 'entry' || kind === 'condition' || kind === 'source'){
+      return lt === 'DOZWOLONY' || lt === 'TYLKO_ODCZYT';
+    }
+    if(kind === 'sensor'){
+      return lt === 'TYLKO_ODCZYT' || role.includes('sensor') || role.includes('odczyt') || ['CZUJNIKI','KRAŃCÓWKI'].includes(sig.grupa);
+    }
+    if(kind === 'axis_input'){
+      return lt !== 'ZABRONIONY';
+    }
+    if(kind === 'axis_output'){
+      return lt === 'DOZWOLONY';
+    }
+    if(kind === 'drone_release'){
+      return lt === 'DOZWOLONY';
+    }
+    if(kind === 'led_output'){
+      const group = (sig.grupa || '').toLowerCase();
+      const role2 = (sig.rola_logiki || '').toLowerCase();
+      const name = (sig.nazwa || '').toLowerCase();
+      const desc = (sig.opis || '').toLowerCase();
+      return lt === 'DOZWOLONY' && (group.includes('led') || role2.includes('led') || name.includes('led') || desc.includes('diod'));
+    }
+    if(kind === 'protocol' || kind === 'comm'){
+      return lt !== 'ZABRONIONY';
+    }
+    return lt !== 'ZABRONIONY';
+  });
+}
+
+function sigSelect(kind='generic', value=''){
+  const s=E('select');
+  s.append(E('option',{value:'',text:'— wybierz sygnał —'}));
+  filterSignals(kind).forEach(x=>{
+    s.append(E('option',{
+      value:x.nazwa,
+      text:`${x.nazwa} — ${safe(x.opis)} [${safe(x.plytka)}${x.pin!=null?' / pin '+x.pin:''}]`
+    }));
+  });
+  s.value=value;
+  return s;
+}
+
+function bind(sel,box){const u=()=>box.textContent=info(S(sel.value));sel.addEventListener('change',u);u();}
+function wrap(label,field,extra){const d=E('div',{class:'row'});d.append(E('label',{text:label}),field);if(extra)d.append(extra);return d;}
+function del(parent){const b=E('button',{type:'button',class:'danger',text:'Usuń'});b.onclick=()=>parent.remove();return b;}
+function opts(arr,v){const s=E('select');arr.forEach(x=>s.append(E('option',{value:x,text:x})));s.value=v||arr[0];return s;}
+function infoBoxFor(sel){const box=E('div',{class:'info'}); bind(sel,box); return box;}
+
+function addLedConfigBox(container, data={}){
+  const box = E('div',{class:'subbox'});
+  box.append(E('div',{class:'subttl',text:'Sygnalizacja LED'}));
+
+  const ledSignal = sigSelect('led_output', data.led_signal || '');
+  const ledMode = opts(APP.ledModes, data.led_mode || 'off');
+  const ledCondition = E('textarea'); ledCondition.value = data.led_condition || '';
+  const ledComment = E('textarea'); ledComment.value = data.led_comment || '';
+
+  const grid = E('div',{class:'subgrid3'});
+  grid.append(
+    wrap('Sygnał diody LED', ledSignal, infoBoxFor(ledSignal)),
+    wrap('Zachowanie LED', ledMode),
+    wrap('Warunek zachowania LED po ludzku', ledCondition)
+  );
+  box.append(grid);
+  box.append(wrap('Komentarz do LED', ledComment));
+
+  container.append(box);
+}
+
+function getLedData(entry){
+  const sub = entry.querySelector('.subbox');
+  if(!sub) return {led_signal:'',led_mode:'off',led_condition:'',led_comment:''};
+  const selects = sub.querySelectorAll('select');
+  const textareas = sub.querySelectorAll('textarea');
+  return {
+    led_signal: selects[0]?.value || '',
+    led_mode: selects[1]?.value || 'off',
+    led_condition: textareas[0]?.value || '',
+    led_comment: textareas[1]?.value || ''
+  };
+}
+
+function refreshFilters(){
+  [['fg','grupa'],['fb','plytka']].forEach(([id,key])=>{
+    const sel=document.getElementById(id), first=sel.options[0];
+    sel.innerHTML=''; sel.append(first);
+    [...new Set(APP.signals.map(x=>x[key]).filter(Boolean))].sort().forEach(v=>sel.append(E('option',{value:v,text:v})));
+  });
+}
+
+function renderSignals(){
+  const q=document.getElementById('q').value.toLowerCase().trim();
+  const fg=document.getElementById('fg').value;
+  const fb=document.getElementById('fb').value;
+  const fl=document.getElementById('fl').value;
+  const body=document.getElementById('sigRows'); body.innerHTML='';
+
+  APP.signals.filter(x=>{
+    const h=`${safe(x.nazwa)} ${safe(x.opis)} ${safe(x.grupa)} ${safe(x.plytka)} ${safe(x.uwaga_logiki)}`.toLowerCase();
+    return (!q||h.includes(q)) && (!fg||x.grupa===fg) && (!fb||x.plytka===fb) && (!fl||(x.logika_trybow||'DOZWOLONY')===fl);
+  }).forEach(x=>{
+    const tr=E('tr');
+    tr.append(E('td',{html:`<div class="mono"><b>${safe(x.nazwa)}</b></div><div class="small">${safe(x.grupa)}</div>`}));
+    tr.append(E('td',{html:`${safe(x.opis)}<br><span class="small">${safe(x.uwaga_logiki)}</span>`}));
+    tr.append(E('td',{html:`${logicBadge(x.logika_trybow||'DOZWOLONY')}<br><span class="small">${safe(x.rola_logiki)}</span>`}));
+    tr.append(E('td',{html:`${safe(x.plytka)} ${x.pin!=null?'/ pin '+x.pin:''}<br><span class="small">${safe(x.typ)} · ${safe(x.kierunek)}</span>`}));
+    body.append(tr);
+  });
+}
+
+function ready(){
+  document.getElementById('status').innerHTML=`Załadowano katalog sygnałów: <b>${APP.signals.length}</b>`;
+  refreshFilters(); renderSignals(); initForm();
+}
+
+function initForm(){
+  const old=document.getElementById('entrySig');
+  const neu=sigSelect('entry', old.value); neu.id='entrySig'; old.replaceWith(neu); bind(neu,document.getElementById('entryInfo'));
+  ['conditions','sources','axes','sensors','cameras','comms','protos','droneModule','audioActions'].forEach(id=>document.getElementById(id).innerHTML='');
+  addCondition(); addSource(); APP.axes.forEach(name=>addAxis(name)); addDroneModule(); addSensor(); addCamera('Kamera USB HD'); addCamera('Kamera USB do analizy'); addComm(); addAudioAction(); addProto();
+}
+
+const TARZAN_DRAFT_KEY = 'tarzan_tryb_form_v5_draft';
+
+function clearDynamicSections(){
+  ['conditions','sources','axes','sensors','cameras','comms','protos','droneModule','audioActions'].forEach(id=>document.getElementById(id).innerHTML='');
+}
+
+function renderProjectData(d){
+  if(!d) return;
+  document.getElementById('modeCode').value = d.kod_trybu || document.getElementById('modeCode').value;
+  document.getElementById('modeName').value = d.nazwa_trybu || '';
+  document.getElementById('modeStatus').value = d.status_trybu || document.getElementById('modeStatus').value;
+  document.getElementById('modeVersion').value = d.wersja_trybu || '';
+  document.getElementById('modeGoal').value = d.cel_trybu || '';
+  document.getElementById('modeDescription').value = d.opis_trybu || '';
+  document.getElementById('modeNotes').value = d.uwagi_ogolne || '';
+
+  const entrySelOld = document.getElementById('entrySig');
+  const entrySel = sigSelect('entry', (d.wejscie_trybu && d.wejscie_trybu.sygnal) || '');
+  entrySel.id = 'entrySig';
+  entrySelOld.replaceWith(entrySel);
+  bind(entrySel,document.getElementById('entryInfo'));
+  document.getElementById('entryComment').value = (d.wejscie_trybu && d.wejscie_trybu.komentarz) || '';
+
+  clearDynamicSections();
+
+  (d.warunki_wejscia && d.warunki_wejscia.length ? d.warunki_wejscia : [{}]).forEach(x=>addCondition(x));
+  (d.zrodla_sterowania && d.zrodla_sterowania.length ? d.zrodla_sterowania : [{}]).forEach(x=>addSource(x));
+
+  const axisData = d.osie_i_moduly || [];
+  if(axisData.length){
+    axisData.forEach((x,i)=>addAxis(x.nazwa || APP.axes[i] || 'Oś', x));
+  } else {
+    APP.axes.forEach(name=>addAxis(name));
+  }
+
+  addDroneModule(d.dron || {});
+  (d.czujniki && d.czujniki.length ? d.czujniki : [{}]).forEach(x=>addSensor(x));
+
+  const cameraData = d.kamery || [];
+  if(cameraData.length){
+    cameraData.forEach((x,i)=>addCamera(x.nazwa || (i===0?'Kamera USB HD':i===1?'Kamera USB do analizy':'Kamera'), x));
+  } else {
+    addCamera('Kamera USB HD');
+    addCamera('Kamera USB do analizy');
+  }
+
+  (d.komunikaty && d.komunikaty.length ? d.komunikaty : [{}]).forEach(x=>addComm(x));
+  (d.audio_actions && d.audio_actions.length ? d.audio_actions : [{}]).forEach(x=>addAudioAction(x));
+  (d.protokol_ruchu && d.protokol_ruchu.length ? d.protokol_ruchu : [{}]).forEach(x=>addProto(x));
+}
+
+
+function ensureSelectValue(selectEl, value){
+  if(!selectEl || value === undefined || value === null) return;
+  const exists = [...selectEl.options].some(opt => opt.value === value);
+  if(!exists && value !== ''){
+    selectEl.append(E('option',{value:value,text:`${value} — [z zapisu roboczego]`}));
+  }
+  selectEl.value = value;
+}
+
+function captureControls(root){
+  return [...root.querySelectorAll('input,select,textarea')].map(el => ({
+    tag: el.tagName,
+    type: el.type || '',
+    value: el.value,
+    checked: !!el.checked
+  }));
+}
+
+function applyControls(root, controls){
+  const els = [...root.querySelectorAll('input,select,textarea')];
+  controls.forEach((saved, idx) => {
+    const el = els[idx];
+    if(!el) return;
+    if(el.tagName === 'SELECT'){
+      ensureSelectValue(el, saved.value);
+    }else if(el.type === 'checkbox'){
+      el.checked = !!saved.checked;
+    }else{
+      el.value = saved.value ?? '';
+    }
+    el.dispatchEvent(new Event('change', {bubbles:true}));
+    el.dispatchEvent(new Event('input', {bubbles:true}));
+  });
+}
+
+function captureUIState(){
+  const sectionIds = ['conditions','sources','axes','droneModule','sensors','cameras','comms','audioActions','protos'];
+  const state = {};
+  sectionIds.forEach(id => {
+    const root = document.getElementById(id);
+    if(!root) return;
+    state[id] = [...root.querySelectorAll('.entry')].map(entry => captureControls(entry));
+  });
+  state.entrySig = document.getElementById('entrySig') ? document.getElementById('entrySig').value : '';
+  state.entryComment = document.getElementById('entryComment') ? document.getElementById('entryComment').value : '';
+  return state;
+}
+
+function applyUIState(state){
+  if(!state) return;
+  if(document.getElementById('entrySig')){
+    ensureSelectValue(document.getElementById('entrySig'), state.entrySig || '');
+  }
+  if(document.getElementById('entryComment')){
+    document.getElementById('entryComment').value = state.entryComment || '';
+  }
+
+  const map = {
+    conditions:'conditions',
+    sources:'sources',
+    axes:'axes',
+    droneModule:'droneModule',
+    sensors:'sensors',
+    cameras:'cameras',
+    comms:'comms',
+    audioActions:'audioActions',
+    protos:'protos'
+  };
+
+  Object.entries(map).forEach(([key, id]) => {
+    const root = document.getElementById(id);
+    const entries = root ? [...root.querySelectorAll('.entry')] : [];
+    const savedEntries = state[key] || [];
+    savedEntries.forEach((controls, idx) => {
+      if(entries[idx]) applyControls(entries[idx], controls);
+    });
+  });
+}
+
+function saveDraft(showMessage=true){
+  try{
+    const payload = {
+      draft_version: 3,
+      saved_at: new Date().toISOString(),
+      signals_catalog: APP.signals || [],
+      form_data: data(),
+      ui_state: captureUIState()
+    };
+    localStorage.setItem(TARZAN_DRAFT_KEY, JSON.stringify(payload));
+    if(showMessage) document.getElementById('status').textContent = 'Zapisano roboczo do pamięci przeglądarki.';
+  }catch(err){
+    if(showMessage) document.getElementById('status').textContent = 'Nie udało się zapisać roboczo.';
+    console.error(err);
+  }
+}
+
+function loadDraft(showMessage=true){
+  try{
+    const raw = localStorage.getItem(TARZAN_DRAFT_KEY);
+    if(!raw){
+      if(showMessage) document.getElementById('status').textContent = 'Brak zapisu roboczego.';
+      return;
+    }
+
+    const parsed = JSON.parse(raw);
+    const draftData = parsed && parsed.form_data ? parsed.form_data : parsed;
+    const draftSignals = parsed && Array.isArray(parsed.signals_catalog) ? parsed.signals_catalog : [];
+    const uiState = parsed && parsed.ui_state ? parsed.ui_state : null;
+
+    if((!APP.signals || !APP.signals.length) && draftSignals.length){
+      APP.signals = draftSignals;
+      refreshFilters();
+      renderSignals();
+    }
+
+    renderProjectData(draftData);
+    applyUIState(uiState);
+
+    if(showMessage) document.getElementById('status').textContent = 'Wczytano zapis roboczy.';
+  }catch(err){
+    if(showMessage) document.getElementById('status').textContent = 'Nie udało się wczytać zapisu roboczego.';
+    console.error(err);
+  }
+}
+
+function clearDraft(showMessage=true){
+  localStorage.removeItem(TARZAN_DRAFT_KEY);
+  if(showMessage) document.getElementById('status').textContent = 'Usunięto zapis roboczy.';
+}
+
+function enableAutosave(){
+  document.addEventListener('input', (e)=>{
+    if(e.target && ['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) saveDraft(false);
+  });
+  document.addEventListener('change', (e)=>{
+    if(e.target && ['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) saveDraft(false);
+  });
+}
+
+function addCondition(data={}){
+  const b=E('div',{class:'entry'}),
+        sig=sigSelect('condition', data.sygnal || ''),
+        val=opts(['1','0','pulse','analog','true','false'], data.wartosc || '1'),
+        meaning=opts(['wymagane','blokuje_wejscie','ostrzezenie'], data.znaczenie || 'wymagane'),
+        ta=E('textarea');
+  ta.value = data.komentarz || '';
+  b.append(E('div',{class:'head'},[E('b',{text:'Warunek wejścia'}),del(b)]));
+  b.append(wrap('Sygnał warunku',sig,infoBoxFor(sig)),wrap('Oczekiwana wartość',val),wrap('Znaczenie',meaning),wrap('Komentarz po ludzku',ta));
+  document.getElementById('conditions').append(b);
+}
+
+function addSource(data={}){
+  const b=E('div',{class:'entry'}),
+        typ=opts(['SOK','RRP','UI','AUTOMATYKA','PROTOKÓŁ','CZUJNIK','NEXTION50','NEXTION70','LCD','MATRIX_LED','KLAWIATURA'], data.typ || 'SOK'),
+        sig=sigSelect('source', data.sygnal || ''),
+        role=opts(['główne','pomocnicze','wybór_osi','sync','enable','tryb'], data.rola || 'główne'),
+        ta=E('textarea');
+  ta.value = data.komentarz || '';
+  b.append(E('div',{class:'head'},[E('b',{text:'Źródło sterowania'}),del(b)]));
+  b.append(wrap('Typ źródła',typ),wrap('Sygnał',sig,infoBoxFor(sig)),wrap('Rola w trybie',role),wrap('Komentarz po ludzku',ta));
+  document.getElementById('sources').append(b);
+}
+
+function addAxis(name, data={}){
+  const b=E('div',{class:'entry'}),
+        act=E('input',{type:'checkbox'}),
+        n=E('input',{value:data.nazwa || name}),
+        src=opts(['brak','SOK','RRP','UI','AUTOMATYKA','PROTOKÓŁ','CZUJNIK'], data.zrodlo || 'brak'),
+        i1=sigSelect('axis_input', data.wejscie_glowne || ''),
+        i2=sigSelect('axis_input', data.wejscie_pomocnicze || ''),
+        d=sigSelect('axis_output', data.dir || ''),
+        c=sigSelect('axis_output', data.ctr || ''),
+        en=sigSelect('axis_output', data.enable || ''),
+        lp=sigSelect('sensor', data.limit_plus || ''),
+        lm=sigSelect('sensor', data.limit_minus || ''),
+        al=sigSelect('sensor', data.auto_limit || ''),
+        pr=opts(['zapisuj','nie_zapisuj','odczytuj','zapis_i_odczyt'], data.protokol || 'zapisuj'),
+        ta=E('textarea');
+  act.checked = !!data.aktywna;
+  ta.value = data.komentarz || '';
+  const chk=E('div',{class:'chk'}); chk.append(act,E('span',{text:'Aktywna'}));
+  b.append(E('div',{class:'head'},[E('b',{text:data.nazwa || name}),del(b)]), chk,
+    wrap('Nazwa logiczna osi',n), wrap('Źródło sterowania',src),
+    wrap('Wejście główne',i1,infoBoxFor(i1)), wrap('Wejście pomocnicze',i2,infoBoxFor(i2)),
+    wrap('DIR',d,infoBoxFor(d)), wrap('CTR / STEP',c,infoBoxFor(c)), wrap('ENABLE',en,infoBoxFor(en)),
+    wrap('Krańcówka +',lp,infoBoxFor(lp)), wrap('Krańcówka -',lm,infoBoxFor(lm)),
+    wrap('Auto limit / home / specjalna',al,infoBoxFor(al)), wrap('Protokół',pr), wrap('Komentarz do osi',ta)
+  );
+  addLedConfigBox(b, data);
+  document.getElementById('axes').append(b);
+}
+
+function addDroneModule(data={}){
+  const b=E('div',{class:'entry'}),
+        active=E('input',{type:'checkbox'}),
+        releaseSignal=sigSelect('drone_release', data.release_signal || ''),
+        releaseCondition=E('textarea'),
+        comment=E('textarea');
+  active.checked = !!data.aktywny;
+  releaseCondition.value = data.warunek_zwolnienia || '';
+  comment.value = data.komentarz || '';
+
+  const chk=E('div',{class:'chk'}); chk.append(active,E('span',{text:'Moduł drona aktywny w tym trybie'}));
+  b.append(E('div',{class:'head'},[E('b',{text:'Dron / elektromagnes'} )]), chk,
+    wrap('Sygnał ZWOLNIJ', releaseSignal, infoBoxFor(releaseSignal)),
+    wrap('Warunek zwolnienia po ludzku', releaseCondition),
+    wrap('Komentarz po ludzku', comment)
+  );
+  addLedConfigBox(b, data);
+  document.getElementById('droneModule').append(b);
+}
+
+function addSensor(data={}){
+  const b=E('div',{class:'entry'}),
+        sig=sigSelect('sensor', data.sygnal || ''),
+        react=opts(['informacja','ostrzezenie','blokada_osi','stop_osi','stop_systemu','emergency_stop'], data.reakcja || 'informacja'),
+        mod=E('input',{type:'text'}),
+        ta=E('textarea');
+  mod.value = data.modul || '';
+  ta.value = data.komentarz || '';
+  b.append(E('div',{class:'head'},[E('b',{text:'Czujnik / reguła bezpieczeństwa'}),del(b)]),
+    wrap('Sygnał czujnika',sig,infoBoxFor(sig)), wrap('Reakcja',react), wrap('Dotyczy osi / modułu',mod), wrap('Komentarz po ludzku',ta));
+  document.getElementById('sensors').append(b);
+}
+
+function addCamera(name='Kamera', data={}){
+  const b=E('div',{class:'entry'}),
+        act=E('input',{type:'checkbox'}),
+        n=E('input',{value:data.nazwa || name}),
+        role=opts(['podgląd','tracking','analiza','nagrywanie','pomocnicza'], data.rola || 'podgląd'),
+        aff=opts(['brak','tAT','tAA','t3D','tREC','tPLAY'], data.wplyw || 'brak'),
+        ta=E('textarea');
+  act.checked = !!data.aktywna;
+  ta.value = data.komentarz || '';
+  const chk=E('div',{class:'chk'}); chk.append(act,E('span',{text:'Aktywna'}));
+  b.append(E('div',{class:'head'},[E('b',{text:'Kamera'}),del(b)]), chk, wrap('Nazwa kamery',n), wrap('Rola',role), wrap('Wpływ na tryb',aff), wrap('Komentarz po ludzku',ta));
+  document.getElementById('cameras').append(b);
+}
+
+
+const MATRIX_PRESETS = {
+  custom: ['00000000','00000000','00000000','00000000','00000000','00000000','00000000','00000000'],
+  dot_center: ['00000000','00000000','00111100','00111100','00111100','00111100','00000000','00000000'],
+  heart: ['00000000','01100110','11111111','11111111','01111110','00111100','00011000','00000000'],
+  arrow_up: ['00011000','00111100','01111110','00011000','00011000','00011000','00011000','00011000'],
+  arrow_right: ['00001000','00001100','11111110','11111111','11111110','00001100','00001000','00000000'],
+  arrow_down: ['00011000','00011000','00011000','00011000','00011000','01111110','00111100','00011000'],
+  arrow_left: ['00010000','00110000','01111111','11111111','01111111','00110000','00010000','00000000'],
+  cross: ['10000001','01000010','00100100','00011000','00011000','00100100','01000010','10000001']
+};
+
+function normalizeMatrixText(text){
+  const rows = String(text || '').replace(/\r/g,'').split('\n').slice(0,8);
+  while(rows.length < 8) rows.push('00000000');
+  return rows.map(r => {
+    let s = r.replace(/[^01]/g,'').slice(0,8);
+    while(s.length < 8) s += '0';
+    return s;
+  });
+}
+
+function buildMatrixEditor(data={}){
+  const wrapBox = E('div',{class:'matrixWrap'});
+  wrapBox.append(E('div',{class:'subttl',text:'Wzór dla Matrix LED 8x8'}));
+
+  const preset = opts(['custom','dot_center','heart','arrow_up','arrow_right','arrow_down','arrow_left','cross'], data.matrix_preset || 'custom');
+  const text = E('textarea',{class:'matrixText'});
+  text.value = normalizeMatrixText(
+    data.matrix_pattern || (MATRIX_PRESETS[data.matrix_preset || 'custom'] || MATRIX_PRESETS.custom).join('\n')
+  ).join('\n');
+
+  const toolbar = E('div',{class:'matrixToolbar'});
+  toolbar.append(
+    wrap('Preset / biblioteka wzoru', preset),
+    wrap('Wzór 8x8 (0=off, 1=on)', text)
+  );
+
+  const grid = E('div',{class:'matrixGrid'});
+
+  function renderGrid(){
+    const rows = normalizeMatrixText(text.value);
+    grid.innerHTML = '';
+    rows.forEach((row, y) => {
+      row.split('').forEach((bit, x) => {
+        const cell = E('button',{type:'button',class:'matrixCell'+(bit==='1'?' on':'')});
+        cell.addEventListener('click', () => {
+          const nextRows = normalizeMatrixText(text.value);
+          const chars = nextRows[y].split('');
+          chars[x] = chars[x] === '1' ? '0' : '1';
+          nextRows[y] = chars.join('');
+          text.value = nextRows.join('\n');
+          renderGrid();
+        });
+        grid.append(cell);
+      });
+    });
+  }
+
+  preset.addEventListener('change', () => {
+    const rows = MATRIX_PRESETS[preset.value] || MATRIX_PRESETS.custom;
+    text.value = rows.join('\n');
+    renderGrid();
+  });
+
+  text.addEventListener('input', () => {
+    text.value = normalizeMatrixText(text.value).join('\n');
+    renderGrid();
+  });
+
+  wrapBox.append(toolbar);
+  wrapBox.append(grid);
+  renderGrid();
+
+  return {wrapBox, preset, text};
+}
+
+function bindCommChannelBehavior(channelSelect, matrixWrap){
+  const update = () => {
+    if(channelSelect.value === 'MATRIX_LED') matrixWrap.classList.add('active');
+    else matrixWrap.classList.remove('active');
+  };
+  channelSelect.addEventListener('change', update);
+  update();
+}
+
+function addComm(data={}){
+  const b=E('div',{class:'entry'}),
+        sig=sigSelect('comm', data.sygnal || ''),
+        ch=opts(['LCD_PLAY','LCD_REC','MATRIX_LED','DZWIEK','WIBRACJA','NEXTION50','NEXTION70'], data.kanal || 'LCD_PLAY'),
+        pr=opts(['info','ostrzezenie','blad','blokada','estop'], data.priorytet || 'info'),
+        txt=E('textarea'),
+        ta=E('textarea');
+
+  txt.value = data.tresc || '';
+  ta.value = data.komentarz || '';
+
+  const matrix = buildMatrixEditor(data);
+
+  b.append(E('div',{class:'head'},[E('b',{text:'Komunikat'}),del(b)]),
+    wrap('Sygnał wyzwalający',sig,infoBoxFor(sig)),
+    wrap('Kanał',ch),
+    wrap('Priorytet',pr),
+    wrap('Treść komunikatu',txt),
+    matrix.wrapBox,
+    wrap('Komentarz po ludzku',ta)
+  );
+
+  bindCommChannelBehavior(ch, matrix.wrapBox);
+  document.getElementById('comms').append(b);
+}
+
+
+function addAudioAction(data={}){
+  const b=E('div',{class:'entry'}),
+        sig=sigSelect('comm', data.sygnal || ''),
+        preset=opts([ 'Stay clear', 'Ready', 'Step away', 'All set', 'Ready to record!', 'Prepared to play!', 'System ready', 'Recording started', 'Recording finished', 'Playback ready', 'Motion starting', 'Motion stopped', 'Emergency stop', 'Custom' ], data.preset || 'Ready'),
+        customText=E('textarea'),
+        filePath=E('input',{type:'text'}),
+        playback=opts(['async_once','blocking_once','repeat_until_clear'], data.tryb_odtwarzania || 'async_once'),
+        device=opts(['system_default','mini_pc_primary_audio'], data.urzadzenie_audio || 'mini_pc_primary_audio'),
+        volume=E('input',{type:'text'}),
+        ta=E('textarea');
+  customText.value=data.tekst_custom || '';
+  filePath.value=data.plik_audio || '';
+  volume.value=data.glosnosc || '100';
+
+  b.append(E('div',{class:'head'},[E('b',{text:'Akcja audio'}),del(b)]));
+  b.append(
+    wrap('Sygnał wyzwalający',sig,infoBoxFor(sig)),
+    wrap('Preset komunikatu',preset),
+    wrap('Tekst custom',customText),
+    wrap('Plik audio / ścieżka',filePath),
+    wrap('Tryb odtwarzania',playback),
+    wrap('Urządzenie audio',device),
+    wrap('Głośność 0-100',volume),
+    wrap('Komentarz po ludzku',ta)
+  );
+  document.getElementById('audioActions').append(b);
+}
+
+function addProto(data={}){
+  const b=E('div',{class:'entry'}),
+        sig=sigSelect('protocol', data.sygnal || ''),
+        m=opts(['zapisz','nie_zapisuj','zapisz_jako_wejscie','zapisz_jako_czujnik','zapisz_jako_wyjscie'], data.tryb || 'zapisz'),
+        ta=E('textarea');
+  ta.value = data.komentarz || '';
+  b.append(E('div',{class:'head'},[E('b',{text:'Reguła protokołu'}),del(b)]),
+    wrap('Sygnał',sig,infoBoxFor(sig)), wrap('Tryb zapisu',m), wrap('Komentarz po ludzku',ta));
+  document.getElementById('protos').append(b);
+}
+
+function mapEntries(id, fn){return [...document.getElementById(id).querySelectorAll('.entry')].map(fn);}
+function data(){
+  const droneEntry = document.querySelector('#droneModule .entry');
+  let dron = {
+    aktywny: false,
+    release_signal: '',
+    warunek_zwolnienia: '',
+    komentarz: '',
+    led_signal: '',
+    led_mode: 'off',
+    led_condition: '',
+    led_comment: ''
+  };
+  if(droneEntry){
+    const els = droneEntry.querySelectorAll('input,select,textarea');
+    dron = {
+      aktywny: els[0].checked,
+      release_signal: els[1].value,
+      warunek_zwolnienia: els[2].value,
+      komentarz: els[3].value,
+      ...getLedData(droneEntry)
+    };
+  }
+
+  return {
+    kod_trybu: document.getElementById('modeCode').value,
+    nazwa_trybu: document.getElementById('modeName').value,
+    status_trybu: document.getElementById('modeStatus').value,
+    wersja_trybu: document.getElementById('modeVersion').value,
+    cel_trybu: document.getElementById('modeGoal').value,
+    opis_trybu: document.getElementById('modeDescription').value,
+    uwagi_ogolne: document.getElementById('modeNotes').value,
+    wejscie_trybu: { sygnal: document.getElementById('entrySig').value, komentarz: document.getElementById('entryComment').value },
+    warunki_wejscia: mapEntries('conditions', e=>{const s=e.querySelectorAll('select'), t=e.querySelector('textarea'); return {sygnal:s[0].value, wartosc:s[1].value, znaczenie:s[2].value, komentarz:t.value};}),
+    zrodla_sterowania: mapEntries('sources', e=>{const s=e.querySelectorAll('select'), t=e.querySelector('textarea'); return {typ:s[0].value, sygnal:s[1].value, rola:s[2].value, komentarz:t.value};}),
+    osie_i_moduly: mapEntries('axes', e=>{const x=e.querySelectorAll('input,select,textarea'); return {aktywna:x[0].checked,nazwa:x[1].value,zrodlo:x[2].value,wejscie_glowne:x[3].value,wejscie_pomocnicze:x[4].value,dir:x[5].value,ctr:x[6].value,enable:x[7].value,limit_plus:x[8].value,limit_minus:x[9].value,auto_limit:x[10].value,protokol:x[11].value,komentarz:x[12].value,...getLedData(e)};}),
+    dron: dron,
+    czujniki: mapEntries('sensors', e=>{const s=e.querySelectorAll('select'), i=e.querySelector('input'), t=e.querySelector('textarea'); return {sygnal:s[0].value, reakcja:s[1].value, modul:i.value, komentarz:t.value};}),
+    kamery: mapEntries('cameras', e=>{const x=e.querySelectorAll('input,select,textarea'); return {aktywna:x[0].checked,nazwa:x[1].value,rola:x[2].value,wplyw:x[3].value,komentarz:x[4].value};}),
+    komunikaty: mapEntries('comms', e=>{const s=e.querySelectorAll('select'), t=e.querySelectorAll('textarea'); return {sygnal:s[0].value, kanal:s[1].value, priorytet:s[2].value, matrix_preset:s[3] ? s[3].value : '', tresc:t[0] ? t[0].value : '', matrix_pattern:t[1] ? normalizeMatrixText(t[1].value).join('\n') : '', komentarz:t[2] ? t[2].value : (t[1] ? t[1].value : '')};}),
+    audio_actions: mapEntries('audioActions', e=>{const s=e.querySelectorAll('select'), t=e.querySelectorAll('textarea'), i=e.querySelectorAll('input'); return {sygnal:s[0].value, preset:s[1].value, tekst_custom:t[0].value, plik_audio:i[0].value, tryb_odtwarzania:s[2].value, urzadzenie_audio:s[3].value, glosnosc:i[1].value, komentarz:t[1].value};}),
+    protokol_ruchu: mapEntries('protos', e=>{const s=e.querySelectorAll('select'), t=e.querySelector('textarea'); return {sygnal:s[0].value, tryb:s[1].value, komentarz:t.value};})
+  };
+}
+
+function toTxt(d){
+  let o=[];
+  o.push(`KOD TRYBU: ${d.kod_trybu}`);
+  o.push(`NAZWA TRYBU: ${d.nazwa_trybu}`);
+  o.push(`STATUS: ${d.status_trybu}`);
+  o.push(`WERSJA: ${d.wersja_trybu}`);
+  o.push(`CEL TRYBU: ${d.cel_trybu}`);
+  o.push(`OPIS TRYBU: ${d.opis_trybu}`);
+  o.push(`UWAGI OGÓLNE: ${d.uwagi_ogolne}`);
+  o.push('');
+  o.push(`WEJŚCIE DO TRYBU: ${d.wejscie_trybu.sygnal}`);
+  o.push(`KOMENTARZ WEJŚCIA: ${d.wejscie_trybu.komentarz}`);
+  o.push('');
+  o.push('WARUNKI WEJŚCIA:'); d.warunki_wejscia.forEach((w,i)=>o.push(`${i+1}. ${w.sygnal} == ${w.wartosc} | ${w.znaczenie} | ${w.komentarz}`));
+  o.push('');
+  o.push('ŹRÓDŁA STEROWANIA:'); d.zrodla_sterowania.forEach((w,i)=>o.push(`${i+1}. ${w.typ} | ${w.sygnal} | ${w.rola} | ${w.komentarz}`));
+  o.push('');
+  o.push('OSIE I MODUŁY:'); d.osie_i_moduly.forEach((x,i)=>o.push(`${i+1}. ${x.nazwa} | aktywna=${x.aktywna} | ${x.zrodlo} | ${x.wejscie_glowne} | ${x.dir} | ${x.ctr}`));
+  o.push('');
+  o.push('OSIE I MODUŁY — LED:'); d.osie_i_moduly.forEach((x,i)=>o.push(`${i+1}. ${x.nazwa} | ${x.led_signal} | ${x.led_mode} | ${x.led_condition} | ${x.led_comment}`));
+  o.push('');
+  o.push('DRON / ELEKTROMAGNES:');
+  o.push(`aktywny: ${d.dron.aktywny}`);
+  o.push(`sygnał ZWOLNIJ: ${d.dron.release_signal}`);
+  o.push(`warunek zwolnienia: ${d.dron.warunek_zwolnienia}`);
+  o.push(`komentarz: ${d.dron.komentarz}`);
+  o.push(`LED: ${d.dron.led_signal} | ${d.dron.led_mode} | ${d.dron.led_condition} | ${d.dron.led_comment}`);
+  o.push('');
+  o.push('CZUJNIKI:'); d.czujniki.forEach((x,i)=>o.push(`${i+1}. ${x.sygnal} | ${x.reakcja} | ${x.modul} | ${x.komentarz}`));
+  o.push('');
+  o.push('KAMERY:'); d.kamery.forEach((x,i)=>o.push(`${i+1}. ${x.nazwa} | aktywna=${x.aktywna} | rola=${x.rola} | wpływ=${x.wplyw} | ${x.komentarz}`));
+  o.push('');
+  o.push('KOMUNIKATY:'); d.komunikaty.forEach((x,i)=>{o.push(`${i+1}. ${x.sygnal} | ${x.kanal} | ${x.priorytet} | ${x.tresc}`); if(x.kanal === 'MATRIX_LED'){o.push(`   MATRIX_PRESET: ${x.matrix_preset}`); o.push(`   MATRIX_PATTERN:\n${x.matrix_pattern}`);}});
+  o.push('');
+  o.push('AUDIO MINI PC:'); d.audio_actions.forEach((x,i)=>o.push(`${i+1}. ${x.sygnal} | ${x.preset} | ${x.tekst_custom} | ${x.plik_audio} | ${x.tryb_odtwarzania} | ${x.urzadzenie_audio} | ${x.glosnosc} | ${x.komentarz}`));
+  o.push('');
+  o.push('PROTOKÓŁ RUCHU:'); d.protokol_ruchu.forEach((x,i)=>o.push(`${i+1}. ${x.sygnal} | ${x.tryb} | ${x.komentarz}`));
+  return o.join('\n');
+}
+
+function dl(name, content, type){
+  const b=new Blob([content],{type});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),800);
+}
+
+document.getElementById('pickBtn').onclick=()=>document.getElementById('pick').click();
+document.getElementById('pick').addEventListener('change',async e=>{const f=e.target.files[0]; if(!f) return; APP.signals=JSON.parse(await f.text()); ready(); loadDraft(false);});
+
+document.getElementById('modeCode').addEventListener('change',e=>document.getElementById('modeName').value=APP.names[e.target.value]||'');
+if(localStorage.getItem(TARZAN_DRAFT_KEY)){document.getElementById('status').textContent='W pamięci przeglądarki jest zapis roboczy. Wczytaj JSON sygnałów i kliknij „Wczytaj roboczo” albo użyj zapisanej listy sygnałów.';}
+['q','fg','fb','fl'].forEach(id=>{document.getElementById(id).addEventListener('input',renderSignals); document.getElementById(id).addEventListener('change',renderSignals);});
+document.getElementById('addCond').onclick=addCondition;
+document.getElementById('addSource').onclick=addSource;
+document.getElementById('addSensor').onclick=addSensor;
+document.getElementById('addCamera').onclick=()=>addCamera('Kamera');
+document.getElementById('addComm').onclick=addComm;
+document.getElementById('addAudio').onclick=addAudioAction;
+document.getElementById('addProto').onclick=addProto;
+document.getElementById('previewBtn').onclick=()=>{const d=data(); document.getElementById('preview').value='=== JSON ===\n'+JSON.stringify(d,null,2)+'\n\n=== TXT ===\n'+toTxt(d);};
+document.getElementById('saveJson').onclick=()=>dl(document.getElementById('outJson').value||'tarzan_tryb.json', JSON.stringify(data(),null,2), 'application/json;charset=utf-8');
+document.getElementById('saveTxt').onclick=()=>dl(document.getElementById('outTxt').value||'tarzan_tryb.txt', toTxt(data()), 'text/plain;charset=utf-8');
+document.getElementById('saveDraftBtn').onclick=()=>saveDraft(true);
+document.getElementById('loadDraftBtn').onclick=()=>loadDraft(true);
+document.getElementById('clearDraftBtn').onclick=()=>clearDraft(true);
+enableAutosave();
+</script>
+</body>
+</html>

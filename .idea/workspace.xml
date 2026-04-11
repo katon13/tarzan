@@ -6,61 +6,40 @@
   <component name="ChangeListManager">
     <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio-4.12.1.dist-info/INSTALLER" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio-4.12.1.dist-info/METADATA" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio-4.12.1.dist-info/RECORD" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio-4.12.1.dist-info/WHEEL" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio-4.12.1.dist-info/entry_points.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio-4.12.1.dist-info/licenses/LICENSE" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio-4.12.1.dist-info/top_level.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_backends/_asyncio.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_backends/_asyncio.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_backends/_trio.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_backends/_trio.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_asyncio_selector_thread.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_contextmanagers.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_eventloop.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_eventloop.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_exceptions.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_exceptions.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_fileio.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_fileio.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_signals.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_signals.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_sockets.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_sockets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_streams.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_streams.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_subprocesses.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_subprocesses.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_synchronization.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_synchronization.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_tasks.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_tasks.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_tempfile.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_testing.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_testing.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_typedattr.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/_core/_typedattr.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_eventloop.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_resources.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_resources.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_sockets.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_sockets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_streams.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_streams.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_subprocesses.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_subprocesses.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_tasks.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_tasks.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_testing.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/abc/_testing.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/from_thread.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/from_thread.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/functools.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/lowlevel.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/lowlevel.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/pytest_plugin.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/pytest_plugin.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/streams/buffered.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/streams/buffered.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/streams/file.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/streams/file.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/streams/memory.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/streams/memory.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/streams/stapled.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/streams/stapled.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/streams/text.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/streams/text.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/streams/tls.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/streams/tls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/to_interpreter.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/to_process.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/to_process.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/to_thread.py" beforeDir="false" afterPath="$PROJECT_DIR$/.venv/Lib/site-packages/anyio/to_thread.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanAssets.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanAssets.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/ehr/take_protocol_ui_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/take_protocol_ui_settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_01_import_01_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_01_import_01_import_01_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_01_import_01_import_01_import_01_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_01_import_01_import_01_import_01_import_01_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_01_import_03.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_01_import_03_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/TarzanTakeProtocolLight.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TarzanTakeProtocolLight.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/protokoly/TAKE_001_v01_protocol.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/protokoly/TAKE_001_v02_protocol.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01_import_01.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01_import_02.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01_import_02_import_01.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01_import_03.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01_import_03_import_01.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_01_import_01.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_02.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_02_import_01.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_02.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_03.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v03_import_01_import_01.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v03_import_01_import_01_import_01.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrApp.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrApp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanEdycjaPunktow.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanEdytorChoreografiiRuchu.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanEdytorChoreografiiRuchuNowy.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanKontrolkiTransportu.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanOknoTake.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanPanelOsi.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanProtocolPreview.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanTakePreviewWindow.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanWykresOsi.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/TAKE_001_v01.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/tarzanKrzyweRuchu.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/tarzanSmoothMotion.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/tarzanStepGenerator.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,55 +76,58 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Python.TarzanEhrTakeSandbox.executor&quot;: &quot;Run&quot;,
-    &quot;Python.TarzanEhrTakeSandbox_impl.executor&quot;: &quot;Run&quot;,
-    &quot;Python.TarzanTakeProtocolLight.executor&quot;: &quot;Run&quot;,
-    &quot;Python.TarzanTakeProtocolLight_test.executor&quot;: &quot;Run&quot;,
-    &quot;Python.analyze_file.executor&quot;: &quot;Run&quot;,
-    &quot;Python.arte.executor&quot;: &quot;Run&quot;,
-    &quot;Python.axisSandboxEngine (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.axisSandboxEngine.executor&quot;: &quot;Run&quot;,
-    &quot;Python.ehrMultiAxisSandbox (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.ehrMultiAxisSandbox.executor&quot;: &quot;Run&quot;,
-    &quot;Python.ehrMultiAxisSandbox_ehrShell.executor&quot;: &quot;Run&quot;,
-    &quot;Python.ehrMultiAxisSandbox_ehrShell_v1.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanAxisSandbox (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanAxisSandbox.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanEHR.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanEdytorChoreografiiRuchu.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanEdytorChoreografiiRuchuNowy.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanEdytorChoreografiiRuchu_v2.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanKrzyweRuchu.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanProfiler.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanProtokolRuchu.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanStepGenerator.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanTakeModel.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanZmienneSygnalowe.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tmp.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ChatTagsLlmMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ClientConfigCleanupMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyAccountHistoryMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyAccountsIdsRefresh&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyAssignOrphanedChatsToActiveAccount&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyConvertUrlToCodebaseName&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyHistoryLlmMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyMigrateChatHistory-v2&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.CodyProjectSettingsMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.DeprecatedChatLlmMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ToggleCodyToolWindowAfterMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.TarzanEhrTakeSandbox.executor": "Run",
+    "Python.TarzanEhrTakeSandbox_impl.executor": "Run",
+    "Python.TarzanTakeProtocolLight (1).executor": "Run",
+    "Python.TarzanTakeProtocolLight.executor": "Run",
+    "Python.TarzanTakeProtocolLight_test.executor": "Run",
+    "Python.analyze_file.executor": "Run",
+    "Python.arte.executor": "Run",
+    "Python.axisSandboxEngine (1).executor": "Run",
+    "Python.axisSandboxEngine.executor": "Run",
+    "Python.ehrMultiAxisSandbox (1).executor": "Run",
+    "Python.ehrMultiAxisSandbox.executor": "Run",
+    "Python.ehrMultiAxisSandbox_ehrShell.executor": "Run",
+    "Python.ehrMultiAxisSandbox_ehrShell_v1.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.tarzanAxisSandbox (1).executor": "Run",
+    "Python.tarzanAxisSandbox.executor": "Run",
+    "Python.tarzanEHR.executor": "Run",
+    "Python.tarzanEdytorChoreografiiRuchu.executor": "Run",
+    "Python.tarzanEdytorChoreografiiRuchuNowy.executor": "Run",
+    "Python.tarzanEdytorChoreografiiRuchu_v2.executor": "Run",
+    "Python.tarzanEhrMultiAxisModel.executor": "Run",
+    "Python.tarzanKrzyweRuchu.executor": "Run",
+    "Python.tarzanProfiler.executor": "Run",
+    "Python.tarzanProtokolRuchu.executor": "Run",
+    "Python.tarzanStepGenerator.executor": "Run",
+    "Python.tarzanTakeModel.executor": "Run",
+    "Python.tarzanTakeTXT.executor": "Run",
+    "Python.tarzanZmienneSygnalowe.executor": "Run",
+    "Python.tmp.executor": "Run",
+    "RunOnceActivity.ChatTagsLlmMigration": "true",
+    "RunOnceActivity.ClientConfigCleanupMigration": "true",
+    "RunOnceActivity.CodyAccountHistoryMigration": "true",
+    "RunOnceActivity.CodyAccountsIdsRefresh": "true",
+    "RunOnceActivity.CodyAssignOrphanedChatsToActiveAccount": "true",
+    "RunOnceActivity.CodyConvertUrlToCodebaseName": "true",
+    "RunOnceActivity.CodyHistoryLlmMigration": "true",
+    "RunOnceActivity.CodyMigrateChatHistory-v2": "true",
+    "RunOnceActivity.CodyProjectSettingsMigration": "true",
+    "RunOnceActivity.DeprecatedChatLlmMigration": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.ToggleCodyToolWindowAfterMigration": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "settings.editor.selected.configurable": "preferences.pluginManager"
   }
-}</component>
-  <component name="RunManager" selected="Python.TarzanTakeProtocolLight">
-    <configuration name="TarzanEhrTakeSandbox" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+}]]></component>
+  <component name="RunManager" selected="Python.tarzanEHR">
+    <configuration name="TarzanTakeProtocolLight (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -154,11 +136,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor/EHR" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/TarzanEhrTakeSandbox.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/EHR/TarzanTakeProtocolLight.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -189,50 +171,6 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="TarzanTakeProtocolLight_test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="tarzan" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/core" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/core/TarzanTakeProtocolLight_test.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="arte" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="tarzan" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/arte.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <configuration name="tarzanEHR" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
@@ -255,13 +193,57 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="tarzanEhrMultiAxisModel" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="tarzan" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor/EHR" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/EHR/tarzanEhrMultiAxisModel.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="tarzanTakeTXT" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="tarzan" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor/EHR" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/EHR/tarzanTakeTXT.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.TarzanTakeProtocolLight" />
-        <item itemvalue="Python.arte" />
         <item itemvalue="Python.tarzanEHR" />
-        <item itemvalue="Python.TarzanTakeProtocolLight_test" />
-        <item itemvalue="Python.TarzanEhrTakeSandbox" />
+        <item itemvalue="Python.tarzanEhrMultiAxisModel" />
+        <item itemvalue="Python.TarzanTakeProtocolLight" />
+        <item itemvalue="Python.TarzanTakeProtocolLight (1)" />
+        <item itemvalue="Python.tarzanTakeTXT" />
       </list>
     </recent_temporary>
   </component>

@@ -1,0 +1,35 @@
+{
+  "format": "AXIS_SANDBOX_SETTINGS_JSON_V1",
+  "axis_id": "cam_h",
+  "axis_name": "oś pozioma kamery",
+  "visual": {
+    "display_y_scale": 500.0,
+    "mouse_y_precision": 0.45,
+    "top_bottom_margin": 24
+  },
+  "step_tuning": {
+    "dead_zone_y": 5.0,
+    "input_max_y": 100.0,
+    "input_gamma": 4.0,
+    "step_rate_gain": 1.0,
+    "step_rate_max_percent": 100.0,
+    "preview_rate_smoothing": 0.0,
+    "bucket_width_px": 1,
+    "off_bar_height": 8,
+    "low_zone_gain": 0.25,
+    "mid_zone_gain": 0.55,
+    "high_zone_gain": 1.0,
+    "accumulator_bias": 0.0,
+    "emit_threshold": 1.0,
+    "node_hit_radius_px": 14,
+    "time_drag_threshold_samples": 2
+  },
+  "mechanics": {
+    "axis_name": "oś pozioma kamery",
+    "full_cycle_pulses": 28800,
+    "min_full_cycle_time_s": 180.0,
+    "start_settle_ms": 12000,
+    "start_ramp_ms": 24000,
+    "sample_ms": 10
+  }
+}

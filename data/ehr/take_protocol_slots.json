@@ -1,10 +1,10 @@
 {
   "slots": [
     {
-      "path": "data/protokoly/TAKE_001_v03.txt"
+      "path": "data/take/TAKE_002_v08.txt"
     },
     {
-      "path": "data/protokoly/TAKE_002_v05.txt"
+      "path": "data/take/TAKE_001_v06.txt"
     },
     {
       "path": null
@@ -31,5 +31,5 @@
       "path": null
     }
   ],
-  "active_slot": 1
+  "active_slot": 0
 }

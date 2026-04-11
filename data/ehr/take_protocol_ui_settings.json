@@ -1,4 +1,6 @@
 {
+  "top_margin": 10,
+  "row_pad_x": 10
   "protocol_title_y": 70,
   "protocol_height": 290,
   "row_center_y": 85,

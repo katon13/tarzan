@@ -6,40 +6,19 @@
   <component name="ChangeListManager">
     <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/tarzanAssets.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanAssets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/ehr/main_take_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/main_take_settings.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/protokoly/TAKE_001_v01_protocol.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/protokoly/TAKE_001_v02_protocol.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/.gitkeep" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01_import_02.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01_import_02_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01_import_03.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01_import_03_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_01_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_02.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_01_import_02_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_02.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02_import_03.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v03_import_01_import_01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v03_import_01_import_01_import_01.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/ehr/take_protocol_ui_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/take_protocol_ui_settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v01.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v01.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v02.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/EHR/TarzanTakeProtocolLight.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/TarzanTakeProtocolLight.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrApp.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrApp.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanEdycjaPunktow.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanEdytorChoreografiiRuchu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanEdytorChoreografiiRuchuNowy.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanKontrolkiTransportu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanOknoTake.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanPanelOsi.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanProtocolPreview.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanTakePreviewWindow.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanWykresOsi.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/motion/TAKE_001_v01.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/motion/tarzanKrzyweRuchu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/motion/tarzanSmoothMotion.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/motion/tarzanStepGenerator.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrMainTakeSettings.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrMainTakeSettings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrMainTakeSettingsDialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrMainTakeSettingsDialog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanAxisSandbox.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/tarzanAxisSandbox.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/motionPlanner.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/motionProfile.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/tarzanGhostMotion.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

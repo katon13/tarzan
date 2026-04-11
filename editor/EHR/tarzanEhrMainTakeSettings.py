@@ -40,6 +40,11 @@ class MainTakeSettings:
     smooth_strength_default: float = 0.35
     smooth_passes_default: int = 2
     axis_color_overrides: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_AXIS_COLORS))
+    show_ghost_line: bool = True
+    ghost_line_color: str = "#EAB308"
+    ghost_line_width: int = 1
+    ghost_line_dash_on: int = 4
+    ghost_line_dash_off: int = 4
 
     def clamp(self) -> None:
         self.take_duration_minutes = max(0.1, min(240.0, float(self.take_duration_minutes)))
@@ -52,6 +57,9 @@ class MainTakeSettings:
         self.active_axis_border_width = max(0, min(8, int(self.active_axis_border_width)))
         self.smooth_strength_default = max(0.0, min(1.0, float(self.smooth_strength_default)))
         self.smooth_passes_default = max(1, min(8, int(self.smooth_passes_default)))
+        self.ghost_line_width = max(1, min(5, int(self.ghost_line_width)))
+        self.ghost_line_dash_on = max(1, min(20, int(self.ghost_line_dash_on)))
+        self.ghost_line_dash_off = max(1, min(20, int(self.ghost_line_dash_off)))
         merged = dict(DEFAULT_AXIS_COLORS)
         raw = dict(self.axis_color_overrides or {})
         for key, default in DEFAULT_AXIS_COLORS.items():

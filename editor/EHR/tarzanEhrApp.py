@@ -627,6 +627,27 @@ class AxisSettingsDialog(tk.Toplevel):
             c.create_line(px, top, px, bottom, fill="#43505C", dash=(2, 6))
             c.create_text(px, bottom + 10, text=f"{minute}m", fill=self.master_window.MUTED, anchor="n", font=("Consolas", 8))
 
+        original_nodes = getattr(self.model, "original_nodes", None)
+        if original_nodes and len(original_nodes) >= 2:
+            saved_nodes = copy.deepcopy(self.model.nodes)
+            saved_curve_cache = dict(getattr(self.model, "_curve_cache", {}))
+            saved_step_cache = dict(getattr(self.model, "_step_cache", {}))
+            try:
+                self.model.nodes = copy.deepcopy(original_nodes)
+                self.model._curve_cache.clear()
+                self.model._step_cache.clear()
+                ghost_samples = self.model.sample_curve(1000, duration_ms=self.master_window.global_take_duration_ms)
+            finally:
+                self.model.nodes = saved_nodes
+                self.model._curve_cache = saved_curve_cache
+                self.model._step_cache = saved_step_cache
+
+            ghost_pts = []
+            for t, y in ghost_samples:
+                ghost_pts.extend([self._time_to_x(t, left, right), self._logical_y_to_canvas(y, top, bottom)])
+            if len(ghost_pts) >= 4:
+                c.create_line(*ghost_pts, fill="#EAB308", width=1, dash=(4, 4), smooth=True)
+
         samples = self.model.sample_curve(1000, duration_ms=self.master_window.global_take_duration_ms)
         pts = []
         for t, y in samples:
@@ -1024,6 +1045,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 self.take_widget.notify_active_take_modified()
             except Exception:
                 pass
+        if self.take_widget is not None:
+            try:
+                self.take_widget.notify_active_take_modified()
+            except Exception:
+                pass
 
     def mark_axis_dirty(self, axis_index: int, status: str | None = None) -> None:
         self.dirty_axis_indices.add(axis_index)
@@ -1269,6 +1295,28 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         rb = int(round(bb * (1.0 - strength) + ob * strength))
         return f"#{rr:02X}{rg:02X}{rb:02X}"
 
+
+    def _sample_original_curve(self, model: AxisCurveModel) -> list[tuple[int, float]]:
+        """
+        Zwraca próbki ghost/original bez naruszania bieżącego stanu modelu.
+        """
+        original_nodes = getattr(model, "original_nodes", None)
+        if not original_nodes or len(original_nodes) < 2:
+            return []
+
+        saved_nodes = copy.deepcopy(model.nodes)
+        saved_curve_cache = dict(getattr(model, "_curve_cache", {}))
+        saved_step_cache = dict(getattr(model, "_step_cache", {}))
+        try:
+            model.nodes = copy.deepcopy(original_nodes)
+            model._curve_cache.clear()
+            model._step_cache.clear()
+            return model.sample_curve(self._main_curve_sample_count(), duration_ms=self.global_take_duration_ms)
+        finally:
+            model.nodes = saved_nodes
+            model._curve_cache = saved_curve_cache
+            model._step_cache = saved_step_cache
+
     def _main_curve_sample_count(self) -> int:
         if self.drag_mode is not None and self.drag_axis_index is not None:
             return self.MAIN_CURVE_SAMPLES_DRAG
@@ -1351,6 +1399,19 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                     for node in (first_edit, last_edit):
                         mx = self._time_to_x(node.time_ms, rect.left, rect.right)
                         c.create_line(mx, rect.top + 4, mx, rect.bottom - 4, fill=axis_color, width=1, dash=(3, 5))
+
+                ghost_samples = self._sample_original_curve(model)
+                ghost_pts = []
+                for t_ms, y in ghost_samples:
+                    ghost_pts.extend([self._time_to_x(t_ms, rect.left, rect.right),
+                                      self._logical_y_to_canvas(model, y, rect.top, rect.bottom)])
+                if len(ghost_pts) >= 4:
+                    c.create_line(
+                        *ghost_pts,
+                        fill="#64748B",
+                        width=1,
+                        smooth=True,
+                    )
 
                 samples = model.sample_curve(self._main_curve_sample_count(), duration_ms=self.global_take_duration_ms)
                 pts = []
@@ -1771,8 +1832,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
 
 
-    def _protocol_dir(self) -> Path:
-        return Path(__file__).resolve().parents[2] / "data" / "protokoly"
+    def _take_dir(self) -> Path:
+        return Path(__file__).resolve().parents[2] / "data" / "take"
 
     def _toggle_take_panel(self) -> None:
         if self.take_panel is None:
@@ -1805,16 +1866,16 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._refresh_all(light=False, status=f"Wczytano TAKE TXT: {path.name}")
 
     def _save_take_slot(self, slot_index: int, current_path: Path | None) -> Path:
-        path = next_take_txt_path(current_path, self._protocol_dir(), slot_index)
+        path = next_take_txt_path(current_path, self._take_dir(), slot_index)
         saved_path = self._save_take_to_path(path)
         self._set_status(f"Zapisano TAKE TXT: {saved_path.name}")
         return saved_path
 
     def _save_take_txt_click(self) -> None:
-        default_path = next_take_txt_path(None, self._protocol_dir(), 0)
+        default_path = next_take_txt_path(None, self._take_dir(), 0)
         path = filedialog.asksaveasfilename(
             defaultextension=".txt",
-            initialdir=str(self._protocol_dir()),
+            initialdir=str(self._take_dir()),
             initialfile=default_path.name,
             filetypes=[("TAKE TXT", "*.txt"), ("Text", "*.txt"), ("All files", "*.*")],
             title="Zapisz TAKE TXT",
@@ -1826,7 +1887,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
     def _load_take_txt_click(self) -> None:
         path = filedialog.askopenfilename(
-            initialdir=str(self._protocol_dir()),
+            initialdir=str(self._take_dir()),
             filetypes=[("TAKE TXT", "*.txt"), ("Text", "*.txt"), ("All files", "*.*")],
             title="Wczytaj TAKE TXT",
         )

@@ -832,6 +832,25 @@ class AxisSandboxWindow(tk.Tk):
             px = self._time_to_x(t_ms, left, right)
             c.create_line(px, top, px, bottom, fill="#43505C", dash=(2, 6))
             c.create_text(px, bottom + 10, text=f"{minute}m", fill=self.MUTED, anchor="n", font=("Consolas", 8))
+        if self.original_nodes and len(self.original_nodes) >= 2:
+            saved_nodes = copy.deepcopy(self.model.nodes)
+            saved_curve_cache = tuple(self.model._curve_cache) if self.model._curve_cache is not None else None
+            saved_step_cache = tuple(dict(r) for r in self.model._step_cache) if self.model._step_cache is not None else None
+            try:
+                self.model.nodes = copy.deepcopy(self.original_nodes)
+                self.model._invalidate_cache()
+                ghost_samples = self.model.sample_curve(1000)
+            finally:
+                self.model.nodes = saved_nodes
+                self.model._curve_cache = saved_curve_cache
+                self.model._step_cache = saved_step_cache
+
+            ghost_pts = []
+            for t, y in ghost_samples:
+                ghost_pts.extend([self._time_to_x(t, left, right), self._logical_y_to_canvas(y, top, bottom)])
+            if len(ghost_pts) >= 4:
+                c.create_line(*ghost_pts, fill="#EAB308", width=1, dash=(4, 4), smooth=True)
+
         samples = self.model.sample_curve(1000)
         pts = []
         for t, y in samples:

@@ -42,6 +42,11 @@ class MainTakeSettingsDialog(tk.Toplevel):
         self.show_activity_markers_var = tk.BooleanVar(value=settings.show_axis_activity_markers)
         self.smooth_strength_default_var = tk.DoubleVar(value=getattr(settings, 'smooth_strength_default', 0.35))
         self.smooth_passes_default_var = tk.IntVar(value=getattr(settings, 'smooth_passes_default', 2))
+        self.show_ghost_var = tk.BooleanVar(value=getattr(settings, 'show_ghost_line', True))
+        self.ghost_color_var = tk.StringVar(value=getattr(settings, 'ghost_line_color', '#EAB308'))
+        self.ghost_width_var = tk.IntVar(value=getattr(settings, 'ghost_line_width', 1))
+        self.ghost_dash_on_var = tk.IntVar(value=getattr(settings, 'ghost_line_dash_on', 4))
+        self.ghost_dash_off_var = tk.IntVar(value=getattr(settings, 'ghost_line_dash_off', 4))
         self.axis_color_vars = {
             axis.axis_id: tk.StringVar(value=settings.axis_color_overrides.get(axis.axis_id, DEFAULT_AXIS_COLORS.get(axis.axis_id, axis.color)))
             for axis in DEFAULT_AXIS_DEFINITIONS
@@ -91,6 +96,13 @@ class MainTakeSettingsDialog(tk.Toplevel):
         self._section_label(frame, "DOMYŚLNE WYGŁADZANIE")
         self._entry_row(frame, "DOMYŚLNA SIŁA WYGŁADZANIA", self.smooth_strength_default_var)
         self._entry_row(frame, "DOMYŚLNA ILOŚĆ PRZEJŚĆ", self.smooth_passes_default_var)
+
+        self._section_label(frame, "GHOST (ZAPISANA KRZYWA)")
+        self._check_row(frame, "POKAŻ GHOST", self.show_ghost_var)
+        self._entry_row(frame, "KOLOR GHOST", self.ghost_color_var)
+        self._entry_row(frame, "GRUBOŚĆ GHOST", self.ghost_width_var)
+        self._entry_row(frame, "DASH ON", self.ghost_dash_on_var)
+        self._entry_row(frame, "DASH OFF", self.ghost_dash_off_var)
 
         self._section_label(frame, "KOLORY POSZCZEGÓLNYCH OSI")
         color_grid = tk.Frame(frame, bg=self.master_window.PANEL)
@@ -176,6 +188,11 @@ class MainTakeSettingsDialog(tk.Toplevel):
             smooth_strength_default=float(self.smooth_strength_default_var.get()),
             smooth_passes_default=int(self.smooth_passes_default_var.get()),
             axis_color_overrides={axis_id: var.get().strip() or DEFAULT_AXIS_COLORS.get(axis_id, "#FFFFFF") for axis_id, var in self.axis_color_vars.items()},
+            show_ghost_line=bool(self.show_ghost_var.get()),
+            ghost_line_color=self.ghost_color_var.get().strip() or "#EAB308",
+            ghost_line_width=int(self.ghost_width_var.get()),
+            ghost_line_dash_on=int(self.ghost_dash_on_var.get()),
+            ghost_line_dash_off=int(self.ghost_dash_off_var.get()),
         )
         settings.clamp()
         return settings

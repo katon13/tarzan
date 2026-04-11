@@ -28,5 +28,10 @@
     "arm_v": "#ffcd61",
     "arm_h": "#ff61ca",
     "dron": "#4783ff"
-  }
+  },
+  "show_ghost_line": true,
+  "ghost_line_color": "#EAB308",
+  "ghost_line_width": 5,
+  "ghost_line_dash_on": 4,
+  "ghost_line_dash_off": 4
 }

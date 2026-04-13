@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-ENABLE_EHR_PROFILER = False
+ENABLE_EHR_PROFILER = True
 EHR_PROFILER_INTERVAL_S = 2.0
 EHR_PROFILER_TOP_N = 12
 

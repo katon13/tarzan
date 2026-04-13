@@ -17,47 +17,7 @@ except Exception as exc:  # pragma: no cover
     raise RuntimeError("TarzanTakeProtocolLight.py wymaga Pillow. Zainstaluj: pip install pillow") from exc
 
 
-# ======================================================================================
-# ŚCIEŻKI I ŚRODOWISKO
-# ======================================================================================
-#
-# Ten moduł jest przygotowany jako lekki widget do wpięcia w EHR.
-# Źródłem ustawień layoutu pozostaje wyłącznie JSON:
-#
-#     data/ehr/take_protocol_ui_settings.json
-#
-# Wersja LIGHT:
-# - NIE posiada panelu ustawień,
-# - NIE posiada suwaków ani runtime strojenia UI,
-# - korzysta tylko z odczytu ustawień z JSON,
-# - zostawia minimalny fallback, aby testowe okno nie przestało działać,
-# - zachowuje pełny kontrakt stanów TAKE,
-# - nie używa _refresh_all.
-#
-# Warstwa:
-#   UI / preview
-#
-# Nie ruszam:
-#   - logiki TAKE,
-#   - stanu plików TAKE,
-#   - importu plików,
-#   - symulacji SAVE,
-#   - publicznych połączeń zewnętrznych.
-#
-# Kontrakt:
-#   - 10 ikon w jednym rzędzie,
-#   - dark mode,
-#   - SAVE nad ikoną,
-#   - łapka tylko dla LINKED,
-#   - brak globalnego redraw całego modułu przy zwykłych akcjach,
-#   - tylko lokalne odświeżanie slotów.
-#
-# Zmieniam tylko:
-#   - usunięcie panelu ustawień,
-#   - przebudowę do widgetu gotowego pod EHR,
-#   - uproszczenie renderingu pod wersję LIGHT,
-#   - pełne komentarze metod pod przyszłą integrację.
-# ======================================================================================
+# --- ŚCIEŻKI I ŚRODOWISKO ---
 
 THIS_FILE = Path(__file__).resolve()
 EDITOR_DIR = THIS_FILE.parent
@@ -84,9 +44,7 @@ except Exception:
     project_take_icon = None
 
 
-# ======================================================================================
-# KOLORY / STAŁE UI
-# ======================================================================================
+# --- KOLORY / STAŁE UI ---
 
 WINDOW_BG = "#16181C"
 HEADER_BG = "#0A1020"
@@ -110,30 +68,11 @@ WINDOW_WIDTH = 1920
 WINDOW_HEIGHT = 520
 
 
-# ======================================================================================
-# USTAWIENIA UI
-# ======================================================================================
+# --- USTAWIENIA UI ---
 
 @dataclass
 class UiSettings:
-    """
-    Lekki adapter ustawień layoutu TAKE PROTOCOL.
-
-    Źródłem prawdy dla layoutu pozostaje JSON w katalogu ``data/ehr``.
-    Ta klasa nie jest już miejscem ręcznego strojenia UI ani rejestrem
-    wartości projektowych. Jej zadaniem jest wyłącznie:
-
-    - przyjąć komplet ustawień z JSON,
-    - uzupełnić ewentualne braki minimalnym fallbackiem technicznym,
-    - odfiltrować pola nieużywane przez wersję LIGHT,
-    - ochronić rendering przed skrajnie błędnymi wartościami.
-
-    Ważne:
-    - pełny rejestr ustawień pozostaje w pliku JSON,
-    - wersja LIGHT nie zapisuje ani nie zmienia ustawień runtime,
-    - fallback jest tylko bezpiecznikiem, aby moduł nie przestał działać
-      przy brakującym lub uszkodzonym JSON.
-    """
+    """Adapter ustawień layoutu z JSON."""
 
     protocol_title_y: int = 0
     protocol_height: int = 0
@@ -187,14 +126,7 @@ class UiSettings:
 
     @classmethod
     def _fallback_values(cls) -> dict[str, Any]:
-        """
-        Zwraca minimalny fallback techniczny dla aktywnych pól layoutu.
-
-        To nie jest drugi rejestr ustawień projektu. Te wartości mają wyłącznie
-        zabezpieczyć testowe uruchomienie, gdy JSON nie istnieje albo brakuje
-        w nim pojedynczych pozycji. W normalnym trybie pracy źródłem prawdy
-        pozostaje ``data/ehr/take_protocol_ui_settings.json``.
-        """
+        """Minimalny fallback techniczny."""
         return {
             "protocol_title_y": 70,
             "protocol_height": 290,
@@ -236,16 +168,7 @@ class UiSettings:
 
     @classmethod
     def load_or_default(cls, path: Path) -> "UiSettings":
-        """
-        Wczytuje ustawienia z JSON i mapuje je do aktywnych pól wersji LIGHT.
-
-        Zasada pracy:
-        - JSON jest głównym rejestrem ustawień,
-        - bierzemy tylko pola realnie używane przez ten plik,
-        - brakujące pola uzupełniamy fallbackiem technicznym,
-        - pola nieużywane przez LIGHT mogą nadal istnieć w JSON, ale nie są
-          mapowane do adaptera, dzięki czemu nie wpływają na działanie modułu.
-        """
+        """Wczytuje ustawienia z JSON i mapuje do pól LIGHT."""
         raw: dict[str, Any] = {}
         try:
             loaded = json.loads(path.read_text(encoding="utf-8"))
@@ -264,12 +187,7 @@ class UiSettings:
         return ui
 
     def clamp(self) -> None:
-        """
-        Ogranicza wartości liczbowe do bezpiecznych zakresów renderingu.
-
-        Clamp zostaje tylko jako ochrona techniczna przed błędnym JSON.
-        Nie zmienia zasad działania UI i nie służy do strojenia wyglądu.
-        """
+        """Ogranicza wartości do bezpiecznych zakresów."""
         def ci(name: str, lo: int, hi: int) -> None:
             setattr(self, name, max(lo, min(hi, int(getattr(self, name)))))
 
@@ -319,31 +237,17 @@ class UiSettings:
         ci("save_font_size", 8, 44)
 
 
-# ======================================================================================
-# DANE SLOTÓW
-# ======================================================================================
+# --- DANE SLOTÓW ---
 
 @dataclass
 class SlotRecord:
-    """
-    Rekord przechowywany w JSON pamięci slotów.
-
-    Pole path pozostaje lekką informacją o przypiętym pliku TAKE.
-    """
+    """Rekord w JSON pamięci slotów."""
     path: Optional[str] = None
 
 
 @dataclass
 class SlotStore:
-    """
-    Model pamięci slotów TAKE PROTOCOL.
-
-    To jest wyłącznie warstwa prostego storage UI:
-    - które sloty mają przypięty plik,
-    - który slot jest aktywny.
-
-    Nie jest to warstwa logiki TAKE ani modelu ruchu.
-    """
+    """Model pamięci slotów (przypięte pliki, aktywny slot)."""
     slots: list[SlotRecord]
     active_slot: Optional[int] = None
 
@@ -606,22 +510,10 @@ def fit_font(text: str, max_w: int, max_h: int, preferred: int, chalk: bool) -> 
     return fonts[0] if fonts else None
 
 
-# ======================================================================================
-# RENDERER IKON
-# ======================================================================================
+# --- RENDERER IKON ---
 
 class IconRenderer:
-    """
-    Lekki renderer ikon slotów TAKE.
-
-    Najważniejsze założenie wersji LIGHT:
-    - ikony bazowe są trzymane w cache,
-    - gotowe PhotoImage są trzymane w cache pod kluczem stanu slotu,
-    - unikamy niepotrzebnego odtwarzania obrazów przy każdej akcji.
-
-    Dzięki temu zwykłe odświeżenie pojedynczego slotu nie powoduje
-    pełnego redraw całego pasa TAKE.
-    """
+    """Renderer ikon slotów TAKE z cache."""
 
     def __init__(self, ui: UiSettings) -> None:
         self.ui = ui
@@ -629,11 +521,7 @@ class IconRenderer:
         self.photo_cache: dict[tuple[Any, ...], Any] = {}
 
     def _load_base_icon(self, state: str) -> Image.Image:
-        """
-        Ładuje bazową ikonę dla stanu i rozmiaru.
-
-        Wynik jest trzymany w cache jako PIL Image.
-        """
+        """Ładuje bazową ikonę dla stanu i rozmiaru (PIL Image)."""
         key = (state, self.ui.icon_width, self.ui.icon_height)
         if key in self.base_cache and self.base_cache[key] is not None:
             return self.base_cache[key].copy()  # type: ignore[return-value]
@@ -661,12 +549,7 @@ class IconRenderer:
         return img.copy()
 
     def build_slot_photo(self, vm: SlotVM) -> Any:
-        """
-        Buduje finalną bitmapę pojedynczego slotu.
-
-        Cache kluczowany jest po stanie slotu oraz parametrach tekstowych.
-        To ogranicza koszty CPU przy częstych lokalnych odświeżeniach.
-        """
+        """Buduje finalną bitmapę slotu (z cache)."""
         cache_key = (
             vm.state,
             vm.take_number,
@@ -748,31 +631,15 @@ class IconRenderer:
         return photo
 
     def clear_runtime_cache(self) -> None:
-        """
-        Czyści cache runtime renderer.
-
-        Przydatne wtedy, gdy integrator EHR podmieni zasoby lub ustawienia,
-        a potem będzie chciał wymusić świeży render.
-        """
+        """Czyści cache renderer."""
         self.base_cache.clear()
         self.photo_cache.clear()
 
 
-# ======================================================================================
-# WIDGET SLOTU
-# ======================================================================================
+# --- WIDGET SLOTU ---
 
 class SlotWidget(tk.Frame):
-    """
-    Lekki widget pojedynczego slotu TAKE.
-
-    Widget sam dba o:
-    - hover,
-    - klik w ikonę,
-    - klik w łapkę,
-    - przycisk SAVE nad ikoną,
-    - lokalny redraw tylko własnego slotu.
-    """
+    """Widget pojedynczego slotu TAKE (hover, klik, ikona, SAVE)."""
 
     def __init__(self, master: tk.Misc, owner: "TarzanTakeProtocolLightWidget", vm: SlotVM) -> None:
         super().__init__(master, bg=owner.protocol_bg(), highlightthickness=0, bd=0)
@@ -804,12 +671,7 @@ class SlotWidget(tk.Frame):
         self.redraw()
 
     def redraw(self) -> None:
-        """
-        Renderuje tylko ten jeden slot.
-
-        To jest podstawowy mechanizm LIGHT:
-        żadnego pełnego odświeżania całego modułu przy pojedynczej akcji.
-        """
+        """Renderuje tylko ten jeden slot."""
         self.configure(bg=self.owner.protocol_bg())
         self.canvas.configure(
             bg=self.owner.protocol_bg(),
@@ -836,15 +698,7 @@ class SlotWidget(tk.Frame):
             self._draw_action(top_y)
 
     def _draw_action(self, top_y: int) -> None:
-        """
-        Rysuje łapkę akcji.
-
-        Kontrakt:
-        - widoczna tylko dla LINKED,
-        - tylko na hover,
-        - nie pokazuje się dla ACTIVE,
-        - nie pokazuje się, gdy widoczny jest SAVE.
-        """
+        """Rysuje łapkę akcji (widoczna tylko dla LINKED na hover)."""
         x = self.owner.ui.action_x
         y = top_y + self.owner.ui.action_y
         item = self.canvas.create_text(
@@ -858,13 +712,7 @@ class SlotWidget(tk.Frame):
         self.action_hitbox = self.canvas.bbox(item)
 
     def _draw_save_button(self, top_y: int) -> None:
-        """
-        Rysuje przycisk SAVE nad ikoną.
-
-        To jest zgodne z ustalonym kontraktem UI.
-        Sam zapis danych TAKE nie jest tutaj zaimplementowany.
-        W tej wersji pozostaje wyłącznie symulacja stanu SAVED.
-        """
+        """Rysuje przycisk SAVE nad ikoną."""
         ui = self.owner.ui
         x = int((ui.icon_width - ui.save_width) / 2 + ui.save_offset_x)
         y = int(max(0, top_y - ui.save_offset_y - ui.save_height))
@@ -946,25 +794,10 @@ class SlotWidget(tk.Frame):
         self.redraw()
 
 
-# ======================================================================================
-# GŁÓWNY WIDGET LIGHT
-# ======================================================================================
+# --- GŁÓWNY WIDGET LIGHT ---
 
 class TarzanTakeProtocolLightWidget(tk.Frame):
-    """
-    Lekki widget TAKE PROTOCOL gotowy do wpięcia w EHR.
-
-    Najważniejsze cechy:
-    - dziedziczy po tk.Frame, więc można go osadzić w istniejącym oknie EHR,
-    - zachowuje kontrakt stanów TAKE,
-    - nie posiada panelu runtime ustawień,
-    - używa tylko lokalnych odświeżeń slotów,
-    - lokalny status bar zostaje wyłącznie do testów.
-
-    Uwaga integracyjna:
-    Przy docelowym spięciu z EHR lokalny status bar powinien zostać usunięty,
-    a metoda _set_status(...) powinna zostać podpięta do centralnego statusu/logera EHR.
-    """
+    """Widget TAKE PROTOCOL do wpięcia w EHR."""
 
     def __init__(
         self,
@@ -974,14 +807,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
         save_callback: Optional[Callable[[int, Optional[Path]], Optional[Path]]] = None,
         load_callback: Optional[Callable[[Path], None]] = None,
     ) -> None:
-        """
-        Tworzy widget TAKE PROTOCOL LIGHT.
-
-        Parametr status_sink:
-        - opcjonalny callback pod przyszłą integrację z EHR,
-        - jeżeli zostanie podany, komunikaty mogą być przekazywane na zewnątrz,
-        - lokalny status bar nadal zostaje do testów.
-        """
+        """Inicjalizuje widget TAKE PROTOCOL LIGHT."""
         super().__init__(master, bg=WINDOW_BG, highlightthickness=0, bd=0)
         ensure_dirs()
 
@@ -1010,13 +836,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
         return PROTOCOL_INNER_BG
 
     def _set_status(self, text: str) -> None:
-        """
-        Ustawia komunikat statusu lokalnie i opcjonalnie emituje go na zewnątrz.
-
-        To jest jedyna metoda, przez którą ten widget ustawia status.
-        Dzięki temu podczas integracji z EHR można łatwo odłączyć lokalny pasek
-        i przepiąć komunikaty do globalnego loggera lub status baru EHR.
-        """
+        """Ustawia komunikat statusu lokalnie i opcjonalnie emituje na zewnątrz."""
         self.status_var.set(text)
         if self.external_status_sink is not None:
             try:
@@ -1025,16 +845,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
                 pass
 
     def _build_models(self) -> list[SlotVM]:
-        """
-        Buduje modele widoku slotów na podstawie pamięci slotów.
-
-        Zasada:
-        - EMPTY jeśli brak pliku,
-        - LINKED jeśli plik jest przypięty,
-        - ACTIVE jeśli slot był zapisany jako aktywny.
-
-        Wersja LIGHT nie zmienia logiki stanów.
-        """
+        """Buduje modele widoku slotów (EMPTY, LINKED, ACTIVE)."""
         out: list[SlotVM] = []
         for index in range(SLOT_COUNT):
             vm = SlotVM(index=index)
@@ -1083,25 +894,14 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
         self.row_window = self.protocol_canvas.create_window(0, 0, window=self.row_frame, anchor="n")
 
     def _build_slot_row(self) -> None:
-        """
-        Buduje rząd 10 slotów tylko raz podczas inicjalizacji.
-
-        To jest ważna różnica względem cięższej wersji:
-        nie przebudowujemy całego rzędu po zwykłych akcjach użytkownika.
-        Później działamy już tylko przez _refresh_slot(...).
-        """
+        """Buduje rząd 10 slotów (raz podczas inicjalizacji)."""
         for index in range(SLOT_COUNT):
             widget = SlotWidget(self.row_frame, self, self.slot_models[index])
             widget.pack(side="left", padx=self.ui.row_pad_x, pady=0)
             self.slot_widgets.append(widget)
 
     def _save_slots_json(self) -> None:
-        """
-        Zapisuje aktualny stan slotów do pamięci JSON.
-
-        Ta metoda nie dotyka danych TAKE.
-        Zapisuje wyłącznie stan UI.
-        """
+        """Zapisuje aktualny stan UI do pamięci JSON."""
         store = SlotStore.default()
         store.slots = []
         store.active_slot = None
@@ -1117,30 +917,17 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
         store.save(SLOTS_JSON_PATH)
 
     def _refresh_slot(self, index: int) -> None:
-        """
-        Lokalnie odświeża tylko jeden slot.
-
-        To jest główna ścieżka odświeżania w wersji LIGHT.
-        """
+        """Lokalnie odświeża tylko jeden slot."""
         if 0 <= index < len(self.slot_widgets):
             self.slot_widgets[index].set_vm(self.slot_models[index])
 
     def _refresh_slots(self, indices: list[int]) -> None:
-        """
-        Lokalnie odświeża kilka konkretnych slotów.
-
-        Używane np. przy przełączeniu aktywnego slotu.
-        """
+        """Lokalnie odświeża kilka konkretnych slotów."""
         for index in indices:
             self._refresh_slot(index)
 
     def _layout_protocol(self) -> None:
-        """
-        Przelicza geometrię statycznego pasa TAKE.
-
-        Ten layout jest uruchamiany przy resize widgetu.
-        Nie przebudowuje slotów, tylko przestawia tło i pozycje kontenerów.
-        """
+        """Przelicza geometrię pasa TAKE."""
         width = max(900, int(self.protocol_canvas.winfo_width() or 1200))
         height = max(240, int(self.protocol_canvas.winfo_height() or self.ui.protocol_height))
         inner = self.ui.protocol_inner_pad_x
@@ -1153,16 +940,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
             self.protocol_canvas.coords(self.row_window, width / 2, self.ui.row_center_y)
 
     def on_slot_clicked(self, index: int) -> None:
-        """
-        Obsługuje zwykły klik w slot.
-
-        Zasada zgodna z kontraktem:
-        - EMPTY -> wybór pliku,
-        - LINKED -> podmiana pliku,
-        - ACTIVE -> zwykły klik ignorowany.
-
-        Import pozostaje pełny jak w sandboxie.
-        """
+        """Obsługuje klik w slot (wybór pliku)."""
         vm = self.slot_models[index]
         if vm.state == SlotState.ACTIVE:
             return
@@ -1193,15 +971,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
         self._set_status(f"TAKE {vm.take_number} podpięty.")
 
     def on_action_clicked(self, index: int) -> None:
-        """
-        Obsługuje klik w łapkę aktywacji.
-
-        Logika pozostaje zamknięta:
-        - tylko LINKED może przejść do ACTIVE,
-        - poprzedni ACTIVE wraca do LINKED,
-        - nowy ACTIVE ma LOAD=ON,
-        - SAVE pojawia się tylko jeśli is_saved=False.
-        """
+        """Obsługuje klik w łapkę aktywacji."""
         vm = self.slot_models[index]
         if vm.state != SlotState.LINKED:
             return
@@ -1240,16 +1010,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
         self._set_status(f"TAKE {vm.take_number} aktywowany. LOAD=ON.")
 
     def on_save_clicked(self, index: int) -> None:
-        """
-        Obsługuje SAVE aktywnego TAKE.
-
-        W tej wersji LIGHT zapis pozostaje świadomie symulowany:
-        - ustawiamy tylko stan SAVED w UI,
-        - nie zapisujemy jeszcze realnego TAKE do pliku.
-
-        Miejsce integracji:
-        tutaj docelowo trzeba wpiąć właściwy zapis wersji TAKE w EHR.
-        """
+        """Obsługuje SAVE aktywnego TAKE (symulacja stanu)."""
         vm = self.slot_models[index]
         if vm.state != SlotState.ACTIVE:
             return
@@ -1271,17 +1032,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
         self._set_status(f"TAKE {vm.take_number} zapisany. SAVED=ON.")
 
     def notify_active_take_modified(self) -> None:
-        """
-        Publiczne API do spięcia z EHR.
-
-        Gdy dane aktywnego TAKE zostaną zmienione przez edycję osi lub inne
-        operacje w EHR, wywołanie tej metody ma przywrócić stan ACTIVE:
-        - aktywny TAKE wraca z zielonego do czerwonego,
-        - znika etykieta SAVED,
-        - wraca przycisk SAVE.
-
-        To jest kluczowy punkt połączenia zewnętrznego.
-        """
+        """Publiczne API do powiadamiania o modyfikacji danych TAKE."""
         for index, vm in enumerate(self.slot_models):
             if vm.state == SlotState.ACTIVE:
                 vm.is_saved = False
@@ -1291,16 +1042,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
                 break
 
     def force_reload_layout_from_json(self) -> None:
-        """
-        Pomocnicze API serwisowe do ponownego wczytania layoutu z JSON.
-
-        Nie jest używane w normalnym workflow LIGHT, ale może być przydatne
-        w testach lub przy integracji, gdy EHR będzie chciał przeładować layout
-        bez restartu całego okna.
-
-        To jest jedyne miejsce, gdzie dopuszczamy przebudowę widoku,
-        bo zmienia się baza geometrii widgetu.
-        """
+        """Przeładowuje layout z JSON i przebudowuje widok."""
         self.ui = UiSettings.load_or_default(UI_JSON_PATH)
         self.renderer = IconRenderer(self.ui)
 
@@ -1323,18 +1065,10 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
         self._set_status("Przeładowano layout TAKE PROTOCOL z JSON.")
 
 
-# ======================================================================================
-# TESTOWE OKNO LIGHT
-# ======================================================================================
+# --- TESTOWE OKNO LIGHT ---
 
 class TarzanTakeProtocolLightWindow(tk.Tk):
-    """
-    Małe testowe okno uruchomieniowe.
-
-    To okno istnieje wyłącznie po to, aby można było szybko testować widget
-    poza EHR. Docelowo integralną częścią systemu ma być sam widget
-    TarzanTakeProtocolLightWidget osadzony w odpowiednim miejscu EHR.
-    """
+    """Okno testowe do uruchamiania widgetu poza EHR."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -1351,17 +1085,10 @@ class TarzanTakeProtocolLightWindow(tk.Tk):
         self.mainloop()
 
 
-# ======================================================================================
-# MAIN
-# ======================================================================================
+# --- MAIN ---
 
 def main() -> None:
-    """
-    Lokalny punkt startowy do testów.
-
-    Przy integracji do EHR należy osadzić bezpośrednio widget:
-        TarzanTakeProtocolLightWidget(...)
-    """
+    """Punkt startowy do testów lokalnych."""
     ensure_dirs()
     app = TarzanTakeProtocolLightWindow()
     app.run()

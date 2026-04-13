@@ -592,7 +592,9 @@ class AxisSettingsDialog(tk.Toplevel):
         if cache_key != self._metrics_cache_key:
             self._metrics_cache_text = self.model.metrics_summary(duration_ms=self.master_window.global_take_duration_ms)
             self._metrics_cache_key = cache_key
-        self.metrics_var.set(self._metrics_cache_text)
+        
+        if self.metrics_var.get() != self._metrics_cache_text:
+            self.metrics_var.set(self._metrics_cache_text)
 
     def _draw_curve(self) -> None:
         c = self.curve_canvas
@@ -629,19 +631,8 @@ class AxisSettingsDialog(tk.Toplevel):
 
         original_nodes = getattr(self.model, "original_nodes", None)
         if original_nodes and len(original_nodes) >= 2:
-            saved_nodes = copy.deepcopy(self.model.nodes)
-            saved_curve_cache = dict(getattr(self.model, "_curve_cache", {}))
-            saved_step_cache = dict(getattr(self.model, "_step_cache", {}))
-            try:
-                self.model.nodes = copy.deepcopy(original_nodes)
-                self.model._curve_cache.clear()
-                self.model._step_cache.clear()
-                ghost_samples = self.model.sample_curve(1000, duration_ms=self.master_window.global_take_duration_ms)
-            finally:
-                self.model.nodes = saved_nodes
-                self.model._curve_cache = saved_curve_cache
-                self.model._step_cache = saved_step_cache
-
+            # Używamy zoptymalizowanego samplowania ghostów
+            ghost_samples = self.master_window._sample_original_curve(self.model)
             ghost_pts = []
             for t, y in ghost_samples:
                 ghost_pts.extend([self._time_to_x(t, left, right), self._logical_y_to_canvas(y, top, bottom)])
@@ -735,15 +726,19 @@ class AxisSettingsDialog(tk.Toplevel):
 
     @profile_method('EHR_AXIS_DIALOG._refresh_all')
     def _refresh_all(self, status: str | None = None) -> None:
-        self.model.sort_and_fix_nodes()
-        self._refresh_metrics()
+        if self._curve_needs_redraw or self._step_needs_redraw or self._metrics_cache_key is None:
+            # Sortujemy tylko wtedy, gdy dane faktycznie się zmieniły
+            if self._curve_needs_redraw or self._step_needs_redraw:
+                self.model.sort_and_fix_nodes()
+            self._refresh_metrics()
         if self._curve_needs_redraw:
             self._draw_curve()
             self._curve_needs_redraw = False
         if self._step_needs_redraw:
             self._draw_step()
             self._step_needs_redraw = False
-        self._set_status(status)
+        if status is not None:
+            self._set_status(status)
 
     def _hit_node(self, x: float, y: float) -> int | None:
         left, top, right, bottom = self._curve_rect()
@@ -843,8 +838,8 @@ class AxisSettingsDialog(tk.Toplevel):
 
 class TarzanEhrMultiAxisWindow(tk.Tk):
     BG = "#16181C"
-    MAIN_CURVE_SAMPLES_IDLE = 900
-    MAIN_CURVE_SAMPLES_DRAG = 180
+    MAIN_CURVE_SAMPLES_IDLE = 450
+    MAIN_CURVE_SAMPLES_DRAG = 120
     PANEL = "#23272E"
     PANEL2 = "#2A3038"
     FG = "#F3F6F8"
@@ -976,8 +971,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
     def _build_left_panel(self, parent: tk.Misc) -> None:
         self.active_axis_name_var = tk.StringVar(value=self._active_model().axis_def.axis_name)
-        self.axis_info_label = tk.Label(parent, textvariable=self.axis_info_var, bg=self.BG, fg=self.MUTED,
-                                        justify="left", anchor="w", font=("Consolas", 9))
+        self.axis_info_label = tk.Label(parent, textvariable=self.axis_info_var, bg=self.PANEL, fg=self.MUTED,
+                                        justify="left", anchor="w", font=("Consolas", 9), padx=10, pady=10)
         self.axis_info_label.pack(fill="x", pady=(0, 12))
 
         self.protocol_label_var = tk.StringVar(value=f"PODGLĄD PROTOKOŁU — {self._active_model().axis_def.axis_name}")
@@ -999,7 +994,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.protocol_label.pack_forget()
         self.protocol_box.pack_forget()
         if self.main_take_settings.show_axis_metrics:
-            self.axis_info_label.pack(fill="x", pady=(0, 12))
+            self.axis_info_label.pack(fill="x", pady=(0, 12), padx=0)
         if self.main_take_settings.show_protocol_preview:
             self.protocol_label.pack(fill="x", pady=(0, 6))
             self.protocol_box.pack(fill="both", expand=True, pady=(0, 10))
@@ -1062,18 +1057,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
     def sync_axis_from_dialog(self, axis_index: int, status: str | None = None) -> None:
         self.dirty_axis_indices.discard(axis_index)
-        self.protocol_cache_key = None
         self._set_active_axis(axis_index)
-        self._main_canvas_needs_redraw = True
         self._mark_axis_data_changed(axis_index)
-        self._configure_after_id = None
-        self._refresh_axis_context(
-            status=status,
-            refresh_axis_info=True,
-            refresh_protocol=True,
-            force_axis_info=True,
-            force_protocol=True,
-        )
+        self._refresh_all(light=True, status=status)
 
     def _open_take_settings(self) -> None:
         dlg = MainTakeSettingsDialog(
@@ -1215,14 +1201,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         passes = int(getattr(self.main_take_settings, "smooth_passes_default", 2))
         model.smooth_all(strength=strength, passes=passes)
         self._set_active_axis(axis_index)
-        self._main_canvas_needs_redraw = True
         self._mark_axis_data_changed(axis_index)
-        self._refresh_axis_context(
-            status=f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.",
-            refresh_axis_info=True,
-            refresh_protocol=True,
-            force_axis_info=True,
-            force_protocol=True,
+        self._refresh_all(
+            light=True,
+            status=f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}."
         )
 
     def _schedule_configure_refresh(self) -> None:
@@ -1304,18 +1286,25 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if not original_nodes or len(original_nodes) < 2:
             return []
 
-        saved_nodes = copy.deepcopy(model.nodes)
-        saved_curve_cache = dict(getattr(model, "_curve_cache", {}))
-        saved_step_cache = dict(getattr(model, "_step_cache", {}))
+        # Używamy cache'u modelu dla original_nodes, jeśli to możliwe (specyficzny klucz)
+        cache_key = ("ghost", self._main_curve_sample_count(), self.global_take_duration_ms)
+        if hasattr(model, "_ghost_cache") and cache_key in model._ghost_cache:
+            return list(model._ghost_cache[cache_key])
+        
+        if not hasattr(model, "_ghost_cache"):
+            model._ghost_cache = {}
+
+        # Oszczędna symulacja stanu modelu dla potrzeb samplowania original_nodes
+        real_nodes = model.nodes
         try:
-            model.nodes = copy.deepcopy(original_nodes)
-            model._curve_cache.clear()
-            model._step_cache.clear()
-            return model.sample_curve(self._main_curve_sample_count(), duration_ms=self.global_take_duration_ms)
+            model.nodes = original_nodes
+            # Sample curve wygeneruje wynik i zapisze go w swoim cache pod kluczem (steps, duration)
+            # ale my chcemy mieć to oddzielnie, by nie czyścić cache głównego
+            res = model.sample_curve(self._main_curve_sample_count(), duration_ms=self.global_take_duration_ms)
+            model._ghost_cache[cache_key] = tuple(res)
+            return res
         finally:
-            model.nodes = saved_nodes
-            model._curve_cache = saved_curve_cache
-            model._step_cache = saved_step_cache
+            model.nodes = real_nodes
 
     def _main_curve_sample_count(self) -> int:
         if self.drag_mode is not None and self.drag_axis_index is not None:
@@ -1336,12 +1325,35 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
     @profile_method('EHR_MAIN._draw_main_canvas')
     def _draw_main_canvas(self) -> None:
+        if not hasattr(self, "_last_canvas_draw_key"):
+            self._last_canvas_draw_key = None
+
+        left, top, right, bottom = self._curve_area_rect()
+        current_draw_key = (
+            self.active_axis_index,
+            self.global_take_duration_ms,
+            tuple(self._axis_data_versions),
+            left, top, right, bottom,
+            self.drag_mode,
+            self.drag_axis_index,
+            self.selected_index,
+            # Dodaj istotne ustawienia wizualne do klucza cache
+            self.main_take_settings.show_minute_grid,
+            self.main_take_settings.show_axis_labels,
+            self.main_take_settings.show_axis_gears,
+            self.main_take_settings.show_axis_activity_markers
+        )
+
+        if current_draw_key == self._last_canvas_draw_key and not self._main_canvas_needs_redraw:
+            return
+
+        self._last_canvas_draw_key = current_draw_key
         c = self.timeline_canvas
         c.delete("all")
         self.axis_rects.clear()
         self.gear_rects.clear()
         self.wave_rects.clear()
-        left, top, right, bottom = self._curve_area_rect()
+        # left, top, right, bottom już mamy z obliczeń klucza
         c.create_rectangle(left, top, right, bottom, fill="#1B2028", outline="#303A45")
 
         total_minutes = max(1, int(self.global_take_duration_ms // 60000))
@@ -1486,7 +1498,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.axis_info_cache_text = model.metrics_summary(duration_ms=self.global_take_duration_ms)
             self.axis_info_cache_key = cache_key
             self._axis_info_dirty = False
-        self.axis_info_var.set(self.axis_info_cache_text)
+        
+        # Unikamy zbędnego wywołania .set() jeśli tekst się nie zmienił
+        if self.axis_info_var.get() != self.axis_info_cache_text:
+            self.axis_info_var.set(self.axis_info_cache_text)
 
     @profile_method('EHR_MAIN._refresh_protocol_preview')
     def _refresh_protocol_preview(self, force: bool = False) -> None:
@@ -1499,7 +1514,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self._axis_data_versions[self.active_axis_index],
             self.global_take_duration_ms,
         )
-        self.protocol_label_var.set(f"PODGLĄD PROTOKOŁU — {model.axis_def.axis_name}")
+        
+        title = f"PODGLĄD PROTOKOŁU — {model.axis_def.axis_name}"
+        if self.protocol_label_var.get() != title:
+            self.protocol_label_var.set(title)
+
         if (not force) and cache_key == self.protocol_cache_key:
             return
 
@@ -1599,20 +1618,27 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if self._main_canvas_needs_redraw:
             self._draw_main_canvas()
             self._main_canvas_needs_redraw = False
+        
         if light:
             if self._axis_info_dirty:
                 self._refresh_axis_info(force=False)
-            self._set_status(status)
+            if status is not None:
+                self._set_status(status)
             return
+
         if self._take_model_dirty:
             self._rebuild_take_model()
             self._take_model_dirty = False
+        
         if self._axis_info_dirty:
             self._refresh_axis_info(force=False)
-        if self._protocol_dirty or self.protocol_cache_key is None:
+        
+        if self._protocol_dirty:
             self._refresh_protocol_preview(force=False)
             self._protocol_dirty = False
-        self._set_status(status)
+        
+        if status is not None:
+            self._set_status(status)
 
     def _open_settings(self, axis_index: int) -> None:
         axis_changed = self._set_active_axis(axis_index)
@@ -1656,13 +1682,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         axis_changed = self._set_active_axis(axis_index)
         self._configure_after_id = None
         if axis_changed:
-            self._refresh_axis_context(
-                status=None,
-                refresh_axis_info=True,
-                refresh_protocol=True,
-                force_axis_info=True,
-                force_protocol=True,
-            )
+            self._refresh_all(light=True, status=None)
         model = self.axis_models[axis_index]
         if self._hit_release(axis_index, event.x, event.y):
             self.drag_axis_index = axis_index

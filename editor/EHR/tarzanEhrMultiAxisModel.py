@@ -545,18 +545,18 @@ class AxisCurveModel:
         release_text = f"{self.release_time_ms} ms" if self.is_release_axis and self.release_time_ms is not None else "-"
         summary_duration = max(self.sample_ms, int(duration_ms or self.take_duration_ms))
         return (
-            f"oś               : {self.axis_def.axis_name}\n"
-            f"węzły             : {len(self.nodes)}\n"
-            f"release          : {release_text}\n"
-            f"budżet impulsów   : {pulse_count} / {budget}\n"
-            f"wypełnienie       : {ratio * 100:6.2f} %\n"
-            f"max |Y|           : {peak_abs_y:6.2f}\n"
-            f"max rate          : {peak_rate:6.2f} step/s\n"
-            f"sample            : {self.sample_ms} ms\n"
-            f"zakres operatora  : ±{int(round(self.sandbox.display_y_scale))}\n"
-            f"czas MAIN TAKE    : {summary_duration / 1000.0:6.1f} s\n"
-            f"pełny cykl min    : {self.mechanics.min_full_cycle_time_s:6.1f} s\n"
-            f"settle+ramp       : {(self.mechanics.start_settle_ms + self.mechanics.start_ramp_ms) / 1000.0:6.1f} s\n"
+            f"  oś               : {self.axis_def.axis_name}\n"
+            f"  węzły            : {len(self.nodes)}\n"
+            f"  release          : {release_text}\n"
+            f"  budżet impulsów  : {pulse_count} / {budget}\n"
+            f"  wypełnienie      : {ratio * 100:.2f}%\n"
+            f"  max |Y|          : {peak_abs_y:.2f}\n"
+            f"  max rate         : {peak_rate:.2f} step/s\n"
+            f"  sample           : {self.sample_ms} ms\n"
+            f"  zakres operatora : ±{int(round(self.sandbox.display_y_scale))}\n"
+            f"  czas MAIN TAKE   : {summary_duration / 1000.0:.1f}s\n"
+            f"  pełny cykl min   : {self.mechanics.min_full_cycle_time_s:.1f}s\n"
+            f"  settle+ramp      : {(self.mechanics.start_settle_ms + self.mechanics.start_ramp_ms) / 1000.0:.1f}s\n"
         )
 
 

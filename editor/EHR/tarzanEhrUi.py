@@ -2041,6 +2041,8 @@ class AxisSettingsDialog(tk.Toplevel):
         return None
 
     def _on_curve_press(self, event) -> None:
+        # Zwykłe naciśnięcie nie aktualizuje ghosta. 
+        # Ghost zostaje stabilny jako ostatni stan ZAPISANY.
         idx = self._hit_node(event.x, event.y)
         if idx is not None:
             self.selected_index = idx
@@ -2313,6 +2315,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
     def _mark_take_model_dirty(self) -> None:
         self._take_model_dirty = True
         self._take_model_version += 1
+        # Jeśli take jest brudny, to ghost (ostatnio zapisany) różni się od aktywnego.
+        # Cache ghostów powinien być stabilny, ale jeśli zmienia się duration, musimy go czyścić.
+        # Jednak duration zmienia się rzadko i jest częścią cache_key w _sample_original_curve.
 
     def _mark_axis_metrics_dirty(self) -> None:
         self._axis_info_dirty = True
@@ -3217,12 +3222,25 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._toggle_take_panel()
 
     def _save_take_to_path(self, path: Path) -> Path:
-        return save_take_txt(self.axis_models, self.global_take_duration_ms, path)
+        saved_path = save_take_txt(self.axis_models, self.global_take_duration_ms, path)
+        # Po udanym SAVE: obecna aktywna linia zostaje skopiowana jako nowy ghost
+        for axis in self.axis_models:
+            axis.clone_original_state()
+            if hasattr(axis, "_ghost_cache"):
+                axis._ghost_cache.clear()
+        self._main_canvas_needs_redraw = True
+        return saved_path
 
     def _load_take_from_path(self, path: Path) -> None:
         loaded_duration = load_take_txt(self.axis_models, path)
         if loaded_duration and loaded_duration != self.global_take_duration_ms:
             self.global_take_duration_ms = loaded_duration
+        
+        # Wyczyść cache ghostów po załadowaniu
+        for axis in self.axis_models:
+            if hasattr(axis, "_ghost_cache"):
+                axis._ghost_cache.clear()
+                
         self.protocol_cache_key = None
         self.axis_info_cache_key = None
         self._main_canvas_needs_redraw = True

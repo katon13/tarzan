@@ -5,7 +5,7 @@
   "curve_line_width": 6,
   "active_curve_line_width": 6,
   "snap_to_zero_enabled": true,
-  "snap_to_zero_threshold": 20.0,
+  "snap_to_zero_threshold": 30.0,
   "show_protocol_preview": true,
   "show_axis_metrics": true,
   "show_axis_labels": true,
@@ -33,5 +33,7 @@
   "ghost_line_color": "#EAB308",
   "ghost_line_width": 5,
   "ghost_line_dash_on": 4,
-  "ghost_line_dash_off": 4
+  "ghost_line_dash_off": 4,
+  "ghost_assist_enabled": true,
+  "ghost_assist_threshold_y": 10.0
 }

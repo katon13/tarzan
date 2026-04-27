@@ -1155,6 +1155,8 @@ class MainTakeSettingsDialog(tk.Toplevel):
         self.ghost_width_var = tk.IntVar(value=getattr(settings, 'ghost_line_width', 1))
         self.ghost_dash_on_var = tk.IntVar(value=getattr(settings, 'ghost_line_dash_on', 4))
         self.ghost_dash_off_var = tk.IntVar(value=getattr(settings, 'ghost_line_dash_off', 4))
+        self.ghost_assist_enabled_var = tk.BooleanVar(value=getattr(settings, 'ghost_assist_enabled', False))
+        self.ghost_assist_threshold_var = tk.DoubleVar(value=getattr(settings, 'ghost_assist_threshold_y', 4.0))
         self.axis_color_vars = {
             axis.axis_id: tk.StringVar(value=settings.axis_color_overrides.get(axis.axis_id, DEFAULT_AXIS_COLORS.get(axis.axis_id, axis.color)))
             for axis in DEFAULT_AXIS_DEFINITIONS
@@ -1211,6 +1213,8 @@ class MainTakeSettingsDialog(tk.Toplevel):
         self._entry_row(s5, "GRUBOŚĆ GHOST", self.ghost_width_var, 1, 0)
         self._entry_row(s5, "DASH ON", self.ghost_dash_on_var, 1, 1)
         self._entry_row(s5, "DASH OFF", self.ghost_dash_off_var, 2, 0)
+        self._check_row(s5, "GHOST ASSIST / PRZYCIĄGANIE DO GHOST", self.ghost_assist_enabled_var, 3, 0)
+        self._entry_row(s5, "PRÓG PRZYCIĄGANIA GHOST ASSIST", self.ghost_assist_threshold_var, 3, 1)
 
         self._section_label(frame, "KOLORY POSZCZEGÓLNYCH OSI")
         color_grid = tk.Frame(frame, bg=self.master_window.PANEL)
@@ -1307,6 +1311,8 @@ class MainTakeSettingsDialog(tk.Toplevel):
             ghost_line_width=int(self.ghost_width_var.get()),
             ghost_line_dash_on=int(self.ghost_dash_on_var.get()),
             ghost_line_dash_off=int(self.ghost_dash_off_var.get()),
+            ghost_assist_enabled=bool(self.ghost_assist_enabled_var.get()),
+            ghost_assist_threshold_y=float(self.ghost_assist_threshold_var.get()),
         )
         settings.clamp()
         return settings
@@ -1375,6 +1381,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self.mechanics_preset_var = tk.StringVar(value=self.model.mechanics.axis_name)
         self.status_var = tk.StringVar(value="Gotowy.")
         self.metrics_var = tk.StringVar(value="")
+        self.is_ghost_snapped = False
+        self._ghost_samples_cache = []
 
         defaults = copy.deepcopy(self.model.step_tuning)
         self.step_vars = {
@@ -1968,7 +1976,20 @@ class AxisSettingsDialog(tk.Toplevel):
         for i, n in enumerate(self.model.nodes):
             px = self._time_to_x(n.time_ms, left, right)
             py = self._logical_y_to_canvas(n.y, top, bottom)
+            
             fill = self.master_window.NODE_SEL if i == self.selected_index else self.master_window.NODE
+            
+            # Podświetlenie punktu jeśli jest przyciągnięty do ghosta (Dla punktu lub PAN)
+            is_snapped = False
+            if self.drag_mode == "node" and i == self.selected_index and getattr(self, "is_ghost_snapped", False):
+                is_snapped = True
+            elif self.drag_mode == "pan" and getattr(self, "is_ghost_snapped", False):
+                # W trybie PAN podświetlamy wszystkie węzły na zielono gdy snap aktywny
+                is_snapped = True
+                
+            if is_snapped:
+                fill = "#22C55E" # Zielony (Emerald-500) dla widoczności snapu do ghosta
+            
             if i == 0 or i == len(self.model.nodes) - 1:
                 fill = "#D6EAF8"
             c.create_oval(px - r, py - r, px + r, py + r, fill=fill, outline="black")
@@ -2092,11 +2113,41 @@ class AxisSettingsDialog(tk.Toplevel):
                 return i
         return None
 
+    def _get_ghost_y_at_time(self, t_ms: int) -> float | None:
+        """
+        Zwraca wartość y ghosta (original_nodes) dla czasu t_ms na podstawie cachowanych próbek.
+        """
+        if not hasattr(self, "_ghost_samples_cache") or not self._ghost_samples_cache:
+            return None
+        
+        # Proste wyszukiwanie w posortowanych próbkach (linearna interpolacja lub najbliższy sąsiad)
+        # Biorąc pod uwagę, że próbek jest max 450-800, prosty loop wystarczy, ale binary search lepszy.
+        samples = self._ghost_samples_cache
+        if t_ms <= samples[0][0]: return samples[0][1]
+        if t_ms >= samples[-1][0]: return samples[-1][1]
+        
+        import bisect
+        idx = bisect.bisect_left(samples, (t_ms, -1e9))
+        if idx == 0: return samples[0][1]
+        if idx >= len(samples): return samples[-1][1]
+        
+        t0, y0 = samples[idx-1]
+        t1, y1 = samples[idx]
+        if t1 == t0: return y0
+        
+        frac = (t_ms - t0) / (t1 - t0)
+        return y0 + frac * (y1 - y0)
+
     def _on_curve_press(self, event) -> None:
         idx = self._hit_node(event.x, event.y)
         if idx is not None:
             self.selected_index = idx
             self.drag_mode = "node"
+            # Ghost assist cache
+            self._ghost_samples_cache = []
+            if getattr(self.master_window.main_take_settings, "ghost_assist_enabled", False):
+                self._ghost_samples_cache = self.master_window._sample_original_curve(self.model)
+
             # Natychmiastowe przyciągnięcie punktu pod kursor (podczas drag bez snapu)
             left, top, right, bottom = self._curve_rect()
             new_t = self._x_to_time(event.x, left, right)
@@ -2111,6 +2162,12 @@ class AxisSettingsDialog(tk.Toplevel):
         self.selected_index = None
         self.drag_mode = "pan"
         self.drag_anchor_x = event.x
+        
+        # Ghost assist cache for PAN
+        self._ghost_samples_cache = []
+        if getattr(self.master_window.main_take_settings, "ghost_assist_enabled", False):
+            self._ghost_samples_cache = self.master_window._sample_original_curve(self.model)
+
         self._request_curve_redraw()
         self._set_status("PAN linii.")
 
@@ -2120,6 +2177,17 @@ class AxisSettingsDialog(tk.Toplevel):
             new_t = self._x_to_time(event.x, left, right)
             new_y = self._canvas_to_logical_y(event.y, top, bottom, apply_snap=False)
             
+            # Ghost Assist logic
+            self.is_ghost_snapped = False
+            ms = self.master_window.main_take_settings
+            if getattr(ms, "ghost_assist_enabled", False) and self._ghost_samples_cache:
+                gy = self._get_ghost_y_at_time(new_t)
+                if gy is not None:
+                    threshold = getattr(ms, "ghost_assist_threshold_y", 4.0)
+                    if abs(new_y - gy) <= threshold:
+                        new_y = gy
+                        self.is_ghost_snapped = True
+
             if self.model.move_node(self.selected_index, new_t, new_y):
                 self.model._invalidate_cache()
                 self._curve_needs_redraw = True
@@ -2129,6 +2197,41 @@ class AxisSettingsDialog(tk.Toplevel):
             new_time = self._x_to_time(event.x, left, right)
             old_time = self._x_to_time(self.drag_anchor_x, left, right)
             delta = new_time - old_time
+            
+            # Ghost Assist logic for PAN (Time Snap Only)
+            self.is_ghost_snapped = False
+            ms = self.master_window.main_take_settings
+            if getattr(ms, "ghost_assist_enabled", False) and self._ghost_samples_cache and self.model.nodes:
+                threshold_y = getattr(ms, "ghost_assist_threshold_y", 4.0)
+                threshold_t = 50.0 # Progiem dla PAN w czasie może być np. 50ms
+                
+                # Szukamy czy jakikolwiek node po przesunięciu o delta trafi w ghost
+                for node in self.model.nodes:
+                    planned_t = node.time_ms + delta
+                    gy = self._get_ghost_y_at_time(planned_t)
+                    if gy is not None:
+                        # Jeśli Y jest blisko, to snapujemy w czasie do najbliższego momentu o tym samym Y na ghost?
+                        # Instrukcja mówi: "skoryguj delta_t tak, żeby node.time_ms po przesunięciu równał się ghost_node.time_ms"
+                        # Ale nie mamy bezpośrednio ghost_nodes, mamy samples. 
+                        # Jednak original_nodes są dostępne w modelu jeśli zostały zapisane.
+                        pass
+                
+                # Spróbujmy podejścia z original_nodes dla precyzyjnego snapu do węzłów
+                if hasattr(self.model, 'original_nodes') and self.model.original_nodes:
+                    best_snap_delta = None
+                    for node in self.model.nodes:
+                        planned_t = node.time_ms + delta
+                        for g_node in self.model.original_nodes:
+                            if abs(planned_t - g_node.time_ms) <= threshold_t and abs(node.y - g_node.y) <= threshold_y:
+                                # Snapujemy delta_t tak, aby node trafił dokładnie w g_node.time_ms
+                                best_snap_delta = g_node.time_ms - node.time_ms
+                                break
+                        if best_snap_delta is not None: break
+                    
+                    if best_snap_delta is not None:
+                        delta = best_snap_delta
+                        self.is_ghost_snapped = True
+
             self.drag_anchor_x = event.x
             if self.model.shift_all(delta):
                 self.model._invalidate_cache()
@@ -2137,6 +2240,7 @@ class AxisSettingsDialog(tk.Toplevel):
                 self._request_curve_redraw()
 
     def _on_curve_release(self, _event) -> None:
+        self.is_ghost_snapped = False
         if self.drag_mode == "node" and self.selected_index is not None:
             # Dopiero przy release stosujemy snap do zera
             left, top, right, bottom = self._curve_rect()
@@ -2249,6 +2353,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.protocol_cache_text = ""
         self.axis_info_cache_key = None
         self.axis_info_cache_text = ""
+        self.is_ghost_snapped = False
+        self._ghost_samples_cache = []
         self._main_canvas_needs_redraw = True
         self._take_model_dirty = False
         self._axis_info_dirty = True
@@ -2892,7 +2998,19 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                         else:
                             c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill="#D6EAF8", outline="black")
                     else:
-                        c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill=fill, outline="black")
+                        # Podświetlenie punktu jeśli jest przyciągnięty do ghosta (Main Canvas)
+                        node_fill = fill
+                        is_snapped = False
+                        if axis_index == self.drag_axis_index:
+                            if self.drag_mode == "node" and i == self.selected_index and getattr(self, "is_ghost_snapped", False):
+                                is_snapped = True
+                            elif self.drag_mode == "pan" and getattr(self, "is_ghost_snapped", False):
+                                is_snapped = True
+                        
+                        if is_snapped:
+                            node_fill = "#22C55E" # Zielony (Emerald-500)
+                        
+                        c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill=node_fill, outline="black")
 
             if model.is_release_axis and model.release_time_ms is not None:
                 inner_top = rect.top + max(12, (rect.bottom - rect.top) // 3)
@@ -2920,6 +3038,29 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._schedule_configure_refresh()
 
     @profile_method('EHR_MAIN._refresh_axis_info')
+    def _get_ghost_y_at_time(self, t_ms: int) -> float | None:
+        """
+        Zwraca wartość y ghosta (original_nodes) dla czasu t_ms na podstawie cachowanych próbek.
+        """
+        if not hasattr(self, "_ghost_samples_cache") or not self._ghost_samples_cache:
+            return None
+        
+        samples = self._ghost_samples_cache
+        if t_ms <= samples[0][0]: return samples[0][1]
+        if t_ms >= samples[-1][0]: return samples[-1][1]
+        
+        import bisect
+        idx = bisect.bisect_left(samples, (t_ms, -1e9))
+        if idx == 0: return samples[0][1]
+        if idx >= len(samples): return samples[-1][1]
+        
+        t0, y0 = samples[idx-1]
+        t1, y1 = samples[idx]
+        if t1 == t0: return y0
+        
+        frac = (t_ms - t0) / (t1 - t0)
+        return y0 + frac * (y1 - y0)
+
     def _refresh_axis_info(self, force: bool = False) -> None:
         model = self._active_model()
         self.active_axis_name_var.set(model.axis_def.axis_name)
@@ -3146,6 +3287,12 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.selected_index = node_index
             self.drag_mode = "node"
             rect = self.axis_rects[axis_index]
+            
+            # Ghost assist cache
+            self._ghost_samples_cache = []
+            if getattr(self.main_take_settings, "ghost_assist_enabled", False):
+                self._ghost_samples_cache = self._sample_original_curve(model)
+
             # Natychmiastowe przyciągnięcie punktu pod kursor (bez snapu podczas drag)
             new_t = self._x_to_time(event.x, rect.left, rect.right)
             new_y = self._canvas_to_logical_y(model, event.y, rect.top, rect.bottom, apply_snap=False)
@@ -3163,6 +3310,12 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.drag_anchor_x = event.x
         self._drag_zero_snap_locked = False
         self._drag_data_changed = False
+        
+        # Ghost assist cache for PAN
+        self._ghost_samples_cache = []
+        if getattr(self.main_take_settings, "ghost_assist_enabled", False):
+            self._ghost_samples_cache = self._sample_original_curve(model)
+
         self._request_main_canvas_redraw()
         self._set_status(f"PAN osi: {model.axis_def.axis_name}.")
 
@@ -3176,6 +3329,17 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             new_t = self._x_to_time(event.x, rect.left, rect.right)
             new_y = self._canvas_to_logical_y(model, event.y, rect.top, rect.bottom, apply_snap=False)
             
+            # Ghost Assist logic
+            self.is_ghost_snapped = False
+            ms = self.main_take_settings
+            if getattr(ms, "ghost_assist_enabled", False) and self._ghost_samples_cache:
+                gy = self._get_ghost_y_at_time(new_t)
+                if gy is not None:
+                    threshold = getattr(ms, "ghost_assist_threshold_y", 4.0)
+                    if abs(new_y - gy) <= threshold:
+                        new_y = gy
+                        self.is_ghost_snapped = True
+
             if model.move_node(self.selected_index, new_t, new_y):
                 model._invalidate_cache()
                 self._drag_data_changed = True
@@ -3189,6 +3353,28 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             new_time = self._x_to_time(event.x, rect.left, rect.right)
             old_time = self._x_to_time(self.drag_anchor_x, rect.left, rect.right)
             delta = new_time - old_time
+
+            # Ghost Assist logic for PAN (Time Snap Only)
+            self.is_ghost_snapped = False
+            ms = self.main_take_settings
+            if getattr(ms, "ghost_assist_enabled", False) and self._ghost_samples_cache and model.nodes:
+                threshold_y = getattr(ms, "ghost_assist_threshold_y", 4.0)
+                threshold_t = 50.0 # 50ms threshold
+                
+                if hasattr(model, 'original_nodes') and model.original_nodes:
+                    best_snap_delta = None
+                    for node in model.nodes:
+                        planned_t = node.time_ms + delta
+                        for g_node in model.original_nodes:
+                            if abs(planned_t - g_node.time_ms) <= threshold_t and abs(node.y - g_node.y) <= threshold_y:
+                                best_snap_delta = g_node.time_ms - node.time_ms
+                                break
+                        if best_snap_delta is not None: break
+                    
+                    if best_snap_delta is not None:
+                        delta = best_snap_delta
+                        self.is_ghost_snapped = True
+
             self.drag_anchor_x = event.x
             if model.shift_all(delta):
                 model._invalidate_cache()
@@ -3196,6 +3382,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 self._request_main_canvas_redraw()
 
     def _on_canvas_release(self, _event) -> None:
+        self.is_ghost_snapped = False
         changed_axis_index = self.drag_axis_index
         had_drag_mode = self.drag_mode is not None
         drag_data_changed = self._drag_data_changed

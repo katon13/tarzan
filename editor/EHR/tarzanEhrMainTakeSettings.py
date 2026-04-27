@@ -45,6 +45,8 @@ class MainTakeSettings:
     ghost_line_width: int = 1
     ghost_line_dash_on: int = 4
     ghost_line_dash_off: int = 4
+    ghost_assist_enabled: bool = False
+    ghost_assist_threshold_y: float = 4.0
 
     def clamp(self) -> None:
         self.take_duration_minutes = max(0.1, min(240.0, float(self.take_duration_minutes)))
@@ -60,6 +62,7 @@ class MainTakeSettings:
         self.ghost_line_width = max(1, min(5, int(self.ghost_line_width)))
         self.ghost_line_dash_on = max(1, min(20, int(self.ghost_line_dash_on)))
         self.ghost_line_dash_off = max(1, min(20, int(self.ghost_line_dash_off)))
+        self.ghost_assist_threshold_y = max(0.1, min(50.0, float(self.ghost_assist_threshold_y)))
         merged = dict(DEFAULT_AXIS_COLORS)
         raw = dict(self.axis_color_overrides or {})
         for key, default in DEFAULT_AXIS_COLORS.items():

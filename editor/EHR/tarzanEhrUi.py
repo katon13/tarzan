@@ -2699,6 +2699,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.global_take_duration_ms = new_take_ms
         for axis in self.axis_models:
             axis.set_axis_take_duration_ms(new_take_ms)
+            # set_axis_take_duration_ms wywołuje sort_and_fix_nodes() wewnętrznie
         self._apply_visibility_settings()
         self.protocol_cache_key = None
         self.axis_info_cache_key = None
@@ -3097,7 +3098,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                     c.create_line(px, rect.top, px, rect.bottom, fill="#303842", dash=(2, 6), tags=(axis_tag, "minute_grid"))
 
             if not model.is_release_axis:
-                model.sort_and_fix_nodes()
                 if self.main_take_settings.show_axis_activity_markers and len(model.nodes) >= 4:
                     first_edit = model.nodes[1]
                     last_edit = model.nodes[-2]
@@ -3784,7 +3784,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if loaded_duration and loaded_duration != self.global_take_duration_ms:
             self.global_take_duration_ms = loaded_duration
         
-        # Wyczyść cache ghostów po załadowaniu
+        # load_take_txt() wywołuje sort_and_fix_nodes() dla wszystkich osi,
+        # więc tutaj tylko czyścimy cache i markujemy UI.
         for axis in self.axis_models:
             axis._invalidate_cache()
             if hasattr(axis, "_ghost_cache"):

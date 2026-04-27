@@ -1407,12 +1407,14 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
+        self._nodes_dirty = True
         self._curve_redraw_after_id = None
+        self._step_tuning_after_id = None
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self._build_ui()
         self.update()
-        self._refresh_all()
+        self._refresh_all(reason="INIT")
         self.grab_set()
 
     def _build_ui(self) -> None:
@@ -1658,16 +1660,23 @@ class AxisSettingsDialog(tk.Toplevel):
         self.model.sandbox.mouse_y_precision = float(self.mouse_y_precision.get())
         self.model.sandbox.top_bottom_margin = int(self.top_bottom_margin.get())
         self._curve_needs_redraw = True
-        self._refresh_all("Zastosowano ustawienia osi.")
-        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
+        self._refresh_curve_only("Zastosowano ustawienia wizualne (tylko krzywa).")
+        self._mark_main_take_dirty("Ustawienia wizualne osi zmienione.")
 
     def _apply_step_tuning_live(self) -> None:
+        if self._step_tuning_after_id is not None:
+            self.after_cancel(self._step_tuning_after_id)
+        self._step_tuning_after_id = self.after(100, self._flush_step_tuning_live)
+
+    def _flush_step_tuning_live(self) -> None:
+        self._step_tuning_after_id = None
         self.model.set_step_tuning(self._read_step_tuning_from_ui())
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all("Zastosowano strojenie STEP.")
+        self._nodes_dirty = True
+        self._refresh_all("Zastosowano strojenie STEP.", reason="STEP_TUNING_LIVE")
         self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _apply_mechanics_preset(self) -> None:
@@ -1678,7 +1687,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")
+        self._nodes_dirty = True
+        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.", reason="MECHANICS_PRESET")
         self._mark_main_take_dirty(f"Mechanika osi gotowa. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE: {mechanics.axis_name}.")
 
 
@@ -1726,6 +1736,7 @@ class AxisSettingsDialog(tk.Toplevel):
         tuning.clamp()
         self._write_step_tuning_to_ui(tuning)
         self.model.set_step_tuning(tuning)
+        self._nodes_dirty = True
 
         mechanics_data = dict(data.get("mechanics") or {})
         if mechanics_data:
@@ -1771,7 +1782,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all(f"Wczytano ustawienia osi: {path}")
+        self._refresh_all(f"Wczytano ustawienia osi: {path}", reason="LOAD_JSON")
         self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _save_tuning_txt(self) -> None:
@@ -1808,7 +1819,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all(f"Wczytano preset TXT: {path}")
+        self._refresh_all(f"Wczytano preset TXT: {path}", reason="LOAD_TUNING_TXT")
         self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _reset_step_tuning(self) -> None:
@@ -1819,7 +1830,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all("Przywrócono domyślne parametry STEP.")
+        self._nodes_dirty = True
+        self._refresh_all("Przywrócono domyślne parametry STEP.", reason="RESET_STEP_TUNING")
         self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _sinus_test(self) -> None:
@@ -1829,7 +1841,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all("Sinus test ustawiony.")
+        self._nodes_dirty = True
+        self._refresh_all("Sinus test ustawiony.", reason="TEST_SINUS")
         self._mark_main_take_dirty("Sinus test gotowy lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _negative_test(self) -> None:
@@ -1839,7 +1852,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all("Negative test ustawiony.")
+        self._nodes_dirty = True
+        self._refresh_all("Negative test ustawiony.", reason="TEST_NEGATIVE")
         self._mark_main_take_dirty("Negative test gotowy lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _zero_cross_test(self) -> None:
@@ -1849,7 +1863,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all("Zero cross test ustawiony.")
+        self._nodes_dirty = True
+        self._refresh_all("Zero cross test ustawiony.", reason="TEST_ZERO_CROSS")
         self._mark_main_take_dirty("Zero cross test gotowy lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _flat_zero(self) -> None:
@@ -1859,7 +1874,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all("Linia wyzerowana.")
+        self._nodes_dirty = True
+        self._refresh_all("Linia wyzerowana.", reason="TEST_FLAT_ZERO")
         self._mark_main_take_dirty("Linia osi wyzerowana lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _reset_nodes(self) -> None:
@@ -1868,7 +1884,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all("Przywrócono ostatni stan bazowy.")
+        self._nodes_dirty = True
+        self._refresh_all("Przywrócono ostatni stan bazowy.", reason="RESET_NODES")
         self._mark_main_take_dirty("Stan bazowy osi przywrócony lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _refresh_metrics(self) -> None:
@@ -2018,19 +2035,44 @@ class AxisSettingsDialog(tk.Toplevel):
             return 0.0
         return value
 
-    @profile_method('EHR_AXIS_DIALOG._refresh_all')
-    def _refresh_all(self, status: str | None = None) -> None:
-        if self._curve_needs_redraw or self._step_needs_redraw or self._metrics_cache_key is None:
-            # Sortujemy tylko wtedy, gdy dane faktycznie się zmieniły
-            if self._curve_needs_redraw or self._step_needs_redraw:
-                self.model.sort_and_fix_nodes()
-            self._refresh_metrics()
+    def _refresh_metrics_only(self) -> None:
+        self._refresh_metrics()
+
+    def _refresh_curve_only(self, status: str | None = None) -> None:
         if self._curve_needs_redraw:
+            if self._nodes_dirty:
+                self.model.sort_and_fix_nodes()
+                self._nodes_dirty = False
             self._draw_curve()
             self._curve_needs_redraw = False
+        if status is not None:
+            self._set_status(status)
+
+    def _refresh_step_only(self, status: str | None = None) -> None:
         if self._step_needs_redraw:
             self._draw_step()
             self._step_needs_redraw = False
+        if status is not None:
+            self._set_status(status)
+
+    @profile_method('EHR_AXIS_DIALOG._refresh_all')
+    def _refresh_all(self, status: str | None = None, reason: str = "unknown") -> None:
+        print(f"AXIS FULL REFRESH from: {reason}")
+        if self._nodes_dirty:
+            self.model.sort_and_fix_nodes()
+            self._nodes_dirty = False
+
+        if self._metrics_cache_key is None:
+            self._refresh_metrics()
+
+        if self._curve_needs_redraw:
+            self._draw_curve()
+            self._curve_needs_redraw = False
+
+        if self._step_needs_redraw:
+            self._draw_step()
+            self._step_needs_redraw = False
+
         if status is not None:
             self._set_status(status)
 
@@ -2076,8 +2118,9 @@ class AxisSettingsDialog(tk.Toplevel):
             threshold_ms = self.model.sample_ms * tuning.time_drag_threshold_samples
             new_t = self.drag_anchor_node_time if abs(delta_t) < threshold_ms else self.drag_anchor_node_time + delta_t
             if self.model.move_node(self.selected_index, new_t, new_y):
+                self.model._invalidate_cache()
                 self._curve_needs_redraw = True
-                self._step_needs_redraw = True
+                self._nodes_dirty = True
                 self._request_curve_redraw()
         elif self.drag_mode == "pan":
             new_time = self._x_to_time(event.x, left, right)
@@ -2085,8 +2128,9 @@ class AxisSettingsDialog(tk.Toplevel):
             delta = new_time - old_time
             self.drag_anchor_x = event.x
             if self.model.shift_all(delta):
+                self.model._invalidate_cache()
                 self._curve_needs_redraw = True
-                self._step_needs_redraw = True
+                self._nodes_dirty = True
                 self._request_curve_redraw()
 
     def _on_curve_release(self, _event) -> None:
@@ -2098,7 +2142,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all("Gotowy.")
+        self._refresh_all("Gotowy.", reason="CURVE_RELEASE")
         self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _on_curve_double_click(self, event) -> None:
@@ -2110,7 +2154,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all("Dodano punkt.")
+        self._nodes_dirty = True
+        self._refresh_all("Dodano punkt.", reason="DOUBLE_CLICK_ADD")
         self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _on_curve_right_click(self, event) -> None:
@@ -2123,7 +2168,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all("Usunięto punkt.")
+        self._nodes_dirty = True
+        self._refresh_all("Usunięto punkt.", reason="RIGHT_CLICK_REMOVE")
         self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _on_close(self) -> None:
@@ -2811,6 +2857,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                         smooth=True,
                     )
 
+                model.sort_and_fix_nodes()
                 samples = model.sample_curve(self._main_curve_sample_count(), duration_ms=self.global_take_duration_ms)
                 pts = []
                 for t_ms, y in samples:
@@ -3118,6 +3165,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             threshold_ms = model.sample_ms * model.step_tuning.time_drag_threshold_samples
             new_t = self.drag_anchor_node_time if abs(delta_t) < threshold_ms else self.drag_anchor_node_time + delta_t
             if model.move_node(self.selected_index, new_t, new_y):
+                model._invalidate_cache()
                 self._drag_data_changed = True
                 self._request_main_canvas_redraw()
         elif self.drag_mode == "release":
@@ -3131,6 +3179,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             delta = new_time - old_time
             self.drag_anchor_x = event.x
             if model.shift_all(delta):
+                model._invalidate_cache()
                 self._drag_data_changed = True
                 self._request_main_canvas_redraw()
 

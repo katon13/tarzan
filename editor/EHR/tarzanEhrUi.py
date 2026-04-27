@@ -1600,14 +1600,17 @@ class AxisSettingsDialog(tk.Toplevel):
         usable = (bottom - top) / 2.0 - float(self.model.sandbox.top_bottom_margin)
         return mid - (operator_y / operator_range) * usable
 
-    def _canvas_to_logical_y(self, py: float, top: int, bottom: int) -> float:
+    def _canvas_to_logical_y(self, py: float, top: int, bottom: int, apply_snap: bool = True) -> float:
         operator_range = max(200.0, float(self.model.sandbox.display_y_scale))
         logical_limit = max(1.0, float(self.model.config.y_limit))
         mid = (top + bottom) / 2.0
         usable = (bottom - top) / 2.0 - float(self.model.sandbox.top_bottom_margin)
         operator_y = ((mid - py) / max(1.0, usable)) * operator_range
         logical_y = operator_y * (logical_limit / operator_range)
-        return self.model.apply_zero_snap(self.master_window.main_take_settings, self.model.clamp_y(logical_y))
+        logical_y = self.model.clamp_y(logical_y)
+        if apply_snap:
+            return self.model.apply_zero_snap(self.master_window.main_take_settings, logical_y)
+        return logical_y
 
     def _drag_delta_to_logical_y(self, delta_py: float, top: int, bottom: int) -> float:
         logical_limit = max(1.0, float(self.model.config.y_limit))
@@ -1951,14 +1954,14 @@ class AxisSettingsDialog(tk.Toplevel):
             for t, y in ghost_samples:
                 ghost_pts.extend([self._time_to_x(t, left, right), self._logical_y_to_canvas(y, top, bottom)])
             if len(ghost_pts) >= 4:
-                c.create_line(*ghost_pts, fill="#EAB308", width=1, dash=(4, 4), smooth=True)
+                c.create_line(*ghost_pts, fill="#EAB308", width=1, dash=(4, 4), smooth=False)
 
         samples = self.model.sample_curve(1000, duration_ms=self.master_window.global_take_duration_ms)
         pts = []
         for t, y in samples:
             pts.extend([self._time_to_x(t, left, right), self._logical_y_to_canvas(y, top, bottom)])
         if len(pts) >= 4:
-            c.create_line(*pts, fill=self.master_window.CURVE, width=self.master_window.main_take_settings.curve_line_width, smooth=True)
+            c.create_line(*pts, fill=self.master_window.CURVE, width=self.master_window.main_take_settings.curve_line_width, smooth=False)
 
         hit_radius = self.model.step_tuning.node_hit_radius_px
         r = max(4, min(10, hit_radius // 2))
@@ -2090,16 +2093,14 @@ class AxisSettingsDialog(tk.Toplevel):
         return None
 
     def _on_curve_press(self, event) -> None:
-        # Zwykłe naciśnięcie nie aktualizuje ghosta. 
-        # Ghost zostaje stabilny jako ostatni stan ZAPISANY.
         idx = self._hit_node(event.x, event.y)
         if idx is not None:
             self.selected_index = idx
             self.drag_mode = "node"
-            # Natychmiastowe przyciągnięcie punktu pod kursor
+            # Natychmiastowe przyciągnięcie punktu pod kursor (podczas drag bez snapu)
             left, top, right, bottom = self._curve_rect()
             new_t = self._x_to_time(event.x, left, right)
-            new_y = self._canvas_to_logical_y(event.y, top, bottom)
+            new_y = self._canvas_to_logical_y(event.y, top, bottom, apply_snap=False)
             self.model.move_node(self.selected_index, new_t, new_y)
             
             self.drag_anchor_x = event.x
@@ -2117,7 +2118,7 @@ class AxisSettingsDialog(tk.Toplevel):
         left, top, right, bottom = self._curve_rect()
         if self.drag_mode == "node" and self.selected_index is not None:
             new_t = self._x_to_time(event.x, left, right)
-            new_y = self._canvas_to_logical_y(event.y, top, bottom)
+            new_y = self._canvas_to_logical_y(event.y, top, bottom, apply_snap=False)
             
             if self.model.move_node(self.selected_index, new_t, new_y):
                 self.model._invalidate_cache()
@@ -2136,6 +2137,14 @@ class AxisSettingsDialog(tk.Toplevel):
                 self._request_curve_redraw()
 
     def _on_curve_release(self, _event) -> None:
+        if self.drag_mode == "node" and self.selected_index is not None:
+            # Dopiero przy release stosujemy snap do zera
+            left, top, right, bottom = self._curve_rect()
+            node = self.model.nodes[self.selected_index]
+            final_y = self.model.apply_zero_snap(self.master_window.main_take_settings, node.y)
+            if self.model.move_node(self.selected_index, node.time_ms, final_y):
+                self.model._invalidate_cache()
+
         self.drag_mode = None
         self.drag_anchor_x = 0
         self.drag_anchor_y = 0
@@ -2553,7 +2562,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         usable = (bottom - top) / 2.0 - float(model.sandbox.top_bottom_margin)
         return mid - (operator_y / operator_range) * usable
 
-    def _canvas_to_logical_y(self, model: AxisCurveModel, py: float, top: int, bottom: int) -> float:
+    def _canvas_to_logical_y(self, model: AxisCurveModel, py: float, top: int, bottom: int, apply_snap: bool = True) -> float:
         operator_range = max(200.0, float(model.sandbox.display_y_scale))
         logical_limit = max(1.0, float(model.config.y_limit))
         mid = (top + bottom) / 2.0
@@ -2561,7 +2570,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         operator_y = ((mid - py) / max(1.0, usable)) * operator_range
         logical_y = operator_y * (logical_limit / operator_range)
         logical_y = max(-logical_limit, min(logical_limit, logical_y))
-        return model.apply_zero_snap(self.main_take_settings, logical_y)
+        if apply_snap:
+            return model.apply_zero_snap(self.main_take_settings, logical_y)
+        return logical_y
 
     def _drag_delta_to_logical_y(self, model: AxisCurveModel, delta_py: float, top: int, bottom: int) -> float:
         logical_limit = max(1.0, float(model.config.y_limit))
@@ -2855,7 +2866,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                         *ghost_pts,
                         fill="#64748B",
                         width=1,
-                        smooth=True,
+                        smooth=False,
                     )
 
                 model.sort_and_fix_nodes()
@@ -2867,7 +2878,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 if len(pts) >= 4:
                     c.create_line(*pts, fill=axis_color,
                                   width=self.main_take_settings.active_curve_line_width if is_active else self.main_take_settings.curve_line_width,
-                                  smooth=True)
+                                  smooth=False)
 
                 node_r = max(4, min(9, model.step_tuning.node_hit_radius_px // 2))
                 square_half = max(5, node_r)
@@ -3134,14 +3145,17 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.drag_axis_index = axis_index
             self.selected_index = node_index
             self.drag_mode = "node"
+            rect = self.axis_rects[axis_index]
+            # Natychmiastowe przyciągnięcie punktu pod kursor (bez snapu podczas drag)
+            new_t = self._x_to_time(event.x, rect.left, rect.right)
+            new_y = self._canvas_to_logical_y(model, event.y, rect.top, rect.bottom, apply_snap=False)
+            model.move_node(self.selected_index, new_t, new_y)
+            
             self.drag_anchor_x = event.x
             self.drag_anchor_y = event.y
-            self.drag_anchor_node_time = int(model.nodes[node_index].time_ms)
-            self.drag_anchor_node_y = float(model.nodes[node_index].y)
-            self._drag_zero_snap_locked = abs(self.drag_anchor_node_y) <= 1e-9
-            self._drag_data_changed = False
+            self._drag_data_changed = True
             self._request_main_canvas_redraw()
-            self._set_status(f"Wybrano punkt osi: {model.axis_def.axis_name}.")
+            self._set_status(f"Wybrano punkt osi: {model.axis_def.axis_name} i przyciągnięto do kursora.")
             return
         self.drag_axis_index = axis_index
         self.selected_index = None
@@ -3159,12 +3173,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         model = self.axis_models[axis_index]
         rect = self.axis_rects[axis_index]
         if self.drag_mode == "node" and self.selected_index is not None:
-            delta_y = self.drag_anchor_y - event.y
-            new_y = self.drag_anchor_node_y + self._drag_delta_to_logical_y(model, delta_y, rect.top, rect.bottom)
-            new_y = self._apply_drag_zero_snap(model, new_y)
-            delta_t = self._x_to_time(event.x, rect.left, rect.right) - self._x_to_time(self.drag_anchor_x, rect.left, rect.right)
-            threshold_ms = model.sample_ms * model.step_tuning.time_drag_threshold_samples
-            new_t = self.drag_anchor_node_time if abs(delta_t) < threshold_ms else self.drag_anchor_node_time + delta_t
+            new_t = self._x_to_time(event.x, rect.left, rect.right)
+            new_y = self._canvas_to_logical_y(model, event.y, rect.top, rect.bottom, apply_snap=False)
+            
             if model.move_node(self.selected_index, new_t, new_y):
                 model._invalidate_cache()
                 self._drag_data_changed = True
@@ -3188,6 +3199,16 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         changed_axis_index = self.drag_axis_index
         had_drag_mode = self.drag_mode is not None
         drag_data_changed = self._drag_data_changed
+
+        if had_drag_mode and changed_axis_index is not None and self.drag_mode == "node" and self.selected_index is not None:
+            model = self.axis_models[changed_axis_index]
+            node = model.nodes[self.selected_index]
+            # Dopiero przy release stosujemy snap do zera
+            final_y = model.apply_zero_snap(self.main_take_settings, node.y)
+            if model.move_node(self.selected_index, node.time_ms, final_y):
+                model._invalidate_cache()
+                drag_data_changed = True
+
         self.drag_axis_index = None
         self.selected_index = None
         self.drag_mode = None

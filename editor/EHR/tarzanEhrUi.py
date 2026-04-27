@@ -1060,6 +1060,14 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
                 self._set_status(f"TAKE {vm.take_number} zmieniony. SAVE ponownie wymagany.")
                 break
 
+    def force_reload_slots_from_json(self) -> None:
+        """Przeładowuje dane slotów z JSON i odświeża widok (bez pełnej przebudowy layoutu)."""
+        self.store = SlotStore.load_or_default(SLOTS_JSON_PATH)
+        self.slot_models = self._build_models()
+        for index, widget in enumerate(self.slot_widgets):
+            widget.set_vm(self.slot_models[index])
+        self._set_status("Lista TAKE została odświeżona.")
+
     def force_reload_layout_from_json(self) -> None:
         """Przeładowuje layout z JSON i przebudowuje widok."""
         self.ui = UiSettings.load_or_default(UI_JSON_PATH)
@@ -2200,6 +2208,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         tk.Button(top, text="⚙", command=self._open_take_settings, bg="#39424E", fg=self.FG,
                   activebackground="#39424E", activeforeground=self.FG, relief="flat", bd=0, padx=10, pady=4,
                   font=("Segoe UI Symbol", 12), cursor="hand2").pack(side="left", padx=(8, 0))
+        tk.Button(top, text="CLEAR TAKE", command=self._clear_take_slots_click, bg="#DC2626", fg="white",
+                  activebackground="#DC2626", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
+                  font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
         tk.Button(top, text="TAKE", command=self._on_toggle_take_btn_click, bg="#2563EB", fg="white",
                   activebackground="#2563EB", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
                   font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
@@ -3192,6 +3203,17 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if not path:
             return
         self._load_take_from_path(Path(path))
+
+    def _clear_take_slots_click(self) -> None:
+        """Handler przycisku CLEAR TAKE — czyści listę slotów w JSON."""
+        try:
+            SLOTS_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
+            SLOTS_JSON_PATH.write_text("{}", encoding="utf-8")
+            if self.take_widget:
+                self.take_widget.force_reload_slots_from_json()
+            self._set_status("Wyczyszczono listę TAKE.")
+        except Exception as exc:
+            print(f"ERROR: Błąd podczas czyszczenia TAKE: {exc}")
 
 
 

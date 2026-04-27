@@ -1,19 +1,19 @@
 {
   "slots": [
     {
+      "path": null
+    },
+    {
+      "path": null
+    },
+    {
+      "path": null
+    },
+    {
+      "path": null
+    },
+    {
       "path": "data/protokoly/TAKE_001_v01.txt"
-    },
-    {
-      "path": "data/take/TAKE_002_v03.txt"
-    },
-    {
-      "path": "data/take/TAKE_001_v09.txt"
-    },
-    {
-      "path": "data/take/TAKE_002_v04.txt"
-    },
-    {
-      "path": "X:/data/take/TAKE_001_v10.txt"
     },
     {
       "path": "data/take/TAKE_001_v04.txt"

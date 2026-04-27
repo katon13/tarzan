@@ -1650,10 +1650,13 @@ class AxisSettingsDialog(tk.Toplevel):
         return data_dir
 
     def _mark_main_take_dirty(self, status: str | None = None) -> None:
-        self.master_window.mark_axis_dirty(self.axis_index, status=status)
+        self.master_window.mark_axis_dirty(self.axis_index, status=status, redraw=False)
 
     def _apply_to_main_take(self) -> None:
         self.master_window.sync_axis_from_dialog(self.axis_index, status=f"Zaktualizowano MAIN TAKE z osi: {self.model.axis_def.axis_name}.")
+        # Po SET UP (apply_to_main_take) musimy wymusić odświeżenie wszystkiego
+        self.master_window._main_canvas_needs_redraw = True
+        self.master_window._refresh_all(light=False)
 
     def _apply_visual_settings(self) -> None:
         self.model.sandbox.display_y_scale = float(self.display_y_scale.get())
@@ -2093,13 +2096,16 @@ class AxisSettingsDialog(tk.Toplevel):
         if idx is not None:
             self.selected_index = idx
             self.drag_mode = "node"
+            # Natychmiastowe przyciągnięcie punktu pod kursor
+            left, top, right, bottom = self._curve_rect()
+            new_t = self._x_to_time(event.x, left, right)
+            new_y = self._canvas_to_logical_y(event.y, top, bottom)
+            self.model.move_node(self.selected_index, new_t, new_y)
+            
             self.drag_anchor_x = event.x
             self.drag_anchor_y = event.y
-            self.drag_anchor_node_time = int(self.model.nodes[idx].time_ms)
-            self.drag_anchor_node_y = float(self.model.nodes[idx].y)
-            self._drag_zero_snap_locked = abs(self.drag_anchor_node_y) <= 1e-9
             self._request_curve_redraw()
-            self._set_status(f"Wybrano punkt {idx}.")
+            self._set_status(f"Wybrano punkt {idx} i przyciągnięto do kursora.")
             return
         self.selected_index = None
         self.drag_mode = "pan"
@@ -2109,14 +2115,10 @@ class AxisSettingsDialog(tk.Toplevel):
 
     def _on_curve_drag(self, event) -> None:
         left, top, right, bottom = self._curve_rect()
-        tuning = self.model.step_tuning
         if self.drag_mode == "node" and self.selected_index is not None:
-            delta_y = self.drag_anchor_y - event.y
-            new_y = self.drag_anchor_node_y + self._drag_delta_to_logical_y(delta_y, top, bottom)
-            new_y = self._apply_drag_zero_snap(new_y)
-            delta_t = self._x_to_time(event.x, left, right) - self._x_to_time(self.drag_anchor_x, left, right)
-            threshold_ms = self.model.sample_ms * tuning.time_drag_threshold_samples
-            new_t = self.drag_anchor_node_time if abs(delta_t) < threshold_ms else self.drag_anchor_node_time + delta_t
+            new_t = self._x_to_time(event.x, left, right)
+            new_y = self._canvas_to_logical_y(event.y, top, bottom)
+            
             if self.model.move_node(self.selected_index, new_t, new_y):
                 self.model._invalidate_cache()
                 self._curve_needs_redraw = True
@@ -2137,7 +2139,6 @@ class AxisSettingsDialog(tk.Toplevel):
         self.drag_mode = None
         self.drag_anchor_x = 0
         self.drag_anchor_y = 0
-        self._drag_zero_snap_locked = False
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._metrics_cache_key = None
@@ -2173,7 +2174,10 @@ class AxisSettingsDialog(tk.Toplevel):
         self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _on_close(self) -> None:
+        # Pełna synchronizacja przy zamykaniu
         self.master_window.sync_axis_from_dialog(self.axis_index, status=f"Zamknięto edytor osi i zsynchronizowano MAIN TAKE: {self.model.axis_def.axis_name}.")
+        self.master_window._main_canvas_needs_redraw = True
+        self.master_window._refresh_all(light=False)
         self.master_window.settings_dialogs.pop(self.axis_index, None)
         self.destroy()
 
@@ -2417,7 +2421,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._main_canvas_needs_redraw = True
         return True
 
-    def _mark_axis_data_changed(self, axis_index: int, *, mark_take_model: bool = False, mark_protocol: bool = True, mark_axis_info: bool = True) -> None:
+    def _mark_axis_data_changed(self, axis_index: int, *, mark_take_model: bool = False, mark_protocol: bool = True, mark_axis_info: bool = True, notify_ui: bool = True) -> None:
         self._bump_axis_data_version(axis_index)
         if mark_take_model:
             self._mark_take_model_dirty()
@@ -2426,22 +2430,19 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 self._mark_protocol_dirty()
             if mark_axis_info:
                 self._mark_axis_metrics_dirty()
-        if self.take_widget is not None:
-            try:
-                self.take_widget.notify_active_take_modified()
-            except Exception:
-                pass
-        if self.take_widget is not None:
+        if notify_ui and self.take_widget is not None:
             try:
                 self.take_widget.notify_active_take_modified()
             except Exception:
                 pass
 
-    def mark_axis_dirty(self, axis_index: int, status: str | None = None) -> None:
+    def mark_axis_dirty(self, axis_index: int, status: str | None = None, redraw: bool = True) -> None:
         self.dirty_axis_indices.add(axis_index)
-        self._mark_axis_data_changed(axis_index)
+        self._mark_axis_data_changed(axis_index, mark_protocol=redraw, mark_axis_info=redraw, notify_ui=redraw)
+        if redraw:
+            self._request_main_canvas_redraw()
+            self._set_status(status or f"Oś zmieniona lokalnie: {self.axis_models[axis_index].axis_def.axis_name}.")
         self._configure_after_id = None
-        self._set_status(status or f"Oś zmieniona lokalnie: {self.axis_models[axis_index].axis_def.axis_name}.")
 
     def _rebuild_take_model(self) -> None:
         self.take_model = EhrTakeModel.from_runtime(self.global_take_duration_ms, self.main_take_settings, self.axis_models)

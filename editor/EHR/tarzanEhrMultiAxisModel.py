@@ -272,22 +272,48 @@ class AxisCurveModel:
         step = self.sample_ms
         return int(round(float(value_ms) / step) * step)
 
-    def sort_and_fix_nodes(self) -> None:
-        self.nodes.sort(key=lambda n: n.time_ms)
+    def sort_and_fix_nodes(self, moving_index: int | None = None) -> None:
         if not self.nodes:
             self.nodes = [AxisNode(0, 0.0), AxisNode(self.take_duration_ms, 0.0)]
             return
+
+        # Zapamiętujemy oryginalny czas przesuwane punktu, jeśli podano
+        moving_original_t = None
+        if moving_index is not None and 0 < moving_index < len(self.nodes) - 1:
+            moving_original_t = self.nodes[moving_index].time_ms
+
+        self.nodes.sort(key=lambda n: n.time_ms)
+        
+        # Jeśli sortowanie zmieniło index przesuwane punktu, musimy go znaleźć ponownie
+        if moving_original_t is not None:
+            # Szukamy punktu o tym samym czasie (zakładamy brak duplikatów przed sortowaniem lub stabilność)
+            for i, n in enumerate(self.nodes):
+                if 0 < i < len(self.nodes) - 1 and n.time_ms == moving_original_t:
+                    moving_index = i
+                    break
+
         self.nodes[0].time_ms = 0
         self.nodes[0].y = 0.0
         self.nodes[-1].time_ms = self.take_duration_ms
         self.nodes[-1].y = 0.0
+        
         min_gap = self.config.min_node_gap_ms
+        
+        # Przebieg w prawo: ograniczamy punkty przez ich lewych sąsiadów
         for i in range(1, len(self.nodes) - 1):
-            left = self.nodes[i - 1].time_ms + min_gap
-            right = self.nodes[i + 1].time_ms - min_gap if i + 1 < len(self.nodes) else self.take_duration_ms
+            left_limit = self.nodes[i - 1].time_ms + min_gap
+            if self.nodes[i].time_ms < left_limit:
+                self.nodes[i].time_ms = left_limit
             self.nodes[i].time_ms = self.snap_time(self.nodes[i].time_ms)
-            self.nodes[i].time_ms = max(left, min(right, self.nodes[i].time_ms))
             self.nodes[i].y = self.clamp_y(self.nodes[i].y)
+
+        # Przebieg w lewo: ograniczamy punkty przez ich prawych sąsiadów
+        # ale NIE przesuwamy punktu, który jest aktualnie przeciągany, jeśli to możliwe
+        for i in range(len(self.nodes) - 2, 0, -1):
+            right_limit = self.nodes[i + 1].time_ms - min_gap
+            if self.nodes[i].time_ms > right_limit:
+                self.nodes[i].time_ms = right_limit
+            self.nodes[i].time_ms = self.snap_time(self.nodes[i].time_ms)
 
     def add_node(self, time_ms: int, y: float) -> None:
         self.nodes.append(AxisNode(self.snap_time(time_ms), self.clamp_y(y)))
@@ -316,10 +342,9 @@ class AxisCurveModel:
         changed = (node.time_ms != old_time) or (abs(node.y - old_y) > 1e-9)
         if not changed:
             return False
-        self.sort_and_fix_nodes()
-        changed_after = (self.nodes[index].time_ms != old_time) or (abs(self.nodes[index].y - old_y) > 1e-9)
-        if not changed_after:
-            return False
+        self.sort_and_fix_nodes(moving_index=index)
+        # Po sortowaniu index mógł się zmienić, ale dla prostoty sprawdzamy czy cokolwiek się zmieniło
+        # lub czy punkt o docelowym czasie/y istnieje.
         self._invalidate_cache()
         return True
 

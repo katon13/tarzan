@@ -1,22 +1,22 @@
 {
   "slots": [
     {
-      "path": "data/take/TAKE_002_v10.txt"
+      "path": "data/protokoly/TAKE_001_v01.txt"
     },
     {
-      "path": "data/take/TAKE_001_v14.txt"
+      "path": "data/take/TAKE_002_v03.txt"
     },
     {
-      "path": "data/take/TAKE_001_v06.txt"
+      "path": "data/take/TAKE_001_v09.txt"
     },
     {
-      "path": null
+      "path": "data/take/TAKE_002_v04.txt"
     },
     {
-      "path": null
+      "path": "X:/data/take/TAKE_001_v10.txt"
     },
     {
-      "path": null
+      "path": "data/take/TAKE_001_v04.txt"
     },
     {
       "path": null
@@ -31,5 +31,5 @@
       "path": null
     }
   ],
-  "active_slot": 1
+  "active_slot": 5
 }

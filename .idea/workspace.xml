@@ -7,14 +7,19 @@
     <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v02.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/ehr/take_protocol_ui_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/take_protocol_ui_settings.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v03.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v03.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v04.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v04.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v05.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v05.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v06.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v06.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v07.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v07.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v08.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v08.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v09.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v09.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/EHR/TarzanTakeProtocolLight.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/TarzanTakeProtocolLight.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrApp.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrApp.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrMultiAxisModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrMultiAxisModel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrMainTakeSettingsDialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrMainTakeSettingsDialog.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/tarzanEHR.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/tarzanEHR.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tarazan.zip" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -105,6 +110,28 @@
   }
 }</component>
   <component name="RunManager" selected="Python.tarzanEHR">
+    <configuration name="TarzanEhrTakeSandbox" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="tarzan" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/TarzanEhrTakeSandbox.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="TarzanTakeProtocolLight (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
@@ -127,7 +154,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="TarzanTakeProtocolLight" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="tarzanAxisSandbox" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -140,7 +167,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/TarzanTakeProtocolLight.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/tarzanAxisSandbox.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -193,35 +220,13 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="tarzanTakeTXT" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="tarzan" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor/EHR" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/EHR/tarzanTakeTXT.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <recent_temporary>
       <list>
         <item itemvalue="Python.tarzanEHR" />
-        <item itemvalue="Python.tarzanEhrMultiAxisModel" />
-        <item itemvalue="Python.TarzanTakeProtocolLight" />
+        <item itemvalue="Python.TarzanEhrTakeSandbox" />
         <item itemvalue="Python.TarzanTakeProtocolLight (1)" />
-        <item itemvalue="Python.tarzanTakeTXT" />
+        <item itemvalue="Python.tarzanAxisSandbox" />
+        <item itemvalue="Python.tarzanEhrMultiAxisModel" />
       </list>
     </recent_temporary>
   </component>

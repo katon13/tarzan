@@ -1,11 +1,10 @@
 {
-  "top_margin": 10,
-  "row_pad_x": 10
-  "protocol_title_y": 70,
-  "protocol_height": 290,
-  "row_center_y": 85,
-  "protocol_inner_pad_x": 12,
+  "top_margin": 2,
   "row_pad_x": 0,
+  "protocol_title_y": 0,
+  "protocol_height": 168,
+  "row_center_y": 0,
+  "protocol_inner_pad_x": 0,
   "icon_width": 167,
   "icon_height": 168,
   "number_x": 62,

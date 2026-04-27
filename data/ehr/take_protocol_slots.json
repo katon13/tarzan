@@ -4,13 +4,13 @@
       "path": "data/take/TAKE_001_v01.txt"
     },
     {
-      "path": "data/take/TAKE_001_v11.txt"
+      "path": "data/take/TAKE_001_v13.txt"
     },
     {
-      "path": "data/take/TAKE_001_v09.txt"
+      "path": "data/take/TAKE_001_v12.txt"
     },
     {
-      "path": "data/take/TAKE_001_v33.txt"
+      "path": "data/take/TAKE_001_v37.txt"
     },
     {
       "path": "data/take/TAKE_001_v42.txt"
@@ -31,11 +31,11 @@
       "path": null
     }
   ],
-  "active_slot": 4,
+  "active_slot": 3,
   "axis_activity": {
     "oś pozioma kamery": true,
     "oś pionowa kamery": true,
-    "oś pochyłu kamery": false,
+    "oś pochyłu kamery": true,
     "oś ostrości kamery": true,
     "oś pionowa ramienia": true,
     "oś pozioma ramienia": true,

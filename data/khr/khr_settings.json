@@ -1,0 +1,77 @@
+{
+  "active_profile": "CINEMA",
+  "axis_name": "oś pozioma kamery",
+  "sample_time_ms": 10,
+  "profiles": {
+    "CINEMA": {
+      "description": "Miękkie filmowe podążanie. Duża stabilność, wolniejsza reakcja.",
+      "gain": 0.0024,
+      "dead_zone_px": 26.0,
+      "smooth": 0.1,
+      "max_correction": 0.36,
+      "return_to_zero": 0.94,
+      "max_delta_per_tick": 0.026,
+      "prediction": 0.08,
+      "damping": 0.16,
+      "lost_target_decay": 0.9,
+      "object_speed": 0.02,
+      "step_angle_deg": 8.0
+    },
+    "STABLE": {
+      "description": "Bardzo stabilny kadr. Mało nerwowy, odporny na szum.",
+      "gain": 0.002,
+      "dead_zone_px": 34.0,
+      "smooth": 0.08,
+      "max_correction": 0.3,
+      "return_to_zero": 0.95,
+      "max_delta_per_tick": 0.018,
+      "prediction": 0.04,
+      "damping": 0.2,
+      "lost_target_decay": 0.88,
+      "object_speed": 0.016,
+      "step_angle_deg": 8.0
+    },
+    "FOLLOW": {
+      "description": "Zrównoważone podążanie za obiektem.",
+      "gain": 0.0032,
+      "dead_zone_px": 20.0,
+      "smooth": 0.18,
+      "max_correction": 0.52,
+      "return_to_zero": 0.92,
+      "max_delta_per_tick": 0.045,
+      "prediction": 0.12,
+      "damping": 0.1,
+      "lost_target_decay": 0.86,
+      "object_speed": 0.025,
+      "step_angle_deg": 8.0
+    },
+    "FAST": {
+      "description": "Szybka reakcja. Do dynamicznego śledzenia, bardziej nerwowe.",
+      "gain": 0.0045,
+      "dead_zone_px": 14.0,
+      "smooth": 0.3,
+      "max_correction": 0.75,
+      "return_to_zero": 0.88,
+      "max_delta_per_tick": 0.075,
+      "prediction": 0.18,
+      "damping": 0.06,
+      "lost_target_decay": 0.82,
+      "object_speed": 0.035,
+      "step_angle_deg": 8.0
+    },
+    "AGGRESSIVE": {
+      "description": "Bardzo mocna korekta. Tylko do testów i szybkich obiektów.",
+      "gain": 0.006,
+      "dead_zone_px": 8.0,
+      "smooth": 0.42,
+      "max_correction": 1.0,
+      "return_to_zero": 0.84,
+      "max_delta_per_tick": 0.11,
+      "prediction": 0.25,
+      "damping": 0.04,
+      "lost_target_decay": 0.78,
+      "object_speed": 0.05,
+      "step_angle_deg": 8.0
+    }
+  }
+}

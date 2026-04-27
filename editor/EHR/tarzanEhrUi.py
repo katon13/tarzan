@@ -48,6 +48,7 @@ if str(PROJECT_DIR) not in sys.path:
 DATA_DIR = PROJECT_DIR / "data"
 EHR_DIR = DATA_DIR / "ehr"
 TAKE_DIR = DATA_DIR / "protokoly"
+TAKE_DATA_DIR = DATA_DIR / "take"
 IMG_TAKE_DIR = PROJECT_DIR / "img" / "take"
 FONT_DIR = PROJECT_DIR / "font"
 
@@ -971,9 +972,12 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
         if vm.state == SlotState.ACTIVE:
             return
 
+        if not TAKE_DATA_DIR.exists():
+            TAKE_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
         path = filedialog.askopenfilename(
             title="Wybierz plik TAKE",
-            initialdir=str(TAKE_DIR),
+            initialdir=str(TAKE_DATA_DIR),
             filetypes=[("TAKE TXT", "*.txt"), ("Text", "*.txt"), ("All files", "*.*")],
         )
         if not path:

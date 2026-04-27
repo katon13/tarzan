@@ -85,6 +85,13 @@ SLOT_COUNT = 10
 WINDOW_WIDTH = 1920
 WINDOW_HEIGHT = 520
 
+# --- KONFIGURACJA POZYCJI KONTROLEK OSI ---
+GEAR_OFFSET_X = -15
+GEAR_OFFSET_Y = -10
+SMOOTH_OFFSET_X = -100
+SMOOTH_OFFSET_Y = -10
+CONTROL_FONT_SIZE = 14
+
 # --- KLASY UI ---
 @dataclass
 class UiSettings:
@@ -2187,6 +2194,16 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.take_panel = None
         self.take_widget = None
         self.main_body = None
+        self._axis_icons_cache: dict[tuple[str, int], ImageTk.PhotoImage] = {}
+        self._axis_icon_mapping = {
+            "oś pozioma ramienia": "ta_os_pozioma_ramienia_ico_320_active.png",
+            "oś pozioma kamery": "ta_os_pozioma_kamery_ico_320_active.png",
+            "oś pochyłu kamery": "ta_os_pochylu_kamery_ico_320_active.png",
+            "oś pionowa ramienia": "ta_os_pionowa_ramienia_ico_320_active.png",
+            "oś pionowa kamery": "ta_os_pionowa_kamery_ico_320_active.png",
+            "oś ostrości kamery": "ta_os_ostrości_kamery_ico_320_active.png",
+            "DRON": "ta_dron_ico_320_active.png"
+        }
 
         self._build_ui()
         self._toggle_take_panel() # Ensure layout is applied correctly for visible state
@@ -2610,6 +2627,33 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             strength = min(40, strength + int(getattr(self.main_take_settings, "active_axis_emphasis_percent", 10)))
         return self._blend_hex(base, axis_color, strength)
 
+    def _get_axis_icon(self, axis_name: str, height: int) -> ImageTk.PhotoImage | None:
+        cache_key = (axis_name, height)
+        if cache_key in self._axis_icons_cache:
+            return self._axis_icons_cache[cache_key]
+
+        icon_filename = self._axis_icon_mapping.get(axis_name)
+        if not icon_filename:
+            return None
+
+        icon_path = Path("X:/tarzan/img/axes") / icon_filename
+        if not icon_path.exists():
+            return None
+
+        try:
+            img = Image.open(icon_path)
+            # Skalowanie z zachowaniem proporcji do podanej wysokości
+            w, h = img.size
+            if h > 0:
+                new_w = int(w * (height / h))
+                img = img.resize((new_w, height), Image.Resampling.LANCZOS)
+            
+            photo = ImageTk.PhotoImage(img)
+            self._axis_icons_cache[cache_key] = photo
+            return photo
+        except Exception:
+            return None
+
     @profile_method('EHR_MAIN._draw_main_canvas')
     def _draw_main_canvas(self) -> None:
         if not hasattr(self, "_last_canvas_draw_key"):
@@ -2666,22 +2710,35 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             c.create_line(rect.left, mid, rect.right, mid,
                           fill=self.main_take_settings.zero_line_color,
                           width=self.main_take_settings.zero_line_width)
-            if self.main_take_settings.show_axis_labels:
-                c.create_text(rect.left - 12, mid, text=model.axis_def.axis_name, fill=self.FG, anchor="e",
-                              font=("Segoe UI", 9, "bold"))
 
             if not model.is_release_axis:
                 if self.main_take_settings.show_axis_gears:
-                    gear = GearRect(rect.left - 44, rect.top + 8, rect.left - 16, rect.top + 36)
+                    gear_x = rect.left + GEAR_OFFSET_X
+                    gear_y = rect.bottom + GEAR_OFFSET_Y
+                    gear = GearRect(gear_x - 13, gear_y - 8, gear_x + 13, gear_y + 8)
                     self.gear_rects[axis_index] = gear
-                    c.create_rectangle(gear.left, gear.top, gear.right, gear.bottom, fill="#39424E", outline="#55606D")
-                    c.create_text((gear.left + gear.right) / 2.0, (gear.top + gear.bottom) / 2.0, text="⚙", fill=self.FG,
-                                  font=("Segoe UI Symbol", 12))
-                wave = WaveRect(rect.left - 76, rect.top + 8, rect.left - 48, rect.top + 36)
+                    c.create_text(gear_x, gear_y, text="⚙", fill="#FFFFFF",
+                                  font=("Segoe UI Symbol", CONTROL_FONT_SIZE), tags=("axis_controls", "gear", f"overlay_{axis_index}"))
+                
+                smooth_x = rect.left + SMOOTH_OFFSET_X
+                smooth_y = rect.bottom + SMOOTH_OFFSET_Y
+                wave = WaveRect(smooth_x - 13, smooth_y - 8, smooth_x + 13, smooth_y + 8)
                 self.wave_rects[axis_index] = wave
-                c.create_rectangle(wave.left, wave.top, wave.right, wave.bottom, fill="#39424E", outline="#55606D")
-                c.create_text((wave.left + wave.right) / 2.0, (wave.top + wave.bottom) / 2.0, text="≈", fill=self.FG,
-                              font=("Segoe UI Semibold", 12))
+                c.create_text(smooth_x, smooth_y, text="≈", fill="#FFFFFF",
+                              font=("Segoe UI Semibold", CONTROL_FONT_SIZE), tags=("axis_controls", "smooth", f"overlay_{axis_index}"))
+
+            if self.main_take_settings.show_axis_labels:
+                icon_h = int((rect.bottom - rect.top) * 0.8)
+                icon = self._get_axis_icon(model.axis_def.axis_name, icon_h)
+                if icon:
+                    c.create_image(rect.left - 12, mid, image=icon, anchor="e")
+                else:
+                    c.create_text(rect.left - 12, mid, text=model.axis_def.axis_name, fill=self.FG, anchor="e",
+                                  font=("Segoe UI", 9, "bold"))
+
+            # Podnieś ikony ustawień nad ikonę osi
+            c.tag_raise("axis_controls")
+            c.tag_raise(f"overlay_{axis_index}")
 
             if self.main_take_settings.show_minute_grid:
                 for minute in range(0, total_minutes + 1):

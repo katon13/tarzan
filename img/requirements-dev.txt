@@ -1,7 +1,0 @@
--r requirements.txt
-
-matplotlib
-pytest
-ipython
-jupyter
-black

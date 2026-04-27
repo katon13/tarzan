@@ -1,7 +1,7 @@
 {
   "slots": [
     {
-      "path": null
+      "path": "data/take/TAKE_001_v01.txt"
     },
     {
       "path": "data/take/TAKE_001_v11.txt"
@@ -13,16 +13,16 @@
       "path": "data/take/TAKE_001_v33.txt"
     },
     {
-      "path": "data/take/TAKE_001_v32.txt"
+      "path": "data/take/TAKE_001_v38.txt"
     },
     {
       "path": "data/take/TAKE_001_v17.txt"
     },
     {
-      "path": "data/take/TAKE_001_v08.txt"
+      "path": "data/take/TAKE_001_v09.txt"
     },
     {
-      "path": "data/take/TAKE_002_v15.txt"
+      "path": "data/take/TAKE_002_v16.txt"
     },
     {
       "path": null
@@ -31,5 +31,14 @@
       "path": null
     }
   ],
-  "active_slot": 7
+  "active_slot": 4,
+  "axis_activity": {
+    "oś pozioma kamery": true,
+    "oś pionowa kamery": true,
+    "oś pochyłu kamery": true,
+    "oś ostrości kamery": true,
+    "oś pionowa ramienia": false,
+    "oś pozioma ramienia": true,
+    "DRON": true
+  }
 }

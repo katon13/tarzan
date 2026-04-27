@@ -271,14 +271,23 @@ class SlotRecord:
 
 @dataclass
 class SlotStore:
-    """Model pamięci slotów (przypięte pliki, aktywny slot)."""
+    """Model pamięci slotów (przypięte pliki, aktywny slot, aktywność osi)."""
     slots: list[SlotRecord]
     active_slot: Optional[int] = None
+    axis_activity: dict[str, bool] = None
+
+    def __post_init__(self):
+        if self.axis_activity is None:
+            self.axis_activity = {}
 
     @classmethod
     def default(cls) -> "SlotStore":
-        """Tworzy pusty stan 10 slotów."""
-        return cls(slots=[SlotRecord() for _ in range(SLOT_COUNT)], active_slot=None)
+        """Tworzy pusty stan 10 slotów i domyślną aktywność osi."""
+        return cls(
+            slots=[SlotRecord() for _ in range(SLOT_COUNT)],
+            active_slot=None,
+            axis_activity={ax.axis_name: True for ax in DEFAULT_AXIS_DEFINITIONS}
+        )
 
     @classmethod
     def load_or_default(cls, path: Path) -> "SlotStore":
@@ -300,7 +309,16 @@ class SlotStore:
                 active_slot = int(active_slot)
                 if not (0 <= active_slot < SLOT_COUNT):
                     active_slot = None
-            return cls(slots=slots, active_slot=active_slot)
+            
+            # Wczytywanie aktywności osi
+            axis_activity = {ax.axis_name: True for ax in DEFAULT_AXIS_DEFINITIONS}
+            raw_activity = raw.get("axis_activity")
+            if isinstance(raw_activity, dict):
+                for name, state in raw_activity.items():
+                    if name in axis_activity:
+                        axis_activity[name] = bool(state)
+
+            return cls(slots=slots, active_slot=active_slot, axis_activity=axis_activity)
         except Exception:
             return cls.default()
 
@@ -315,6 +333,7 @@ class SlotStore:
         payload = {
             "slots": [asdict(slot) for slot in self.slots],
             "active_slot": self.active_slot,
+            "axis_activity": self.axis_activity
         }
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -2377,6 +2396,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.take_panel_visible = True
         self.take_panel = None
         self.take_widget = None
+        self._axis_activity: dict[str, bool] = {}
         self.main_body = None
         self._axis_icons_cache: dict[tuple[str, int], ImageTk.PhotoImage] = {}
         self._axis_icon_mapping = {
@@ -2390,6 +2410,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         }
 
         self._build_ui()
+        self._load_axis_activity()
         self._toggle_take_panel() # Ensure layout is applied correctly for visible state
         self.update_idletasks()
         self.after_idle(self._refresh_all)
@@ -2425,6 +2446,67 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 print(f"Błąd auto-loadingu TAKE ze slotu {active_idx}: {e}")
         elif vm.file_path:
             print(f"Auto-load SKIP: Plik {vm.file_path} nie istnieje.")
+
+    def _load_axis_activity(self) -> None:
+        """Wczytuje stan aktywności osi z widgetu slotów."""
+        if self.take_widget and self.take_widget.store:
+            self._axis_activity = copy.deepcopy(self.take_widget.store.axis_activity)
+
+    def _save_axis_activity(self) -> None:
+        """
+        Zapisuje stan aktywności osi do widgetu slotów i do pliku.
+        Implementacja zapewnia natychmiastowy i bezpieczny zapis sekcji axis_activity
+        bez nadpisywania całego pliku zera (read-modify-write).
+        """
+        if self.take_widget and self.take_widget.store:
+            # 1. Aktualizacja w pamięci runtime
+            self.take_widget.store.axis_activity = copy.deepcopy(self._axis_activity)
+
+            # 2. Bezpieczny zapis do pliku (natychmiastowy)
+            try:
+                path = SLOTS_JSON_PATH
+                # Wczytujemy aktualny stan pliku, aby nie zgubić innych danych
+                if path.exists():
+                    try:
+                        data = json.loads(path.read_text(encoding="utf-8"))
+                    except Exception:
+                        data = {}
+                else:
+                    data = {}
+
+                # Aktualizujemy tylko sekcję aktywności osi
+                data["axis_activity"] = self._axis_activity
+
+                # Upewniamy się, że inne klucze (slots, active_slot) istnieją,
+                # jeśli plik był pusty lub uszkodzony, pobierając je z bieżącego store
+                if "slots" not in data:
+                    data["slots"] = [asdict(slot) for slot in self.take_widget.store.slots]
+                if "active_slot" not in data:
+                    data["active_slot"] = self.take_widget.store.active_slot
+
+                # Zapisujemy z powrotem
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            except Exception as e:
+                print(f"Błąd natychmiastowego zapisu axis_activity: {e}")
+
+    def _is_axis_active(self, axis_index: int) -> bool:
+        """Zwraca czy dana oś jest aktywna."""
+        if 0 <= axis_index < len(self.axis_models):
+            name = self.axis_models[axis_index].axis_def.axis_name
+            return self._axis_activity.get(name, True)
+        return True
+
+    def _toggle_axis_activity(self, axis_index: int) -> None:
+        """Przełącza stan aktywności osi."""
+        if 0 <= axis_index < len(self.axis_models):
+            name = self.axis_models[axis_index].axis_def.axis_name
+            current = self._axis_activity.get(name, True)
+            self._axis_activity[name] = not current
+            self._save_axis_activity()
+            self._request_main_canvas_redraw(only_axis_index=axis_index)
+            state_str = "AKTYWNA" if self._axis_activity[name] else "NIEAKTYWNA (blokada edycji)"
+            self._set_status(f"Oś {name} jest teraz {state_str}.")
 
     def _settings_path(self) -> Path:
         editor_dir = Path(__file__).resolve().parent.parent
@@ -2858,23 +2940,33 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
     def _axis_curve_color(self, model: AxisCurveModel) -> str:
         return self.main_take_settings.axis_color(model.axis_def.axis_id, model.axis_def.color)
 
-    def _axis_panel_fill(self, axis_color: str, is_active: bool) -> str:
+    def _axis_panel_fill(self, axis_color: str, is_active: bool, is_axis_enabled: bool = True) -> str:
         base = "#232A33" if is_active else "#1C2128"
+        if not is_axis_enabled:
+            base = "#14181E" # Jeszcze ciemniejszy dla nieaktywnej osi
+        
         if not self.main_take_settings.show_axis_background_tint:
             return base
         strength = self.main_take_settings.axis_background_strength_percent
         if is_active:
             strength = min(40, strength + int(getattr(self.main_take_settings, "active_axis_emphasis_percent", 10)))
+        
+        if not is_axis_enabled:
+            strength = max(5, strength // 2) # Słabszy tint dla nieaktywnej osi
+
         return self._blend_hex(base, axis_color, strength)
 
-    def _get_axis_icon(self, axis_name: str, height: int) -> ImageTk.PhotoImage | None:
-        cache_key = (axis_name, height)
+    def _get_axis_icon(self, axis_name: str, height: int, active: bool = True) -> ImageTk.PhotoImage | None:
+        cache_key = (axis_name, height, active)
         if cache_key in self._axis_icons_cache:
             return self._axis_icons_cache[cache_key]
 
         icon_filename = self._axis_icon_mapping.get(axis_name)
         if not icon_filename:
             return None
+        
+        if not active:
+            icon_filename = icon_filename.replace("_active.png", "_inactive.png")
 
         icon_path = Path("X:/tarzan/img/axes") / icon_filename
         if not icon_path.exists():
@@ -2950,8 +3042,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.axis_rects[axis_index] = rect
             model = self.axis_models[axis_index]
             is_active = axis_index == self.active_axis_index
+            is_ax_enabled = self._is_axis_active(axis_index)
             axis_color = self._axis_curve_color(model)
-            panel_fill = self._axis_panel_fill(axis_color, is_active)
+            panel_fill = self._axis_panel_fill(axis_color, is_active, is_ax_enabled)
             
             # Tagowanie wszystkich elementów danej osi
             axis_tag = f"axis_{axis_index}"
@@ -2983,12 +3076,13 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
             if self.main_take_settings.show_axis_labels:
                 icon_h = int((rect.bottom - rect.top) * 0.8)
-                icon = self._get_axis_icon(model.axis_def.axis_name, icon_h)
+                is_ax_active = self._is_axis_active(axis_index)
+                icon = self._get_axis_icon(model.axis_def.axis_name, icon_h, active=is_ax_active)
                 if icon:
-                    c.create_image(rect.left - 12, mid, image=icon, anchor="e", tags=(axis_tag, "icon"))
+                    c.create_image(rect.left - 12, mid, image=icon, anchor="e", tags=(axis_tag, "icon", "activity_btn"))
                 else:
                     c.create_text(rect.left - 12, mid, text=model.axis_def.axis_name, fill=self.FG, anchor="e",
-                                  font=("Segoe UI", 9, "bold"), tags=(axis_tag, "label"))
+                                  font=("Segoe UI", 9, "bold"), tags=(axis_tag, "label", "activity_btn"))
 
             # Podnieś ikony ustawień nad ikonę osi
             c.tag_raise("axis_controls")
@@ -3031,21 +3125,26 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                     pts.extend([self._time_to_x(t_ms, rect.left, rect.right),
                                 self._logical_y_to_canvas(model, y, rect.top, rect.bottom)])
                 if len(pts) >= 4:
-                    c.create_line(*pts, fill=axis_color,
+                    curve_color = axis_color if is_ax_enabled else self._blend_hex(axis_color, "#000000", 60)
+                    c.create_line(*pts, fill=curve_color,
                                   width=self.main_take_settings.active_curve_line_width if is_active else self.main_take_settings.curve_line_width,
                                   smooth=False, tags=(axis_tag, "curve"))
 
                 node_r = max(4, min(9, model.step_tuning.node_hit_radius_px // 2))
                 square_half = max(5, node_r)
+                node_outline = "black" if is_ax_enabled else "#4B5563"
                 for i, n in enumerate(model.nodes):
                     px = self._time_to_x(n.time_ms, rect.left, rect.right)
                     py = self._logical_y_to_canvas(model, n.y, rect.top, rect.bottom)
                     fill = self.NODE_SEL if (axis_index == self.drag_axis_index and i == self.selected_index) else self.NODE
+                    if not is_ax_enabled:
+                        fill = self._blend_hex(fill, "#000000", 50)
+
                     if i == 0 or i == len(model.nodes) - 1:
                         if self.main_take_settings.show_start_stop_squares:
-                            c.create_rectangle(px - square_half, py - square_half, px + square_half, py + square_half, fill=self.main_take_settings.zero_line_color, outline="black", tags=(axis_tag, "node_square"))
+                            c.create_rectangle(px - square_half, py - square_half, px + square_half, py + square_half, fill=self.main_take_settings.zero_line_color if is_ax_enabled else "#374151", outline=node_outline, tags=(axis_tag, "node_square"))
                         else:
-                            c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill="#D6EAF8", outline="black", tags=(axis_tag, "node_oval"))
+                            c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill="#D6EAF8" if is_ax_enabled else "#4B5563", outline=node_outline, tags=(axis_tag, "node_oval"))
                     else:
                         # Podświetlenie punktu jeśli jest przyciągnięty do ghosta (Main Canvas)
                         node_fill = fill
@@ -3061,7 +3160,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                         if is_snapped:
                             node_fill = "#22C55E" # Zielony (Emerald-500)
                         
-                        c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill=node_fill, outline="black", tags=(axis_tag, "node_oval"))
+                        c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill=node_fill, outline=node_outline, tags=(axis_tag, "node_oval"))
 
             if model.is_release_axis and model.release_time_ms is not None:
                 inner_top = rect.top + max(12, (rect.bottom - rect.top) // 3)
@@ -3075,8 +3174,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 ry = inner_mid
                 r = 7
                 fill = "#F59E0B" if self.drag_mode == 'release' and axis_index == self.drag_axis_index else axis_color
-                c.create_polygon(rx, ry - r, rx + r, ry, rx, ry + r, rx - r, ry, fill=fill, outline='black', tags=(axis_tag, "release_diamond"))
-                c.create_text(rx + 14, ry - 10, text='RELEASE', fill=axis_color, anchor='w', font=('Segoe UI', 8, 'bold'), tags=(axis_tag, "release_text"))
+                if not is_ax_enabled:
+                    fill = self._blend_hex(fill, "#000000", 50)
+                c.create_polygon(rx, ry - r, rx + r, ry, rx, ry + r, rx - r, ry, fill=fill, outline='black' if is_ax_enabled else '#4B5563', tags=(axis_tag, "release_diamond"))
+                text_color = axis_color if is_ax_enabled else self._blend_hex(axis_color, "#000000", 40)
+                c.create_text(rx + 14, ry - 10, text='RELEASE', fill=text_color, anchor='w', font=('Segoe UI', 8, 'bold'), tags=(axis_tag, "release_text"))
                 
                 # Pionowa linia dla punktu RELEASE (jak show_axis_activity_markers)
                 c.create_line(rx, rect.top + 4, rx, rect.bottom - 4, fill=axis_color, width=1, dash=(3, 5), tags=(axis_tag, "release_marker"))
@@ -3346,16 +3448,30 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
     def _on_canvas_press(self, event) -> None:
         gear_axis = self._gear_axis_from_point(event.x, event.y)
         if gear_axis is not None:
+            if not self._is_axis_active(gear_axis):
+                self._set_status(f"Oś {self.axis_models[gear_axis].axis_def.axis_name} jest zablokowana.")
+                return
             self._open_settings(gear_axis)
             return
         wave_axis = self._wave_axis_from_point(event.x, event.y)
         if wave_axis is not None:
+            if not self._is_axis_active(wave_axis):
+                self._set_status(f"Oś {self.axis_models[wave_axis].axis_def.axis_name} jest zablokowana.")
+                return
             self._smooth_axis_idx(wave_axis)
             return
+
+        # Sprawdź kliknięcie w ikonę/label aktywności (lewa strona osi)
+        for ax_idx, rect in self.axis_rects.items():
+            if event.x < rect.left and abs(event.y - (rect.top + rect.bottom) / 2.0) < (rect.bottom - rect.top) / 2.0:
+                self._toggle_axis_activity(ax_idx)
+                return
 
         axis_index = self._axis_index_from_point(event.x, event.y)
         if axis_index is None:
             return
+        
+        is_active = self._is_axis_active(axis_index)
         axis_changed = self._set_active_axis(axis_index)
         self._configure_after_id = None
         if axis_changed:
@@ -3367,6 +3483,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 force_axis_info=True,
                 force_protocol=True,
             )
+        
+        if not is_active:
+            self._set_status(f"Oś {self.axis_models[axis_index].axis_def.axis_name} jest zablokowana.")
+            return
+
         model = self.axis_models[axis_index]
         if self._hit_release(axis_index, event.x, event.y):
             self.drag_axis_index = axis_index
@@ -3545,6 +3666,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         axis_index = self._axis_index_from_point(event.x, event.y)
         if axis_index is None:
             return
+        if not self._is_axis_active(axis_index):
+            self._set_status(f"Oś {self.axis_models[axis_index].axis_def.axis_name} jest zablokowana.")
+            return
         if self._gear_axis_from_point(event.x, event.y) is not None or self._wave_axis_from_point(event.x, event.y) is not None:
             return
         model = self.axis_models[axis_index]
@@ -3579,6 +3703,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
     def _on_canvas_right_click(self, event) -> None:
         axis_index = self._axis_index_from_point(event.x, event.y)
         if axis_index is None:
+            return
+        if not self._is_axis_active(axis_index):
+            self._set_status(f"Oś {self.axis_models[axis_index].axis_def.axis_name} jest zablokowana.")
             return
         if self._gear_axis_from_point(event.x, event.y) is not None or self._wave_axis_from_point(event.x, event.y) is not None:
             return

@@ -1981,14 +1981,15 @@ class AxisSettingsDialog(tk.Toplevel):
             
             # Podświetlenie punktu jeśli jest przyciągnięty do ghosta (Dla punktu lub PAN)
             is_snapped = False
-            if self.drag_mode == "node" and i == self.selected_index and getattr(self, "is_ghost_snapped", False):
-                is_snapped = True
-            elif self.drag_mode == "pan" and getattr(self, "is_ghost_snapped", False):
-                # W trybie PAN podświetlamy wszystkie węzły na zielono gdy snap aktywny
-                is_snapped = True
+            if self.drag_mode == "node" and i == self.selected_index:
+                if getattr(self, "is_ghost_snapped", False) or getattr(self, "is_zero_snapped", False) or (getattr(self, "_drag_zero_snap_locked", False) and n.y == 0.0):
+                    is_snapped = True
+            elif self.drag_mode == "pan":
+                if getattr(self, "is_ghost_snapped", False):
+                    is_snapped = True
                 
             if is_snapped:
-                fill = "#22C55E" # Zielony (Emerald-500) dla widoczności snapu do ghosta
+                fill = "#22C55E" # Zielony (Emerald-500)
             
             if i == 0 or i == len(self.model.nodes) - 1:
                 fill = "#D6EAF8"
@@ -2050,7 +2051,7 @@ class AxisSettingsDialog(tk.Toplevel):
             self._drag_zero_snap_locked = False
             return value
         threshold = max(0.0, float(getattr(self.master_window.main_take_settings, "snap_to_zero_threshold", 0.0)))
-        enter_threshold = threshold * 0.35
+        enter_threshold = threshold * 0.6
         release_threshold = max(enter_threshold, threshold)
         if self._drag_zero_snap_locked:
             if abs(value) <= release_threshold:
@@ -2179,6 +2180,7 @@ class AxisSettingsDialog(tk.Toplevel):
             
             # Ghost Assist logic
             self.is_ghost_snapped = False
+            self.is_zero_snapped = False
             ms = self.master_window.main_take_settings
             if getattr(ms, "ghost_assist_enabled", False) and self._ghost_samples_cache:
                 gy = self._get_ghost_y_at_time(new_t)
@@ -2187,6 +2189,12 @@ class AxisSettingsDialog(tk.Toplevel):
                     if abs(new_y - gy) <= threshold:
                         new_y = gy
                         self.is_ghost_snapped = True
+
+            if not self.is_ghost_snapped:
+                snapped_y = self._apply_drag_zero_snap(new_y)
+                if snapped_y == 0.0 and new_y != 0.0:
+                    self.is_zero_snapped = True
+                new_y = snapped_y
 
             if self.model.move_node(self.selected_index, new_t, new_y):
                 self.model._invalidate_cache()
@@ -2527,6 +2535,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if self.main_take_settings.show_protocol_preview:
             self.protocol_label.pack(fill="x", pady=(0, 6))
             self.protocol_box.pack(fill="both", expand=True, pady=(0, 10))
+        
+        self._update_selected_point_time_indicator()
         if self.main_take_settings.show_status_bar:
             self.status.pack(fill="x", pady=(2, 0))
         else:
@@ -2701,6 +2711,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         logical_y = max(-logical_limit, min(logical_limit, logical_y))
         if apply_snap:
             return model.apply_zero_snap(self.main_take_settings, logical_y)
+        # Podczas drag używamy _apply_drag_zero_snap w metodach _on_canvas_drag
         return logical_y
 
     def _drag_delta_to_logical_y(self, model: AxisCurveModel, delta_py: float, top: int, bottom: int) -> float:
@@ -3040,10 +3051,12 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                         node_fill = fill
                         is_snapped = False
                         if axis_index == self.drag_axis_index:
-                            if self.drag_mode == "node" and i == self.selected_index and getattr(self, "is_ghost_snapped", False):
-                                is_snapped = True
-                            elif self.drag_mode == "pan" and getattr(self, "is_ghost_snapped", False):
-                                is_snapped = True
+                            if self.drag_mode == "node" and i == self.selected_index:
+                                if getattr(self, "is_ghost_snapped", False) or getattr(self, "is_zero_snapped", False) or (self._drag_zero_snap_locked and n.y == 0.0):
+                                    is_snapped = True
+                            elif self.drag_mode == "pan":
+                                if getattr(self, "is_ghost_snapped", False):
+                                    is_snapped = True
                         
                         if is_snapped:
                             node_fill = "#22C55E" # Zielony (Emerald-500)
@@ -3256,7 +3269,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self._drag_zero_snap_locked = False
             return value
         threshold = max(0.0, float(getattr(self.main_take_settings, "snap_to_zero_threshold", 0.0)))
-        enter_threshold = threshold * 0.35
+        enter_threshold = threshold * 0.6
         release_threshold = max(enter_threshold, threshold)
         if self._drag_zero_snap_locked:
             if abs(value) <= release_threshold:
@@ -3346,6 +3359,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         axis_changed = self._set_active_axis(axis_index)
         self._configure_after_id = None
         if axis_changed:
+            self._update_selected_point_time_indicator()
             self._refresh_axis_context(
                 status=None,
                 refresh_axis_info=True,
@@ -3429,6 +3443,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             
             # Ghost Assist logic
             self.is_ghost_snapped = False
+            self.is_zero_snapped = False
             ms = self.main_take_settings
             if getattr(ms, "ghost_assist_enabled", False) and self._ghost_samples_cache:
                 gy = self._get_ghost_y_at_time(new_t)
@@ -3437,6 +3452,12 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                     if abs(new_y - gy) <= threshold:
                         new_y = gy
                         self.is_ghost_snapped = True
+
+            if not self.is_ghost_snapped:
+                snapped_y = self._apply_drag_zero_snap(model, new_y)
+                if snapped_y == 0.0 and new_y != 0.0:
+                    self.is_zero_snapped = True
+                new_y = snapped_y
 
             if model.move_node(self.selected_index, new_t, new_y):
                 self._update_selected_point_time_indicator(axis_index, self.selected_index, new_t)

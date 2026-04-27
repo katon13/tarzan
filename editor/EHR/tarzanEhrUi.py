@@ -2256,7 +2256,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._refresh_all("Gotowy.", reason="CURVE_RELEASE")
+        self._request_curve_redraw()
+        self._refresh_metrics_only()
         self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _on_curve_double_click(self, event) -> None:
@@ -2269,7 +2270,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
         self._nodes_dirty = True
-        self._refresh_all("Dodano punkt.", reason="DOUBLE_CLICK_ADD")
+        self._request_curve_redraw()
+        self._refresh_metrics_only()
         self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _on_curve_right_click(self, event) -> None:
@@ -2283,7 +2285,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
         self._nodes_dirty = True
-        self._refresh_all("Usunięto punkt.", reason="RIGHT_CLICK_REMOVE")
+        self._request_curve_redraw()
+        self._refresh_metrics_only()
         self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _on_close(self) -> None:
@@ -2712,10 +2715,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         model.smooth_all(strength=strength, passes=passes)
         self._set_active_axis(axis_index)
         self._mark_axis_data_changed(axis_index)
-        self._refresh_all(
-            light=True,
-            status=f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}."
-        )
+        self._draw_main_canvas()
+        self._refresh_protocol_preview()
+        self._refresh_axis_info()
+        self._set_status(f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.")
 
     def _schedule_configure_refresh(self) -> None:
         if self._configure_after_id is not None:
@@ -3268,7 +3271,13 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         axis_changed = self._set_active_axis(axis_index)
         self._configure_after_id = None
         if axis_changed:
-            self._refresh_all(light=True, status=None)
+            self._refresh_axis_context(
+                status=None,
+                refresh_axis_info=True,
+                refresh_protocol=True,
+                force_axis_info=True,
+                force_protocol=True,
+            )
         model = self.axis_models[axis_index]
         if self._hit_release(axis_index, event.x, event.y):
             self.drag_axis_index = axis_index
@@ -3407,13 +3416,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._configure_after_id = None
         if had_drag_mode and changed_axis_index is not None and drag_data_changed:
             self._mark_axis_data_changed(changed_axis_index)
-            self._refresh_axis_context(
-                status="Gotowy.",
-                refresh_axis_info=True,
-                refresh_protocol=True,
-                force_axis_info=True,
-                force_protocol=True,
-            )
+            self._draw_main_canvas()
+            self._refresh_protocol_preview()
+            self._refresh_axis_info()
+            self._set_status("Gotowy.")
             return
         self._request_main_canvas_redraw()
         self._set_status("Gotowy.")
@@ -3432,13 +3438,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             if model.set_release_time(t_ms):
                 self._main_canvas_needs_redraw = True
                 self._mark_axis_data_changed(axis_index)
-                self._refresh_axis_context(
-                    status=f"Ustawiono RELEASE na osi: {model.axis_def.axis_name}.",
-                    refresh_axis_info=True,
-                    refresh_protocol=True,
-                    force_axis_info=True,
-                    force_protocol=True,
-                )
+                self._draw_main_canvas()
+                self._refresh_protocol_preview()
+                self._refresh_axis_info()
+                self._set_status(f"Ustawiono RELEASE na osi: {model.axis_def.axis_name}.")
             else:
                 self._request_main_canvas_redraw()
                 self._set_status(f"Ustawiono RELEASE na osi: {model.axis_def.axis_name}.")
@@ -3448,13 +3451,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._main_canvas_needs_redraw = True
         self._mark_axis_data_changed(axis_index)
         self._configure_after_id = None
-        self._refresh_axis_context(
-            status=f"Dodano punkt na osi: {model.axis_def.axis_name}.",
-            refresh_axis_info=True,
-            refresh_protocol=True,
-            force_axis_info=True,
-            force_protocol=True,
-        )
+        self._draw_main_canvas()
+        self._refresh_protocol_preview()
+        self._refresh_axis_info()
+        self._set_status(f"Dodano punkt na osi: {model.axis_def.axis_name}.")
 
     def _on_canvas_right_click(self, event) -> None:
         axis_index = self._axis_index_from_point(event.x, event.y)
@@ -3470,13 +3470,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._main_canvas_needs_redraw = True
         self._mark_axis_data_changed(axis_index)
         self._configure_after_id = None
-        self._refresh_axis_context(
-            status=f"Usunięto punkt z osi: {model.axis_def.axis_name}.",
-            refresh_axis_info=True,
-            refresh_protocol=True,
-            force_axis_info=True,
-            force_protocol=True,
-        )
+        self._draw_main_canvas()
+        self._refresh_protocol_preview()
+        self._refresh_axis_info()
+        self._set_status(f"Usunięto punkt z osi: {model.axis_def.axis_name}.")
 
     def _smooth_active(self) -> None:
         model = self._active_model()
@@ -3486,13 +3483,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._main_canvas_needs_redraw = True
         self._mark_axis_data_changed(self.active_axis_index)
         self._configure_after_id = None
-        self._refresh_axis_context(
-            status=f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.",
-            refresh_axis_info=True,
-            refresh_protocol=True,
-            force_axis_info=True,
-            force_protocol=True,
-        )
+        self._draw_main_canvas()
+        self._refresh_protocol_preview()
+        self._refresh_axis_info()
+        self._set_status(f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.")
 
 
 

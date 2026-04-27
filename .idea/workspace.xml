@@ -10,7 +10,9 @@
       <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v02.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v02.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v03.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v03.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v04.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v04.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v05.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v05.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrUi.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrUi.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanEHR.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/tarzanEHR.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/img/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/img/CHANGELOG.md" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/img/COMMIT_RULES.md" beforeDir="false" />
@@ -37,6 +39,10 @@
       <change beforePath="$PROJECT_DIR$/img/audio/voice/Stay_clear.wav" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/img/audio/voice/Step_away.wav" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/img/audio/voice/System_ready.wav" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_pionowa_ramienia_ico_320_active.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/axes/ta_os_pionowa_ramienia_ico_320_active.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_pionowa_ramienia_ico_320_inactive.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/axes/ta_os_pionowa_ramienia_ico_320_inactive.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_pozioma_ramienia_ico_320_active.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/axes/ta_os_pozioma_ramienia_ico_320_active.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_pozioma_ramienia_ico_320_inactive.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/axes/ta_os_pozioma_ramienia_ico_320_inactive.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/img/config/__init__.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/img/config/tarzanMotionConfig.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/img/core/__init__.py" beforeDir="false" />

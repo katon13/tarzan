@@ -1,0 +1,147 @@
+{
+  "camera_discovery": {
+    "scan_indexes": [
+      0,
+      1,
+      2
+    ],
+    "preferred_index": 0,
+    "preferred_backend": "DSHOW",
+    "open_timeout_ms": 500,
+    "warmup_frames": 0,
+    "autostart_camera_on_launch": false
+  },
+  "camera_device": {
+    "frame_width": 1920,
+    "frame_height": 1080,
+    "fps": 30,
+    "fourcc": "MJPG",
+    "auto_exposure": true,
+    "exposure": -6.0,
+    "auto_focus": false,
+    "focus": 0.0,
+    "brightness": 0.0,
+    "contrast": 32.0,
+    "saturation": 64.0,
+    "gain": 0.0,
+    "white_balance_auto": true,
+    "white_balance": 4500.0
+  },
+  "tracking": {
+    "active_target": "RED_OBJECT",
+    "coordinate_mode": "CENTER_ERROR_X",
+    "roi_enabled": false,
+    "roi": {
+      "x": 0.0,
+      "y": 0.0,
+      "w": 1.0,
+      "h": 1.0
+    },
+    "target_profiles": {
+      "RED_OBJECT": {
+        "description": "Czerwony obiekt / flaga / trójkąt",
+        "hsv_ranges": [
+          {
+            "h_min": 0,
+            "s_min": 90,
+            "v_min": 70,
+            "h_max": 10,
+            "s_max": 255,
+            "v_max": 255
+          },
+          {
+            "h_min": 170,
+            "s_min": 90,
+            "v_min": 70,
+            "h_max": 180,
+            "s_max": 255,
+            "v_max": 255
+          }
+        ],
+        "min_area": 500.0,
+        "max_area": 250000,
+        "min_solidity": 0.45,
+        "min_extent": 0.18,
+        "morph_open_kernel": 5,
+        "morph_close_kernel": 7,
+        "blur_kernel": 3,
+        "prefer_largest_contour": true
+      },
+      "GREEN_OBJECT": {
+        "description": "Zielony obiekt testowy",
+        "hsv_ranges": [
+          {
+            "h_min": 35,
+            "s_min": 70,
+            "v_min": 60,
+            "h_max": 85,
+            "s_max": 255,
+            "v_max": 255
+          }
+        ],
+        "min_area": 500,
+        "max_area": 250000,
+        "min_solidity": 0.45,
+        "min_extent": 0.18,
+        "morph_open_kernel": 5,
+        "morph_close_kernel": 7,
+        "blur_kernel": 3,
+        "prefer_largest_contour": true
+      },
+      "BLUE_OBJECT": {
+        "description": "Niebieski obiekt testowy",
+        "hsv_ranges": [
+          {
+            "h_min": 90,
+            "s_min": 70,
+            "v_min": 60,
+            "h_max": 130,
+            "s_max": 255,
+            "v_max": 255
+          }
+        ],
+        "min_area": 500,
+        "max_area": 250000,
+        "min_solidity": 0.45,
+        "min_extent": 0.18,
+        "morph_open_kernel": 5,
+        "morph_close_kernel": 7,
+        "blur_kernel": 3,
+        "prefer_largest_contour": true
+      }
+    },
+    "target_filter": {
+      "center_smoothing": 0.35,
+      "area_smoothing": 0.25,
+      "visible_hysteresis_on": 2,
+      "visible_hysteresis_off": 5,
+      "hold_last_target_ms": 250,
+      "max_jump_px": 220
+    },
+    "preview": {
+      "draw_crosshair": true,
+      "draw_roi": true,
+      "draw_mask_contour": true,
+      "draw_bounding_box": true,
+      "draw_center_point": true,
+      "draw_debug_text": true,
+      "processing_max_width": 640,
+      "max_width": 640,
+      "frame_every_n": 1
+    },
+    "source_object": {
+      "enabled": false,
+      "path": "",
+      "mode": "REFERENCE_ONLY",
+      "description": "Obraz referencyjny obiektu. W tej wersji służy do kontroli operatora i dalszego strojenia trackingu."
+    }
+  },
+  "last_good_camera": {
+    "enabled": true,
+    "index": 0,
+    "backend": "DSHOW",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  }
+}

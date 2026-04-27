@@ -1,12 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-TARZAN - KHR profiles
-
-Ładowanie profili KHR z data/khr/khr_settings.json.
-"""
-
 from __future__ import annotations
-
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,15 +23,13 @@ class KHRProfile:
 
 
 def load_khr_settings(project_root: Path) -> dict:
-    path = project_root / "data" / "khr" / "khr_settings.json"
-    with open(path, "r", encoding="utf-8") as f:
+    with open(project_root / "data" / "khr" / "khr_settings.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def profile_from_settings(settings: dict, name: str | None = None) -> KHRProfile:
     profile_name = name or settings.get("active_profile", "CINEMA")
     data = settings["profiles"][profile_name]
-
     return KHRProfile(
         name=profile_name,
         description=data.get("description", ""),

@@ -6,21 +6,14 @@
   <component name="ChangeListManager">
     <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/tarzanUstawienia.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanUstawienia.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v10.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v10.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v11.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v11.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v12.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v12.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v13.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v13.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v34.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v34.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v35.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v35.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v36.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v36.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v37.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v37.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/Main_take_windows_area.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/TARZAN_CHOREOGRAFIA_RUCHU_MAPA.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/TARZAN_EHR_DOKUMENTACJA_SCALONA.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/TARZAN_PROTOCOL_TO_TAKE_WITH_FILES.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/TARZAN_TAKE.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/khr/khr_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/khr/khr_settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanKHR.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/tarzanKHR.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/tarzanKHR.py" beforeDir="false" afterPath="$PROJECT_DIR$/motion/tarzanKHR.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/tarzanKHRManual.py" beforeDir="false" afterPath="$PROJECT_DIR$/motion/tarzanKHRManual.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/tarzanKHRProfiles.py" beforeDir="false" afterPath="$PROJECT_DIR$/motion/tarzanKHRProfiles.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/tarzanKHRStepPreview.py" beforeDir="false" afterPath="$PROJECT_DIR$/motion/tarzanKHRStepPreview.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/tarzanKHRTracking.py" beforeDir="false" afterPath="$PROJECT_DIR$/motion/tarzanKHRTracking.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vision/tarzanCameraTracker.py" beforeDir="false" afterPath="$PROJECT_DIR$/vision/tarzanCameraTracker.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -90,6 +83,7 @@
     "Python.tarzanStepGenerator.executor": "Run",
     "Python.tarzanTakeModel.executor": "Run",
     "Python.tarzanTakeTXT.executor": "Run",
+    "Python.tarzanTest.executor": "Run",
     "Python.tarzanZmienneSygnalowe.executor": "Run",
     "Python.tmp.executor": "Run",
     "RunOnceActivity.ChatTagsLlmMigration": "true",
@@ -114,28 +108,6 @@
   }
 }]]></component>
   <component name="RunManager" selected="Python.tarzanKHR">
-    <configuration name="TarzanEhrTakeSandbox" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="tarzan" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/TarzanEhrTakeSandbox.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <configuration name="tarzanCameraTracker" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
@@ -224,13 +196,35 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="tarzanTest" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="tarzan" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/tarzanTest.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
         <item itemvalue="Python.tarzanKHR" />
+        <item itemvalue="Python.tarzanTest" />
         <item itemvalue="Python.tarzanKHRTest" />
         <item itemvalue="Python.tarzanCameraTracker" />
         <item itemvalue="Python.tarzanEHR" />
-        <item itemvalue="Python.TarzanEhrTakeSandbox" />
       </list>
     </recent_temporary>
   </component>

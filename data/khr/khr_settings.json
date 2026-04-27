@@ -1,7 +1,17 @@
 {
   "active_profile": "CINEMA",
+  "active_source": "TEST",
   "axis_name": "oś pozioma kamery",
   "sample_time_ms": 10,
+  "camera": {
+    "device_index": 0,
+    "frame_width": 640,
+    "frame_height": 360,
+    "target_color": "RED",
+    "min_area": 500,
+    "preview_width": 520,
+    "preview_height": 360
+  },
   "profiles": {
     "CINEMA": {
       "description": "Miękkie filmowe podążanie. Duża stabilność, wolniejsza reakcja.",

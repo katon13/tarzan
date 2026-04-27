@@ -1,12 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-TARZAN - KHR Manual plugin
-
-Placeholder pod ręczną korektę operatora.
-"""
-
 from __future__ import annotations
-
 from dataclasses import dataclass
 
 

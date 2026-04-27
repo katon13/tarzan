@@ -4,18 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/data/ehr/main_take_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/main_take_settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v04.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v04.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v06.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v06.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v07.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v07.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v08.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v08.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v09.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v09.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v10.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v10.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v11.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v11.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/take/TAKE_002_v10.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_002_v10.txt" afterDir="false" />
-    </list>
+    <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />

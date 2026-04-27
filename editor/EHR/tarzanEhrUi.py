@@ -2211,6 +2211,38 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._toggle_take_panel() # Ensure layout is applied correctly for visible state
         self.update_idletasks()
         self.after_idle(self._refresh_all)
+        self.after_idle(self._load_active_slot_on_start)
+
+    def _load_active_slot_on_start(self) -> None:
+        """
+        Inicjalne ładowanie aktywnego slotu przy starcie aplikacji.
+        Logika zgodna z wytycznymi: brak popupów przy braku pliku, użycie istniejącego loadera.
+        """
+        if not self.take_widget:
+            return
+
+        store = self.take_widget.store
+        active_idx = store.active_slot
+
+        if active_idx is None or not (0 <= active_idx < len(self.take_widget.slot_models)):
+            return
+
+        vm = self.take_widget.slot_models[active_idx]
+        if vm.file_path and vm.file_path.exists():
+            try:
+                # Wywołujemy ten sam loader co przy ręcznym kliknięciu łapki
+                self._load_take_from_path(vm.file_path)
+
+                # Upewniamy się, że VM wie o załadowaniu (UI sync)
+                vm.is_loaded = True
+                vm.state = SlotState.ACTIVE
+                self.take_widget._refresh_slot(active_idx)
+
+                self._set_status(f"Auto-load: TAKE {vm.take_number} załadowany z aktywnego slotu.")
+            except Exception as e:
+                print(f"Błąd auto-loadingu TAKE ze slotu {active_idx}: {e}")
+        elif vm.file_path:
+            print(f"Auto-load SKIP: Plik {vm.file_path} nie istnieje.")
 
     def _settings_path(self) -> Path:
         editor_dir = Path(__file__).resolve().parent.parent

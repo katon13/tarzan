@@ -13,7 +13,7 @@
       "path": "data/take/TAKE_001_v33.txt"
     },
     {
-      "path": "data/take/TAKE_001_v40.txt"
+      "path": "data/take/TAKE_001_v42.txt"
     },
     {
       "path": "data/take/TAKE_001_v17.txt"
@@ -35,10 +35,10 @@
   "axis_activity": {
     "oś pozioma kamery": true,
     "oś pionowa kamery": true,
-    "oś pochyłu kamery": true,
-    "oś ostrości kamery": false,
-    "oś pionowa ramienia": false,
-    "oś pozioma ramienia": false,
-    "DRON": false
+    "oś pochyłu kamery": false,
+    "oś ostrości kamery": true,
+    "oś pionowa ramienia": true,
+    "oś pozioma ramienia": true,
+    "DRON": true
   }
 }

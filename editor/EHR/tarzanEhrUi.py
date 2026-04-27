@@ -2022,6 +2022,11 @@ class AxisSettingsDialog(tk.Toplevel):
         c.create_text(x1 - 4, top + 8, text="STOP", fill="#E65D5D", anchor="e", font=("Segoe UI", 8, "bold"))
 
     def _draw_step(self) -> None:
+        if self._nodes_dirty:
+            self.model.sort_and_fix_nodes()
+            self.model._invalidate_cache()
+            self._nodes_dirty = False
+
         c = self.step_canvas
         c.delete("all")
         left, top, right, bottom = self._step_rect()
@@ -2101,6 +2106,13 @@ class AxisSettingsDialog(tk.Toplevel):
             self._step_needs_redraw = False
         if status is not None:
             self._set_status(status)
+
+    def _request_step_redraw(self) -> None:
+        self._step_needs_redraw = True
+        if self._step_tuning_after_id is not None:
+            return
+        # Używamy tego samego mechanizmu co dla tuningu, żeby nie mnożyć timerów
+        self._step_tuning_after_id = self.after(100, self._flush_step_tuning_live)
 
     @profile_method('EHR_AXIS_DIALOG._refresh_all')
     def _refresh_all(self, status: str | None = None, reason: str = "unknown") -> None:
@@ -2218,8 +2230,10 @@ class AxisSettingsDialog(tk.Toplevel):
             if self.model.move_node(self.selected_index, new_t, new_y):
                 self.model._invalidate_cache()
                 self._curve_needs_redraw = True
+                self._step_needs_redraw = True
                 self._nodes_dirty = True
                 self._request_curve_redraw()
+                self._request_step_redraw()
         elif self.drag_mode == "pan":
             new_time = self._x_to_time(event.x, left, right)
             old_time = self._x_to_time(self.drag_anchor_x, left, right)
@@ -2263,8 +2277,10 @@ class AxisSettingsDialog(tk.Toplevel):
             if self.model.shift_all(delta):
                 self.model._invalidate_cache()
                 self._curve_needs_redraw = True
+                self._step_needs_redraw = True
                 self._nodes_dirty = True
                 self._request_curve_redraw()
+                self._request_step_redraw()
 
     def _on_curve_release(self, _event) -> None:
         self.is_ghost_snapped = False
@@ -2275,6 +2291,7 @@ class AxisSettingsDialog(tk.Toplevel):
             final_y = self.model.apply_zero_snap(self.master_window.main_take_settings, node.y)
             if self.model.move_node(self.selected_index, node.time_ms, final_y):
                 self.model._invalidate_cache()
+                self._nodes_dirty = True
 
         self.drag_mode = None
         self.drag_anchor_x = 0
@@ -2284,6 +2301,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
         self._request_curve_redraw()
+        self._draw_step() # Wymuszamy natychmiastowe odświeżenie przy release
         self._refresh_metrics_only()
         self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 

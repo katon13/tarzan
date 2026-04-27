@@ -2403,8 +2403,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
     def sync_axis_from_dialog(self, axis_index: int, status: str | None = None) -> None:
         self.dirty_axis_indices.discard(axis_index)
         self._set_active_axis(axis_index)
-        self._mark_axis_data_changed(axis_index)
-        self._refresh_all(light=True, status=status)
+        self._mark_axis_data_changed(axis_index, mark_take_model=True, mark_protocol=True, mark_axis_info=True)
+        self._main_canvas_needs_redraw = True
+        self._refresh_all(light=False, status=status)
 
     def _open_take_settings(self) -> None:
         dlg = MainTakeSettingsDialog(

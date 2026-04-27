@@ -2350,6 +2350,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._axis_selection_version = 0
         self._take_model_version = 0
 
+        self.selected_point_time_var = tk.StringVar(value="--:--")
         self.axis_info_var = tk.StringVar(value="")
         self.status_var = tk.StringVar(value="Gotowy.")
         self.protocol_cache_key = None
@@ -2482,6 +2483,19 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
     def _build_left_panel(self, parent: tk.Misc) -> None:
         self.active_axis_name_var = tk.StringVar(value=self._active_model().axis_def.axis_name)
+
+        self.selected_point_time_label = tk.Label(
+            parent,
+            textvariable=self.selected_point_time_var,
+            bg=self.PANEL,
+            fg="#22C55E",
+            anchor="center",
+            font=("Segoe UI Semibold", 44, "bold"),
+            padx=10,
+            pady=6
+        )
+        self.selected_point_time_label.pack(fill="x", pady=(0, 10))
+
         self.axis_info_label = tk.Label(parent, textvariable=self.axis_info_var, bg=self.PANEL, fg=self.MUTED,
                                         justify="left", anchor="w", font=("Consolas", 9), padx=10, pady=10)
         self.axis_info_label.pack(fill="x", pady=(0, 12))
@@ -2501,9 +2515,13 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.protocol_text.configure(yscrollcommand=protocol_scroll.set, state="disabled")
 
     def _apply_visibility_settings(self) -> None:
+        self.selected_point_time_label.pack_forget()
         self.axis_info_label.pack_forget()
         self.protocol_label.pack_forget()
         self.protocol_box.pack_forget()
+        
+        self.selected_point_time_label.pack(fill="x", pady=(0, 10))
+        
         if self.main_take_settings.show_axis_metrics:
             self.axis_info_label.pack(fill="x", pady=(0, 12), padx=0)
         if self.main_take_settings.show_protocol_preview:
@@ -2535,6 +2553,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             return False
         self.active_axis_index = axis_index
         self._axis_selection_version += 1
+        self._update_selected_point_time_indicator()
         self._mark_axis_metrics_dirty()
         self._mark_protocol_dirty()
         self._main_canvas_needs_redraw = True
@@ -3045,6 +3064,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 fill = "#F59E0B" if self.drag_mode == 'release' and axis_index == self.drag_axis_index else axis_color
                 c.create_polygon(rx, ry - r, rx + r, ry, rx, ry + r, rx - r, ry, fill=fill, outline='black', tags=(axis_tag, "release_diamond"))
                 c.create_text(rx + 14, ry - 10, text='RELEASE', fill=axis_color, anchor='w', font=('Segoe UI', 8, 'bold'), tags=(axis_tag, "release_text"))
+                
+                # Pionowa linia dla punktu RELEASE (jak show_axis_activity_markers)
+                c.create_line(rx, rect.top + 4, rx, rect.bottom - 4, fill=axis_color, width=1, dash=(3, 5), tags=(axis_tag, "release_marker"))
 
         if only_axis_index is None:
             for minute in range(0, total_minutes + 1):
@@ -3080,6 +3102,38 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         
         frac = (t_ms - t0) / (t1 - t0)
         return y0 + frac * (y1 - y0)
+
+    def _format_take_time(self, t_ms: int | None) -> str:
+        if t_ms is None:
+            return "--:--"
+        minutes = int(t_ms // 60000)
+        seconds = int((t_ms % 60000) // 1000)
+        return f"{minutes:02d}:{seconds:02d}"
+
+    def _update_selected_point_time_indicator(self, axis_index=None, node_index=None, time_ms=None):
+        if time_ms is None:
+            if axis_index is None:
+                axis_index = self.active_axis_index
+            
+            if node_index is None:
+                node_index = self.selected_index
+                
+            model = self.axis_models[axis_index]
+            
+            # Obsługa DRON (release axis)
+            if model.is_release_axis:
+                time_ms = model.release_time_ms
+            elif node_index is not None and 0 <= node_index < len(model.nodes):
+                time_ms = model.nodes[node_index].time_ms
+            else:
+                # Spróbujmy pokazać pierwszy roboczy punkt (index 1)
+                if len(model.nodes) > 1:
+                    time_ms = model.nodes[1].time_ms
+                else:
+                    self.selected_point_time_var.set("--:--")
+                    return
+
+        self.selected_point_time_var.set(self._format_take_time(int(time_ms) if time_ms is not None else None))
 
     def _refresh_axis_info(self, force: bool = False) -> None:
         model = self._active_model()
@@ -3304,6 +3358,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.drag_axis_index = axis_index
             self.selected_index = None
             self.drag_mode = "release"
+            self._update_selected_point_time_indicator(axis_index)
             self.drag_anchor_x = event.x
             self.drag_release_anchor_time = int(model.release_time_ms or 0)
             self._drag_zero_snap_locked = False
@@ -3316,6 +3371,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.drag_axis_index = axis_index
             self.selected_index = node_index
             self.drag_mode = "node"
+            self._update_selected_point_time_indicator(axis_index, node_index)
             rect = self.axis_rects[axis_index]
             
             # Ghost assist cache
@@ -3383,6 +3439,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                         self.is_ghost_snapped = True
 
             if model.move_node(self.selected_index, new_t, new_y):
+                self._update_selected_point_time_indicator(axis_index, self.selected_index, new_t)
                 # Po move_node nody mogły zmienić kolejność, ale move_node zwraca True jeśli nastąpiła zmiana.
                 # sort_and_fix_nodes() w _draw_main_canvas zadba o spójność rysowania.
                 model._invalidate_cache()
@@ -3393,6 +3450,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         elif self.drag_mode == "release":
             new_time = self._x_to_time(event.x, rect.left, rect.right)
             if model.set_release_time(new_time):
+                self._update_selected_point_time_indicator(axis_index, time_ms=new_time)
                 self._drag_data_changed = True
                 self._request_main_canvas_redraw(only_axis_index=axis_index)
         elif self.drag_mode == "pan":
@@ -3424,6 +3482,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.drag_anchor_x = event.x
             if model.shift_all(delta):
                 model._invalidate_cache()
+                self._update_selected_point_time_indicator()
                 self._drag_data_changed = True
                 self._request_main_canvas_redraw(only_axis_index=axis_index)
 
@@ -3486,6 +3545,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             return
         y = self._canvas_to_logical_y(model, event.y, rect.top, rect.bottom)
         model.add_node(t_ms, y)
+        self._update_selected_point_time_indicator(axis_index, time_ms=t_ms)
         model._invalidate_cache()
         self._main_canvas_needs_redraw = True
         self._mark_axis_data_changed(axis_index)
@@ -3506,6 +3566,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             return
         model = self.axis_models[axis_index]
         model.remove_node(node_index)
+        self._update_selected_point_time_indicator()
         model._invalidate_cache()
         self._main_canvas_needs_redraw = True
         self._mark_axis_data_changed(axis_index)

@@ -2362,6 +2362,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._take_model_dirty = False
         self._axis_info_dirty = True
         self._protocol_dirty = True
+        self._force_curve_resample_after_save = False
         self._configure_after_id = None
         self._main_canvas_redraw_after_id = None
         self.take_panel_visible = True
@@ -2864,7 +2865,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             return None
 
     @profile_method('EHR_MAIN._draw_main_canvas')
-    def _draw_main_canvas(self) -> None:
+    def _draw_main_canvas(self, only_axis_index: int | None = None) -> None:
         if not hasattr(self, "_last_canvas_draw_key"):
             self._last_canvas_draw_key = None
 
@@ -2884,41 +2885,55 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.main_take_settings.show_axis_activity_markers
         )
 
-        if current_draw_key == self._last_canvas_draw_key and not self._main_canvas_needs_redraw:
-            return
+        if only_axis_index is None:
+            if current_draw_key == self._last_canvas_draw_key and not self._main_canvas_needs_redraw:
+                # Jeśli wymuszono resampling po SAVE, nie przerywaj rysowania mimo braku zmian w kluczu
+                if not getattr(self, "_force_curve_resample_after_save", False):
+                    return
+            self._last_canvas_draw_key = current_draw_key
 
-        self._last_canvas_draw_key = current_draw_key
         c = self.timeline_canvas
-        c.delete("all")
-        self.axis_rects.clear()
-        self.gear_rects.clear()
-        self.wave_rects.clear()
-        # left, top, right, bottom już mamy z obliczeń klucza
-        c.create_rectangle(left, top, right, bottom, fill="#1B2028", outline="#303A45")
+        if only_axis_index is None:
+            c.delete("all")
+            self.axis_rects.clear()
+            self.gear_rects.clear()
+            self.wave_rects.clear()
+            # left, top, right, bottom już mamy z obliczeń klucza
+            c.create_rectangle(left, top, right, bottom, fill="#1B2028", outline="#303A45", tags="bg")
 
-        total_minutes = max(1, int(self.global_take_duration_ms // 60000))
-        if self.main_take_settings.show_minute_grid:
-            for minute in range(0, total_minutes + 1):
-                t_ms = minute * 60000
-                if t_ms > self.global_take_duration_ms:
-                    continue
-                px = self._time_to_x(t_ms, left, right)
-                c.create_line(px, top, px, bottom, fill="#36414C", dash=(2, 6))
+            total_minutes = max(1, int(self.global_take_duration_ms // 60000))
+            if self.main_take_settings.show_minute_grid:
+                for minute in range(0, total_minutes + 1):
+                    t_ms = minute * 60000
+                    if t_ms > self.global_take_duration_ms:
+                        continue
+                    px = self._time_to_x(t_ms, left, right)
+                    c.create_line(px, top, px, bottom, fill="#36414C", dash=(2, 6), tags="grid")
+        else:
+            c.delete(f"axis_{only_axis_index}")
+            total_minutes = max(1, int(self.global_take_duration_ms // 60000))
 
         for axis_index, rect in self._axis_layout():
+            if only_axis_index is not None and axis_index != only_axis_index:
+                continue
+
             self.axis_rects[axis_index] = rect
             model = self.axis_models[axis_index]
             is_active = axis_index == self.active_axis_index
             axis_color = self._axis_curve_color(model)
             panel_fill = self._axis_panel_fill(axis_color, is_active)
-            c.create_rectangle(rect.left, rect.top, rect.right, rect.bottom, fill=panel_fill, outline="")
+            
+            # Tagowanie wszystkich elementów danej osi
+            axis_tag = f"axis_{axis_index}"
+
+            c.create_rectangle(rect.left, rect.top, rect.right, rect.bottom, fill=panel_fill, outline="", tags=(axis_tag, "panel"))
             if is_active:
-                c.create_line(rect.left, rect.top + 2, rect.left, rect.bottom - 2, fill=axis_color, width=max(1, int(getattr(self.main_take_settings, "active_axis_border_width", 3))))
+                c.create_line(rect.left, rect.top + 2, rect.left, rect.bottom - 2, fill=axis_color, width=max(1, int(getattr(self.main_take_settings, "active_axis_border_width", 3))), tags=(axis_tag, "border"))
 
             mid = (rect.top + rect.bottom) / 2.0
             c.create_line(rect.left, mid, rect.right, mid,
                           fill=self.main_take_settings.zero_line_color,
-                          width=self.main_take_settings.zero_line_width)
+                          width=self.main_take_settings.zero_line_width, tags=(axis_tag, "zero_line"))
 
             if not model.is_release_axis:
                 if self.main_take_settings.show_axis_gears:
@@ -2927,23 +2942,23 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                     gear = GearRect(gear_x - 13, gear_y - 8, gear_x + 13, gear_y + 8)
                     self.gear_rects[axis_index] = gear
                     c.create_text(gear_x, gear_y, text="⚙", fill="#FFFFFF",
-                                  font=("Segoe UI Symbol", CONTROL_FONT_SIZE), tags=("axis_controls", "gear", f"overlay_{axis_index}"))
+                                  font=("Segoe UI Symbol", CONTROL_FONT_SIZE), tags=("axis_controls", "gear", f"overlay_{axis_index}", axis_tag))
                 
                 smooth_x = rect.left + SMOOTH_OFFSET_X
                 smooth_y = rect.bottom + SMOOTH_OFFSET_Y
                 wave = WaveRect(smooth_x - 13, smooth_y - 8, smooth_x + 13, smooth_y + 8)
                 self.wave_rects[axis_index] = wave
                 c.create_text(smooth_x, smooth_y, text="≈", fill="#FFFFFF",
-                              font=("Segoe UI Semibold", CONTROL_FONT_SIZE), tags=("axis_controls", "smooth", f"overlay_{axis_index}"))
+                              font=("Segoe UI Semibold", CONTROL_FONT_SIZE), tags=("axis_controls", "smooth", f"overlay_{axis_index}", axis_tag))
 
             if self.main_take_settings.show_axis_labels:
                 icon_h = int((rect.bottom - rect.top) * 0.8)
                 icon = self._get_axis_icon(model.axis_def.axis_name, icon_h)
                 if icon:
-                    c.create_image(rect.left - 12, mid, image=icon, anchor="e")
+                    c.create_image(rect.left - 12, mid, image=icon, anchor="e", tags=(axis_tag, "icon"))
                 else:
                     c.create_text(rect.left - 12, mid, text=model.axis_def.axis_name, fill=self.FG, anchor="e",
-                                  font=("Segoe UI", 9, "bold"))
+                                  font=("Segoe UI", 9, "bold"), tags=(axis_tag, "label"))
 
             # Podnieś ikony ustawień nad ikonę osi
             c.tag_raise("axis_controls")
@@ -2955,15 +2970,16 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                     if t_ms > self.global_take_duration_ms:
                         continue
                     px = self._time_to_x(t_ms, rect.left, rect.right)
-                    c.create_line(px, rect.top, px, rect.bottom, fill="#303842", dash=(2, 6))
+                    c.create_line(px, rect.top, px, rect.bottom, fill="#303842", dash=(2, 6), tags=(axis_tag, "minute_grid"))
 
             if not model.is_release_axis:
+                model.sort_and_fix_nodes()
                 if self.main_take_settings.show_axis_activity_markers and len(model.nodes) >= 4:
                     first_edit = model.nodes[1]
                     last_edit = model.nodes[-2]
                     for node in (first_edit, last_edit):
                         mx = self._time_to_x(node.time_ms, rect.left, rect.right)
-                        c.create_line(mx, rect.top + 4, mx, rect.bottom - 4, fill=axis_color, width=1, dash=(3, 5))
+                        c.create_line(mx, rect.top + 4, mx, rect.bottom - 4, fill=axis_color, width=1, dash=(3, 5), tags=(axis_tag, "marker"))
 
                 ghost_samples = self._sample_original_curve(model)
                 ghost_pts = []
@@ -2976,9 +2992,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                         fill="#64748B",
                         width=1,
                         smooth=False,
+                        tags=(axis_tag, "ghost")
                     )
 
-                model.sort_and_fix_nodes()
                 samples = model.sample_curve(self._main_curve_sample_count(), duration_ms=self.global_take_duration_ms)
                 pts = []
                 for t_ms, y in samples:
@@ -2987,7 +3003,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 if len(pts) >= 4:
                     c.create_line(*pts, fill=axis_color,
                                   width=self.main_take_settings.active_curve_line_width if is_active else self.main_take_settings.curve_line_width,
-                                  smooth=False)
+                                  smooth=False, tags=(axis_tag, "curve"))
 
                 node_r = max(4, min(9, model.step_tuning.node_hit_radius_px // 2))
                 square_half = max(5, node_r)
@@ -2997,9 +3013,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                     fill = self.NODE_SEL if (axis_index == self.drag_axis_index and i == self.selected_index) else self.NODE
                     if i == 0 or i == len(model.nodes) - 1:
                         if self.main_take_settings.show_start_stop_squares:
-                            c.create_rectangle(px - square_half, py - square_half, px + square_half, py + square_half, fill=self.main_take_settings.zero_line_color, outline="black")
+                            c.create_rectangle(px - square_half, py - square_half, px + square_half, py + square_half, fill=self.main_take_settings.zero_line_color, outline="black", tags=(axis_tag, "node_square"))
                         else:
-                            c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill="#D6EAF8", outline="black")
+                            c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill="#D6EAF8", outline="black", tags=(axis_tag, "node_oval"))
                     else:
                         # Podświetlenie punktu jeśli jest przyciągnięty do ghosta (Main Canvas)
                         node_fill = fill
@@ -3013,29 +3029,30 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                         if is_snapped:
                             node_fill = "#22C55E" # Zielony (Emerald-500)
                         
-                        c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill=node_fill, outline="black")
+                        c.create_oval(px - node_r, py - node_r, px + node_r, py + node_r, fill=node_fill, outline="black", tags=(axis_tag, "node_oval"))
 
             if model.is_release_axis and model.release_time_ms is not None:
                 inner_top = rect.top + max(12, (rect.bottom - rect.top) // 3)
                 inner_bottom = rect.bottom - max(12, (rect.bottom - rect.top) // 3)
                 inner_mid = (inner_top + inner_bottom) / 2.0
-                c.create_rectangle(rect.left, inner_top, rect.right, inner_bottom, fill=panel_fill, outline="")
+                c.create_rectangle(rect.left, inner_top, rect.right, inner_bottom, fill=panel_fill, outline="", tags=(axis_tag, "release_panel"))
                 c.create_line(rect.left, inner_mid, rect.right, inner_mid,
                               fill=self.main_take_settings.zero_line_color,
-                              width=self.main_take_settings.zero_line_width)
+                              width=self.main_take_settings.zero_line_width, tags=(axis_tag, "release_zero"))
                 rx = self._time_to_x(model.release_time_ms, rect.left, rect.right)
                 ry = inner_mid
                 r = 7
                 fill = "#F59E0B" if self.drag_mode == 'release' and axis_index == self.drag_axis_index else axis_color
-                c.create_polygon(rx, ry - r, rx + r, ry, rx, ry + r, rx - r, ry, fill=fill, outline='black')
-                c.create_text(rx + 14, ry - 10, text='RELEASE', fill=axis_color, anchor='w', font=('Segoe UI', 8, 'bold'))
+                c.create_polygon(rx, ry - r, rx + r, ry, rx, ry + r, rx - r, ry, fill=fill, outline='black', tags=(axis_tag, "release_diamond"))
+                c.create_text(rx + 14, ry - 10, text='RELEASE', fill=axis_color, anchor='w', font=('Segoe UI', 8, 'bold'), tags=(axis_tag, "release_text"))
 
-        for minute in range(0, total_minutes + 1):
-            t_ms = minute * 60000
-            if t_ms > self.global_take_duration_ms:
-                continue
-            px = self._time_to_x(t_ms, left, right)
-            c.create_text(px, bottom + 8, text=f"{minute}m", fill=self.MUTED, anchor="n", font=("Consolas", 8))
+        if only_axis_index is None:
+            for minute in range(0, total_minutes + 1):
+                t_ms = minute * 60000
+                if t_ms > self.global_take_duration_ms:
+                    continue
+                px = self._time_to_x(t_ms, left, right)
+                c.create_text(px, bottom + 8, text=f"{minute}m", fill=self.MUTED, anchor="n", font=("Consolas", 8), tags="time_label")
 
     def _on_canvas_configure(self, _event=None) -> None:
         self._schedule_configure_refresh()
@@ -3163,7 +3180,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
     def _set_status(self, status: str | None = None) -> None:
         self.status_var.set(status if status is not None else "EHR gotowy.")
 
-    def _request_main_canvas_redraw(self) -> None:
+    def _request_main_canvas_redraw(self, only_axis_index: int | None = None) -> None:
+        if only_axis_index is not None:
+            self._draw_main_canvas(only_axis_index=only_axis_index)
+            return
+
         self._main_canvas_needs_redraw = True
         if self._main_canvas_redraw_after_id is not None:
             return
@@ -3299,6 +3320,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             
             # Ghost assist cache
             self._ghost_samples_cache = []
+            model._invalidate_cache()
             if getattr(self.main_take_settings, "ghost_assist_enabled", False):
                 self._ghost_samples_cache = self._sample_original_curve(model)
 
@@ -3322,6 +3344,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         
         # Ghost assist cache for PAN
         self._ghost_samples_cache = []
+        model._invalidate_cache()
         if getattr(self.main_take_settings, "ghost_assist_enabled", False):
             self._ghost_samples_cache = self._sample_original_curve(model)
 
@@ -3334,6 +3357,16 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             return
         model = self.axis_models[axis_index]
         rect = self.axis_rects[axis_index]
+
+        # Wymuś unieważnienie cache po SAVE przy pierwszym ruchu
+        if getattr(self, "_force_curve_resample_after_save", False):
+            # 1. Unieważnij cache aktywnej osi
+            model._invalidate_cache()
+            # 2. Wymuś ponowne sample_curve aktywnej osi z aktualnego model.nodes
+            model.sample_curve(self._main_curve_sample_count(), duration_ms=self.global_take_duration_ms)
+            # 3. Zresetuj flagę
+            self._force_curve_resample_after_save = False
+
         if self.drag_mode == "node" and self.selected_index is not None:
             new_t = self._x_to_time(event.x, rect.left, rect.right)
             new_y = self._canvas_to_logical_y(model, event.y, rect.top, rect.bottom, apply_snap=False)
@@ -3350,14 +3383,18 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                         self.is_ghost_snapped = True
 
             if model.move_node(self.selected_index, new_t, new_y):
+                # Po move_node nody mogły zmienić kolejność, ale move_node zwraca True jeśli nastąpiła zmiana.
+                # sort_and_fix_nodes() w _draw_main_canvas zadba o spójność rysowania.
                 model._invalidate_cache()
+                # Wymuś resampling natychmiast po zmianie pozycji punktu
+                model.sample_curve(self._main_curve_sample_count(), duration_ms=self.global_take_duration_ms)
                 self._drag_data_changed = True
-                self._request_main_canvas_redraw()
+                self._request_main_canvas_redraw(only_axis_index=axis_index)
         elif self.drag_mode == "release":
             new_time = self._x_to_time(event.x, rect.left, rect.right)
             if model.set_release_time(new_time):
                 self._drag_data_changed = True
-                self._request_main_canvas_redraw()
+                self._request_main_canvas_redraw(only_axis_index=axis_index)
         elif self.drag_mode == "pan":
             new_time = self._x_to_time(event.x, rect.left, rect.right)
             old_time = self._x_to_time(self.drag_anchor_x, rect.left, rect.right)
@@ -3388,7 +3425,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             if model.shift_all(delta):
                 model._invalidate_cache()
                 self._drag_data_changed = True
-                self._request_main_canvas_redraw()
+                self._request_main_canvas_redraw(only_axis_index=axis_index)
 
     def _on_canvas_release(self, _event) -> None:
         self.is_ghost_snapped = False
@@ -3436,6 +3473,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         t_ms = self._x_to_time(event.x, rect.left, rect.right)
         if model.is_release_axis and abs(event.y - ((rect.top + rect.bottom) / 2.0)) <= 20:
             if model.set_release_time(t_ms):
+                model._invalidate_cache()
                 self._main_canvas_needs_redraw = True
                 self._mark_axis_data_changed(axis_index)
                 self._draw_main_canvas()
@@ -3448,6 +3486,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             return
         y = self._canvas_to_logical_y(model, event.y, rect.top, rect.bottom)
         model.add_node(t_ms, y)
+        model._invalidate_cache()
         self._main_canvas_needs_redraw = True
         self._mark_axis_data_changed(axis_index)
         self._configure_after_id = None
@@ -3467,6 +3506,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             return
         model = self.axis_models[axis_index]
         model.remove_node(node_index)
+        model._invalidate_cache()
         self._main_canvas_needs_redraw = True
         self._mark_axis_data_changed(axis_index)
         self._configure_after_id = None
@@ -3515,9 +3555,19 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         # Po udanym SAVE: obecna aktywna linia zostaje skopiowana jako nowy ghost
         for axis in self.axis_models:
             axis.clone_original_state()
+            # Unieważnij wszystkie cache modelu
+            axis._invalidate_cache()
+            # WYMUSZONY SAMPLING po SAVE, aby zsynchronizować model z widokiem
+            axis.sample_curve(self._main_curve_sample_count(), duration_ms=self.global_take_duration_ms)
             if hasattr(axis, "_ghost_cache"):
                 axis._ghost_cache.clear()
+        
+        # Wyczyść globalne cache UI
+        self._ghost_samples_cache = []
+        self._force_curve_resample_after_save = True
         self._main_canvas_needs_redraw = True
+        # Wymuś natychmiastowe przerysowanie całego canvasu po SAVE
+        self._draw_main_canvas()
         return saved_path
 
     def _load_take_from_path(self, path: Path) -> None:
@@ -3527,6 +3577,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         
         # Wyczyść cache ghostów po załadowaniu
         for axis in self.axis_models:
+            axis._invalidate_cache()
             if hasattr(axis, "_ghost_cache"):
                 axis._ghost_cache.clear()
                 

@@ -10,10 +10,10 @@
       "path": "data/take/TAKE_001_v09.txt"
     },
     {
-      "path": "data/take/TAKE_001_v18.txt"
+      "path": "data/take/TAKE_001_v33.txt"
     },
     {
-      "path": "data/take/TAKE_001_v20.txt"
+      "path": "data/take/TAKE_001_v31.txt"
     },
     {
       "path": "data/take/TAKE_001_v13.txt"
@@ -31,5 +31,5 @@
       "path": null
     }
   ],
-  "active_slot": 3
+  "active_slot": 4
 }

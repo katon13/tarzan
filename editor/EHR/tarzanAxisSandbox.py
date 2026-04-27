@@ -531,6 +531,7 @@ class AxisSandboxWindow(tk.Tk):
         }
 
         self._build_ui()
+        self.update()
         self._refresh_all()
 
     def _build_ui(self) -> None:

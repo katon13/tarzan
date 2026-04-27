@@ -1411,8 +1411,8 @@ class AxisSettingsDialog(tk.Toplevel):
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self._build_ui()
-        self.update_idletasks()
-        self.after_idle(self._refresh_all)
+        self.update()
+        self._refresh_all()
         self.grab_set()
 
     def _build_ui(self) -> None:

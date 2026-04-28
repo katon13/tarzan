@@ -111,8 +111,14 @@ class VisionSetupWindow(tk.Toplevel):
         self.settings = load_vision_settings(self.project_root)
 
         self.title("TARZAN - VISION TRACKING SETUP / OBIEKT + TWARZ")
+        # Pełne okno Full HD — osobne od CAMERA SETUP.
+        # Tu nie ma ustawień fizycznej kamery, tylko parametry rozpoznawania.
         self.geometry("1920x1080")
-        self.minsize(1500, 850)
+        self.minsize(1600, 900)
+        try:
+            self.state("zoomed")
+        except Exception:
+            pass
         self.configure(bg=BG)
 
         self._configure_styles()
@@ -254,12 +260,12 @@ class VisionSetupWindow(tk.Toplevel):
     def _group(self, parent, row: int, title: str, help_text: str | None = None, accent: str = LINE) -> tk.Frame:
         group = tk.LabelFrame(parent, text=title, bg=PANEL, fg=FG, bd=1, relief=tk.SOLID, highlightthickness=1, highlightbackground=accent, font=("Segoe UI", 9, "bold"), labelanchor="nw")
         group.grid(row=row, column=0, sticky="ew", padx=10, pady=7)
-        group.grid_columnconfigure(0, minsize=145)
+        group.grid_columnconfigure(0, minsize=170)
         group.grid_columnconfigure(1, weight=1)
-        group.grid_columnconfigure(2, minsize=72)
-        group.grid_columnconfigure(3, minsize=150)
+        group.grid_columnconfigure(2, minsize=82)
+        group.grid_columnconfigure(3, minsize=190)
         if help_text:
-            lbl = tk.Label(group, text=help_text, bg=PANEL_2, fg="#d8d8d8", justify=tk.LEFT, anchor="w", wraplength=500, font=("Segoe UI", 9))
+            lbl = tk.Label(group, text=help_text, bg=PANEL_2, fg="#d8d8d8", justify=tk.LEFT, anchor="w", wraplength=620, font=("Segoe UI", 9))
             lbl.grid(row=0, column=0, columnspan=4, sticky="ew", padx=8, pady=(6, 8))
             group._next_row = 1
         else:
@@ -276,7 +282,7 @@ class VisionSetupWindow(tk.Toplevel):
 
     def _hint(self, parent, row: int, text: str | None) -> None:
         if text:
-            tk.Label(parent, text=text, bg=PANEL, fg="#777777", anchor="w", justify=tk.LEFT, wraplength=170, font=("Segoe UI", 8)).grid(row=row, column=3, sticky="w", padx=6, pady=3)
+            tk.Label(parent, text=text, bg=PANEL, fg="#777777", anchor="w", justify=tk.LEFT, wraplength=210, font=("Segoe UI", 8)).grid(row=row, column=3, sticky="w", padx=6, pady=3)
 
     def _entry_row(self, parent, label: str, var, hint: str | None = None) -> None:
         row = self._next_row(parent)
@@ -309,7 +315,7 @@ class VisionSetupWindow(tk.Toplevel):
         self._hint(parent, row, hint)
 
     def _info_box(self, parent, row: int, text_var, accent: str) -> None:
-        box = tk.Label(parent, textvariable=text_var, bg=PANEL_2, fg="#f0d28a", justify=tk.LEFT, anchor="nw", wraplength=520, padx=8, pady=8, font=("Segoe UI", 9), highlightthickness=1, highlightbackground=accent)
+        box = tk.Label(parent, textvariable=text_var, bg=PANEL_2, fg="#f0d28a", justify=tk.LEFT, anchor="nw", wraplength=620, padx=8, pady=8, font=("Segoe UI", 9), highlightthickness=1, highlightbackground=accent)
         box.grid(row=row, column=0, sticky="ew", padx=10, pady=7)
 
     # ------------------------------------------------------------------
@@ -343,7 +349,7 @@ class VisionSetupWindow(tk.Toplevel):
             "3. Stabilizacja decyduje czy cel jest wiarygodny.\n"
             "4. KHR używa wyłącznie error_x i visible — nie steruje kamerą."
         )
-        tk.Label(g, text=text, bg=PANEL, fg="#d8d8d8", justify=tk.LEFT, anchor="w", wraplength=520, font=("Segoe UI", 9)).grid(row=0, column=0, columnspan=4, sticky="ew", padx=8, pady=8)
+        tk.Label(g, text=text, bg=PANEL, fg="#d8d8d8", justify=tk.LEFT, anchor="w", wraplength=620, font=("Segoe UI", 9)).grid(row=0, column=0, columnspan=4, sticky="ew", padx=8, pady=8)
 
     def _build_hsv_shape_panel(self, parent) -> None:
         g = self._group(parent, 2, "HSV — ZAKRES KOLORU", "Te suwaki opisują kolor celu. Dla czerwieni używane są dwa zakresy H, bo czerwony leży na początku i końcu skali Hue.", ACCENT_HSV)

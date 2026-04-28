@@ -152,8 +152,15 @@ class CameraSetupWindow(tk.Toplevel):
         active_target = tracking.get("active_target", "RED_OBJECT")
         active_profile = tracking.get("target_profiles", {}).get(active_target, {})
 
-        self.title("TARZAN - USTAWIENIA KAMERY / SERWIS")
-        self.geometry("1180x760")
+        self.title("TARZAN - CAMERA SETUP / USTAWIENIA KAMERY")
+        # Pełne okno serwisowe kamery. Nie zmienia logiki kamery ani trackingu.
+        # Celem jest czytelna administracja parametrów fizycznej kamery w Full HD.
+        self.geometry("1920x1080")
+        self.minsize(1600, 900)
+        try:
+            self.state("zoomed")
+        except Exception:
+            pass
         self.configure(bg="#111111")
         self.protocol("WM_DELETE_WINDOW", self.close)
 
@@ -190,7 +197,7 @@ class CameraSetupWindow(tk.Toplevel):
 
         tk.Label(
             top,
-            text="USTAWIENIA KAMERY / SERWIS",
+            text="CAMERA SETUP — KAMERA FIZYCZNA",
             bg="#111111",
             fg="#eeeeee",
             font=("Segoe UI", 16, "bold"),
@@ -207,12 +214,13 @@ class CameraSetupWindow(tk.Toplevel):
         body = tk.Frame(self, bg="#111111")
         body.pack(fill=tk.BOTH, expand=True, padx=10, pady=8)
 
-        left = tk.Frame(body, bg="#181818", highlightthickness=1, highlightbackground="#333333")
-        right = tk.Frame(body, bg="#181818", highlightthickness=1, highlightbackground="#333333")
-        left.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 8))
+        left = tk.Frame(body, bg="#181818", width=560, highlightthickness=2, highlightbackground="#2d7dff")
+        right = tk.Frame(body, bg="#181818", highlightthickness=2, highlightbackground="#444444")
+        left.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+        left.pack_propagate(False)
         right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        tk.Label(left, text="PARAMETRY STAŁE KAMERY", bg="#181818", fg="#f0f0f0", font=("Segoe UI", 11, "bold")).pack(fill=tk.X, padx=8, pady=6)
+        tk.Label(left, text="1  PARAMETRY STAŁE KAMERY", bg="#181818", fg="#f0f0f0", font=("Segoe UI", 11, "bold")).pack(fill=tk.X, padx=8, pady=6)
 
         self._row_combo(left, "Index", self.index_var, [0, 1, 2, 3, 4])
         self._row_combo(left, "Backend", self.backend_var, ["DSHOW", "MSMF", "ANY"], readonly=True)
@@ -221,7 +229,7 @@ class CameraSetupWindow(tk.Toplevel):
         self._row_combo(left, "FPS", self.fps_var, [15, 24, 25, 30, 50, 60])
         self._row_entry(left, "FOURCC", self.fourcc_var)
 
-        tk.Label(left, text="UVC / OBRAZ", bg="#181818", fg="#f0f0f0", font=("Segoe UI", 11, "bold")).pack(fill=tk.X, padx=8, pady=(12, 6))
+        tk.Label(left, text="2  UVC / OBRAZ", bg="#181818", fg="#f0f0f0", font=("Segoe UI", 11, "bold")).pack(fill=tk.X, padx=8, pady=(12, 6))
         self._row_check(left, "Auto exposure", self.auto_exposure_var)
         self._row_scale(left, "Exposure", self.exposure_var, -13, 0, 1)
         self._row_check(left, "Auto focus", self.auto_focus_var)
@@ -247,7 +255,7 @@ class CameraSetupWindow(tk.Toplevel):
         tk.Button(buttons2, text="SCAN", width=10, command=self.scan).pack(side=tk.LEFT, padx=3)
         tk.Button(buttons2, text="CLOSE CAMERA", width=14, command=self.close_camera).pack(side=tk.LEFT, padx=3)
 
-        tk.Label(right, text="PODGLĄD SERWISOWY", bg="#181818", fg="#f0f0f0", font=("Segoe UI", 11, "bold")).pack(fill=tk.X, padx=8, pady=6)
+        tk.Label(right, text="PODGLĄD SERWISOWY KAMERY", bg="#181818", fg="#f0f0f0", font=("Segoe UI", 11, "bold")).pack(fill=tk.X, padx=8, pady=6)
         self.preview_canvas = tk.Canvas(right, bg="#1a1a1a", highlightthickness=1, highlightbackground="#444444")
         self.preview_canvas.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
 

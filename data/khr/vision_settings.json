@@ -65,7 +65,27 @@
         "morph_open_kernel": 5,
         "morph_close_kernel": 7,
         "blur_kernel": 3,
-        "prefer_largest_contour": true
+        "prefer_largest_contour": true,
+        "color_enabled": true,
+        "shape_enabled": false,
+        "shape": {
+          "type": "ANY",
+          "match_mode": "CONTOUR_APPROX",
+          "approx_epsilon_factor": 0.04,
+          "min_vertices": 0,
+          "max_vertices": 99,
+          "aspect_ratio_min": 0.2,
+          "aspect_ratio_max": 5.0,
+          "min_circularity": 0.0,
+          "max_circularity": 1.0
+        },
+        "selection": {
+          "prefer_largest_contour": true,
+          "prefer_center": false,
+          "score_color_weight": 1.0,
+          "score_shape_weight": 1.0,
+          "score_area_weight": 0.4
+        }
       },
       "GREEN_OBJECT": {
         "description": "Zielony obiekt testowy",
@@ -86,7 +106,27 @@
         "morph_open_kernel": 5,
         "morph_close_kernel": 7,
         "blur_kernel": 3,
-        "prefer_largest_contour": true
+        "prefer_largest_contour": true,
+        "color_enabled": true,
+        "shape_enabled": false,
+        "shape": {
+          "type": "ANY",
+          "match_mode": "CONTOUR_APPROX",
+          "approx_epsilon_factor": 0.04,
+          "min_vertices": 0,
+          "max_vertices": 99,
+          "aspect_ratio_min": 0.2,
+          "aspect_ratio_max": 5.0,
+          "min_circularity": 0.0,
+          "max_circularity": 1.0
+        },
+        "selection": {
+          "prefer_largest_contour": true,
+          "prefer_center": false,
+          "score_color_weight": 1.0,
+          "score_shape_weight": 1.0,
+          "score_area_weight": 0.4
+        }
       },
       "BLUE_OBJECT": {
         "description": "Niebieski obiekt testowy",
@@ -107,7 +147,117 @@
         "morph_open_kernel": 5,
         "morph_close_kernel": 7,
         "blur_kernel": 3,
-        "prefer_largest_contour": true
+        "prefer_largest_contour": true,
+        "color_enabled": true,
+        "shape_enabled": false,
+        "shape": {
+          "type": "ANY",
+          "match_mode": "CONTOUR_APPROX",
+          "approx_epsilon_factor": 0.04,
+          "min_vertices": 0,
+          "max_vertices": 99,
+          "aspect_ratio_min": 0.2,
+          "aspect_ratio_max": 5.0,
+          "min_circularity": 0.0,
+          "max_circularity": 1.0
+        },
+        "selection": {
+          "prefer_largest_contour": true,
+          "prefer_center": false,
+          "score_color_weight": 1.0,
+          "score_shape_weight": 1.0,
+          "score_area_weight": 0.4
+        }
+      },
+      "RED_TRIANGLE": {
+        "description": "Czerwony trójkąt / marker TARZAN",
+        "hsv_ranges": [
+          {
+            "h_min": 0,
+            "s_min": 90,
+            "v_min": 70,
+            "h_max": 10,
+            "s_max": 255,
+            "v_max": 255
+          },
+          {
+            "h_min": 170,
+            "s_min": 90,
+            "v_min": 70,
+            "h_max": 180,
+            "s_max": 255,
+            "v_max": 255
+          }
+        ],
+        "min_area": 500.0,
+        "max_area": 250000,
+        "min_solidity": 0.45,
+        "min_extent": 0.18,
+        "morph_open_kernel": 5,
+        "morph_close_kernel": 7,
+        "blur_kernel": 3,
+        "prefer_largest_contour": true,
+        "color_enabled": true,
+        "shape_enabled": true,
+        "shape": {
+          "type": "TRIANGLE",
+          "match_mode": "CONTOUR_APPROX",
+          "approx_epsilon_factor": 0.04,
+          "min_vertices": 3,
+          "max_vertices": 3,
+          "aspect_ratio_min": 0.3,
+          "aspect_ratio_max": 3.0,
+          "min_circularity": 0.0,
+          "max_circularity": 1.0
+        },
+        "selection": {
+          "prefer_largest_contour": true,
+          "prefer_center": false,
+          "score_color_weight": 1.0,
+          "score_shape_weight": 1.0,
+          "score_area_weight": 0.4
+        }
+      },
+      "GREEN_SQUARE": {
+        "description": "Zielony kwadrat / marker TARZAN",
+        "hsv_ranges": [
+          {
+            "h_min": 35,
+            "s_min": 70,
+            "v_min": 60,
+            "h_max": 85,
+            "s_max": 255,
+            "v_max": 255
+          }
+        ],
+        "min_area": 500,
+        "max_area": 250000,
+        "min_solidity": 0.45,
+        "min_extent": 0.18,
+        "morph_open_kernel": 5,
+        "morph_close_kernel": 7,
+        "blur_kernel": 3,
+        "prefer_largest_contour": true,
+        "color_enabled": true,
+        "shape_enabled": true,
+        "shape": {
+          "type": "SQUARE",
+          "match_mode": "CONTOUR_APPROX",
+          "approx_epsilon_factor": 0.04,
+          "min_vertices": 4,
+          "max_vertices": 4,
+          "aspect_ratio_min": 0.75,
+          "aspect_ratio_max": 1.33,
+          "min_circularity": 0.0,
+          "max_circularity": 1.0
+        },
+        "selection": {
+          "prefer_largest_contour": true,
+          "prefer_center": false,
+          "score_color_weight": 1.0,
+          "score_shape_weight": 1.0,
+          "score_area_weight": 0.4
+        }
       }
     },
     "target_filter": {
@@ -137,6 +287,50 @@
       "path": "",
       "mode": "REFERENCE_ONLY",
       "description": "Obraz referencyjny obiektu. W tej wersji służy do kontroli operatora i dalszego strojenia trackingu."
+    },
+    "tracking_mode": "HSV_COLOR",
+    "face_tracking": {
+      "active_backend": "HAAR",
+      "backend": "HAAR",
+      "common": {
+        "processing_max_width": 480,
+        "preview_max_width": 640,
+        "draw_debug": true,
+        "select_largest_face": true,
+        "min_face_area": 1200.0,
+        "max_face_area": 250000.0,
+        "target_point": "FACE_CENTER",
+        "center_smoothing": 0.35,
+        "area_smoothing": 0.25,
+        "visible_hysteresis_on": 2,
+        "visible_hysteresis_off": 5,
+        "hold_last_target_ms": 250,
+        "max_jump_px": 220
+      },
+      "mediapipe": {
+        "enabled": true,
+        "require_installed": true,
+        "model_selection": 0,
+        "min_detection_confidence": 0.55
+      },
+      "haar": {
+        "enabled": true,
+        "cascade_name": "haarcascade_frontalface_default.xml",
+        "scale_factor": 1.1,
+        "min_neighbors": 5,
+        "flags": 0,
+        "min_size_w": 40,
+        "min_size_h": 40,
+        "max_size_w": 0,
+        "max_size_h": 0,
+        "equalize_hist": true
+      },
+      "processing_max_width": 480,
+      "max_width": 640,
+      "draw_debug": true,
+      "min_face_area": 1200.0,
+      "model_selection": 0,
+      "min_detection_confidence": 0.55
     }
   },
   "last_good_camera": {

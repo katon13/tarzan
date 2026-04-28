@@ -117,6 +117,7 @@ from motion.tarzanKHRTracking import KHRTracking
 from vision.tarzanCameraTracker import CameraTrackingResult, TarzanCameraTracker
 from vision.tarzanCameraSession import CameraSession
 from vision.tarzanCameraControls import apply_camera_settings
+from vision.tarzanVisionSetup import VisionSetupWindow
 
 
 
@@ -232,9 +233,8 @@ class CameraSetupWindow(tk.Toplevel):
         self._row_scale(left, "Saturation", self.saturation_var, 0, 128, 1)
         self._row_scale(left, "Gain", self.gain_var, 0, 255, 1)
 
-        tk.Label(left, text="TRACKING", bg="#181818", fg="#f0f0f0", font=("Segoe UI", 11, "bold")).pack(fill=tk.X, padx=8, pady=(12, 6))
-        self._row_combo(left, "Cel", self.target_profile_var, target_profile_names(self.settings), readonly=True)
-        self._row_scale(left, "Min area", self.min_area_var, 50, 5000, 50)
+        # Tracking nie należy do Camera Setup.
+        # To okno ustawia tylko fizyczną kamerę; tryb śledzenia wybiera główne KHR.
 
         buttons = tk.Frame(left, bg="#181818")
         buttons.pack(fill=tk.X, padx=8, pady=12)
@@ -701,6 +701,7 @@ class TarzanKHRWindow(tk.Tk):
         # Główne okno KHR NIE ma już pól ustawiania kamery.
         # Jedynym źródłem prawdy jest data/khr/vision_settings.json zapisany z Camera Setup.
         self.target_profile_var = tk.StringVar(value=str(tracking_cfg.get('active_target', 'RED_OBJECT')))
+        self.tracking_mode_var = tk.StringVar(value=self._tracking_mode_label(str(tracking_cfg.get('tracking_mode', 'HSV_COLOR'))))
         # Podgląd obrazu kamery jest tylko trybem testowym/operatorowym.
         # Domyślnie OFF: moduł KHR ma działać lekko i pobierać error_x bez kosztu ImageTk/PIL.
         self.camera_image_preview_var = tk.BooleanVar(value=True)
@@ -805,9 +806,36 @@ class TarzanKHRWindow(tk.Tk):
         tk.Label(frame, text=title, bg="#181818", fg="#f0f0f0", font=("Segoe UI", 11, "bold")).pack(side=tk.TOP, fill=tk.X, padx=8, pady=6)
         return frame
 
+    def _tracking_mode_label(self, mode: str) -> str:
+        mode = (mode or "HSV_COLOR").strip().upper()
+        if mode == "FACE_HAAR":
+            return "TWARZ / HAAR"
+        if mode == "FACE_MEDIAPIPE":
+            return "TWARZ / MEDIAPIPE"
+        return "KOLOR / HSV"
+
+    def _tracking_mode_value(self) -> str:
+        label = str(self.tracking_mode_var.get() or "KOLOR / HSV")
+        if "MEDIAPIPE" in label.upper():
+            return "FACE_MEDIAPIPE"
+        if "HAAR" in label.upper():
+            return "FACE_HAAR"
+        return "HSV_COLOR"
+
     def _make_camera_control_row(self, parent: tk.Widget) -> None:
         row = tk.Frame(parent, bg="#111111")
         row.pack(fill=tk.X, pady=(8, 0))
+
+        tk.Label(row, text="Tryb śledzenia:", bg="#111111", fg="#cccccc").pack(side=tk.LEFT, padx=(0, 4))
+        mode_box = ttk.Combobox(
+            row,
+            textvariable=self.tracking_mode_var,
+            values=["KOLOR / HSV", "TWARZ / HAAR", "TWARZ / MEDIAPIPE"],
+            width=18,
+            state="readonly",
+        )
+        mode_box.pack(side=tk.LEFT, padx=(0, 8))
+        mode_box.bind("<<ComboboxSelected>>", self._on_tracking_mode_change)
 
         tk.Label(row, text="Kamera:", bg="#111111", fg="#cccccc").pack(side=tk.LEFT, padx=(0, 4))
         tk.Label(
@@ -819,8 +847,9 @@ class TarzanKHRWindow(tk.Tk):
             anchor="w",
         ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4)
 
-        tk.Button(row, text="OPEN CAMERA", width=13, command=self._open_last_camera).pack(side=tk.LEFT, padx=4)
+        tk.Button(row, text="PODGLĄD KAMERY", width=15, command=self._open_last_camera).pack(side=tk.LEFT, padx=4)
         tk.Button(row, text="CAMERA SETUP", width=14, command=self._open_camera_setup).pack(side=tk.LEFT, padx=4)
+        tk.Button(row, text="TRACKING SETUP", width=16, command=self._open_vision_tracking_setup).pack(side=tk.LEFT, padx=4)
         tk.Checkbutton(
             row,
             text="PODGLĄD",
@@ -833,6 +862,22 @@ class TarzanKHRWindow(tk.Tk):
             activeforeground="#ffffff",
         ).pack(side=tk.LEFT, padx=8)
         tk.Button(row, text="LOAD TARGET", width=13, command=self._load_target_template).pack(side=tk.RIGHT, padx=4)
+
+    def _on_tracking_mode_change(self, event=None) -> None:
+        mode = self._tracking_mode_value()
+        # Zmiana trybu śledzenia nie restartuje kamery. Zmieniamy tylko plugin analizy.
+        try:
+            self.vision_settings.setdefault("tracking", {})["tracking_mode"] = mode
+        except Exception:
+            pass
+        if self.camera_session is not None:
+            try:
+                self.camera_session.set_tracking_mode(mode)
+            except Exception as exc:
+                self.camera_message = f"Nie zmieniono trybu śledzenia: {exc}"
+        self.camera_message = f"Tryb śledzenia: {self._tracking_mode_label(mode)} | kamera bez restartu"
+        if self.source_var.get() == "KAMERA":
+            self._draw_input()
 
     def _on_camera_image_preview_toggle(self) -> None:
         # Przełącza tylko kosztowny render obrazu w UI.
@@ -851,27 +896,22 @@ class TarzanKHRWindow(tk.Tk):
         last = self.vision_settings.get("last_good_camera", {})
         return bool(last.get("enabled", False))
 
-    def _camera_config_values(self) -> tuple[int, str, int, int, int, str, float]:
+    def _camera_config_values(self) -> tuple[int, str, int, int, int]:
         discovery = self.vision_settings.get("camera_discovery", {})
         camera = self.vision_settings.get("camera_device", {})
-        tracking = self.vision_settings.get("tracking", {})
-        active_target = str(tracking.get("active_target", "RED_OBJECT"))
-        profile_data = tracking.get("target_profiles", {}).get(active_target, {})
         return (
             int(discovery.get("preferred_index", 0)),
             str(discovery.get("preferred_backend", "DSHOW")),
             int(camera.get("frame_width", 640)),
             int(camera.get("frame_height", 360)),
             int(camera.get("fps", 15)),
-            active_target,
-            float(profile_data.get("min_area", 500.0)),
         )
 
     def _camera_config_status_text(self) -> str:
         if not self._camera_is_configured():
             return "BRAK KONFIGURACJI KAMERY — użyj CAMERA SETUP i zapisz ustawienia"
-        index, backend, width, height, fps, target, min_area = self._camera_config_values()
-        return f"JSON OK | index={index} | backend={backend} | {width}x{height} | {fps}fps | target={target} | min_area={min_area:.0f}"
+        index, backend, width, height, fps = self._camera_config_values()
+        return f"JSON OK | index={index} | backend={backend} | {width}x{height} | {fps}fps"
 
     def _refresh_camera_config_status(self) -> None:
         try:
@@ -885,9 +925,16 @@ class TarzanKHRWindow(tk.Tk):
         self._open_camera_fast()
 
     def _open_camera_setup(self) -> None:
-        # Tryb serwisowy: osobne okno do wolnego strojenia i zapisu JSON.
+        # Tryb serwisowy kamery: osobne okno tylko do fizycznej kamery.
+        # Tracking / twarz / obiekt są w TRACKING SETUP.
         self._close_camera()
         CameraSetupWindow(self)
+
+    def _open_vision_tracking_setup(self) -> None:
+        # Administracja rozpoznawaniem: obiekt, kolor, kształt, twarz, test i zapis JSON.
+        # Nie dotyka fizycznych ustawień kamery.
+        self._close_camera()
+        VisionSetupWindow(self, PROJECT_ROOT)
 
     def _reload_vision_settings_from_json(self) -> None:
         try:
@@ -895,6 +942,8 @@ class TarzanKHRWindow(tk.Tk):
             self.last_good_camera = self.vision_settings.get("last_good_camera", {})
             tracking_cfg = self.vision_settings.get("tracking", {})
             self.target_profile_var.set(str(tracking_cfg.get("active_target", "RED_OBJECT")))
+            if not hasattr(self, "tracking_mode_var") or not str(self.tracking_mode_var.get()):
+                self.tracking_mode_var.set(self._tracking_mode_label(str(tracking_cfg.get("tracking_mode", "HSV_COLOR"))))
             self._refresh_camera_config_status()
         except Exception as exc:
             self.camera_message = f"Nie przeładowano vision_settings.json: {exc}"
@@ -917,16 +966,19 @@ class TarzanKHRWindow(tk.Tk):
             self._draw_input()
             return
 
+        mode = self._tracking_mode_value()
         if self.camera_session is None or not self.camera_session.is_running:
             self.camera_session = CameraSession(
                 project_root=PROJECT_ROOT,
                 profile_name=str(self.target_profile_var.get()),
                 tick_profile_callback=_khr_profile_record,
                 frame_output_enabled=bool(self.camera_image_preview_var.get()),
+                tracking_mode=mode,
             )
 
         try:
             self.camera_session.set_frame_output_enabled(bool(self.camera_image_preview_var.get()))
+            self.camera_session.set_tracking_mode(mode)
         except Exception:
             pass
 
@@ -1025,15 +1077,9 @@ class TarzanKHRWindow(tk.Tk):
         self._open_camera_setup()
 
     def _on_target_profile_change(self, event=None) -> None:
-        # Profil celu w głównym KHR pochodzi z JSON. Zmienia go Camera Setup.
+        # Zachowane dla kompatybilności. Tryb śledzenia wybiera główne KHR,
+        # a fizyczne ustawienia kamery pozostają w Camera Setup.
         self._reload_vision_settings_from_json()
-        if self.camera_tracker is not None:
-            try:
-                self.camera_tracker.set_target_profile(self.target_profile_var.get())
-            except Exception:
-                pass
-        if self.camera_session is not None:
-            self.camera_message = "Profil celu wczytany z JSON; restart kamery tylko przez ponowne OPEN CAMERA"
 
     def _make_settings_rows(self, parent: tk.Widget) -> None:
         row1 = tk.Frame(parent, bg="#111111")
@@ -1111,13 +1157,17 @@ class TarzanKHRWindow(tk.Tk):
         self.axis_angle = 0.0
         self.step_count = 0
 
-        # Kamera live ma własnego workera; START KHR nie tworzy drugiego czytnika.
-        # Dopiero START KHR włącza tracker / error_x. OPEN CAMERA pozostaje czystym preview.
-        if self.source_var.get() == "KAMERA" and self.camera_session is not None:
-            try:
-                self.camera_session.start_tracking()
-            except Exception:
-                pass
+        # START w trybie KAMERA uruchamia jedną sesję kamery, jeśli jeszcze jej nie ma.
+        # Nie ma osobnego startu śledzenia: START/STOP steruje pracą KHR.
+        if self.source_var.get() == "KAMERA":
+            if self.camera_session is None or not self.camera_session.is_running:
+                self._open_camera_fast()
+            if self.camera_session is not None:
+                try:
+                    self.camera_session.set_tracking_mode(self._tracking_mode_value())
+                    self.camera_session.start_tracking()
+                except Exception:
+                    pass
         self._start_ui_loop()
         self._loop()
 
@@ -1284,7 +1334,8 @@ class TarzanKHRWindow(tk.Tk):
         c.create_text(60, 24, text="źródło: KAMERA", fill="#eeeeee", anchor="w", font=("Segoe UI", 11, "bold"))
         tick_ms = self.camera_session.worker_tick_ms if self.camera_session is not None else 0.0
         tracking_mode = "TRACKING ON" if (self.camera_session is not None and self.camera_session.tracking_enabled) else "PREVIEW ONLY"
-        cam_text = f"{self.camera_message} | {tracking_mode} | {self._camera_config_status_text()} | tick={tick_ms:.1f}ms"
+        plugin_text = self._tracking_mode_label(self._tracking_mode_value())
+        cam_text = f"{self.camera_message} | {tracking_mode} | plugin={plugin_text} | {self._camera_config_status_text()} | tick={tick_ms:.1f}ms"
         c.create_text(60, 48, text=cam_text, fill="#aaaaaa" if self.camera_ok else "#ff5555", anchor="w", font=("Segoe UI", 10))
 
         image_preview_on = bool(self.camera_image_preview_var.get())

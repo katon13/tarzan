@@ -145,26 +145,39 @@ class TarzanCameraTracker:
         if not self.cap or not self.cap.isOpened():
             return False, f"Nie można otworzyć kamery index={self.device_index} backend={backend_name}"
 
+        try:
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        except Exception:
+            pass
+
         camera_cfg = self.settings.get("camera_device", {}) if self.settings else {}
 
         if fast_open:
-            # FAST PREVIEW / LIVE: TYLKO ODCZYT.
-            # Nie konsultujemy zapisanych ustawień ze sterownikiem przy każdym starcie.
-            # Brak cap.set(), brak buffer size, brak UVC, brak cap.get().
-            # Parametry ustawiamy ręcznie tylko w trybie serwisowym przez APPLY.
-            pass
+            # TRYB LIVE / KHR:
+            # OpenCV działa szybko, ale bez ustawienia formatu kamera potrafi wrócić do 1920x1080.
+            # Dlatego robimy tylko minimalny, roboczy format LIVE w wątku kamery, nigdy w UI:
+            # FOURCC + WIDTH + HEIGHT + FPS. Bez UVC exposure/focus/WB i bez cap.get().
+            try:
+                fourcc = camera_cfg.get("fourcc")
+                if fourcc:
+                    self.cap.set(cv2.CAP_PROP_FOURCC, fourcc_to_int(cv2, fourcc))
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(camera_cfg.get("frame_width", self.frame_width)))
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(camera_cfg.get("frame_height", self.frame_height)))
+                self.cap.set(cv2.CAP_PROP_FPS, float(camera_cfg.get("fps", 15)))
+            except Exception:
+                pass
         else:
-            # TRYB SERWISOWY APPLY:
-            # Pełne ustawienia kamery są świadomie wolniejsze i wykonywane tylko ręcznie.
+            # TRYB SERWISOWY:
+            # Pełne ustawienia kamery są świadomie wolniejsze i wykonywane tylko w oknie ustawień.
             if self.settings:
                 apply_camera_settings(self.cap, cv2, camera_cfg)
             else:
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
 
-        warmup = 0
+        warmup = 0 if fast_open else 5
         if self.settings:
-            warmup = 0
+            warmup = 0 if fast_open else int(self.settings.get("camera_discovery", {}).get("warmup_frames", 5))
         for _ in range(max(0, warmup)):
             self.cap.read()
 
@@ -194,11 +207,19 @@ class TarzanCameraTracker:
             self.last_result = CameraTrackingResult()
             return self.last_result
 
-        result = self._detect_object(frame)
+        return self.process_frame(frame, include_frame_rgb=True)
+
+    def process_frame(self, frame, include_frame_rgb: bool = True) -> CameraTrackingResult:
+        """Analizuje klatkę dostarczoną przez CameraSession.
+
+        Dzięki temu tylko CameraSession wykonuje cap.read(); tracker pozostaje
+        wyłącznie pluginem analizy obrazu.
+        """
+        result = self._detect_object(frame, include_frame_rgb=include_frame_rgb)
         self.last_result = result
         return result
 
-    def _detect_object(self, frame) -> CameraTrackingResult:
+    def _detect_object(self, frame, include_frame_rgb: bool = True) -> CameraTrackingResult:
         cv2 = self.cv2
         np = self.np
 
@@ -216,6 +237,17 @@ class TarzanCameraTracker:
         preview_cfg = tracking_cfg.get("preview", {})
         processing_max_width = int(preview_cfg.get("processing_max_width", 640) or 0)
         preview_max_width = int(preview_cfg.get("max_width", 640) or 0)
+
+        raw_profile = {}
+        try:
+            raw_profile = tracking_cfg.get("target_profiles", {}).get(profile.name, {}) if profile is not None else {}
+        except Exception:
+            raw_profile = {}
+        color_enabled = bool(raw_profile.get("color_enabled", True))
+        shape_enabled = bool(raw_profile.get("shape_enabled", False))
+        shape_cfg = raw_profile.get("shape", {}) or {}
+        selection_cfg = raw_profile.get("selection", {}) or {}
+        prefer_center = bool(selection_cfg.get("prefer_center", False))
 
         # Przetwarzanie działa na małej kopii, ale wynik/error_x wraca w skali pełnego kadru.
         process_frame = frame
@@ -252,14 +284,19 @@ class TarzanCameraTracker:
             blur_k = odd_kernel(profile.blur_kernel)
             working = cv2.GaussianBlur(working, (blur_k, blur_k), 0)
 
-        hsv = cv2.cvtColor(working, cv2.COLOR_BGR2HSV)
+        if color_enabled:
+            hsv = cv2.cvtColor(working, cv2.COLOR_BGR2HSV)
 
-        mask = None
-        for item in profile.hsv_ranges:
-            lower = np.array([item.h_min, item.s_min, item.v_min])
-            upper = np.array([item.h_max, item.s_max, item.v_max])
-            current = cv2.inRange(hsv, lower, upper)
-            mask = current if mask is None else cv2.bitwise_or(mask, current)
+            mask = None
+            for item in profile.hsv_ranges:
+                lower = np.array([item.h_min, item.s_min, item.v_min])
+                upper = np.array([item.h_max, item.s_max, item.v_max])
+                current = cv2.inRange(hsv, lower, upper)
+                mask = current if mask is None else cv2.bitwise_or(mask, current)
+        else:
+            # Tryb kształtu bez koloru: cały obraz jako maska robocza po grayscale.
+            gray = cv2.cvtColor(working, cv2.COLOR_BGR2GRAY)
+            _thr, mask = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
 
         open_k = odd_kernel(profile.morph_open_kernel)
         close_k = odd_kernel(profile.morph_close_kernel)
@@ -296,7 +333,51 @@ class TarzanCameraTracker:
             if solidity < profile.min_solidity or extent < profile.min_extent:
                 continue
 
-            score = area_full if profile.prefer_largest_contour else solidity * extent * area_full
+            perimeter = float(cv2.arcLength(contour, True))
+            epsilon_factor = float(shape_cfg.get("approx_epsilon_factor", 0.04))
+            approx = cv2.approxPolyDP(contour, epsilon_factor * perimeter, True) if perimeter > 0 else contour
+            vertices = int(len(approx))
+            aspect = float(bw) / float(max(1, bh))
+            circularity = float(4.0 * 3.141592653589793 * area_small / max(1.0, perimeter * perimeter)) if perimeter > 0 else 0.0
+
+            if shape_enabled:
+                shape_type = str(shape_cfg.get("type", "ANY")).upper()
+                min_vertices = int(shape_cfg.get("min_vertices", 0))
+                max_vertices = int(shape_cfg.get("max_vertices", 99))
+                aspect_min = float(shape_cfg.get("aspect_ratio_min", 0.2))
+                aspect_max = float(shape_cfg.get("aspect_ratio_max", 5.0))
+                circ_min = float(shape_cfg.get("min_circularity", 0.0))
+                circ_max = float(shape_cfg.get("max_circularity", 1.0))
+
+                if vertices < min_vertices or vertices > max_vertices:
+                    continue
+                if aspect < aspect_min or aspect > aspect_max:
+                    continue
+                if circularity < circ_min or circularity > circ_max:
+                    continue
+
+                if shape_type == "TRIANGLE" and vertices != 3:
+                    continue
+                if shape_type == "SQUARE":
+                    if vertices != 4 or not (0.75 <= aspect <= 1.33):
+                        continue
+                if shape_type == "RECTANGLE" and vertices != 4:
+                    continue
+                if shape_type == "CIRCLE" and circularity < max(0.65, circ_min):
+                    continue
+                if shape_type == "STAR" and not (8 <= vertices <= 14):
+                    continue
+
+            if prefer_center:
+                cx_small = x + bw / 2.0 + roi_offset_x
+                cy_small = y + bh / 2.0 + roi_offset_y
+                frame_cx_small = pw / 2.0
+                frame_cy_small = ph / 2.0
+                dist = ((cx_small - frame_cx_small) ** 2 + (cy_small - frame_cy_small) ** 2) ** 0.5
+                center_score = 1.0 / (1.0 + dist)
+                score = area_full * 0.3 + center_score * 100000.0
+            else:
+                score = area_full if profile.prefer_largest_contour else solidity * extent * area_full
             if score > best_score:
                 best_score = score
                 best = (contour, area_full, x, y, bw, bh, solidity, extent)
@@ -356,7 +437,7 @@ class TarzanCameraTracker:
             display_h = max(1, int(h * (display_w / float(w))))
             display_frame = cv2.resize(frame, (display_w, display_h), interpolation=cv2.INTER_AREA)
 
-        frame_rgb = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
+        frame_rgb = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB) if include_frame_rgb else None
 
         return CameraTrackingResult(
             visible=visible,

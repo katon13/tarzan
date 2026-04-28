@@ -25,6 +25,10 @@ from dataclasses import dataclass
 
 from vision.tarzanCameraTracker import CameraTrackingResult, TarzanCameraTracker
 from vision.tarzanVisionConfig import load_vision_settings
+try:
+    from vision.tarzanFaceTracker import TarzanFaceTracker
+except Exception:
+    TarzanFaceTracker = None
 
 
 @contextlib.contextmanager
@@ -52,6 +56,7 @@ class CameraSessionConfig:
     fps: int = 15
     fourcc: str = "MJPG"
     target_profile: str = "RED_OBJECT"
+    tracking_mode: str = "HSV_COLOR"
     min_area: float = 500.0
     live_fps: int = 15
     detect_every_n: int = 2
@@ -69,9 +74,10 @@ class CameraSession:
     Inicjacja kamery nie jest blokowana przez HSV / contours / error_x.
     """
 
-    def __init__(self, project_root: Path, profile_name: str | None = None, tick_profile_callback=None, frame_output_enabled: bool = False) -> None:
+    def __init__(self, project_root: Path, profile_name: str | None = None, tick_profile_callback=None, frame_output_enabled: bool = False, tracking_mode: str | None = None) -> None:
         self.project_root = project_root
         self.profile_name = profile_name
+        self._tracking_mode_override = tracking_mode
         self.settings = load_vision_settings(project_root)
         self.config = self._config_from_settings(profile_name)
 
@@ -116,6 +122,40 @@ class CameraSession:
                 if self._latest_result is not None:
                     self._latest_result.frame_rgb = None
 
+    def set_tracking_mode(self, mode: str) -> None:
+        """Zmienia plugin śledzenia bez restartu kamery.
+
+        CameraSession pozostaje jedynym właścicielem VideoCapture.
+        Zmiana HSV/FACE usuwa tylko aktualny plugin analizy, nie dotyka cap.
+        """
+        mode = (mode or "HSV_COLOR").strip().upper()
+        if mode not in ("HSV_COLOR", "FACE_HAAR", "FACE_MEDIAPIPE"):
+            mode = "HSV_COLOR"
+        with self._lock:
+            old = self.config.tracking_mode.upper()
+            self._tracking_mode_override = mode
+            self.config.tracking_mode = mode
+            if old != mode:
+                if self.tracker is not None and hasattr(self.tracker, "close"):
+                    try:
+                        self.tracker.close()
+                    except Exception:
+                        pass
+                if self.tracker is not None:
+                    try:
+                        self.tracker.cap = None
+                    except Exception:
+                        pass
+                self.tracker = None
+                self._tracking_ready = False
+                if self._opened:
+                    self._message = f"CameraSession LIVE | plugin={mode} | camera unchanged"
+
+    @property
+    def tracking_mode(self) -> str:
+        with self._lock:
+            return str(self.config.tracking_mode)
+
     def _config_from_settings(self, profile_name: str | None = None) -> CameraSessionConfig:
         discovery = self.settings.get("camera_discovery", {})
         camera = self.settings.get("camera_device", {})
@@ -132,6 +172,7 @@ class CameraSession:
             fps=int(camera.get("fps", 15)),
             fourcc=str(camera.get("fourcc", "MJPG")),
             target_profile=str(active_target),
+            tracking_mode=str(self._tracking_mode_override or tracking.get("tracking_mode", "HSV_COLOR")),
             min_area=float(active_profile.get("min_area", 500.0)),
             live_fps=max(1, int(preview.get("live_fps", camera.get("fps", 15)) or 15)),
             detect_every_n=max(1, int(preview.get("detect_every_n", 2) or 2)),
@@ -218,7 +259,7 @@ class CameraSession:
         self._stop.set()
         thread = self._thread
         if thread is not None and thread.is_alive():
-            thread.join(timeout=0.8)
+            thread.join(timeout=1.5)
         self._thread = None
         self._release_cap()
         with self._lock:
@@ -279,34 +320,53 @@ class CameraSession:
     def _ensure_tracker(self) -> None:
         if self.tracker is not None:
             return
-        # Tracker nie może podczas START KHR ponownie ładować JSON ani otwierać kamery.
-        # Dostaje gotowe ustawienia sesji i istniejący cap. Algorytm śledzenia zostaje bez zmian.
-        tracker = TarzanCameraTracker(
-            device_index=self.config.device_index,
-            frame_width=self.config.frame_width,
-            frame_height=self.config.frame_height,
-            min_area=self.config.min_area,
-            project_root=None,
-        )
-        tracker.settings = self.settings
+
+        mode = str(self.config.tracking_mode or "HSV_COLOR").upper()
+
+        if mode in ("FACE_HAAR", "FACE_MEDIAPIPE") and TarzanFaceTracker is not None:
+            backend = "HAAR" if mode == "FACE_HAAR" else "MEDIAPIPE"
+            tracker = TarzanFaceTracker(
+                device_index=self.config.device_index,
+                frame_width=self.config.frame_width,
+                frame_height=self.config.frame_height,
+                project_root=None,
+                settings=self.settings,
+                backend=backend,
+            )
+        else:
+            # Stabilny, dotychczasowy HSV zostaje bez zmiany algorytmu.
+            tracker = TarzanCameraTracker(
+                device_index=self.config.device_index,
+                frame_width=self.config.frame_width,
+                frame_height=self.config.frame_height,
+                min_area=self.config.min_area,
+                project_root=None,
+            )
+            tracker.settings = self.settings
+            tracker.set_target_profile(self.config.target_profile)
+
+        # Jeden wspólny uchwyt kamery: plugin nigdy nie otwiera własnego VideoCapture.
         tracker.device_index = self.config.device_index
         tracker.frame_width = self.config.frame_width
         tracker.frame_height = self.config.frame_height
-        tracker.min_area = self.config.min_area
         tracker.cv2 = self.cv2
         tracker.np = self.np
         tracker.cap = self.cap
-        tracker.set_target_profile(self.config.target_profile)
         self.tracker = tracker
         with self._lock:
             self._tracking_ready = True
-            self._message = f"CameraSession LIVE + TRACKING index={self.config.device_index} backend={self.config.backend}"
+            self._message = f"CameraSession LIVE + {mode} index={self.config.device_index} backend={self.config.backend}"
 
-    def _plain_read_frame(self) -> CameraTrackingResult:
-        if self.cap is None or self.cv2 is None:
-            return CameraTrackingResult()
+    def _read_bgr_frame(self):
+        if self.cap is None:
+            return None
         ok, frame = self.cap.read()
         if not ok or frame is None:
+            return None
+        return frame
+
+    def _plain_result_from_frame(self, frame) -> CameraTrackingResult:
+        if frame is None or self.cv2 is None:
             return CameraTrackingResult()
         h, w = frame.shape[:2]
         with self._lock:
@@ -323,6 +383,43 @@ class CameraSession:
             area=0.0,
             frame_rgb=frame_rgb,
         )
+
+    def _detect_result_from_frame(self, frame) -> CameraTrackingResult:
+        """Uruchamia aktywny plugin na klatce pobranej przez CameraSession.
+
+        Twarda zasada: plugin nie wykonuje cap.read() i nie otwiera kamery.
+        """
+        if frame is None:
+            return CameraTrackingResult()
+
+        self._ensure_tracker()
+        tracker = self.tracker
+        if tracker is None:
+            return self._plain_result_from_frame(frame)
+
+        # Nowy interfejs pluginów: process_frame(frame).
+        process_frame = getattr(tracker, "process_frame", None)
+        if callable(process_frame):
+            result = process_frame(frame)
+        else:
+            # Stabilny stary HSV: nie zmieniamy algorytmu, tylko karmimy go
+            # klatką z jednego wspólnego VideoCapture.
+            detect = getattr(tracker, "_detect_object", None)
+            if callable(detect):
+                result = detect(frame)
+                try:
+                    tracker.last_result = result
+                except Exception:
+                    pass
+            else:
+                # Ostateczna kompatybilność; nie powinna być używana w KHR.
+                result = tracker.read()
+
+        with self._lock:
+            want_frame = bool(self._frame_output_enabled)
+        if not want_frame:
+            result.frame_rgb = None
+        return result
 
     def _read_loop(self) -> None:
         try:
@@ -343,22 +440,22 @@ class CameraSession:
                 frame_no += 1
                 tick0 = time.perf_counter()
                 try:
-                    if not self.tracking_enabled:
-                        # OPEN/PREVIEW: tylko obraz. Zero trackera, zero HSV, zero contours.
-                        result = self._plain_read_frame()
+                    frame = self._read_bgr_frame()
+                    if frame is None:
+                        result = CameraTrackingResult()
+                    elif not self.tracking_enabled:
+                        # OPEN/PREVIEW: jedna klatka z jednego cap.read(), zero trackingu.
+                        result = self._plain_result_from_frame(frame)
                     elif frame_no <= self.config.tracking_start_after_frames:
-                        # Po START KHR dajemy kamerze kilka czystych klatek przed pierwszą detekcją.
-                        result = self._plain_read_frame()
+                        # Po START KHR kilka czystych klatek, ale bez ponownego otwierania kamery.
+                        result = self._plain_result_from_frame(frame)
                     elif (frame_no % self.config.detect_every_n) == 0:
-                        self._ensure_tracker()
-                        result = self.tracker.read() if self.tracker is not None else self._plain_read_frame()
-                        with self._lock:
-                            want_frame = bool(self._frame_output_enabled)
-                        if not want_frame:
-                            result.frame_rgb = None
+                        # Aktywny plugin analizuje tę samą klatkę. Nie wolno mu robić własnego cap.read().
+                        result = self._detect_result_from_frame(frame)
                     else:
-                        # Między detekcjami aktualizujemy obraz bez liczenia error_x.
-                        plain = self._plain_read_frame()
+                        # Między detekcjami zachowujemy ostatnie error_x/visible,
+                        # ale obraz pochodzi z bieżącej klatki.
+                        plain = self._plain_result_from_frame(frame)
                         previous = self.latest_result
                         result = CameraTrackingResult(
                             visible=previous.visible,

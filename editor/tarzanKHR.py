@@ -850,6 +850,7 @@ class TarzanKHRWindow(tk.Tk):
             "KameraHSV",
             "KameraHAAR",
             "KameraMEDIAPIPE",
+            "KameraHEAD",
             "MANUAL",
         ]
 
@@ -869,6 +870,8 @@ class TarzanKHRWindow(tk.Tk):
                 return "KameraHAAR"
             if mode == "FACE_MEDIAPIPE":
                 return "KameraMEDIAPIPE"
+            if mode == "HEAD_HAAR":
+                return "KameraHEAD"
             return "KameraHSV"
         if source == "CZUJNIK":
             return "CZUJNIK"
@@ -884,6 +887,8 @@ class TarzanKHRWindow(tk.Tk):
             return "KAMERA", "FACE_HAAR"
         if label == "KAMERAMEDIAPIPE":
             return "KAMERA", "FACE_MEDIAPIPE"
+        if label == "KAMERAHEAD":
+            return "KAMERA", "HEAD_HAAR"
         if label == "CZUJNIK":
             return "CZUJNIK", None
         if label == "MANUAL":
@@ -967,7 +972,7 @@ class TarzanKHRWindow(tk.Tk):
         if source == "KAMERA":
             self.camera_message = f"Aktywny plugin: {self._plugin_label_from_source('KAMERA', mode or self._tracking_mode_value())} | kamera z JSON"
 
-            # W nowym modelu plugin KameraHSV/KameraHAAR/KameraMEDIAPIPE jest jednocześnie
+            # W nowym modelu plugin KameraHSV/KameraHAAR/KameraMEDIAPIPE/KameraHEAD jest jednocześnie
             # źródłem KHR. Dlatego wybór pluginu kamery ma uruchomić stałą sesję kamery
             # z JSON, ale bez restartowania jej przy samej zmianie HSV/HAAR/MediaPipe.
             session_alive = self.camera_session is not None and (

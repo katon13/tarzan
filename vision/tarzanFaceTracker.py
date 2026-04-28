@@ -32,6 +32,7 @@ class FaceTrackerConfig:
     min_detection_confidence: float = 0.55
     require_mediapipe: bool = True
     cascade_name: str = "haarcascade_frontalface_default.xml"
+    profile_cascade_name: str = "haarcascade_profileface.xml"
     haar_scale_factor: float = 1.1
     haar_min_neighbors: int = 5
     haar_flags: int = 0
@@ -70,6 +71,7 @@ class TarzanFaceTracker:
         self._mp_face_detection = None
         self._mp_detector = None
         self._haar_cascade = None
+        self._haar_profile_cascade = None
         self._backend_ready = False
         self._active_backend = self.config.backend.upper()
         self._backend_error = ""
@@ -96,6 +98,7 @@ class TarzanFaceTracker:
             min_detection_confidence=float(mp.get("min_detection_confidence", face.get("min_detection_confidence", 0.55))),
             require_mediapipe=bool(mp.get("require_installed", True)),
             cascade_name=str(haar.get("cascade_name", "haarcascade_frontalface_default.xml")),
+            profile_cascade_name=str((face.get("head", {}) or {}).get("profile_cascade_name", haar.get("profile_cascade_name", "haarcascade_profileface.xml"))),
             haar_scale_factor=float(haar.get("scale_factor", 1.1)),
             haar_min_neighbors=int(haar.get("min_neighbors", 5)),
             haar_flags=int(haar.get("flags", 0)),
@@ -134,6 +137,18 @@ class TarzanFaceTracker:
             return
         requested = self.config.backend.upper()
         self._backend_error = ""
+        if requested == "HEAD_HAAR":
+            self._ensure_haar()
+            self._ensure_profile_haar()
+            if (
+                self._haar_cascade is not None and not self._haar_cascade.empty()
+                and self._haar_profile_cascade is not None and not self._haar_profile_cascade.empty()
+            ):
+                self._active_backend = "HEAD_HAAR"
+                self._backend_ready = True
+                return
+            self._backend_error = "HEAD_HAAR ERROR: brak haarcascade frontal/profile"
+
         if requested == "MEDIAPIPE":
             try:
                 import mediapipe as mp  # type: ignore
@@ -174,6 +189,16 @@ class TarzanFaceTracker:
             cascade_path = cascade_name
         self._haar_cascade = self.cv2.CascadeClassifier(cascade_path)
 
+    def _ensure_profile_haar(self) -> None:
+        if self._haar_profile_cascade is not None or self.cv2 is None:
+            return
+        cascade_name = self.config.profile_cascade_name
+        try:
+            cascade_path = str(Path(self.cv2.data.haarcascades) / cascade_name)
+        except Exception:
+            cascade_path = cascade_name
+        self._haar_profile_cascade = self.cv2.CascadeClassifier(cascade_path)
+
     def read(self) -> CameraTrackingResult:
         if self.cap is None or self.cv2 is None:
             self.last_result = CameraTrackingResult()
@@ -192,6 +217,8 @@ class TarzanFaceTracker:
         try:
             if self._active_backend == "MEDIAPIPE" and self._mp_detector is not None:
                 result = self._detect_mediapipe(frame)
+            elif self._active_backend == "HEAD_HAAR":
+                result = self._detect_head_haar(frame)
             elif self._active_backend == "MEDIAPIPE_ERROR":
                 result = self._error_result(frame)
             else:
@@ -273,6 +300,82 @@ class TarzanFaceTracker:
                 best_area = area_full
                 best = (int(x), int(y), int(bw), int(bh))
         return self._result_from_box(frame, best, best_area, frame_center_x, sx, sy, backend="FACE_HAAR")
+
+    def _detect_head_haar(self, frame) -> CameraTrackingResult:
+        """Wykrywa GŁOWĘ jako jeden cel: twarz front + profil prawy + profil lewy.
+
+        To nie jest osobna logika dla KHR. Wynik jest zgodny z CameraTrackingResult:
+        visible/error_x/object_x/object_y/area/frame_rgb.
+        """
+        cv2 = self.cv2
+        h, w = frame.shape[:2]
+        frame_center_x = w / 2.0
+        process_frame, sx, sy = self._resize_for_processing(frame)
+        gray = cv2.cvtColor(process_frame, cv2.COLOR_BGR2GRAY)
+        if self.config.haar_equalize_hist:
+            gray = cv2.equalizeHist(gray)
+
+        candidates = []
+        candidates.extend(self._detect_haar_candidates(gray, self._haar_cascade, "FRONT", sx, sy))
+
+        # Profil prawy na obrazie normalnym.
+        candidates.extend(self._detect_haar_candidates(gray, self._haar_profile_cascade, "PROFILE_R", sx, sy))
+
+        # Profil lewy: wykrywamy na odbiciu i przeliczamy X z powrotem.
+        try:
+            gray_flip = cv2.flip(gray, 1)
+            ph, pw = gray.shape[:2]
+            for x, y, bw, bh, area_full, label in self._detect_haar_candidates(gray_flip, self._haar_profile_cascade, "PROFILE_L", sx, sy):
+                x_unflip = pw - x - bw
+                candidates.append((x_unflip, y, bw, bh, area_full, label))
+        except Exception:
+            pass
+
+        best = None
+        best_area = 0.0
+        best_label = "HEAD_HAAR"
+        for x, y, bw, bh, area_full, label in candidates:
+            if area_full < self.config.min_face_area or area_full > self.config.max_face_area:
+                continue
+            if area_full > best_area:
+                best_area = area_full
+                best = (int(x), int(y), int(bw), int(bh))
+                best_label = f"HEAD_{label}"
+
+        return self._result_from_box(frame, best, best_area, frame_center_x, sx, sy, backend=best_label)
+
+    def _detect_haar_candidates(self, gray, cascade, label: str, sx: float, sy: float) -> list[tuple[int, int, int, int, float, str]]:
+        if cascade is None:
+            return []
+        try:
+            if cascade.empty():
+                return []
+        except Exception:
+            return []
+
+        min_size = (max(1, self.config.haar_min_size_w), max(1, self.config.haar_min_size_h))
+        max_size = ()
+        if self.config.haar_max_size_w > 0 and self.config.haar_max_size_h > 0:
+            max_size = (self.config.haar_max_size_w, self.config.haar_max_size_h)
+
+        kwargs = dict(
+            scaleFactor=max(1.01, self.config.haar_scale_factor),
+            minNeighbors=max(1, self.config.haar_min_neighbors),
+            flags=int(self.config.haar_flags),
+            minSize=min_size,
+        )
+        if max_size:
+            kwargs["maxSize"] = max_size
+
+        out = []
+        try:
+            faces = cascade.detectMultiScale(gray, **kwargs)
+        except Exception:
+            faces = []
+        for x, y, bw, bh in faces:
+            area_full = float(bw * bh) * sx * sy
+            out.append((int(x), int(y), int(bw), int(bh), area_full, label))
+        return out
 
     def _error_result(self, frame) -> CameraTrackingResult:
         cv2 = self.cv2

@@ -132,7 +132,7 @@ class CameraSession:
 
     def set_tracking_mode(self, mode: str) -> None:
         mode = (mode or "HSV_COLOR").strip().upper()
-        if mode not in ("HSV_COLOR", "FACE_HAAR", "FACE_MEDIAPIPE"):
+        if mode not in ("HSV_COLOR", "FACE_HAAR", "FACE_MEDIAPIPE", "HEAD_HAAR"):
             mode = "HSV_COLOR"
 
         prepared_tracker = None
@@ -562,8 +562,13 @@ class CameraSession:
         if self.tracker is not None:
             return
         mode = str(self.config.tracking_mode or "HSV_COLOR").upper()
-        if mode in ("FACE_HAAR", "FACE_MEDIAPIPE") and TarzanFaceTracker is not None:
-            backend = "HAAR" if mode == "FACE_HAAR" else "MEDIAPIPE"
+        if mode in ("FACE_HAAR", "FACE_MEDIAPIPE", "HEAD_HAAR") and TarzanFaceTracker is not None:
+            if mode == "FACE_HAAR":
+                backend = "HAAR"
+            elif mode == "HEAD_HAAR":
+                backend = "HEAD_HAAR"
+            else:
+                backend = "MEDIAPIPE"
             tracker = TarzanFaceTracker(
                 device_index=self.config.device_index,
                 frame_width=self.config.frame_width,

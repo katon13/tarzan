@@ -197,6 +197,23 @@ class VisionSetupWindow(tk.Toplevel):
         self.haar_max_h = tk.IntVar(value=0)
         self.haar_equalize = tk.BooleanVar(value=True)
 
+        self.head_profile_cascade = tk.StringVar(value="haarcascade_profileface.xml")
+        self.head_min_area = tk.DoubleVar(value=1400.0)
+        self.head_max_area = tk.DoubleVar(value=300000.0)
+        self.head_center_smoothing = tk.DoubleVar(value=0.28)
+        self.head_area_smoothing = tk.DoubleVar(value=0.22)
+        self.head_hold_ms = tk.IntVar(value=450)
+        self.head_max_jump_px = tk.DoubleVar(value=320.0)
+        self.head_front_weight = tk.DoubleVar(value=1.0)
+        self.head_profile_weight = tk.DoubleVar(value=0.92)
+        self.head_detect_every_n = tk.IntVar(value=2)
+        self.head_profile_every_n = tk.IntVar(value=3)
+        self.head_use_left_profile = tk.BooleanVar(value=True)
+        self.head_use_right_profile = tk.BooleanVar(value=True)
+        self.head_description_var = tk.StringVar(
+            value="KameraHEAD: jeden cel GŁOWA = frontal + profil prawy + profil lewy + podtrzymanie filtra."
+        )
+
         self.status_var = tk.StringVar(value="")
 
     # ------------------------------------------------------------------
@@ -230,25 +247,27 @@ class VisionSetupWindow(tk.Toplevel):
 
         self.content.grid_columnconfigure(0, weight=1, uniform="vision_cols")
         self.content.grid_columnconfigure(1, weight=1, uniform="vision_cols")
-        self.content.grid_columnconfigure(2, weight=1, uniform="vision_cols")
 
-        col_object = self._panel(self.content, "1  PROFIL OBIEKTU", ACCENT_OBJECT)
-        col_hsv = self._panel(self.content, "2  KOLOR + KSZTAŁT + STABILNOŚĆ", ACCENT_HSV)
-        col_face = self._panel(self.content, "3  TWARZ / BIBLIOTEKI + SAVE", ACCENT_FACE)
-        col_object.grid(row=0, column=0, sticky="nsew", padx=(0, 6), pady=4)
-        col_hsv.grid(row=0, column=1, sticky="nsew", padx=6, pady=4)
-        col_face.grid(row=0, column=2, sticky="nsew", padx=(6, 0), pady=4)
+        col_left = self._panel(self.content, "1–2  OBIEKT / KOLOR / KSZTAŁT / STABILNOŚĆ", ACCENT_OBJECT)
+        col_face = self._panel(self.content, "3  TWARZ / GŁOWA / BIBLIOTEKI", ACCENT_FACE)
+        col_left.grid(row=0, column=0, sticky="nsew", padx=(0, 6), pady=4)
+        col_face.grid(row=0, column=1, sticky="nsew", padx=(6, 0), pady=4)
 
-        self._build_profile_panel(col_object)
-        self._build_hsv_shape_panel(col_hsv)
+        self._build_profile_panel(col_left)
+        self._build_hsv_shape_panel(col_left)
         self._build_face_save_panel(col_face)
 
-        footer = tk.Frame(self, bg=BG)
-        footer.pack(side=tk.BOTTOM, fill=tk.X, padx=12, pady=(2, 8))
-        tk.Label(footer, textvariable=self.status_var, bg=BG, fg="#d6d6d6", anchor="w", font=("Consolas", 10)).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        tk.Button(footer, text="SAVE PARAMETERS", command=self.save_to_json, bg="#16885f", fg="white", width=20).pack(side=tk.RIGHT, padx=4)
-        tk.Button(footer, text="RELOAD JSON", command=self.reload_from_json, width=14).pack(side=tk.RIGHT, padx=4)
-        tk.Button(footer, text="CLOSE", command=self.destroy, width=10).pack(side=tk.RIGHT, padx=4)
+        # Dolny pasek serwisowy: wszystkie akcje są pod oknami ustawień.
+        # Dzięki temu prawa kolumna nie rozciąga layoutu i nic nie znika poza ekranem.
+        footer = tk.Frame(self, bg=BG, highlightthickness=1, highlightbackground=LINE)
+        footer.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=(2, 6))
+        tk.Label(footer, textvariable=self.status_var, bg=BG, fg="#d6d6d6", anchor="w", font=("Consolas", 9)).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 8))
+        tk.Button(footer, text="RESET", command=self.reset_active_object_default, width=9).pack(side=tk.RIGHT, padx=2, pady=3)
+        tk.Button(footer, text="IMPORT", command=self.import_target_profile, width=9).pack(side=tk.RIGHT, padx=2, pady=3)
+        tk.Button(footer, text="EXPORT", command=self.export_target_profile, width=9).pack(side=tk.RIGHT, padx=2, pady=3)
+        tk.Button(footer, text="RELOAD", command=self.reload_from_json, width=9).pack(side=tk.RIGHT, padx=2, pady=3)
+        tk.Button(footer, text="SAVE", command=self.save_to_json, bg="#16885f", fg="white", width=9).pack(side=tk.RIGHT, padx=2, pady=3)
+        tk.Button(footer, text="CLOSE", command=self.destroy, width=9).pack(side=tk.RIGHT, padx=2, pady=3)
 
     def _panel(self, parent, title: str, color: str) -> tk.Frame:
         panel = tk.Frame(parent, bg=PANEL, highlightthickness=2, highlightbackground=color)
@@ -342,17 +361,10 @@ class VisionSetupWindow(tk.Toplevel):
 
         self._info_box(parent, 4, self.shape_desc_var, ACCENT_OBJECT)
 
-        g = self._group(parent, 5, "JAK TO DZIAŁA", None, ACCENT_OBJECT)
-        text = (
-            "1. Kolor HSV wycina z obrazu tylko obszar celu.\n"
-            "2. Kształt operatorowy ogranicza przypadkowe trafienia.\n"
-            "3. Stabilizacja decyduje czy cel jest wiarygodny.\n"
-            "4. KHR używa wyłącznie error_x i visible — nie steruje kamerą."
-        )
-        tk.Label(g, text=text, bg=PANEL, fg="#d8d8d8", justify=tk.LEFT, anchor="w", wraplength=620, font=("Segoe UI", 9)).grid(row=0, column=0, columnspan=4, sticky="ew", padx=8, pady=8)
-
     def _build_hsv_shape_panel(self, parent) -> None:
-        g = self._group(parent, 2, "HSV — ZAKRES KOLORU", "Te suwaki opisują kolor celu. Dla czerwieni używane są dwa zakresy H, bo czerwony leży na początku i końcu skali Hue.", ACCENT_HSV)
+        # Start od 5, bo 2–4 zajmuje profil/tryb operatora/komunikat kształtu.
+        # Poprzednio HSV nadpisywał profil i wyglądało jakby ustawienia zostały usunięte.
+        g = self._group(parent, 5, "HSV — ZAKRES KOLORU", "Te suwaki opisują kolor celu. Dla czerwieni używane są dwa zakresy H, bo czerwony leży na początku i końcu skali Hue.", ACCENT_HSV)
         self._scale_row(g, "H1 min", self.h1_min, 0, 180, 1, "pierwszy zakres hue")
         self._scale_row(g, "H1 max", self.h1_max, 0, 180, 1, None)
         self._scale_row(g, "H2 min", self.h2_min, 0, 180, 1, "drugi zakres dla czerwieni")
@@ -362,7 +374,7 @@ class VisionSetupWindow(tk.Toplevel):
         self._scale_row(g, "V min", self.v_min, 0, 255, 1, "minimalna jasność")
         self._scale_row(g, "V max", self.v_max, 0, 255, 1, None)
 
-        g = self._group(parent, 3, "STABILNOŚĆ / FILTRY OBIEKTU", "Te wartości decydują, czy znaleziony kontur jest celem, czy przypadkowym śmieciem w obrazie.", ACCENT_HSV)
+        g = self._group(parent, 6, "STABILNOŚĆ / FILTRY OBIEKTU", "Te wartości decydują, czy znaleziony kontur jest celem, czy przypadkowym śmieciem w obrazie.", ACCENT_HSV)
         self._scale_row(g, "Min area", self.min_area, 20, 20000, 20, "odcina małe śmieci")
         self._scale_row(g, "Max area", self.max_area, 1000, 500000, 1000, "odcina wielkie plamy")
         self._scale_row(g, "Solidity min", self.min_solidity, 0.0, 1.0, 0.01, "zwartość konturu")
@@ -374,12 +386,30 @@ class VisionSetupWindow(tk.Toplevel):
         self._check_row(g, "Preferuj obiekt bliżej środka", self.prefer_center, "do przyszłego scoringu")
 
     def _build_face_save_panel(self, parent) -> None:
-        g = self._group(parent, 2, "TWARZ — WYBÓR BIBLIOTEKI", "MediaPipe jest docelową zależnością TARZANA, ale nie może zatrzymać kamery. Haar zostaje jako fallback awaryjny. Model 0 = bliska twarz; Model 1 = dalsza twarz.", ACCENT_FACE)
-        self._combo_row(g, "Backend", self.face_backend_var, ["MEDIAPIPE", "HAAR"], "biblioteka twarzy")
+        """Sekcja 3 ułożona w dwie wewnętrzne kolumny.
+
+        Nie usuwamy pól. Zmieniamy tylko geometrię, żeby TRACKING SETUP
+        zmieścił się w oknie: po lewej wybór i wspólne parametry, po prawej
+        MediaPipe / KameraHEAD / Haar. Akcje serwisowe są na dolnym pasku.
+        """
+        inner = tk.Frame(parent, bg=PANEL)
+        inner.grid(row=2, column=0, sticky="nsew", padx=6, pady=4)
+        inner.grid_columnconfigure(0, weight=1, uniform="face_inner")
+        inner.grid_columnconfigure(1, weight=1, uniform="face_inner")
+
+        left = tk.Frame(inner, bg=PANEL)
+        right = tk.Frame(inner, bg=PANEL)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        right.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        left.grid_columnconfigure(0, weight=1)
+        right.grid_columnconfigure(0, weight=1)
+
+        g = self._group(left, 0, "TWARZ — WYBÓR BIBLIOTEKI", "MediaPipe jest dokładny, Haar szybki, a HEAD_HAAR traktuje cel jako głowę: front + profil.", ACCENT_FACE)
+        self._combo_row(g, "Backend", self.face_backend_var, ["MEDIAPIPE", "HAAR", "HEAD_HAAR"], "FACE=twarz, HEAD=głowa")
         self._combo_row(g, "Target point", self.face_target_point, ["FACE_CENTER", "NOSE", "LEFT_EYE", "RIGHT_EYE"], "punkt podążania")
         self._check_row(g, "Draw debug", self.face_draw_debug, "box, środek, tekst")
 
-        g = self._group(parent, 3, "WSPÓLNE PARAMETRY FACE", "Te ustawienia są niezależne od biblioteki i wpływają na stabilność podążania za twarzą.", ACCENT_FACE)
+        g = self._group(left, 1, "WSPÓLNE PARAMETRY FACE / HEAD", "Wspólna stabilność dla twarzy i głowy. Logika zostaje bez zmian; to tylko ustawienia.", ACCENT_FACE)
         self._scale_row(g, "Processing width", self.face_processing_width, 160, 1280, 20, "mniej = szybciej")
         self._scale_row(g, "Preview width", self.face_preview_width, 160, 1280, 20, "obraz do UI")
         self._scale_row(g, "Min face area", self.face_min_area, 100, 50000, 100, "odcina małe detekcje")
@@ -391,12 +421,31 @@ class VisionSetupWindow(tk.Toplevel):
         self._scale_row(g, "Hold ms", self.face_hold_ms, 0, 2000, 10, "podtrzymanie celu")
         self._scale_row(g, "Max jump px", self.face_max_jump, 20, 1000, 10, "ochrona przed skokiem")
 
-        g = self._group(parent, 4, "MEDIAPIPE", "Model 0 → bliska twarz / szybciej. Model 1 → dalsza twarz / zwykle wolniej. Gdy MediaPipe nie działa, kamera zostaje aktywna i używany jest Haar fallback.", ACCENT_FACE)
+        g = self._group(right, 0, "MEDIAPIPE", "Model 0 → bliska twarz / szybciej. Model 1 → dalsza twarz / zwykle wolniej. Fallback nie zatrzymuje kamery.", ACCENT_FACE)
         self._combo_row(g, "Model selection", self.mp_model_selection, [0, 1], "0 blisko, 1 dalej")
         self._scale_row(g, "Confidence", self.mp_confidence, 0.1, 0.95, 0.01, "próg detekcji")
         self._check_row(g, "Require installed", self.mp_require_installed, "brak = błąd środowiska")
 
-        g = self._group(parent, 5, "OPENCV HAAR", "Fallback OpenCV. Mniej dokładny od MediaPipe, ale szybki i bezpieczny: ma utrzymać tracking, gdy MediaPipe nie działa.", ACCENT_FACE)
+        g = self._group(right, 1, "KameraHEAD — PROFIL GŁOWY", "Operatorowe ustawienia celu GŁOWA. Nie zmieniamy architektury: KHR dalej dostaje jeden error_x, a kamera/tracking pozostają w osobnych workerach.", ACCENT_FACE)
+        row = self._next_row(g)
+        tk.Label(g, textvariable=self.head_description_var, bg=PANEL_2, fg="#d8d8d8", justify=tk.LEFT, anchor="w", wraplength=460, font=("Segoe UI", 9)).grid(row=row, column=0, columnspan=4, sticky="ew", padx=8, pady=(6, 8))
+        self._scale_row(g, "Head min area", self.head_min_area, 100, 60000, 100, "mała głowa / daleko")
+        self._scale_row(g, "Head max area", self.head_max_area, 1000, 500000, 1000, "duża głowa / blisko")
+        self._scale_row(g, "Head smoothing", self.head_center_smoothing, 0.0, 1.0, 0.01, "płynność środka")
+        self._scale_row(g, "Head area smooth", self.head_area_smoothing, 0.0, 1.0, 0.01, "płynność rozmiaru")
+        self._scale_row(g, "Head hold ms", self.head_hold_ms, 0, 2000, 10, "podtrzymanie przy obrocie")
+        self._scale_row(g, "Head max jump", self.head_max_jump_px, 20, 1200, 10, "ochrona przed przeskokiem")
+        self._scale_row(g, "Front weight", self.head_front_weight, 0.1, 2.0, 0.05, "priorytet frontu")
+        self._scale_row(g, "Profile weight", self.head_profile_weight, 0.1, 2.0, 0.05, "priorytet profilu")
+        self._scale_row(g, "Detect every N", self.head_detect_every_n, 1, 10, 1, "co ile klatek HEAD")
+        self._scale_row(g, "Profile every N", self.head_profile_every_n, 1, 12, 1, "profil rzadziej = lżej")
+        self._check_row(g, "Profil lewy aktywny", self.head_use_left_profile, "odbicie klatki")
+        self._check_row(g, "Profil prawy aktywny", self.head_use_right_profile, "oryginalna klatka")
+        row = self._next_row(g)
+        tk.Label(g, text="Zaawansowane: pliki XML OpenCV są klasyfikatorami Haar. Zostają zapisane w JSON, ale operator normalnie stroi parametry powyżej.", bg=PANEL, fg="#aaaaaa", justify=tk.LEFT, anchor="w", wraplength=460, font=("Segoe UI", 8)).grid(row=row, column=0, columnspan=4, sticky="ew", padx=8, pady=(6, 2))
+        self._entry_row(g, "Profile cascade XML", self.head_profile_cascade, "serwisowe / OpenCV")
+
+        g = self._group(right, 2, "OPENCV HAAR", "Fallback OpenCV. Szybki i bezpieczny; utrzymuje tracking, gdy MediaPipe nie działa.", ACCENT_FACE)
         self._entry_row(g, "Cascade", self.haar_cascade, "plik cascade")
         self._scale_row(g, "Scale factor", self.haar_scale, 1.01, 1.5, 0.01, "skala piramidy")
         self._scale_row(g, "Min neighbors", self.haar_neighbors, 1, 20, 1, "więcej = pewniej")
@@ -405,16 +454,6 @@ class VisionSetupWindow(tk.Toplevel):
         self._scale_row(g, "Max size W", self.haar_max_w, 0, 1000, 10, "0 = brak limitu")
         self._scale_row(g, "Max size H", self.haar_max_h, 0, 1000, 10, None)
         self._check_row(g, "Equalize hist", self.haar_equalize, "lepszy kontrast")
-
-        g = self._group(parent, 6, "ZAPIS / AKCJE", "SAVE PARAMETERS zapisuje wszystko do data/khr/vision_settings.json. Główne KHR potem tylko czyta te ustawienia.", ACCENT_SAVE)
-        row = self._next_row(g)
-        tk.Button(g, text="SAVE PARAMETERS TO JSON", command=self.save_to_json, bg="#16885f", fg="white", height=2).grid(row=row, column=0, columnspan=4, sticky="ew", padx=8, pady=5)
-        row = self._next_row(g)
-        tk.Button(g, text="RELOAD FROM JSON", command=self.reload_from_json, height=2).grid(row=row, column=0, columnspan=2, sticky="ew", padx=8, pady=5)
-        tk.Button(g, text="RESET OBJECT DEFAULT", command=self.reset_active_object_default, height=2).grid(row=row, column=2, columnspan=2, sticky="ew", padx=8, pady=5)
-        row = self._next_row(g)
-        tk.Button(g, text="IMPORT TARGET PROFILE", command=self.import_target_profile, height=2).grid(row=row, column=0, columnspan=2, sticky="ew", padx=8, pady=5)
-        tk.Button(g, text="EXPORT TARGET PROFILE", command=self.export_target_profile, height=2).grid(row=row, column=2, columnspan=2, sticky="ew", padx=8, pady=5)
 
     # ------------------------------------------------------------------
     # DATA LOAD/SAVE
@@ -509,6 +548,20 @@ class VisionSetupWindow(tk.Toplevel):
         self.haar_max_w.set(int(haar.get("max_size_w", 0)))
         self.haar_max_h.set(int(haar.get("max_size_h", 0)))
         self.haar_equalize.set(bool(haar.get("equalize_hist", True)))
+        head = face.setdefault("head", {})
+        self.head_profile_cascade.set(str(head.get("profile_cascade_name", haar.get("profile_cascade_name", "haarcascade_profileface.xml"))))
+        self.head_min_area.set(float(head.get("min_head_area", common.get("min_face_area", 1400.0))))
+        self.head_max_area.set(float(head.get("max_head_area", common.get("max_face_area", 300000.0))))
+        self.head_center_smoothing.set(float(head.get("center_smoothing", common.get("center_smoothing", 0.28))))
+        self.head_area_smoothing.set(float(head.get("area_smoothing", common.get("area_smoothing", 0.22))))
+        self.head_hold_ms.set(int(head.get("hold_last_head_ms", common.get("hold_last_target_ms", 450))))
+        self.head_max_jump_px.set(float(head.get("max_head_jump_px", common.get("max_jump_px", 320.0))))
+        self.head_front_weight.set(float(head.get("front_weight", 1.0)))
+        self.head_profile_weight.set(float(head.get("profile_weight", 0.92)))
+        self.head_detect_every_n.set(int(head.get("detect_every_n", 2)))
+        self.head_profile_every_n.set(int(head.get("profile_every_n", 3)))
+        self.head_use_left_profile.set(bool(head.get("use_left_profile", True)))
+        self.head_use_right_profile.set(bool(head.get("use_right_profile", True)))
 
     def _write_vars_to_settings(self) -> None:
         tracking = self.settings.setdefault("tracking", {})
@@ -568,6 +621,7 @@ class VisionSetupWindow(tk.Toplevel):
         face["haar"] = {
             "enabled": True,
             "cascade_name": str(self.haar_cascade.get()),
+            "profile_cascade_name": str(self.head_profile_cascade.get()),
             "scale_factor": float(self.haar_scale.get()),
             "min_neighbors": int(self.haar_neighbors.get()),
             "flags": 0,
@@ -576,6 +630,25 @@ class VisionSetupWindow(tk.Toplevel):
             "max_size_w": int(self.haar_max_w.get()),
             "max_size_h": int(self.haar_max_h.get()),
             "equalize_hist": bool(self.haar_equalize.get()),
+        }
+        face["head"] = {
+            "enabled": True,
+            "backend": "HEAD_HAAR",
+            "frontal_cascade_name": str(self.haar_cascade.get()),
+            "profile_cascade_name": str(self.head_profile_cascade.get()),
+            "min_head_area": float(self.head_min_area.get()),
+            "max_head_area": float(self.head_max_area.get()),
+            "center_smoothing": float(self.head_center_smoothing.get()),
+            "area_smoothing": float(self.head_area_smoothing.get()),
+            "hold_last_head_ms": int(self.head_hold_ms.get()),
+            "max_head_jump_px": float(self.head_max_jump_px.get()),
+            "front_weight": float(self.head_front_weight.get()),
+            "profile_weight": float(self.head_profile_weight.get()),
+            "detect_every_n": int(self.head_detect_every_n.get()),
+            "profile_every_n": int(self.head_profile_every_n.get()),
+            "use_left_profile": bool(self.head_use_left_profile.get()),
+            "use_right_profile": bool(self.head_use_right_profile.get()),
+            "description": "Głowa jako jeden cel: frontal + profil prawy + profil lewy + hold filtra.",
         }
 
     def apply_shape_preset(self) -> None:

@@ -323,14 +323,34 @@
         "min_size_h": 40,
         "max_size_w": 0,
         "max_size_h": 0,
-        "equalize_hist": true
+        "equalize_hist": true,
+        "profile_cascade_name": "haarcascade_profileface.xml"
       },
       "processing_max_width": 480,
       "max_width": 640,
       "draw_debug": true,
       "min_face_area": 1200.0,
       "model_selection": 0,
-      "min_detection_confidence": 0.55
+      "min_detection_confidence": 0.55,
+      "head": {
+        "enabled": true,
+        "backend": "HEAD_HAAR",
+        "frontal_cascade_name": "haarcascade_frontalface_default.xml",
+        "profile_cascade_name": "haarcascade_profileface.xml",
+        "min_head_area": 1400.0,
+        "max_head_area": 300000.0,
+        "center_smoothing": 0.28,
+        "area_smoothing": 0.22,
+        "hold_last_head_ms": 450,
+        "max_head_jump_px": 320.0,
+        "front_weight": 1.0,
+        "profile_weight": 0.92,
+        "detect_every_n": 2,
+        "profile_every_n": 3,
+        "use_left_profile": true,
+        "use_right_profile": true,
+        "description": "Głowa jako jeden cel: frontal + profil prawy + profil lewy + hold filtra."
+      }
     }
   },
   "last_good_camera": {

@@ -1534,7 +1534,12 @@ class TarzanKHRWindow(tk.Tk):
             except Exception:
                 pass
 
-        c.create_text(w/2, h-55, text=f"visible={int(self.target_visible)}  error_x={self.error_x:+.1f} px", fill="#eeeeee", font=("Consolas", 13, "bold"))
+        lock_state = getattr(self.camera_result, "lock_state", "OFF")
+        lock_hold = int(getattr(self.camera_result, "lock_hold_left_ms", 0) or 0)
+        lock_text = f"  lock={lock_state}" if lock_state and lock_state != "OFF" else ""
+        if lock_state == "HOLD":
+            lock_text += f" hold={lock_hold}ms"
+        c.create_text(w/2, h-55, text=f"visible={int(self.target_visible)}  error_x={self.error_x:+.1f} px{lock_text}", fill="#eeeeee", font=("Consolas", 13, "bold"))
 
     def _draw_deadzone_scene(self, c, cx, cy, w, h, object_x, object_y, visible):
         c.create_line(cx, 55, cx, h - 80, fill="#666666", dash=(4, 4))

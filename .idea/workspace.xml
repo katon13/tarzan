@@ -9,7 +9,7 @@
       <change beforePath="$PROJECT_DIR$/data/khr/vision_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/khr/vision_settings.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/tarzanKHR.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/tarzanKHR.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/vision/tarzanCameraSession.py" beforeDir="false" afterPath="$PROJECT_DIR$/vision/tarzanCameraSession.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/vision/tarzanFaceTracker.py" beforeDir="false" afterPath="$PROJECT_DIR$/vision/tarzanFaceTracker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vision/tarzanCameraTracker.py" beforeDir="false" afterPath="$PROJECT_DIR$/vision/tarzanCameraTracker.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/vision/tarzanVisionSetup.py" beforeDir="false" afterPath="$PROJECT_DIR$/vision/tarzanVisionSetup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

@@ -52,6 +52,11 @@ class CameraTrackingResult:
     frame_height: int = 0
     area: float = 0.0
     frame_rgb: object | None = None
+    # Global TargetLock / przyspawanie celu. Pola są opcjonalne dla starych pluginów.
+    lock_state: str = "OFF"
+    lock_hold_left_ms: int = 0
+    lock_age_ms: int = 0
+    lock_enabled: bool = False
 
 
 class TarzanCameraTracker:

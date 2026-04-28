@@ -214,6 +214,19 @@ class VisionSetupWindow(tk.Toplevel):
             value="KameraHEAD: jeden cel GŁOWA = frontal + profil prawy + profil lewy + podtrzymanie filtra."
         )
 
+        # GLOBAL TARGET LOCK — wspólne przyspawanie celu dla każdego pluginu.
+        self.target_lock_enabled = tk.BooleanVar(value=True)
+        self.target_lock_draw_overlay = tk.BooleanVar(value=True)
+        self.target_lock_hold_ms = tk.IntVar(value=550)
+        self.target_lock_confirm_frames = tk.IntVar(value=2)
+        self.target_lock_lost_frames = tk.IntVar(value=6)
+        self.target_lock_error_smoothing = tk.DoubleVar(value=0.35)
+        self.target_lock_center_smoothing = tk.DoubleVar(value=0.30)
+        self.target_lock_area_smoothing = tk.DoubleVar(value=0.20)
+        self.target_lock_decay = tk.DoubleVar(value=0.96)
+        self.target_lock_max_jump_px = tk.DoubleVar(value=300.0)
+        self.target_lock_box_scale = tk.DoubleVar(value=1.35)
+
         self.status_var = tk.StringVar(value="")
 
     # ------------------------------------------------------------------
@@ -245,17 +258,33 @@ class VisionSetupWindow(tk.Toplevel):
         canvas.bind("<Configure>", _sync_scroll)
         canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
 
-        self.content.grid_columnconfigure(0, weight=1, uniform="vision_cols")
-        self.content.grid_columnconfigure(1, weight=1, uniform="vision_cols")
+        # Układ 1+2 | 3 | 4:
+        # - kolumna 1 i 2 są logicznie zachowane, ale wizualnie ustawione jedna pod drugą,
+        #   żeby pierwsza nie rozciągała całego okna w poziomie;
+        # - kolumna 3 zostaje szeroka i wewnętrznie rozbita na dwie sekcje;
+        # - kolumna 4 zostaje osobno po prawej jako GLOBAL TARGET LOCK.
+        self.content.grid_columnconfigure(0, weight=1, uniform="vision_main")
+        self.content.grid_columnconfigure(1, weight=2, uniform="vision_main")
+        self.content.grid_columnconfigure(2, weight=1, uniform="vision_main")
 
-        col_left = self._panel(self.content, "1–2  OBIEKT / KOLOR / KSZTAŁT / STABILNOŚĆ", ACCENT_OBJECT)
+        left_stack = tk.Frame(self.content, bg=BG)
+        left_stack.grid(row=0, column=0, sticky="nsew", padx=(0, 4), pady=4)
+        left_stack.grid_columnconfigure(0, weight=1)
+
+        col_profile = self._panel(left_stack, "1  OBIEKT / PROFIL", ACCENT_OBJECT)
+        col_hsv = self._panel(left_stack, "2  KOLOR / KSZTAŁT / STABILNOŚĆ", ACCENT_HSV)
         col_face = self._panel(self.content, "3  TWARZ / GŁOWA / BIBLIOTEKI", ACCENT_FACE)
-        col_left.grid(row=0, column=0, sticky="nsew", padx=(0, 6), pady=4)
-        col_face.grid(row=0, column=1, sticky="nsew", padx=(6, 0), pady=4)
+        col_lock = self._panel(self.content, "4  GLOBAL TARGET LOCK", ACCENT_SAVE)
 
-        self._build_profile_panel(col_left)
-        self._build_hsv_shape_panel(col_left)
+        col_profile.grid(row=0, column=0, sticky="ew", padx=0, pady=(0, 4))
+        col_hsv.grid(row=1, column=0, sticky="ew", padx=0, pady=(4, 0))
+        col_face.grid(row=0, column=1, sticky="nsew", padx=4, pady=4)
+        col_lock.grid(row=0, column=2, sticky="nsew", padx=(4, 0), pady=4)
+
+        self._build_profile_panel(col_profile)
+        self._build_hsv_shape_panel(col_hsv)
         self._build_face_save_panel(col_face)
+        self._build_target_lock_panel(col_lock)
 
         # Dolny pasek serwisowy: wszystkie akcje są pod oknami ustawień.
         # Dzięki temu prawa kolumna nie rozciąga layoutu i nic nie znika poza ekranem.
@@ -278,13 +307,17 @@ class VisionSetupWindow(tk.Toplevel):
 
     def _group(self, parent, row: int, title: str, help_text: str | None = None, accent: str = LINE) -> tk.Frame:
         group = tk.LabelFrame(parent, text=title, bg=PANEL, fg=FG, bd=1, relief=tk.SOLID, highlightthickness=1, highlightbackground=accent, font=("Segoe UI", 9, "bold"), labelanchor="nw")
-        group.grid(row=row, column=0, sticky="ew", padx=10, pady=7)
-        group.grid_columnconfigure(0, minsize=170)
+        group.grid(row=row, column=0, sticky="ew", padx=7, pady=5)
+
+        # Kompaktowy układ pod trzy główne kolumny. Suwak jest w jednym
+        # wierszu, więc całe okno mieści się bez przewijania.
+        group.grid_columnconfigure(0, minsize=86)
         group.grid_columnconfigure(1, weight=1)
-        group.grid_columnconfigure(2, minsize=82)
-        group.grid_columnconfigure(3, minsize=190)
+        group.grid_columnconfigure(2, minsize=48)
+        group.grid_columnconfigure(3, minsize=80)
+
         if help_text:
-            lbl = tk.Label(group, text=help_text, bg=PANEL_2, fg="#d8d8d8", justify=tk.LEFT, anchor="w", wraplength=620, font=("Segoe UI", 9))
+            lbl = tk.Label(group, text=help_text, bg=PANEL_2, fg="#d8d8d8", justify=tk.LEFT, anchor="w", wraplength=320, font=("Segoe UI", 8))
             lbl.grid(row=0, column=0, columnspan=4, sticky="ew", padx=8, pady=(6, 8))
             group._next_row = 1
         else:
@@ -301,7 +334,7 @@ class VisionSetupWindow(tk.Toplevel):
 
     def _hint(self, parent, row: int, text: str | None) -> None:
         if text:
-            tk.Label(parent, text=text, bg=PANEL, fg="#777777", anchor="w", justify=tk.LEFT, wraplength=210, font=("Segoe UI", 8)).grid(row=row, column=3, sticky="w", padx=6, pady=3)
+            tk.Label(parent, text=text, bg=PANEL, fg="#777777", anchor="w", justify=tk.LEFT, wraplength=120, font=("Segoe UI", 8)).grid(row=row, column=3, sticky="w", padx=4, pady=3)
 
     def _entry_row(self, parent, label: str, var, hint: str | None = None) -> None:
         row = self._next_row(parent)
@@ -326,15 +359,35 @@ class VisionSetupWindow(tk.Toplevel):
         self._hint(parent, row, hint)
 
     def _scale_row(self, parent, label: str, var, from_, to, resolution, hint: str | None = None) -> None:
+        # Jeden kompaktowy wiersz: nazwa | suwak | wartość | krótka podpowiedź.
+        # Po przełożeniu kolumny 2 pod 1 mamy dość szerokości, a mniejsza
+        # wysokość pozwala zmieścić ustawienia bez scrolla.
         row = self._next_row(parent)
-        self._label(parent, row, label)
-        scale = tk.Scale(parent, variable=var, from_=from_, to=to, resolution=resolution, orient=tk.HORIZONTAL, bg=PANEL, fg=FG, troughcolor="#333333", highlightthickness=0, showvalue=False)
-        scale.grid(row=row, column=1, sticky="ew", padx=4, pady=2)
-        tk.Label(parent, textvariable=var, bg=PANEL, fg="#dcdcdc", anchor="e", width=8, font=("Consolas", 9)).grid(row=row, column=2, sticky="e", padx=4, pady=3)
-        self._hint(parent, row, hint)
+        tk.Label(parent, text=label, bg=PANEL, fg="#c8c8c8", anchor="w", font=("Segoe UI", 8)).grid(row=row, column=0, sticky="w", padx=6, pady=2)
+        scale = tk.Scale(
+            parent,
+            variable=var,
+            from_=from_,
+            to=to,
+            resolution=resolution,
+            orient=tk.HORIZONTAL,
+            bg=PANEL,
+            fg=FG,
+            troughcolor="#333333",
+            highlightthickness=0,
+            showvalue=False,
+            length=120,
+            sliderlength=14,
+            width=8,
+            bd=0,
+        )
+        scale.grid(row=row, column=1, sticky="ew", padx=3, pady=1)
+        tk.Label(parent, textvariable=var, bg=PANEL, fg="#dcdcdc", anchor="e", width=7, font=("Consolas", 8)).grid(row=row, column=2, sticky="e", padx=3, pady=2)
+        if hint:
+            tk.Label(parent, text=hint, bg=PANEL, fg="#777777", anchor="w", justify=tk.LEFT, wraplength=95, font=("Segoe UI", 7)).grid(row=row, column=3, sticky="w", padx=2, pady=2)
 
     def _info_box(self, parent, row: int, text_var, accent: str) -> None:
-        box = tk.Label(parent, textvariable=text_var, bg=PANEL_2, fg="#f0d28a", justify=tk.LEFT, anchor="nw", wraplength=620, padx=8, pady=8, font=("Segoe UI", 9), highlightthickness=1, highlightbackground=accent)
+        box = tk.Label(parent, textvariable=text_var, bg=PANEL_2, fg="#f0d28a", justify=tk.LEFT, anchor="nw", wraplength=360, padx=7, pady=6, font=("Segoe UI", 8), highlightthickness=1, highlightbackground=accent)
         box.grid(row=row, column=0, sticky="ew", padx=10, pady=7)
 
     # ------------------------------------------------------------------
@@ -362,9 +415,7 @@ class VisionSetupWindow(tk.Toplevel):
         self._info_box(parent, 4, self.shape_desc_var, ACCENT_OBJECT)
 
     def _build_hsv_shape_panel(self, parent) -> None:
-        # Start od 5, bo 2–4 zajmuje profil/tryb operatora/komunikat kształtu.
-        # Poprzednio HSV nadpisywał profil i wyglądało jakby ustawienia zostały usunięte.
-        g = self._group(parent, 5, "HSV — ZAKRES KOLORU", "Te suwaki opisują kolor celu. Dla czerwieni używane są dwa zakresy H, bo czerwony leży na początku i końcu skali Hue.", ACCENT_HSV)
+        g = self._group(parent, 2, "HSV — ZAKRES KOLORU", "Te suwaki opisują kolor celu. Dla czerwieni używane są dwa zakresy H, bo czerwony leży na początku i końcu skali Hue.", ACCENT_HSV)
         self._scale_row(g, "H1 min", self.h1_min, 0, 180, 1, "pierwszy zakres hue")
         self._scale_row(g, "H1 max", self.h1_max, 0, 180, 1, None)
         self._scale_row(g, "H2 min", self.h2_min, 0, 180, 1, "drugi zakres dla czerwieni")
@@ -374,7 +425,7 @@ class VisionSetupWindow(tk.Toplevel):
         self._scale_row(g, "V min", self.v_min, 0, 255, 1, "minimalna jasność")
         self._scale_row(g, "V max", self.v_max, 0, 255, 1, None)
 
-        g = self._group(parent, 6, "STABILNOŚĆ / FILTRY OBIEKTU", "Te wartości decydują, czy znaleziony kontur jest celem, czy przypadkowym śmieciem w obrazie.", ACCENT_HSV)
+        g = self._group(parent, 3, "STABILNOŚĆ / FILTRY OBIEKTU", "Te wartości decydują, czy znaleziony kontur jest celem, czy przypadkowym śmieciem w obrazie.", ACCENT_HSV)
         self._scale_row(g, "Min area", self.min_area, 20, 20000, 20, "odcina małe śmieci")
         self._scale_row(g, "Max area", self.max_area, 1000, 500000, 1000, "odcina wielkie plamy")
         self._scale_row(g, "Solidity min", self.min_solidity, 0.0, 1.0, 0.01, "zwartość konturu")
@@ -393,14 +444,14 @@ class VisionSetupWindow(tk.Toplevel):
         MediaPipe / KameraHEAD / Haar. Akcje serwisowe są na dolnym pasku.
         """
         inner = tk.Frame(parent, bg=PANEL)
-        inner.grid(row=2, column=0, sticky="nsew", padx=6, pady=4)
+        inner.grid(row=2, column=0, sticky="nsew", padx=5, pady=3)
         inner.grid_columnconfigure(0, weight=1, uniform="face_inner")
         inner.grid_columnconfigure(1, weight=1, uniform="face_inner")
 
         left = tk.Frame(inner, bg=PANEL)
         right = tk.Frame(inner, bg=PANEL)
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
-        right.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+        right.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
         left.grid_columnconfigure(0, weight=1)
         right.grid_columnconfigure(0, weight=1)
 
@@ -454,6 +505,32 @@ class VisionSetupWindow(tk.Toplevel):
         self._scale_row(g, "Max size W", self.haar_max_w, 0, 1000, 10, "0 = brak limitu")
         self._scale_row(g, "Max size H", self.haar_max_h, 0, 1000, 10, None)
         self._check_row(g, "Equalize hist", self.haar_equalize, "lepszy kontrast")
+
+        
+    def _build_target_lock_panel(self, parent) -> None:
+        """Czwarta kolumna: globalne przyspawanie celu dla wszystkich pluginów.
+
+        To jest tylko układ. Logika TargetLock, zapis JSON i parametry zostają te same.
+        """
+        g = self._group(
+            parent,
+            2,
+            "GLOBAL TARGET LOCK — PRZYSPAWANIE CELU",
+            "Wspólna stabilizacja dla KameraHSV / Haar / MediaPipe / HEAD. Na podglądzie: DETECT zielony, LOCK żółty, HOLD pomarańczowy przerywany.",
+            ACCENT_SAVE,
+        )
+        self._check_row(g, "Target Lock aktywny", self.target_lock_enabled, "ON = KHR nie traci korekcji po jednej zgubionej próbce")
+        self._check_row(g, "Rysuj status na podglądzie", self.target_lock_draw_overlay, "prosta ramka + tekst LOCK/HOLD")
+        self._scale_row(g, "Hold target ms", self.target_lock_hold_ms, 0, 2000, 10, "czas przyspawania po zgubieniu")
+        self._scale_row(g, "Lock frames", self.target_lock_confirm_frames, 1, 10, 1, "ile trafień do LOCK")
+        self._scale_row(g, "Lost frames", self.target_lock_lost_frames, 1, 20, 1, "ile pustych prób do LOST")
+        self._scale_row(g, "Error smoothing", self.target_lock_error_smoothing, 0.0, 1.0, 0.01, "wygładza korekcję error_x")
+        self._scale_row(g, "Center smoothing", self.target_lock_center_smoothing, 0.0, 1.0, 0.01, "wygładza pozycję celu")
+        self._scale_row(g, "Area smoothing", self.target_lock_area_smoothing, 0.0, 1.0, 0.01, "wygładza rozmiar ramki")
+        self._scale_row(g, "Lost decay", self.target_lock_decay, 0.0, 1.0, 0.01, "powolne gaszenie error_x w HOLD")
+        self._scale_row(g, "Max jump px", self.target_lock_max_jump_px, 20, 1500, 10, "ochrona przed przeskokiem na inny cel")
+        self._scale_row(g, "Box scale", self.target_lock_box_scale, 0.5, 3.0, 0.05, "rozmiar ramki lock na podglądzie")
+
 
     # ------------------------------------------------------------------
     # DATA LOAD/SAVE
@@ -563,6 +640,19 @@ class VisionSetupWindow(tk.Toplevel):
         self.head_use_left_profile.set(bool(head.get("use_left_profile", True)))
         self.head_use_right_profile.set(bool(head.get("use_right_profile", True)))
 
+        target_lock = self.settings.setdefault("tracking", {}).setdefault("target_lock", {})
+        self.target_lock_enabled.set(bool(target_lock.get("enabled", True)))
+        self.target_lock_draw_overlay.set(bool(target_lock.get("draw_overlay", True)))
+        self.target_lock_hold_ms.set(int(target_lock.get("hold_ms", 550)))
+        self.target_lock_confirm_frames.set(int(target_lock.get("lock_confirm_frames", 2)))
+        self.target_lock_lost_frames.set(int(target_lock.get("lost_confirm_frames", 6)))
+        self.target_lock_error_smoothing.set(float(target_lock.get("error_smoothing", 0.35)))
+        self.target_lock_center_smoothing.set(float(target_lock.get("center_smoothing", 0.30)))
+        self.target_lock_area_smoothing.set(float(target_lock.get("area_smoothing", 0.20)))
+        self.target_lock_decay.set(float(target_lock.get("lost_decay", 0.96)))
+        self.target_lock_max_jump_px.set(float(target_lock.get("max_jump_px", 300.0)))
+        self.target_lock_box_scale.set(float(target_lock.get("approximate_box_scale", 1.35)))
+
     def _write_vars_to_settings(self) -> None:
         tracking = self.settings.setdefault("tracking", {})
         tracking["active_target"] = str(self.profile_var.get())
@@ -649,6 +739,21 @@ class VisionSetupWindow(tk.Toplevel):
             "use_left_profile": bool(self.head_use_left_profile.get()),
             "use_right_profile": bool(self.head_use_right_profile.get()),
             "description": "Głowa jako jeden cel: frontal + profil prawy + profil lewy + hold filtra.",
+        }
+
+        tracking["target_lock"] = {
+            "enabled": bool(self.target_lock_enabled.get()),
+            "draw_overlay": bool(self.target_lock_draw_overlay.get()),
+            "hold_ms": int(self.target_lock_hold_ms.get()),
+            "lock_confirm_frames": int(self.target_lock_confirm_frames.get()),
+            "lost_confirm_frames": int(self.target_lock_lost_frames.get()),
+            "error_smoothing": float(self.target_lock_error_smoothing.get()),
+            "center_smoothing": float(self.target_lock_center_smoothing.get()),
+            "area_smoothing": float(self.target_lock_area_smoothing.get()),
+            "lost_decay": float(self.target_lock_decay.get()),
+            "max_jump_px": float(self.target_lock_max_jump_px.get()),
+            "approximate_box_scale": float(self.target_lock_box_scale.get()),
+            "description": "Globalne przyspawanie celu po każdym pluginie: DETECT / LOCK / HOLD / LOST.",
         }
 
     def apply_shape_preset(self) -> None:

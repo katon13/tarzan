@@ -351,6 +351,20 @@
         "use_right_profile": true,
         "description": "Głowa jako jeden cel: frontal + profil prawy + profil lewy + hold filtra."
       }
+    },
+    "target_lock": {
+      "enabled": true,
+      "draw_overlay": true,
+      "hold_ms": 550,
+      "lock_confirm_frames": 2,
+      "lost_confirm_frames": 6,
+      "error_smoothing": 0.35,
+      "center_smoothing": 0.3,
+      "area_smoothing": 0.2,
+      "lost_decay": 0.96,
+      "max_jump_px": 300.0,
+      "approximate_box_scale": 1.35,
+      "description": "Globalne przyspawanie celu po każdym pluginie: DETECT / LOCK / HOLD / LOST."
     }
   },
   "last_good_camera": {

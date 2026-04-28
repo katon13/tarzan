@@ -27,6 +27,7 @@ from dataclasses import dataclass
 
 from vision.tarzanCameraTracker import CameraTrackingResult, TarzanCameraTracker
 from vision.tarzanVisionConfig import load_vision_settings
+from vision.tarzanTargetLock import TarzanTargetLock
 try:
     from vision.tarzanFaceTracker import TarzanFaceTracker
 except Exception:
@@ -114,6 +115,8 @@ class CameraSession:
         self._tracking_tick_ms = 0.0
         self._tick_profile_callback = tick_profile_callback
         self._frame_output_enabled = bool(frame_output_enabled)
+        # Globalny mechanizm przyspawania celu dla wszystkich pluginów vision.
+        self.target_lock = TarzanTargetLock(self.settings)
 
     # ------------------------------------------------------------------
     # CONFIG / PUBLIC API
@@ -121,6 +124,10 @@ class CameraSession:
     def reload_config_from_json(self) -> None:
         self.settings = load_vision_settings(self.project_root)
         self.config = self._config_from_settings(self.profile_name)
+        try:
+            self.target_lock.reload_settings(self.settings)
+        except Exception:
+            pass
 
     def set_frame_output_enabled(self, enabled: bool) -> None:
         with self._lock:
@@ -302,6 +309,10 @@ class CameraSession:
             self._tracking_tick_ms = 0.0
 
     def start_tracking(self) -> None:
+        try:
+            self.target_lock.reset()
+        except Exception:
+            pass
         with self._lock:
             self._tracking_enabled = True
             if self._opened:
@@ -511,8 +522,13 @@ class CameraSession:
                     want_frame = bool(self._frame_output_enabled)
 
                 # Tracking zwraca frame_rgb z naniesionym debugiem/ramkami.
-                # To jest właściwy obraz dla UI w trybie śledzenia.
-                result = self._detect_result_from_frame(frame_for_tracking, include_frame_rgb=want_frame)
+                # Global TargetLock stabilizuje wynik dla wszystkich pluginów
+                # i dorysowuje prosty status: DETECT / LOCK / HOLD / LOST.
+                raw_result = self._detect_result_from_frame(frame_for_tracking, include_frame_rgb=want_frame)
+                try:
+                    result = self.target_lock.process(raw_result)
+                except Exception:
+                    result = raw_result
                 self._last_tracked_frame_no = frame_no
 
                 with self._lock:
@@ -554,6 +570,10 @@ class CameraSession:
 
         self.config.tracking_mode = mode
         self._active_tracking_mode = mode
+        try:
+            self.target_lock.reset()
+        except Exception:
+            pass
         with self._lock:
             self._tracking_ready = self.tracker is not None
             self._message = f"CameraSession LIVE | plugin={mode} | camera unchanged"

@@ -145,31 +145,26 @@ class TarzanCameraTracker:
         if not self.cap or not self.cap.isOpened():
             return False, f"Nie można otworzyć kamery index={self.device_index} backend={backend_name}"
 
-        try:
-            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        except Exception:
-            pass
-
         camera_cfg = self.settings.get("camera_device", {}) if self.settings else {}
 
         if fast_open:
-            # TRYB LIVE / KHR:
-            # Dokładnie jak w krótkich przykładach OpenCV:
-            # VideoCapture(index, backend) i od razu read().
-            # Żadnego cap.set(), żadnego cap.get(), żadnego read_camera_state().
+            # FAST PREVIEW / LIVE: TYLKO ODCZYT.
+            # Nie konsultujemy zapisanych ustawień ze sterownikiem przy każdym starcie.
+            # Brak cap.set(), brak buffer size, brak UVC, brak cap.get().
+            # Parametry ustawiamy ręcznie tylko w trybie serwisowym przez APPLY.
             pass
         else:
-            # TRYB SERWISOWY:
-            # Pełne ustawienia kamery są świadomie wolniejsze i wykonywane tylko w oknie ustawień.
+            # TRYB SERWISOWY APPLY:
+            # Pełne ustawienia kamery są świadomie wolniejsze i wykonywane tylko ręcznie.
             if self.settings:
                 apply_camera_settings(self.cap, cv2, camera_cfg)
             else:
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
 
-        warmup = 0 if fast_open else 5
+        warmup = 0
         if self.settings:
-            warmup = 0 if fast_open else int(self.settings.get("camera_discovery", {}).get("warmup_frames", 5))
+            warmup = 0
         for _ in range(max(0, warmup)):
             self.cap.read()
 

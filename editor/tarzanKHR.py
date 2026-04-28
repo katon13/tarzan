@@ -115,6 +115,8 @@ from vision.tarzanVisionConfig import load_vision_settings, target_profile_names
 from motion.tarzanKHRStepPreview import KHRStepPreview
 from motion.tarzanKHRTracking import KHRTracking
 from vision.tarzanCameraTracker import CameraTrackingResult, TarzanCameraTracker
+from vision.tarzanCameraSession import CameraSession
+from vision.tarzanCameraControls import apply_camera_settings
 
 
 
@@ -132,10 +134,14 @@ class CameraSetupWindow(tk.Toplevel):
         self.parent = parent
         self.project_root = PROJECT_ROOT
         self.settings = load_vision_settings(PROJECT_ROOT)
-        self.tracker: TarzanCameraTracker | None = None
+        self.cap = None
+        self.cv2 = None
         self.preview_active = False
         self.preview_photo = None
         self.last_result = CameraTrackingResult()
+        self.apply_active = False
+        self._apply_thread: threading.Thread | None = None
+        self._apply_result: tuple[bool, str] | None = None
 
         discovery = self.settings.get("camera_discovery", {})
         camera = self.settings.get("camera_device", {})
@@ -324,17 +330,111 @@ class CameraSetupWindow(tk.Toplevel):
         return tracker
 
     def open_full(self) -> None:
+        """Szybki podgląd serwisowy kamery.
+
+        To NIE tworzy trackera, NIE robi read_camera_state i NIE robi pełnego apply UVC.
+        Camera Setup na starcie ma tylko pokazać obraz z kamery.
+        """
         self.close_camera()
-        self.tracker = self._make_tracker()
-        ok, msg = self.tracker.open(allow_fallback=False, fast_open=False, read_state=True)
-        self.status_var.set(f"OPEN FULL | {msg}")
-        if ok:
-            self.preview_active = True
-            self._preview_loop()
+        self.settings = self._collect_settings()
+        discovery = self.settings.get("camera_discovery", {})
+        index = int(discovery.get("preferred_index", 0))
+        backend_name = str(discovery.get("preferred_backend", "DSHOW"))
+
+        try:
+            import cv2
+        except Exception as exc:
+            self.status_var.set(f"OPEN PREVIEW ERROR | Brak OpenCV: {exc}")
+            return
+
+        self.cv2 = cv2
+        try:
+            cv2.setLogLevel(0)
+        except Exception:
+            pass
+
+        backend_value = getattr(cv2, f"CAP_{backend_name}", None)
+        try:
+            if backend_value is not None:
+                self.cap = cv2.VideoCapture(index, backend_value)
+            else:
+                self.cap = cv2.VideoCapture(index)
+        except Exception as exc:
+            self.cap = None
+            self.status_var.set(f"OPEN PREVIEW ERROR | {exc}")
+            return
+
+        if self.cap is None or not self.cap.isOpened():
+            self.status_var.set(f"OPEN PREVIEW ERROR | nie można otworzyć index={index} backend={backend_name}")
+            self.close_camera()
+            return
+
+        self.status_var.set(f"OPEN PREVIEW FAST | index={index} backend={backend_name} | bez trackera / bez apply")
+        self.preview_active = True
+        self._preview_loop()
 
     def apply_full(self) -> None:
-        # Pełne APPLY w trybie serwisowym: świadomie może potrwać.
-        self.open_full()
+        """Ręczne, świadome wysłanie ustawień do sterownika.
+
+        APPLY może być wolny, bo wykonuje cap.set(...) na sterowniku kamery.
+        Nie wolno jednak blokować Tkintera ani mieszać tego z szybkim OPEN/PREVIEW.
+        Dlatego APPLY działa w osobnym workerze i na czas apply pauzuje podgląd.
+        """
+        if self.apply_active:
+            self.status_var.set("APPLY SETTINGS | już trwa, czekam na sterownik...")
+            return
+
+        self.settings = self._collect_settings()
+        camera_cfg = dict(self.settings.get("camera_device", {}))
+
+        if self.cap is None or self.cv2 is None or not self.cap.isOpened():
+            # OPEN PREVIEW jest szybki i nie robi apply. Dopiero potem worker wykona cap.set(...).
+            self.open_full()
+
+        if self.cap is None or self.cv2 is None or not self.cap.isOpened():
+            self.status_var.set("APPLY ERROR | kamera nie jest otwarta")
+            return
+
+        cap = self.cap
+        cv2 = self.cv2
+        self.preview_active = False
+        self.apply_active = True
+        self._apply_result = None
+        self.status_var.set("APPLY SETTINGS | wysyłam ustawienia do sterownika... UI nie jest blokowane")
+
+        def worker() -> None:
+            try:
+                apply_camera_settings(cap, cv2, camera_cfg)
+                self._apply_result = (True, "APPLY SETTINGS | wysłano ustawienia do sterownika")
+            except Exception as exc:
+                self._apply_result = (False, f"APPLY SETTINGS ERROR | {exc}")
+
+        self._apply_thread = threading.Thread(
+            target=worker,
+            name="TARZAN_CAMERA_SETUP_APPLY",
+            daemon=True,
+        )
+        self._apply_thread.start()
+        self.after(50, self._poll_apply_result)
+
+    def _poll_apply_result(self) -> None:
+        if not self.apply_active:
+            return
+
+        result = self._apply_result
+        if result is None:
+            self.after(50, self._poll_apply_result)
+            return
+
+        ok, msg = result
+        self.apply_active = False
+        self._apply_result = None
+        self.status_var.set(msg)
+
+        # Po APPLY wracamy do prostego podglądu. Nie tworzymy trackera i nie czytamy stanu kamery.
+        if self.cap is not None and self.cv2 is not None:
+            self.preview_active = True
+            self._preview_loop()
 
     def save_to_json(self) -> None:
         self.settings = self._collect_settings()
@@ -365,11 +465,27 @@ class CameraSetupWindow(tk.Toplevel):
             self.status_var.set(f"SCAN ERROR: {exc}")
 
     def _preview_loop(self) -> None:
-        if not self.preview_active or self.tracker is None:
+        if not self.preview_active or self.cap is None or self.cv2 is None:
             return
 
         try:
-            self.last_result = self.tracker.read()
+            ok, frame = self.cap.read()
+            if ok and frame is not None:
+                h, w = frame.shape[:2]
+                frame_rgb = self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB)
+                self.last_result = CameraTrackingResult(
+                    visible=False,
+                    error_x=0.0,
+                    object_x=0.0,
+                    object_y=0.0,
+                    frame_center_x=w / 2.0,
+                    frame_width=w,
+                    frame_height=h,
+                    area=0.0,
+                    frame_rgb=frame_rgb,
+                )
+            else:
+                self.last_result = CameraTrackingResult()
         except Exception as exc:
             self.status_var.set(f"PREVIEW ERROR: {exc}")
             self.preview_active = False
@@ -401,19 +517,28 @@ class CameraSetupWindow(tk.Toplevel):
         c.create_text(
             w / 2,
             h - 28,
-            text=f"visible={int(self.last_result.visible)}  error_x={self.last_result.error_x:+.1f} px  target={self.target_profile_var.get()}",
+            text=f"preview FAST | tracking OFF | target={self.target_profile_var.get()}",
             fill="#eeeeee",
             font=("Consolas", 12, "bold"),
         )
 
     def close_camera(self) -> None:
         self.preview_active = False
-        if self.tracker is not None:
+        if self.apply_active:
+            self.status_var.set("CLOSE CAMERA | czekam krótko na zakończenie APPLY...")
+            thread = self._apply_thread
+            if thread is not None and thread.is_alive():
+                thread.join(timeout=0.25)
+            self.apply_active = False
+            self._apply_result = None
+        if self.cap is not None:
             try:
-                self.tracker.close()
+                self.cap.release()
             except Exception:
                 pass
-        self.tracker = None
+        self.cap = None
+        self.cv2 = None
+        self.last_result = CameraTrackingResult()
 
     def close(self) -> None:
         self.close_camera()
@@ -444,13 +569,10 @@ class TarzanKHRWindow(tk.Tk):
         camera_cfg = self.vision_settings.get("camera_device", {})
         discovery_cfg = self.vision_settings.get("camera_discovery", {})
         tracking_cfg = self.vision_settings.get("tracking", {})
-        self.camera_tracker = TarzanCameraTracker(
-            device_index=int(discovery_cfg.get("preferred_index", 0)),
-            frame_width=int(camera_cfg.get("frame_width", 640)),
-            frame_height=int(camera_cfg.get("frame_height", 360)),
-            min_area=float(camera_cfg.get("min_area", 500)),
-            project_root=PROJECT_ROOT,
-        )
+        self.camera_session: CameraSession | None = None
+        # Główne KHR nie inicjalizuje trackera przy starcie okna.
+        # Tracker należy do CameraSession i powstaje dopiero po START KHR.
+        self.camera_tracker = None
         self.camera_ok = False
         self.camera_message = "Kamera nieaktywna"
         self.camera_photo = None
@@ -458,28 +580,21 @@ class TarzanKHRWindow(tk.Tk):
         self.camera_preview_active = False
 
         # KHR REALTIME: kamera i UI nie mogą blokować pętli 10 ms.
-        # Kamera pracuje jako niezależne źródło wejścia, a KHR bierze tylko ostatni znany wynik.
-        self._state_lock = threading.RLock()
-        self._camera_thread: threading.Thread | None = None
-        self._camera_stop = threading.Event()
-        self._camera_worker_active = False
-        self._camera_opening = False
-        self._camera_generation = 0
+        # CameraSession jest jedynym live readerem. KHR pobiera tylko latest_result/error_x.
         self._ui_loop_active = False
         self._ui_refresh_ms = 33
-        self._camera_preview_refresh_ms = 33
-        self._camera_refresh_s = 1.0 / max(1, int(camera_cfg.get("fps", 30)))
+        self._camera_preview_refresh_ms = int(self.vision_settings.get("tracking", {}).get("preview", {}).get("ui_refresh_ms", 100))
         self.target_template_path = ""
         self.target_template_photo = None
         self.target_template_name = "brak obiektu źródłowego"
         self.camera_list: list[str] = []
-        self.camera_index_var = tk.StringVar(value=str(self.last_good_camera.get('index', discovery_cfg.get('preferred_index', 0))))
-        self.camera_backend_var = tk.StringVar(value=str(self.last_good_camera.get('backend', discovery_cfg.get('preferred_backend', 'DSHOW'))))
-        self.camera_width_var = tk.IntVar(value=int(self.last_good_camera.get('width', camera_cfg.get('frame_width', 640))))
-        self.camera_height_var = tk.IntVar(value=int(self.last_good_camera.get('height', camera_cfg.get('frame_height', 360))))
-        self.camera_fps_var = tk.IntVar(value=int(self.last_good_camera.get('fps', camera_cfg.get('fps', 30))))
-        self.camera_min_area_var = tk.DoubleVar(value=float(tracking_cfg.get('target_profiles', {}).get(tracking_cfg.get('active_target', 'RED_OBJECT'), {}).get('min_area', 500)))
+        # Główne okno KHR NIE ma już pól ustawiania kamery.
+        # Jedynym źródłem prawdy jest data/khr/vision_settings.json zapisany z Camera Setup.
         self.target_profile_var = tk.StringVar(value=str(tracking_cfg.get('active_target', 'RED_OBJECT')))
+        # Podgląd obrazu kamery jest tylko trybem testowym/operatorowym.
+        # Domyślnie OFF: moduł KHR ma działać lekko i pobierać error_x bez kosztu ImageTk/PIL.
+        self.camera_image_preview_var = tk.BooleanVar(value=False)
+        self.camera_config_status_var = tk.StringVar(value=self._camera_config_status_text())
 
         self.running = False
         self.t0 = time.time()
@@ -585,58 +700,74 @@ class TarzanKHRWindow(tk.Tk):
         row.pack(fill=tk.X, pady=(8, 0))
 
         tk.Label(row, text="Kamera:", bg="#111111", fg="#cccccc").pack(side=tk.LEFT, padx=(0, 4))
-
-        self.camera_box = ttk.Combobox(row, textvariable=self.camera_index_var, values=["0", "1", "2", "3", "4"], width=28)
-        self.camera_box.pack(side=tk.LEFT, padx=4)
-
-        tk.Button(row, text="OPEN LAST", width=10, command=self._open_last_camera).pack(side=tk.LEFT, padx=4)
-        tk.Button(row, text="SCAN", width=8, command=self._scan_cameras).pack(side=tk.LEFT, padx=4)
-
-        tk.Label(row, text="Backend:", bg="#111111", fg="#cccccc").pack(side=tk.LEFT, padx=(12, 4))
-        self.backend_box = ttk.Combobox(row, textvariable=self.camera_backend_var, values=["DSHOW", "MSMF", "ANY"], width=8, state="readonly")
-        self.backend_box.pack(side=tk.LEFT, padx=4)
-
-        tk.Label(row, text="Rozdz:", bg="#111111", fg="#cccccc").pack(side=tk.LEFT, padx=(12, 4))
-        ttk.Combobox(row, textvariable=self.camera_width_var, values=[320, 640, 800, 1280, 1920], width=6).pack(side=tk.LEFT)
-        tk.Label(row, text="x", bg="#111111", fg="#cccccc").pack(side=tk.LEFT)
-        ttk.Combobox(row, textvariable=self.camera_height_var, values=[240, 360, 480, 720, 1080], width=6).pack(side=tk.LEFT)
-
-        tk.Label(row, text="FPS:", bg="#111111", fg="#cccccc").pack(side=tk.LEFT, padx=(12, 4))
-        ttk.Combobox(row, textvariable=self.camera_fps_var, values=[15, 24, 25, 30, 50, 60], width=5).pack(side=tk.LEFT)
-
-        tk.Label(row, text="Cel:", bg="#111111", fg="#cccccc").pack(side=tk.LEFT, padx=(12, 4))
-        self.target_box = ttk.Combobox(
+        tk.Label(
             row,
-            textvariable=self.target_profile_var,
-            values=target_profile_names(self.vision_settings),
-            width=16,
-            state="readonly",
-        )
-        self.target_box.pack(side=tk.LEFT, padx=4)
-        self.target_box.bind("<<ComboboxSelected>>", self._on_target_profile_change)
+            textvariable=self.camera_config_status_var,
+            bg="#111111",
+            fg="#d6d6d6",
+            font=("Consolas", 10),
+            anchor="w",
+        ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4)
 
-        tk.Label(row, text="Min area:", bg="#111111", fg="#cccccc").pack(side=tk.LEFT, padx=(12, 4))
-        tk.Entry(row, textvariable=self.camera_min_area_var, width=8).pack(side=tk.LEFT, padx=4)
-
+        tk.Button(row, text="OPEN CAMERA", width=13, command=self._open_last_camera).pack(side=tk.LEFT, padx=4)
+        tk.Button(row, text="CAMERA SETUP", width=14, command=self._open_camera_setup).pack(side=tk.LEFT, padx=4)
+        tk.Checkbutton(
+            row,
+            text="PODGLĄD",
+            variable=self.camera_image_preview_var,
+            command=self._on_camera_image_preview_toggle,
+            bg="#111111",
+            fg="#dddddd",
+            selectcolor="#222222",
+            activebackground="#111111",
+            activeforeground="#ffffff",
+        ).pack(side=tk.LEFT, padx=8)
         tk.Button(row, text="LOAD TARGET", width=13, command=self._load_target_template).pack(side=tk.RIGHT, padx=4)
-        tk.Button(row, text="CAMERA SETUP", width=14, command=self._open_camera_setup).pack(side=tk.RIGHT, padx=4)
 
-    def _save_last_good_camera(self) -> None:
-        self.vision_settings["last_good_camera"] = {
-            "enabled": True,
-            "index": self._parse_camera_index(),
-            "backend": self.camera_backend_var.get(),
-            "width": int(self.camera_width_var.get()),
-            "height": int(self.camera_height_var.get()),
-            "fps": int(self.camera_fps_var.get()),
-        }
+    def _on_camera_image_preview_toggle(self) -> None:
+        # Przełącza tylko kosztowny render obrazu w UI.
+        # Nie zatrzymuje kamery, nie zmienia trackingu i nie rusza KHR.
+        self.camera_photo = None
+        enabled = bool(self.camera_image_preview_var.get())
+        if self.camera_session is not None:
+            try:
+                self.camera_session.set_frame_output_enabled(enabled)
+            except Exception:
+                pass
+        if self.source_var.get() == "KAMERA":
+            self._draw_input()
 
-        path = PROJECT_ROOT / "data" / "khr" / "vision_settings.json"
+    def _camera_is_configured(self) -> bool:
+        last = self.vision_settings.get("last_good_camera", {})
+        return bool(last.get("enabled", False))
+
+    def _camera_config_values(self) -> tuple[int, str, int, int, int, str, float]:
+        discovery = self.vision_settings.get("camera_discovery", {})
+        camera = self.vision_settings.get("camera_device", {})
+        tracking = self.vision_settings.get("tracking", {})
+        active_target = str(tracking.get("active_target", "RED_OBJECT"))
+        profile_data = tracking.get("target_profiles", {}).get(active_target, {})
+        return (
+            int(discovery.get("preferred_index", 0)),
+            str(discovery.get("preferred_backend", "DSHOW")),
+            int(camera.get("frame_width", 640)),
+            int(camera.get("frame_height", 360)),
+            int(camera.get("fps", 15)),
+            active_target,
+            float(profile_data.get("min_area", 500.0)),
+        )
+
+    def _camera_config_status_text(self) -> str:
+        if not self._camera_is_configured():
+            return "BRAK KONFIGURACJI KAMERY — użyj CAMERA SETUP i zapisz ustawienia"
+        index, backend, width, height, fps, target, min_area = self._camera_config_values()
+        return f"JSON OK | index={index} | backend={backend} | {width}x{height} | {fps}fps | target={target} | min_area={min_area:.0f}"
+
+    def _refresh_camera_config_status(self) -> None:
         try:
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(self.vision_settings, f, indent=2, ensure_ascii=False)
-        except Exception as exc:
-            self.camera_message = f"Nie zapisano last camera: {exc}"
+            self.camera_config_status_var.set(self._camera_config_status_text())
+        except Exception:
+            pass
 
     def _open_last_camera(self) -> None:
         # NORMALNY TRYB KHR: szybkie otwarcie stałej kamery z JSON.
@@ -652,72 +783,49 @@ class TarzanKHRWindow(tk.Tk):
         try:
             self.vision_settings = load_vision_settings(PROJECT_ROOT)
             self.last_good_camera = self.vision_settings.get("last_good_camera", {})
-            discovery_cfg = self.vision_settings.get("camera_discovery", {})
-            camera_cfg = self.vision_settings.get("camera_device", {})
             tracking_cfg = self.vision_settings.get("tracking", {})
-            active_target = tracking_cfg.get("active_target", "RED_OBJECT")
-            self.camera_index_var.set(str(discovery_cfg.get("preferred_index", self.last_good_camera.get("index", 0))))
-            self.camera_backend_var.set(str(discovery_cfg.get("preferred_backend", self.last_good_camera.get("backend", "DSHOW"))))
-            self.camera_width_var.set(int(camera_cfg.get("frame_width", self.last_good_camera.get("width", 640))))
-            self.camera_height_var.set(int(camera_cfg.get("frame_height", self.last_good_camera.get("height", 360))))
-            self.camera_fps_var.set(int(camera_cfg.get("fps", self.last_good_camera.get("fps", 30))))
-            self.target_profile_var.set(str(active_target))
-            profile_data = tracking_cfg.get("target_profiles", {}).get(active_target, {})
-            self.camera_min_area_var.set(float(profile_data.get("min_area", self.camera_min_area_var.get())))
+            self.target_profile_var.set(str(tracking_cfg.get("active_target", "RED_OBJECT")))
+            self._refresh_camera_config_status()
         except Exception as exc:
             self.camera_message = f"Nie przeładowano vision_settings.json: {exc}"
 
     @khr_profiled("KHR_UI._open_camera_fast")
     def _open_camera_fast(self) -> None:
-        """Uruchom live kamerę bez blokowania UI.
+        """Uruchom czystą sesję live kamery.
 
-        Zasada V6:
-        - jeden punkt startu sesji kamery,
-        - open() i read() wykonuje ten sam worker,
-        - UI tylko pokazuje ostatni wynik,
-        - ponowne kliknięcia nie tworzą drugiego VideoCapture ani drugiego workera.
+        Jedyny punkt startu live camera w głównym KHR.
+        Nie ma tu scan, pełnego apply UVC, restartów ani cap.read().
         """
-        if self._camera_opening or self._camera_worker_active:
-            self.source_var.set("KAMERA")
-            self._set_source("KAMERA")
-            self._start_camera_preview()
-            return
-
         self._reload_vision_settings_from_json()
 
-        camera_cfg = self.vision_settings.get("camera_device", {})
-        tracking_cfg = self.vision_settings.get("tracking", {})
-        active_target = tracking_cfg.get("active_target", self.target_profile_var.get())
+        if not self._camera_is_configured():
+            self.camera_ok = False
+            self.camera_message = "Kamera nie jest skonfigurowana. Użyj CAMERA SETUP i zapisz JSON."
+            self._refresh_camera_config_status()
+            self.source_var.set("KAMERA")
+            self._set_source("KAMERA")
+            self._draw_input()
+            return
 
-        self._camera_generation += 1
-        generation = self._camera_generation
+        if self.camera_session is None or not self.camera_session.is_running:
+            self.camera_session = CameraSession(
+                project_root=PROJECT_ROOT,
+                profile_name=str(self.target_profile_var.get()),
+                tick_profile_callback=_khr_profile_record,
+                frame_output_enabled=bool(self.camera_image_preview_var.get()),
+            )
 
-        tracker = TarzanCameraTracker(
-            device_index=self._parse_camera_index(),
-            frame_width=int(camera_cfg.get("frame_width", self.camera_width_var.get())),
-            frame_height=int(camera_cfg.get("frame_height", self.camera_height_var.get())),
-            min_area=float(
-                tracking_cfg.get("target_profiles", {})
-                .get(active_target, {})
-                .get("min_area", self.camera_min_area_var.get())
-            ),
-            project_root=PROJECT_ROOT,
-        )
-        tracker.settings = self.vision_settings
-        tracker.device_index = self._parse_camera_index()
-        tracker.set_target_profile(str(active_target))
+        try:
+            self.camera_session.set_frame_output_enabled(bool(self.camera_image_preview_var.get()))
+        except Exception:
+            pass
 
-        self.camera_tracker = tracker
-        self.camera_ok = False
-        self._camera_opening = True
-        self.camera_message = "Kamera: otwieranie LIVE..."
-        with self._state_lock:
-            self.camera_result = CameraTrackingResult()
-
+        self.camera_session.open_once()
+        self.camera_message = self.camera_session.message
+        self.camera_ok = self.camera_session.is_open or self.camera_session.is_opening
         self.source_var.set("KAMERA")
         self._set_source("KAMERA")
         self._start_camera_preview()
-        self._start_camera_worker(tracker=tracker, generation=generation)
 
     def _load_target_template(self) -> None:
         path = filedialog.askopenfilename(
@@ -747,97 +855,40 @@ class TarzanKHRWindow(tk.Tk):
         if not self.camera_preview_active:
             return
 
-        # Podgląd kamery NIE czyta OpenCV.
-        # Czytanie obrazu robi osobny worker, tu tylko odświeżamy istniejący stan UI.
-        if self.source_var.get() == "KAMERA" and self.camera_ok and not self.running:
+        # Podgląd kamery NIE czyta OpenCV. Czytanie obrazu robi CameraSession.
+        # Gdy checkbox PODGLĄD jest OFF, nie rysujemy canvasu co 100 ms.
+        # To jest twarde odcięcie kosztu Tkinter/PIL w normalnej pracy modułu KHR.
+        if self.source_var.get() == "KAMERA" and self.camera_session is not None and not self.running:
             self._sync_camera_sample_to_ui_state()
-            self._draw_input()
+            if bool(self.camera_image_preview_var.get()):
+                self._draw_input()
             self._update_status_preview_only()
 
         self.after(self._camera_preview_refresh_ms, self._camera_preview_loop)
 
     def _sync_camera_sample_to_ui_state(self) -> None:
-        with self._state_lock:
-            result = self.camera_result
+        session = self.camera_session
+        if session is None:
+            self.camera_ok = False
+            self.camera_message = "Kamera nieaktywna"
+            self.camera_result = CameraTrackingResult()
+            self.target_visible = False
+            self.error_x = 0.0
+            self.object_x = 0.0
+            self.object_y = 0.0
+            return
 
+        result = session.latest_result
+        self.camera_result = result
+        self.camera_ok = session.is_open
+        self.camera_message = session.message
         self.target_visible = result.visible
         self.error_x = result.error_x
         self.object_x = result.object_x - result.frame_center_x if result.visible else 0.0
         self.object_y = result.object_y - (result.frame_height / 2.0) if result.visible else 0.0
 
-    def _start_camera_worker(self, tracker: TarzanCameraTracker | None = None, generation: int | None = None) -> None:
-        if self._camera_worker_active:
-            return
-
-        tracker = tracker or self.camera_tracker
-        generation = self._camera_generation if generation is None else generation
-
-        self._camera_stop.clear()
-        self._camera_worker_active = True
-        self._camera_thread = threading.Thread(
-            target=self._camera_worker_loop,
-            args=(tracker, generation),
-            name="TARZAN_KHR_CAMERA_WORKER",
-            daemon=True,
-        )
-        self._camera_thread.start()
-
-    def _stop_camera_worker(self) -> None:
-        self._camera_worker_active = False
-        self._camera_stop.set()
-
-        thread = self._camera_thread
-        if thread is not None and thread.is_alive():
-            thread.join(timeout=0.8)
-
-        if thread is None or not thread.is_alive():
-            self._camera_thread = None
-            self._camera_worker_active = False
-
-    @khr_profiled("KHR_CAMERA.worker_tick")
-    def _camera_worker_tick(self, tracker: TarzanCameraTracker, generation: int) -> None:
-        result = tracker.read()
-        if generation != self._camera_generation:
-            return
-        with self._state_lock:
-            self.camera_result = result
-
-    def _camera_worker_loop(self, tracker: TarzanCameraTracker, generation: int) -> None:
-        try:
-            ok, msg = tracker.open(allow_fallback=False, fast_open=True, read_state=False)
-
-            if generation != self._camera_generation:
-                tracker.close()
-                return
-
-            self.camera_ok = ok
-            self._camera_opening = False
-            self.camera_message = msg
-
-            if not ok:
-                return
-
-            next_t = time.perf_counter()
-            while not self._camera_stop.is_set() and generation == self._camera_generation:
-                try:
-                    self._camera_worker_tick(tracker, generation)
-                except Exception as exc:
-                    if generation == self._camera_generation:
-                        with self._state_lock:
-                            self.camera_result = CameraTrackingResult()
-                        self.camera_message = f"Błąd kamery: {exc}"
-                    time.sleep(0.10)
-
-                next_t += self._camera_refresh_s
-                sleep_s = next_t - time.perf_counter()
-                if sleep_s <= 0:
-                    next_t = time.perf_counter()
-                    sleep_s = 0.001
-                self._camera_stop.wait(min(sleep_s, self._camera_refresh_s))
-        finally:
-            if generation == self._camera_generation:
-                self._camera_worker_active = False
-                self._camera_opening = False
+    # Live camera worker został przeniesiony do vision.tarzanCameraSession.CameraSession.
+    # KHR UI nie jest właścicielem cv2.VideoCapture ani cap.read().
 
     def _update_status_preview_only(self) -> None:
         self.status.config(
@@ -850,28 +901,12 @@ class TarzanKHRWindow(tk.Tk):
         )
 
     def _scan_cameras(self) -> None:
-        infos = scan_cameras(indexes=[0, 1, 2], backend=self.camera_backend_var.get())
-        values = []
-        for info in infos:
-            if info.opened:
-                values.append(f"{info.index} | {info.backend} | {info.width}x{info.height} | {info.fps:.0f}fps")
-        if not values:
-            values = ["0", "1", "2", "3", "4"]
-            self.camera_message = "Nie znaleziono kamery dla wybranego backendu"
-        else:
-            self.camera_message = f"Znaleziono kamer: {len(values)}"
-        self.camera_box["values"] = values
-        if values:
-            self.camera_index_var.set(values[0])
+        # Scan należy wyłącznie do Camera Setup. Główne KHR nie skanuje kamer.
+        self.camera_message = "SCAN jest dostępny tylko w CAMERA SETUP"
 
     def _parse_camera_index(self) -> int:
-        raw = str(self.camera_index_var.get()).strip()
-        if "|" in raw:
-            raw = raw.split("|", 1)[0].strip()
-        try:
-            return int(raw)
-        except Exception:
-            return 0
+        # Kompatybilność dla starych odwołań: index zawsze pochodzi z JSON.
+        return int(self.vision_settings.get("camera_discovery", {}).get("preferred_index", 0))
 
     @khr_profiled("KHR_UI._apply_camera_controls")
     def _apply_camera_controls(self, save_as_last: bool = True, allow_fallback: bool = False) -> None:
@@ -880,12 +915,15 @@ class TarzanKHRWindow(tk.Tk):
         self._open_camera_setup()
 
     def _on_target_profile_change(self, event=None) -> None:
-        self.camera_tracker.set_target_profile(self.target_profile_var.get())
-        try:
-            profile = self.camera_tracker.profile
-            self.camera_min_area_var.set(profile.min_area)
-        except Exception:
-            pass
+        # Profil celu w głównym KHR pochodzi z JSON. Zmienia go Camera Setup.
+        self._reload_vision_settings_from_json()
+        if self.camera_tracker is not None:
+            try:
+                self.camera_tracker.set_target_profile(self.target_profile_var.get())
+            except Exception:
+                pass
+        if self.camera_session is not None:
+            self.camera_message = "Profil celu wczytany z JSON; restart kamery tylko przez ponowne OPEN CAMERA"
 
     def _make_settings_rows(self, parent: tk.Widget) -> None:
         row1 = tk.Frame(parent, bg="#111111")
@@ -939,7 +977,7 @@ class TarzanKHRWindow(tk.Tk):
 
         if source != "KAMERA":
             self._close_camera()
-        elif self.camera_ok or self._camera_opening:
+        elif self.camera_session is not None and (self.camera_session.is_open or self.camera_session.is_opening):
             self._start_camera_preview()
 
     def _apply_profile_to_ui(self, profile) -> None:
@@ -955,9 +993,8 @@ class TarzanKHRWindow(tk.Tk):
         if self.running:
             return
 
-        if self.source_var.get() == "KAMERA" and not self.camera_ok and not self._camera_opening:
-            self._open_camera_fast()
-
+        # START KHR nie otwiera ani nie restartuje kamery.
+        # Kamera live jest niezależna: uruchamia ją tylko OPEN LAST / świadomy start kamery.
         self.running = True
         self.t0 = time.time()
         self.step_preview = KHRStepPreview()
@@ -965,32 +1002,41 @@ class TarzanKHRWindow(tk.Tk):
         self.step_count = 0
 
         # Kamera live ma własnego workera; START KHR nie tworzy drugiego czytnika.
+        # Dopiero START KHR włącza tracker / error_x. OPEN CAMERA pozostaje czystym preview.
+        if self.source_var.get() == "KAMERA" and self.camera_session is not None:
+            try:
+                self.camera_session.start_tracking()
+            except Exception:
+                pass
         self._start_ui_loop()
         self._loop()
 
     def stop(self) -> None:
         self.running = False
         self._ui_loop_active = False
+        if self.camera_session is not None:
+            try:
+                self.camera_session.stop_tracking()
+            except Exception:
+                pass
         if self.source_var.get() == "KAMERA" and self.camera_ok:
             self._start_camera_preview()
-            self.status.config(text="STOP | kamera zostaje w podglądzie")
+            self.status.config(text="STOP | kamera zostaje w podglądzie | tracking OFF")
         else:
             self.status.config(text="STOP")
 
     def _close_camera(self) -> None:
-        self._camera_generation += 1
-        self._camera_opening = False
         self._stop_camera_preview()
-        self._stop_camera_worker()
-        try:
-            self.camera_tracker.close()
-        except Exception:
-            pass
+        if self.camera_session is not None:
+            try:
+                self.camera_session.close()
+            except Exception:
+                pass
+        self.camera_session = None
         self.camera_ok = False
         self.camera_message = "Kamera nieaktywna"
         self.camera_photo = None
-        with self._state_lock:
-            self.camera_result = CameraTrackingResult()
+        self.camera_result = CameraTrackingResult()
 
     @khr_profiled("KHR_UI._loop")
     def _loop(self) -> None:
@@ -1045,12 +1091,13 @@ class TarzanKHRWindow(tk.Tk):
             self.tracking.set_error(self.error_x, visible=True)
 
         elif source == "KAMERA":
-            if self.camera_ok:
-                # Realtime KHR bierze ostatni wynik z workera kamery.
-                # Tu NIE wolno robić camera_tracker.read(), bo to blokuje pętlę 10 ms.
+            if self.camera_session is not None and self.camera_session.is_open and self.camera_session.tracking_enabled:
+                # Realtime KHR bierze ostatni wynik z CameraSession.
+                # Tu NIE wolno robić cap.read(), bo to blokuje pętlę 10 ms.
                 self._sync_camera_sample_to_ui_state()
                 self.tracking.set_error(self.error_x, visible=self.target_visible)
             else:
+                # Kamera może być widoczna w preview, ale bez START KHR tracker jest wyłączony.
                 self.target_visible = False
                 self.error_x = 0.0
                 self.tracking.set_error(0.0, visible=False)
@@ -1125,10 +1172,34 @@ class TarzanKHRWindow(tk.Tk):
         w = max(c.winfo_width(), 320)
         h = max(c.winfo_height(), 320)
         c.create_text(60, 24, text="źródło: KAMERA", fill="#eeeeee", anchor="w", font=("Segoe UI", 11, "bold"))
-        cam_text = f"{self.camera_message} | QUICK | index={self._parse_camera_index()} | {self.camera_width_var.get()}x{self.camera_height_var.get()} | {self.camera_fps_var.get()}fps | {self.target_profile_var.get()}"
+        tick_ms = self.camera_session.worker_tick_ms if self.camera_session is not None else 0.0
+        tracking_mode = "TRACKING ON" if (self.camera_session is not None and self.camera_session.tracking_enabled) else "PREVIEW ONLY"
+        cam_text = f"{self.camera_message} | {tracking_mode} | {self._camera_config_status_text()} | tick={tick_ms:.1f}ms"
         c.create_text(60, 48, text=cam_text, fill="#aaaaaa" if self.camera_ok else "#ff5555", anchor="w", font=("Segoe UI", 10))
 
-        if self.camera_ok and self.camera_result.frame_rgb is not None:
+        image_preview_on = bool(self.camera_image_preview_var.get())
+
+        if not image_preview_on:
+            # Najlżejszy tryb pracy KHR: kamera i tracking działają, ale UI nie przepycha
+            # klatek przez PIL/ImageTk. To usuwa główny koszt podglądu operatorskiego.
+            self.camera_photo = None
+            self.target_template_photo = None
+            state = "kamera działa" if self.camera_ok else "kamera nieaktywna"
+            c.create_text(
+                w / 2,
+                h / 2 - 20,
+                text="PODGLĄD KAMERY WYŁĄCZONY",
+                fill="#ffaa00",
+                font=("Segoe UI", 18, "bold"),
+            )
+            c.create_text(
+                w / 2,
+                h / 2 + 18,
+                text=f"{state} | KHR używa error_x bez renderowania obrazu",
+                fill="#dddddd",
+                font=("Segoe UI", 11),
+            )
+        elif self.camera_ok and self.camera_result.frame_rgb is not None:
             try:
                 from PIL import Image, ImageTk
                 img = Image.fromarray(self.camera_result.frame_rgb)
@@ -1142,10 +1213,10 @@ class TarzanKHRWindow(tk.Tk):
         else:
             c.create_text(w/2, h/2, text="Brak obrazu z kamery", fill="#777777", font=("Segoe UI", 18, "bold"))
 
-        # Obiekt źródłowy / referencyjny.
+        # Obiekt źródłowy / referencyjny. Miniatura jest rysowana tylko przy włączonym podglądzie.
         c.create_text(60, h - 88, text=f"target source: {self.target_template_name}", fill="#ffaa00", anchor="w", font=("Segoe UI", 10, "bold"))
 
-        if self.target_template_path:
+        if image_preview_on and self.target_template_path:
             try:
                 from PIL import Image, ImageTk
                 thumb = Image.open(self.target_template_path)

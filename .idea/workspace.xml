@@ -6,13 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/khr/khr_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/khr/khr_settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/khr/vision_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/khr/vision_settings.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/tarzanKHR.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/tarzanKHR.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/motion/tarzanKHR.py" beforeDir="false" afterPath="$PROJECT_DIR$/motion/tarzanKHR.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/motion/tarzanKHRManual.py" beforeDir="false" afterPath="$PROJECT_DIR$/motion/tarzanKHRManual.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/motion/tarzanKHRProfiles.py" beforeDir="false" afterPath="$PROJECT_DIR$/motion/tarzanKHRProfiles.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/motion/tarzanKHRStepPreview.py" beforeDir="false" afterPath="$PROJECT_DIR$/motion/tarzanKHRStepPreview.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/motion/tarzanKHRTracking.py" beforeDir="false" afterPath="$PROJECT_DIR$/motion/tarzanKHRTracking.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/vision/tarzanCameraTracker.py" beforeDir="false" afterPath="$PROJECT_DIR$/vision/tarzanCameraTracker.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -50,63 +45,63 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python.TarzanEhrTakeSandbox.executor": "Run",
-    "Python.TarzanEhrTakeSandbox_impl.executor": "Run",
-    "Python.TarzanTakeProtocolLight (1).executor": "Run",
-    "Python.TarzanTakeProtocolLight.executor": "Run",
-    "Python.TarzanTakeProtocolLight_test.executor": "Run",
-    "Python.analyze_file.executor": "Run",
-    "Python.arte.executor": "Run",
-    "Python.axisSandboxEngine (1).executor": "Run",
-    "Python.axisSandboxEngine.executor": "Run",
-    "Python.ehrMultiAxisSandbox (1).executor": "Run",
-    "Python.ehrMultiAxisSandbox.executor": "Run",
-    "Python.ehrMultiAxisSandbox_ehrShell.executor": "Run",
-    "Python.ehrMultiAxisSandbox_ehrShell_v1.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.tarzanAxisSandbox (1).executor": "Run",
-    "Python.tarzanAxisSandbox.executor": "Run",
-    "Python.tarzanCameraTracker.executor": "Run",
-    "Python.tarzanEHR.executor": "Run",
-    "Python.tarzanEdytorChoreografiiRuchu.executor": "Run",
-    "Python.tarzanEdytorChoreografiiRuchuNowy.executor": "Run",
-    "Python.tarzanEdytorChoreografiiRuchu_v2.executor": "Run",
-    "Python.tarzanEhrMultiAxisModel.executor": "Run",
-    "Python.tarzanKHR.executor": "Run",
-    "Python.tarzanKHRTest.executor": "Run",
-    "Python.tarzanKrzyweRuchu.executor": "Run",
-    "Python.tarzanProfiler.executor": "Run",
-    "Python.tarzanProtokolRuchu.executor": "Run",
-    "Python.tarzanStepGenerator.executor": "Run",
-    "Python.tarzanTakeModel.executor": "Run",
-    "Python.tarzanTakeTXT.executor": "Run",
-    "Python.tarzanTest.executor": "Run",
-    "Python.tarzanZmienneSygnalowe.executor": "Run",
-    "Python.tmp.executor": "Run",
-    "RunOnceActivity.ChatTagsLlmMigration": "true",
-    "RunOnceActivity.ClientConfigCleanupMigration": "true",
-    "RunOnceActivity.CodyAccountHistoryMigration": "true",
-    "RunOnceActivity.CodyAccountsIdsRefresh": "true",
-    "RunOnceActivity.CodyAssignOrphanedChatsToActiveAccount": "true",
-    "RunOnceActivity.CodyConvertUrlToCodebaseName": "true",
-    "RunOnceActivity.CodyHistoryLlmMigration": "true",
-    "RunOnceActivity.CodyMigrateChatHistory-v2": "true",
-    "RunOnceActivity.CodyProjectSettingsMigration": "true",
-    "RunOnceActivity.DeprecatedChatLlmMigration": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.ToggleCodyToolWindowAfterMigration": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "main",
-    "junie.onboarding.icon.badge.shown": "true",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
-    "to.speed.mode.migration.done": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.TarzanEhrTakeSandbox.executor&quot;: &quot;Run&quot;,
+    &quot;Python.TarzanEhrTakeSandbox_impl.executor&quot;: &quot;Run&quot;,
+    &quot;Python.TarzanTakeProtocolLight (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.TarzanTakeProtocolLight.executor&quot;: &quot;Run&quot;,
+    &quot;Python.TarzanTakeProtocolLight_test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.analyze_file.executor&quot;: &quot;Run&quot;,
+    &quot;Python.arte.executor&quot;: &quot;Run&quot;,
+    &quot;Python.axisSandboxEngine (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.axisSandboxEngine.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ehrMultiAxisSandbox (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.ehrMultiAxisSandbox.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ehrMultiAxisSandbox_ehrShell.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ehrMultiAxisSandbox_ehrShell_v1.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanAxisSandbox (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanAxisSandbox.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanCameraTracker.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanEHR.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanEdytorChoreografiiRuchu.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanEdytorChoreografiiRuchuNowy.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanEdytorChoreografiiRuchu_v2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanEhrMultiAxisModel.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanKHR.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanKHRTest.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanKrzyweRuchu.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanProfiler.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanProtokolRuchu.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanStepGenerator.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanTakeModel.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanTakeTXT.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanTest.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanZmienneSygnalowe.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tmp.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ChatTagsLlmMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ClientConfigCleanupMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyAccountHistoryMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyAccountsIdsRefresh&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyAssignOrphanedChatsToActiveAccount&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyConvertUrlToCodebaseName&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyHistoryLlmMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyMigrateChatHistory-v2&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyProjectSettingsMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.DeprecatedChatLlmMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ToggleCodyToolWindowAfterMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Python.tarzanKHR">
     <configuration name="tarzanCameraTracker" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />

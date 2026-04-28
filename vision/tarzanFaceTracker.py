@@ -120,6 +120,15 @@ class TarzanFaceTracker:
     def set_target_profile(self, name: str) -> None:
         return
 
+    def prepare_backend(self) -> None:
+        """Przygotowuje bibliotekę FACE poza workerem kamery.
+
+        MediaPipe może ładować model i zależności wolniej niż zwykły HSV.
+        Wywołanie z UI/setup/start pozwala uniknąć inicjalizacji w środku cap.read().
+        Błąd MediaPipe nie zamyka kamery — zostanie użyty HAAR fallback.
+        """
+        self._ensure_backend()
+
     def _ensure_backend(self) -> None:
         if self._backend_ready:
             return
@@ -137,13 +146,22 @@ class TarzanFaceTracker:
                 self._backend_ready = True
                 return
             except Exception as exc:
-                self._backend_error = f"MEDIAPIPE ERROR: {exc}"
-                if self.config.require_mediapipe:
-                    self._active_backend = "MEDIAPIPE_ERROR"
-                    self._backend_ready = True
+                # FACE nie może zabić kamery. Brak MediaPipe albo błąd modelu
+                # przełącza plugin na HAAR fallback, ale HAAR wymaga cv2, które
+                # jest przypinane dopiero przez CameraSession po otwarciu kamery.
+                self._backend_error = f"MEDIAPIPE ERROR -> HAAR FALLBACK: {exc}"
+                if self.cv2 is None:
+                    self._active_backend = "PENDING_HAAR"
+                    self._backend_ready = False
                     return
+
         self._ensure_haar()
-        self._active_backend = "HAAR"
+        if self._haar_cascade is not None and not self._haar_cascade.empty():
+            self._active_backend = "HAAR"
+        else:
+            self._active_backend = "MEDIAPIPE_ERROR"
+            if not self._backend_error:
+                self._backend_error = "FACE ERROR: brak aktywnego backendu MediaPipe/Haar"
         self._backend_ready = True
 
     def _ensure_haar(self) -> None:
@@ -171,12 +189,17 @@ class TarzanFaceTracker:
             self.last_result = CameraTrackingResult()
             return self.last_result
         self._ensure_backend()
-        if self._active_backend == "MEDIAPIPE" and self._mp_detector is not None:
-            result = self._detect_mediapipe(frame)
-        elif self._active_backend == "MEDIAPIPE_ERROR":
+        try:
+            if self._active_backend == "MEDIAPIPE" and self._mp_detector is not None:
+                result = self._detect_mediapipe(frame)
+            elif self._active_backend == "MEDIAPIPE_ERROR":
+                result = self._error_result(frame)
+            else:
+                result = self._detect_haar(frame)
+        except Exception as exc:
+            self._backend_error = f"FACE PROCESS ERROR: {exc}"
+            self._active_backend = "MEDIAPIPE_ERROR"
             result = self._error_result(frame)
-        else:
-            result = self._detect_haar(frame)
         if not include_frame_rgb:
             result.frame_rgb = None
         self.last_result = result

@@ -18,7 +18,7 @@ import copy
 import json
 import tkinter as tk
 from pathlib import Path
-from tkinter import ttk
+from tkinter import ttk, filedialog
 
 from vision.tarzanVisionConfig import load_vision_settings
 
@@ -374,7 +374,7 @@ class VisionSetupWindow(tk.Toplevel):
         self._check_row(g, "Preferuj obiekt bliżej środka", self.prefer_center, "do przyszłego scoringu")
 
     def _build_face_save_panel(self, parent) -> None:
-        g = self._group(parent, 2, "TWARZ — WYBÓR BIBLIOTEKI", "MediaPipe jest docelową zależnością TARZANA. Haar zostaje jako tryb awaryjny/testowy.", ACCENT_FACE)
+        g = self._group(parent, 2, "TWARZ — WYBÓR BIBLIOTEKI", "MediaPipe jest docelową zależnością TARZANA, ale nie może zatrzymać kamery. Haar zostaje jako fallback awaryjny. Model 0 = bliska twarz; Model 1 = dalsza twarz.", ACCENT_FACE)
         self._combo_row(g, "Backend", self.face_backend_var, ["MEDIAPIPE", "HAAR"], "biblioteka twarzy")
         self._combo_row(g, "Target point", self.face_target_point, ["FACE_CENTER", "NOSE", "LEFT_EYE", "RIGHT_EYE"], "punkt podążania")
         self._check_row(g, "Draw debug", self.face_draw_debug, "box, środek, tekst")
@@ -391,12 +391,12 @@ class VisionSetupWindow(tk.Toplevel):
         self._scale_row(g, "Hold ms", self.face_hold_ms, 0, 2000, 10, "podtrzymanie celu")
         self._scale_row(g, "Max jump px", self.face_max_jump, 20, 1000, 10, "ochrona przed skokiem")
 
-        g = self._group(parent, 4, "MEDIAPIPE", "Model 0: bliższe twarze. Model 1: dalszy dystans. Confidence to próg pewności detekcji.", ACCENT_FACE)
+        g = self._group(parent, 4, "MEDIAPIPE", "Model 0 → bliska twarz / szybciej. Model 1 → dalsza twarz / zwykle wolniej. Gdy MediaPipe nie działa, kamera zostaje aktywna i używany jest Haar fallback.", ACCENT_FACE)
         self._combo_row(g, "Model selection", self.mp_model_selection, [0, 1], "0 blisko, 1 dalej")
         self._scale_row(g, "Confidence", self.mp_confidence, 0.1, 0.95, 0.01, "próg detekcji")
         self._check_row(g, "Require installed", self.mp_require_installed, "brak = błąd środowiska")
 
-        g = self._group(parent, 5, "OPENCV HAAR", "Tryb awaryjny. Scale factor i min neighbors decydują o czułości i liczbie fałszywych detekcji.", ACCENT_FACE)
+        g = self._group(parent, 5, "OPENCV HAAR", "Fallback OpenCV. Mniej dokładny od MediaPipe, ale szybki i bezpieczny: ma utrzymać tracking, gdy MediaPipe nie działa.", ACCENT_FACE)
         self._entry_row(g, "Cascade", self.haar_cascade, "plik cascade")
         self._scale_row(g, "Scale factor", self.haar_scale, 1.01, 1.5, 0.01, "skala piramidy")
         self._scale_row(g, "Min neighbors", self.haar_neighbors, 1, 20, 1, "więcej = pewniej")
@@ -412,6 +412,9 @@ class VisionSetupWindow(tk.Toplevel):
         row = self._next_row(g)
         tk.Button(g, text="RELOAD FROM JSON", command=self.reload_from_json, height=2).grid(row=row, column=0, columnspan=2, sticky="ew", padx=8, pady=5)
         tk.Button(g, text="RESET OBJECT DEFAULT", command=self.reset_active_object_default, height=2).grid(row=row, column=2, columnspan=2, sticky="ew", padx=8, pady=5)
+        row = self._next_row(g)
+        tk.Button(g, text="IMPORT TARGET PROFILE", command=self.import_target_profile, height=2).grid(row=row, column=0, columnspan=2, sticky="ew", padx=8, pady=5)
+        tk.Button(g, text="EXPORT TARGET PROFILE", command=self.export_target_profile, height=2).grid(row=row, column=2, columnspan=2, sticky="ew", padx=8, pady=5)
 
     # ------------------------------------------------------------------
     # DATA LOAD/SAVE
@@ -601,6 +604,68 @@ class VisionSetupWindow(tk.Toplevel):
         self._load_active_profile_to_vars()
         self._load_face_to_vars()
         self._update_status("Przeładowano ustawienia z JSON")
+
+
+    def export_target_profile(self) -> None:
+        """Eksportuje aktywny profil obiektu do osobnego JSON.
+
+        To jest funkcja serwisowa TRACKING SETUP, nie przycisk głównego KHR.
+        Główne KHR zawsze ładuje active_target z vision_settings.json automatycznie.
+        """
+        self._write_vars_to_settings()
+        name = str(self.profile_var.get() or "TARGET")
+        data = {
+            "type": "TARZAN_TARGET_PROFILE",
+            "name": name,
+            "profile": copy.deepcopy(self._active_profile_data()),
+        }
+        default_dir = self.project_root / "data" / "khr" / "targets"
+        default_dir.mkdir(parents=True, exist_ok=True)
+        path = filedialog.asksaveasfilename(
+            title="Eksport profilu targetu",
+            initialdir=str(default_dir),
+            initialfile=f"{name}.json",
+            defaultextension=".json",
+            filetypes=[("JSON", "*.json"), ("Wszystkie pliki", "*.*")],
+        )
+        if not path:
+            return
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        self._update_status(f"Wyeksportowano profil targetu: {path}")
+
+    def import_target_profile(self) -> None:
+        """Importuje profil targetu i ustawia go jako aktywny w TRACKING SETUP."""
+        default_dir = self.project_root / "data" / "khr" / "targets"
+        default_dir.mkdir(parents=True, exist_ok=True)
+        path = filedialog.askopenfilename(
+            title="Import profilu targetu",
+            initialdir=str(default_dir),
+            filetypes=[("JSON", "*.json"), ("Wszystkie pliki", "*.*")],
+        )
+        if not path:
+            return
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        if isinstance(data, dict) and "profile" in data:
+            name = str(data.get("name") or Path(path).stem)
+            profile = data.get("profile") or {}
+        else:
+            name = Path(path).stem
+            profile = data
+
+        if not isinstance(profile, dict):
+            self._update_status("IMPORT TARGET ERROR: plik nie zawiera profilu JSON")
+            return
+
+        tracking = self.settings.setdefault("tracking", {})
+        profiles = tracking.setdefault("target_profiles", {})
+        profiles[name] = copy.deepcopy(profile)
+        tracking["active_target"] = name
+        self.profile_var.set(name)
+        self._load_active_profile_to_vars()
+        self._update_status(f"Zaimportowano profil targetu: {name}. Kliknij SAVE PARAMETERS, aby zapisać do vision_settings.json.")
 
     def save_to_json(self) -> None:
         self._write_vars_to_settings()

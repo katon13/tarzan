@@ -5,8 +5,29 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/khr/vision_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/khr/vision_settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/TarzanTakeProtocolLight.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanAxisSandbox.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrApp.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrMainTakeSettings.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrMainTakeSettingsDialog.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrMultiAxisModel.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrTakeModel.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrUi.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanTakeTxtCore.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/TarzanEhrTakeSandbox.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/TarzanTakeProtocolLight.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/tarzanAxisSandbox.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/tarzanEHR.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/tarzanEhrMultiAxisModel.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/tarzanKHR.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/tarzanKHR.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanTest.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanTestKamera.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/vision/tarzanCameraSession.py" beforeDir="false" afterPath="$PROJECT_DIR$/vision/tarzanCameraSession.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vision/tarzanFaceTracker.py" beforeDir="false" afterPath="$PROJECT_DIR$/vision/tarzanFaceTracker.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/vision/tarzanVisionSetup.py" beforeDir="false" afterPath="$PROJECT_DIR$/vision/tarzanVisionSetup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -215,10 +236,10 @@
     <recent_temporary>
       <list>
         <item itemvalue="Python.tarzanKHR" />
+        <item itemvalue="Python.tarzanEHR" />
         <item itemvalue="Python.tarzanTest" />
         <item itemvalue="Python.tarzanKHRTest" />
         <item itemvalue="Python.tarzanCameraTracker" />
-        <item itemvalue="Python.tarzanEHR" />
       </list>
     </recent_temporary>
   </component>

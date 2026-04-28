@@ -142,6 +142,8 @@ class CameraSetupWindow(tk.Toplevel):
         self.apply_active = False
         self._apply_thread: threading.Thread | None = None
         self._apply_result: tuple[bool, str] | None = None
+        self._live_apply_after_ids: dict[str, str] = {}
+        self._live_apply_enabled = False
 
         discovery = self.settings.get("camera_discovery", {})
         camera = self.settings.get("camera_device", {})
@@ -179,6 +181,7 @@ class CameraSetupWindow(tk.Toplevel):
         self.status_var = tk.StringVar(value="SERWIS KAMERY | ustaw raz, zapisz do JSON, potem KHR startuje FAST")
 
         self._build_ui()
+        self._bind_live_camera_controls()
 
     def _build_ui(self) -> None:
         top = tk.Frame(self, bg="#111111")
@@ -274,6 +277,107 @@ class CameraSetupWindow(tk.Toplevel):
         row.pack(fill=tk.X, padx=8, pady=2)
         tk.Label(row, text=label, bg="#181818", fg="#bbbbbb", width=14, anchor="w").pack(side=tk.LEFT)
         tk.Scale(row, variable=variable, from_=from_, to=to, resolution=resolution, orient=tk.HORIZONTAL, bg="#181818", fg="#eeeeee", troughcolor="#333333", highlightthickness=0, length=190).pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+    def _bind_live_camera_controls(self) -> None:
+        """Podłącz suwaki serwisowe do natychmiastowego cap.set(...)."""
+        bindings = [
+            ("brightness", self.brightness_var),
+            ("contrast", self.contrast_var),
+            ("saturation", self.saturation_var),
+            ("gain", self.gain_var),
+            ("exposure", self.exposure_var),
+            ("focus", self.focus_var),
+            ("white_balance", self.white_balance_var),
+            ("auto_exposure", self.auto_exposure_var),
+            ("auto_focus", self.auto_focus_var),
+            ("white_balance_auto", self.white_balance_auto_var),
+        ]
+        for key, var in bindings:
+            try:
+                var.trace_add("write", lambda *_args, k=key: self._schedule_live_camera_apply(k))
+            except Exception:
+                pass
+        self._live_apply_enabled = True
+
+    def _schedule_live_camera_apply(self, key: str) -> None:
+        if not self._live_apply_enabled:
+            return
+        old_after = self._live_apply_after_ids.pop(key, None)
+        if old_after:
+            try:
+                self.after_cancel(old_after)
+            except Exception:
+                pass
+        try:
+            self._live_apply_after_ids[key] = self.after(120, lambda k=key: self._apply_camera_param_live(k))
+        except Exception:
+            pass
+
+    def _camera_param_value(self, key: str):
+        if key == "brightness":
+            return float(self.brightness_var.get())
+        if key == "contrast":
+            return float(self.contrast_var.get())
+        if key == "saturation":
+            return float(self.saturation_var.get())
+        if key == "gain":
+            return float(self.gain_var.get())
+        if key == "exposure":
+            return float(self.exposure_var.get())
+        if key == "focus":
+            return float(self.focus_var.get())
+        if key == "white_balance":
+            return float(self.white_balance_var.get())
+        if key == "auto_exposure":
+            return bool(self.auto_exposure_var.get())
+        if key == "auto_focus":
+            return bool(self.auto_focus_var.get())
+        if key == "white_balance_auto":
+            return bool(self.white_balance_auto_var.get())
+        return None
+
+    def _apply_camera_param_live(self, key: str) -> None:
+        self._live_apply_after_ids.pop(key, None)
+        if self.cap is None or self.cv2 is None:
+            self.status_var.set(f"LIVE {key}: kamera nie jest otwarta — OPEN FULL / PREVIEW")
+            return
+        try:
+            if not self.cap.isOpened():
+                self.status_var.set(f"LIVE {key}: kamera nie jest otwarta")
+                return
+        except Exception:
+            pass
+
+        cv2 = self.cv2
+        prop_map = {
+            "brightness": getattr(cv2, "CAP_PROP_BRIGHTNESS", None),
+            "contrast": getattr(cv2, "CAP_PROP_CONTRAST", None),
+            "saturation": getattr(cv2, "CAP_PROP_SATURATION", None),
+            "gain": getattr(cv2, "CAP_PROP_GAIN", None),
+            "exposure": getattr(cv2, "CAP_PROP_EXPOSURE", None),
+            "focus": getattr(cv2, "CAP_PROP_FOCUS", None),
+            "white_balance": getattr(cv2, "CAP_PROP_WB_TEMPERATURE", None),
+            "auto_focus": getattr(cv2, "CAP_PROP_AUTOFOCUS", None),
+            "white_balance_auto": getattr(cv2, "CAP_PROP_AUTO_WB", None),
+            "auto_exposure": getattr(cv2, "CAP_PROP_AUTO_EXPOSURE", None),
+        }
+        prop = prop_map.get(key)
+        if prop is None:
+            self.status_var.set(f"LIVE {key}: parametr nieobsługiwany przez OpenCV/backend")
+            return
+
+        value = self._camera_param_value(key)
+        try:
+            if key == "auto_exposure":
+                set_value = 0.75 if bool(value) else 0.25
+            elif key in ("auto_focus", "white_balance_auto"):
+                set_value = 1 if bool(value) else 0
+            else:
+                set_value = float(value)
+            ok = self.cap.set(prop, set_value)
+            self.status_var.set(f"LIVE {key} = {value} | {'OK' if ok else 'wysłano / brak potwierdzenia'}")
+        except Exception as exc:
+            self.status_var.set(f"LIVE {key} ERROR | {exc}")
 
     def _collect_settings(self) -> dict:
         data = self.settings
@@ -524,6 +628,12 @@ class CameraSetupWindow(tk.Toplevel):
 
     def close_camera(self) -> None:
         self.preview_active = False
+        for after_id in list(self._live_apply_after_ids.values()):
+            try:
+                self.after_cancel(after_id)
+            except Exception:
+                pass
+        self._live_apply_after_ids.clear()
         if self.apply_active:
             self.status_var.set("CLOSE CAMERA | czekam krótko na zakończenie APPLY...")
             thread = self._apply_thread
@@ -593,7 +703,7 @@ class TarzanKHRWindow(tk.Tk):
         self.target_profile_var = tk.StringVar(value=str(tracking_cfg.get('active_target', 'RED_OBJECT')))
         # Podgląd obrazu kamery jest tylko trybem testowym/operatorowym.
         # Domyślnie OFF: moduł KHR ma działać lekko i pobierać error_x bez kosztu ImageTk/PIL.
-        self.camera_image_preview_var = tk.BooleanVar(value=False)
+        self.camera_image_preview_var = tk.BooleanVar(value=True)
         self.camera_config_status_var = tk.StringVar(value=self._camera_config_status_text())
 
         self.running = False

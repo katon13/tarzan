@@ -1,0 +1,24 @@
+{
+  "panels": {
+    "axes": true,
+    "limits": true,
+    "sensors": true,
+    "operator": true,
+    "ui": true,
+    "bridge": true,
+    "dron": true,
+    "lcd": true,
+    "matrix_led": true,
+    "keyboard": true,
+    "poextbus_cnc": true,
+    "functions": false,
+    "camera": true,
+    "autostatus": true,
+    "system": true,
+    "take": true,
+    "timeline": true,
+    "log": true,
+    "settings": true,
+    "all_signals": false
+  }
+}

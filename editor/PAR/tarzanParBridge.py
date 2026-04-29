@@ -1,0 +1,55 @@
+"""Most PAR ↔ SignalBus ↔ TAKE."""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+from core.tarzanSignalBus import TarzanSignalBus, get_signal_bus
+from editor.PAR.tarzanParProtocolMapper import TarzanParProtocolMapper
+from editor.PAR.tarzanParTakePlayer import TarzanParTakePlayer, TarzanTakeData
+
+
+class TarzanParBridge:
+    def __init__(self, bus: Optional[TarzanSignalBus] = None) -> None:
+        self.bus = bus or get_signal_bus("TEST")
+        self.mapper = TarzanParProtocolMapper(self.bus.names())
+        self.take_player = TarzanParTakePlayer(self.bus, self.mapper)
+
+    def set_mode(self, mode: str) -> None:
+        self.bus.set_mode(mode)
+
+    def read_input(self, name: str, default: Any = 0) -> Any:
+        return self.bus.read_input(name, default)
+
+    def set_input(self, name: str, value: Any, source: str = "PAR") -> bool:
+        return self.bus.set_input(name, value, source=source)
+
+    def write_output(self, name: str, value: Any, source: str = "PAR") -> bool:
+        return self.bus.write_output(name, value, source=source)
+
+    def force_signal(self, name: str, value: Any, source: str = "PAR_FORCE") -> bool:
+        return self.bus.force_signal(name, value, source=source)
+
+    def snapshot(self, include_meta: bool = False) -> Dict[str, Any]:
+        return self.bus.snapshot(include_meta=include_meta)
+
+    def load_take(self, path: str | Path) -> TarzanTakeData:
+        return self.take_player.load(path)
+
+    def play_take(self) -> None:
+        self.take_player.play()
+
+    def pause_take(self) -> None:
+        self.take_player.pause()
+
+    def stop_take(self) -> None:
+        self.take_player.stop()
+
+    def step_take_index(self, index: int):
+        return self.take_player.step_to_index(index)
+
+    def step_take_time(self, time_ms: int):
+        return self.take_player.step_time(time_ms)
+
+    def take_column_map(self):
+        return self.mapper.map_take_columns()

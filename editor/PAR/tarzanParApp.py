@@ -44,6 +44,7 @@ DEFAULT_VISIBLE = {
     "autostatus": True,
     "system": True,
     "take": True,
+    "info": True,
     "timeline": True,
     "log": True,
     "settings": True,
@@ -120,7 +121,7 @@ class TarzanParApp(tk.Tk):
         self.mid = tk.Frame(self.center, bg=COLORS["bg"]); self.mid.pack(fill="both", expand=True)
         self.bottom = tk.Frame(self.center, bg=COLORS["bg"], height=220); self.bottom.pack(fill="x")
 
-        tk.Label(self.footer, text="TARZAN PAR v0.5.0 SignalBus/PAR IO", bg="#020304", fg=COLORS["muted"]).pack(side="left", padx=12)
+        tk.Label(self.footer, text="TARZAN PAR v0.8.0 SignalBus/PAR IO", bg="#020304", fg=COLORS["muted"]).pack(side="left", padx=12)
         tk.Label(self.footer, text="PULPIT ANATOMII RUCHU — TEST/LIVE/MIX — TAKE → SIGNALBUS", bg="#020304", fg=COLORS["muted"]).pack(side="left", expand=True)
         self.clock = tk.Label(self.footer, text="", bg="#020304", fg=COLORS["muted"])
         self.clock.pack(side="right", padx=12)
@@ -133,7 +134,7 @@ class TarzanParApp(tk.Tk):
             ("dron", "  🛩  DRON"), ("lcd", "  ▤  LCD 1602"), ("matrix_led", "  ▦  Matrix LED 8x8"),
             ("keyboard", "  ⌨  Klawiatura"), ("poextbus_cnc", "  ▥  PoExtBus / CNC"), ("functions", "  🔒  Funkcje / Rezerwy"),
             ("camera", "  📷  Kamera i KHR"), ("autostatus", "  ⚙  AUTOSTATUS"), ("system", "  ⚙  System i Status"),
-            ("take", "  🎬  TAKE Player"), ("all_signals", "  ✣  Wszystkie Sygnały"),
+            ("take", "  🎬  TAKE Player"), ("info", "  ℹ  Panel informacyjny"), ("log", "  📜  Logi"), ("all_signals", "  ✣  Wszystkie Sygnały"),
         ]
         for key, label in items:
             tk.Button(self.left, text=label, anchor="w", bg="#101820", fg=COLORS["text"], relief="flat", font=("Segoe UI", 10), command=lambda k=key: self.toggle_panel(k)).pack(fill="x", ipady=8, pady=1)
@@ -188,6 +189,8 @@ class TarzanParApp(tk.Tk):
 
         with profile_block("PAR_APP.refresh.right"):
             if self.visible.get("take"): p.take_control(self.right).pack(fill="x", pady=(0, 6))
+            if self.visible.get("info"): p.info_panel(self.right).pack(fill="x", pady=6)
+            if self.visible.get("log"): p.log_panel(self.right).pack(fill="both", expand=True, pady=6)
             if self.visible.get("camera"): p.camera(self.right).pack(fill="x", pady=6)
             if self.visible.get("autostatus"): p.autostatus(self.right).pack(fill="x", pady=6)
             if self.visible.get("system"): p.system(self.right).pack(fill="x", pady=6)

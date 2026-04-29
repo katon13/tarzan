@@ -11,14 +11,15 @@
     "matrix_led": true,
     "keyboard": true,
     "poextbus_cnc": true,
-    "functions": false,
+    "functions": true,
     "camera": true,
     "autostatus": true,
     "system": true,
     "take": true,
+    "info": true,
     "timeline": true,
-    "log": true,
+    "log": false,
     "settings": true,
-    "all_signals": false
+    "all_signals": true
   }
 }

@@ -226,35 +226,40 @@ class TarzanParPanels:
         return panel
 
     def dron(self, parent):
-        panel = self.panel("dron", parent, "DRON — RELEASE / TAKE EVENT")
-        release = "play_p14_drone_release"
-        row = SignalRow(panel.body, "ZWOLNIENIE ELEKTROMAGNESU DRONA", self.bus.get(release),
-                        command=lambda: self.bus.toggle_input(release, source="PAR_DRON"),
-                        icon="🛩", led_size=28)
-        row.pack(fill="x", pady=4)
-        self.rows[release] = row
-        for virtual in ["TAKE_DRON_DIR", "TAKE_DRON_STEP", "TAKE_DRON_EVENT"]:
-            row = SignalRow(panel.body, virtual, self.bus.get(virtual), command=None, icon="●", led_size=22)
-            row.pack(fill="x", pady=2)
-            self.rows[virtual] = row
-        tk.Button(panel.body, text="TEST RELEASE PULSE", bg=COLORS["button"], fg=COLORS["text"], relief="flat",
-                  command=lambda: self.bus.force_signal("TAKE_DRON_EVENT", 1, source="PAR_DRON_TEST")).pack(fill="x", pady=8)
+        panel = self.panel("dron", parent, "DRON")
+        row = tk.Frame(panel.body, bg=COLORS["panel"])
+        row.pack(fill="x", pady=6)
+
+        tk.Label(row, text="ZWOLNIENIE", bg=COLORS["panel"], fg=COLORS["text"],
+                 font=("Segoe UI", 13, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
+
+        value = self.bus.get("play_p14_drone_release") if hasattr(self, "bus") else self.state.get("play_p14_drone_release")
+        led = Led(row, size=30, bg=COLORS["panel"])
+        led.pack(side="right", padx=6)
+        led.set(value)
+
+        tk.Button(panel.body, text="ZWOLNIJ DRONA", bg="#7a251f", fg="#fff", relief="flat",
+                  font=("Segoe UI", 10, "bold"),
+                  command=lambda: self._set_or_toggle("play_p14_drone_release", 1)).pack(fill="x", pady=(8, 2))
+
         return panel
 
     def lcd_panel(self, parent):
-        panel = self.panel("lcd", parent, "WYŚWIETLACZE LCD 1602 — PLAY / REC")
-        for board in ["PLAY", "REC"]:
-            box = tk.Frame(panel.body, bg="#061008", highlightbackground="#1d5f2a", highlightthickness=1)
+        panel = self.panel("lcd", parent, "WYŚWIETLACZE LCD 1602")
+        wrap = tk.Frame(panel.body, bg=COLORS["panel"])
+        wrap.pack(fill="x")
+
+        def lcd_box(parent, title, lines):
+            box = tk.Frame(parent, bg="#07110a", highlightbackground="#284130", highlightthickness=1)
             box.pack(fill="x", pady=5)
-            tk.Label(box, text=f"{board} LCD 16x2", bg="#061008", fg=COLORS["green"], font=("Consolas", 10, "bold")).pack(anchor="w", padx=8, pady=(5, 0))
-            txt = "TARZAN PAR OK".ljust(16) + "\n" + f"{board} SIGNAL READY".ljust(16)[:16]
-            tk.Label(box, text=txt, bg="#07180a", fg="#5dff5d", font=("Consolas", 13), justify="left").pack(fill="x", padx=8, pady=6)
-        names = [n for n in self.bus.names() if "lcd" in n.lower()]
-        for name in names:
-            meta = self.bus.get_meta(name)
-            row = SignalRow(panel.body, self.clean(meta.opis if meta else name), self.bus.get(name), command=None, icon="▣", led_size=18)
-            row.pack(fill="x", pady=1)
-            self.rows[name] = row
+            tk.Label(box, text=title, bg="#07110a", fg=COLORS["muted"],
+                     font=("Segoe UI", 9, "bold"), anchor="w").pack(fill="x", padx=8, pady=(5, 0))
+            for line in lines:
+                tk.Label(box, text=line[:16].ljust(16), bg="#07110a", fg="#38ff6a",
+                         font=("Consolas", 14, "bold"), anchor="w").pack(fill="x", padx=10)
+
+        lcd_box(wrap, "PLAY LCD", ["TARZAN PLAY", f"MODE {self.bus.mode if hasattr(self, 'bus') else 'TEST'}"])
+        lcd_box(wrap, "REC LCD", ["TARZAN REC", "READY"])
         return panel
 
     def matrix_led_panel(self, parent):
@@ -278,21 +283,20 @@ class TarzanParPanels:
         return panel
 
     def keyboard_panel(self, parent):
-        panel = self.panel("keyboard", parent, "KLAWIATURA MATRIX 4x3 / PRZYCISKI")
-        keys = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["*", "0", "#"]]
+        panel = self.panel("keyboard", parent, "KLAWIATURA")
         grid = tk.Frame(panel.body, bg=COLORS["panel"])
-        grid.pack(anchor="w", pady=4)
-        for r, row_keys in enumerate(keys):
-            for c, key in enumerate(row_keys):
-                tk.Button(grid, text=key, width=5, height=2, bg=COLORS["button"], fg=COLORS["text"], relief="flat",
-                          command=lambda k=key: self.bus.log("KEYBOARD", f"KEY {k}")).grid(row=r, column=c, padx=3, pady=3)
-        names = [n for n in self.bus.names() if "_kb" in n.lower() or "keyboard" in n.lower() or "sw_f" in n.lower()]
-        for name in names:
-            meta = self.bus.get_meta(name)
-            cmd = (lambda n=name: self.bus.toggle_input(n, source="PAR_KEYBOARD")) if meta and meta.is_input else None
-            row = SignalRow(panel.body, self.clean(meta.opis if meta else name), self.bus.get(name), command=cmd, icon="⌨", led_size=18)
-            row.pack(fill="x", pady=1)
-            self.rows[name] = row
+        grid.pack(fill="x")
+
+        keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"]
+        for i, label in enumerate(keys):
+            tk.Button(grid, text=label, bg="#202b33", fg=COLORS["text"], relief="flat",
+                      font=("Segoe UI", 15, "bold"), width=4, height=2,
+                      command=lambda k=label: self._log("KEYBOARD", f"KEY {k}")).grid(
+                          row=i // 3, column=i % 3, sticky="nsew", padx=4, pady=4
+                      )
+
+        for i in range(3):
+            grid.grid_columnconfigure(i, weight=1)
         return panel
 
     def poextbus_cnc(self, parent):
@@ -328,6 +332,74 @@ class TarzanParPanels:
             tk.Label(frame, text="🔒", bg=COLORS["panel"], fg=COLORS["muted"], width=3).pack(side="left")
             tk.Label(frame, text=f"{meta.plytka} {meta.pin or meta.kanal or '-'}  {name}", bg=COLORS["panel"], fg=COLORS["muted"], anchor="w", font=("Segoe UI", 9)).pack(fill="x", expand=True, side="left")
         return panel
+
+
+    def log_panel(self, parent):
+        panel = self.panel("log", parent, "LOGI")
+        top = tk.Frame(panel.body, bg=COLORS["panel"])
+        top.pack(fill="x")
+        tk.Button(top, text="CLEAR", bg="#202b33", fg=COLORS["text"], relief="flat",
+                  command=self._clear_logs).pack(side="right", padx=2)
+        tk.Label(top, text="SignalBus / PAR / TAKE", bg=COLORS["panel"], fg=COLORS["muted"],
+                 font=("Segoe UI", 9)).pack(side="left")
+
+        self.log_text = tk.Text(panel.body, bg="#070b0e", fg=COLORS["text"], relief="flat",
+                                height=12, font=("Consolas", 9), wrap="none")
+        self.log_text.pack(fill="both", expand=True, pady=(5, 0))
+        self.update_log()
+        return panel
+
+
+    def info_panel(self, parent):
+        panel = self.panel("info", parent, "PANEL INFORMACYJNY")
+        snapshot = self.bus.snapshot()
+        names = self.bus.names()
+        in_count = out_count = f_count = reserved_count = active_count = 0
+        boards = {"PLAY": 0, "REC": 0, "CNC": 0, "VIRTUAL": 0, "SYSTEM": 0}
+
+        for name in names:
+            meta = self.bus.get_meta(name)
+            value = self.bus.get(name)
+            if value not in (0, None, "", False):
+                active_count += 1
+            if not meta:
+                boards["VIRTUAL"] = boards.get("VIRTUAL", 0) + 1
+                continue
+            boards[meta.plytka] = boards.get(meta.plytka, 0) + 1
+            if meta.is_input:
+                in_count += 1
+            elif meta.is_output:
+                out_count += 1
+            elif meta.typ == "F" or meta.kierunek == "F":
+                f_count += 1
+            elif meta.typ == "RESERVED" or meta.kierunek == "RESERVED":
+                reserved_count += 1
+
+        def line(label, value, color=None):
+            row = tk.Frame(panel.body, bg=COLORS["panel"])
+            row.pack(fill="x", pady=1)
+            tk.Label(row, text=label, bg=COLORS["panel"], fg=COLORS["muted"], anchor="w",
+                     font=("Segoe UI", 9)).pack(side="left")
+            tk.Label(row, text=str(value), bg=COLORS["panel"], fg=color or COLORS["text"], anchor="e",
+                     font=("Segoe UI", 9, "bold")).pack(side="right")
+
+        line("Tryb magistrali", self.bus.mode, COLORS["amber"] if self.bus.mode == "TEST" else COLORS["green"])
+        line("Sygnały razem", len(names))
+        line("Aktywne teraz", active_count, COLORS["green"])
+        line("IN / OUT", f"{in_count} / {out_count}")
+        line("F / RESERVED", f"{f_count} / {reserved_count}")
+        line("PLAY / REC / CNC", f"{boards.get('PLAY',0)} / {boards.get('REC',0)} / {boards.get('CNC',0)}")
+        line("Virtual/System", f"{boards.get('VIRTUAL',0)} / {boards.get('SYSTEM',0)}")
+        line("TAKE czas", f"{self.bus.take_time_ms} ms")
+        line("Historia zmian", len(self.bus.history))
+        line("Log", len(self.bus.log_lines))
+
+        tk.Label(panel.body, text="TEST: PAR podaje wejścia. OUT: pokazuje logika/TAKE.\nF i RESERVED: widoczne, ale zablokowane.",
+                 bg=COLORS["panel"], fg=COLORS["text"], justify="left", anchor="w",
+                 font=("Segoe UI", 8)).pack(fill="x", pady=(8, 2))
+
+        return panel
+
 
     def camera(self, parent):
         panel = self.panel("camera", parent, "KAMERA — KHR / KLONOWANIE")
@@ -507,3 +579,194 @@ class TarzanParPanels:
     def clean(self, text: str) -> str:
         text = (text or "").replace("Krańcówka ", "").replace("Sygnał ", "").replace("Wejście ", "")
         return text[:42] + ("…" if len(text) > 42 else "")
+
+
+    def dron_panel(self, parent):
+        panel = self.panel("dron", parent, "DRON")
+        row = tk.Frame(panel.body, bg=COLORS["panel"])
+        row.pack(fill="x", pady=6)
+
+        tk.Label(row, text="ZWOLNIENIE", bg=COLORS["panel"], fg=COLORS["text"],
+                 font=("Segoe UI", 13, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
+
+        value = self.bus.get("play_p14_drone_release") if hasattr(self, "bus") else self.state.get("play_p14_drone_release")
+        led = Led(row, size=30, bg=COLORS["panel"])
+        led.pack(side="right", padx=6)
+        led.set(value)
+
+        tk.Button(panel.body, text="ZWOLNIJ DRONA", bg="#7a251f", fg="#fff", relief="flat",
+                  font=("Segoe UI", 10, "bold"),
+                  command=lambda: self._set_or_toggle("play_p14_drone_release", 1)).pack(fill="x", pady=(8, 2))
+
+        return panel
+
+
+
+    def build_dron_panel(self, parent):
+        panel = self.panel("dron", parent, "DRON")
+        row = tk.Frame(panel.body, bg=COLORS["panel"])
+        row.pack(fill="x", pady=6)
+
+        tk.Label(row, text="ZWOLNIENIE", bg=COLORS["panel"], fg=COLORS["text"],
+                 font=("Segoe UI", 13, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
+
+        value = self.bus.get("play_p14_drone_release") if hasattr(self, "bus") else self.state.get("play_p14_drone_release")
+        led = Led(row, size=30, bg=COLORS["panel"])
+        led.pack(side="right", padx=6)
+        led.set(value)
+
+        tk.Button(panel.body, text="ZWOLNIJ DRONA", bg="#7a251f", fg="#fff", relief="flat",
+                  font=("Segoe UI", 10, "bold"),
+                  command=lambda: self._set_or_toggle("play_p14_drone_release", 1)).pack(fill="x", pady=(8, 2))
+
+        return panel
+
+
+
+    def lcd(self, parent):
+        panel = self.panel("lcd", parent, "WYŚWIETLACZE LCD 1602")
+        wrap = tk.Frame(panel.body, bg=COLORS["panel"])
+        wrap.pack(fill="x")
+
+        def lcd_box(parent, title, lines):
+            box = tk.Frame(parent, bg="#07110a", highlightbackground="#284130", highlightthickness=1)
+            box.pack(fill="x", pady=5)
+            tk.Label(box, text=title, bg="#07110a", fg=COLORS["muted"],
+                     font=("Segoe UI", 9, "bold"), anchor="w").pack(fill="x", padx=8, pady=(5, 0))
+            for line in lines:
+                tk.Label(box, text=line[:16].ljust(16), bg="#07110a", fg="#38ff6a",
+                         font=("Consolas", 14, "bold"), anchor="w").pack(fill="x", padx=10)
+
+        lcd_box(wrap, "PLAY LCD", ["TARZAN PLAY", f"MODE {self.bus.mode if hasattr(self, 'bus') else 'TEST'}"])
+        lcd_box(wrap, "REC LCD", ["TARZAN REC", "READY"])
+        return panel
+
+
+
+    def build_lcd_panel(self, parent):
+        panel = self.panel("lcd", parent, "WYŚWIETLACZE LCD 1602")
+        wrap = tk.Frame(panel.body, bg=COLORS["panel"])
+        wrap.pack(fill="x")
+
+        def lcd_box(parent, title, lines):
+            box = tk.Frame(parent, bg="#07110a", highlightbackground="#284130", highlightthickness=1)
+            box.pack(fill="x", pady=5)
+            tk.Label(box, text=title, bg="#07110a", fg=COLORS["muted"],
+                     font=("Segoe UI", 9, "bold"), anchor="w").pack(fill="x", padx=8, pady=(5, 0))
+            for line in lines:
+                tk.Label(box, text=line[:16].ljust(16), bg="#07110a", fg="#38ff6a",
+                         font=("Consolas", 14, "bold"), anchor="w").pack(fill="x", padx=10)
+
+        lcd_box(wrap, "PLAY LCD", ["TARZAN PLAY", f"MODE {self.bus.mode if hasattr(self, 'bus') else 'TEST'}"])
+        lcd_box(wrap, "REC LCD", ["TARZAN REC", "READY"])
+        return panel
+
+
+
+    def keyboard(self, parent):
+        panel = self.panel("keyboard", parent, "KLAWIATURA")
+        grid = tk.Frame(panel.body, bg=COLORS["panel"])
+        grid.pack(fill="x")
+
+        keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"]
+        for i, label in enumerate(keys):
+            tk.Button(grid, text=label, bg="#202b33", fg=COLORS["text"], relief="flat",
+                      font=("Segoe UI", 15, "bold"), width=4, height=2,
+                      command=lambda k=label: self._log("KEYBOARD", f"KEY {k}")).grid(
+                          row=i // 3, column=i % 3, sticky="nsew", padx=4, pady=4
+                      )
+
+        for i in range(3):
+            grid.grid_columnconfigure(i, weight=1)
+        return panel
+
+    def build_keyboard_panel(self, parent):
+        panel = self.panel("keyboard", parent, "KLAWIATURA")
+        grid = tk.Frame(panel.body, bg=COLORS["panel"])
+        grid.pack(fill="x")
+
+        keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"]
+        for i, label in enumerate(keys):
+            tk.Button(grid, text=label, bg="#202b33", fg=COLORS["text"], relief="flat",
+                      font=("Segoe UI", 15, "bold"), width=4, height=2,
+                      command=lambda k=label: self._log("KEYBOARD", f"KEY {k}")).grid(
+                          row=i // 3, column=i % 3, sticky="nsew", padx=4, pady=4
+                      )
+
+        for i in range(3):
+            grid.grid_columnconfigure(i, weight=1)
+        return panel
+
+    def klawiatura(self, parent):
+        panel = self.panel("keyboard", parent, "KLAWIATURA")
+        grid = tk.Frame(panel.body, bg=COLORS["panel"])
+        grid.pack(fill="x")
+
+        keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"]
+        for i, label in enumerate(keys):
+            tk.Button(grid, text=label, bg="#202b33", fg=COLORS["text"], relief="flat",
+                      font=("Segoe UI", 15, "bold"), width=4, height=2,
+                      command=lambda k=label: self._log("KEYBOARD", f"KEY {k}")).grid(
+                          row=i // 3, column=i % 3, sticky="nsew", padx=4, pady=4
+                      )
+
+        for i in range(3):
+            grid.grid_columnconfigure(i, weight=1)
+        return panel
+
+    def _set_or_toggle(self, name, value=None):
+        try:
+            current = self.bus.get(name)
+            new_value = (0 if current else 1) if value is None else value
+            if hasattr(self.bus, "set_input"):
+                self.bus.set_input(name, new_value, origin="PAR_UI")
+            elif hasattr(self.bus, "write"):
+                self.bus.write(name, new_value, origin="PAR_UI")
+            else:
+                self.bus.set(name, new_value)
+            self._log("PAR_UI", f"{name} = {new_value}")
+        except Exception as exc:
+            self._log("PAR_UI_ERR", f"{name}: {exc}")
+
+    def _log(self, source, message):
+        try:
+            if hasattr(self.bus, "log"):
+                self.bus.log(source, message)
+            elif hasattr(self, "state"):
+                self.state.log(source, message)
+        except Exception:
+            pass
+        self.update_log()
+
+    def _clear_logs(self):
+        try:
+            if hasattr(self.bus, "log_lines"):
+                self.bus.log_lines.clear()
+            if hasattr(self.bus, "history"):
+                self.bus.history.clear()
+        except Exception:
+            pass
+        self.update_log()
+
+    def update_log(self):
+        if not hasattr(self, "log_text") or self.log_text is None:
+            return
+        try:
+            lines = []
+            if hasattr(self.bus, "log_lines"):
+                lines.extend(self.bus.log_lines[-80:])
+            if not lines and hasattr(self.bus, "history"):
+                lines.extend([str(x) for x in self.bus.history[-80:]])
+            self.log_text.delete("1.0", "end")
+            self.log_text.insert("end", "\n".join(lines))
+            self.log_text.see("end")
+        except Exception as exc:
+            try:
+                self.log_text.delete("1.0", "end")
+                self.log_text.insert("end", f"LOG ERROR: {exc}")
+            except Exception:
+                pass
+
+
+    def ui(self, parent):
+        return self.ui_panel(parent)

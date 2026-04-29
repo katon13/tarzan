@@ -282,6 +282,39 @@ class TarzanParPanels:
             self.rows[name] = row
         return panel
 
+    def matrix(self, parent):
+        panel = self.panel("matrix", parent, "MATRIX LED 8x8")
+        wrap = tk.Frame(panel.body, bg=COLORS["panel"])
+        wrap.pack(fill="x")
+
+        def matrix_box(parent, title, pattern):
+            box = tk.Frame(parent, bg="#05080a", highlightbackground="#263844", highlightthickness=1)
+            box.pack(fill="x", padx=2, pady=5)
+            tk.Label(
+                box,
+                text=title,
+                bg="#05080a",
+                fg=COLORS["muted"],
+                font=("Segoe UI", 9, "bold"),
+                anchor="w",
+            ).pack(fill="x", padx=8, pady=(5, 2))
+            grid = tk.Frame(box, bg="#05080a")
+            grid.pack(padx=8, pady=(0, 8))
+            for r in range(8):
+                for c in range(8):
+                    on = bool(pattern(r, c))
+                    color = COLORS["green"] if on else "#123018"
+                    dot = tk.Canvas(grid, width=15, height=15, bg="#05080a", highlightthickness=0)
+                    dot.grid(row=r, column=c, padx=1, pady=1)
+                    dot.create_oval(2, 2, 13, 13, fill=color, outline="")
+        matrix_box(wrap, "PLAY MATRIX", lambda r, c: r in (0, 7) or c in (0, 7) or (r == c and 1 < r < 6))
+        matrix_box(wrap, "REC MATRIX", lambda r, c: (r in (1, 6) and 1 <= c <= 6) or (c in (1, 6) and 1 <= r <= 6))
+        return panel
+
+    def matrix_panel(self, parent):
+        return self.matrix(parent)
+
+
     def keyboard_panel(self, parent):
         panel = self.panel("keyboard", parent, "KLAWIATURA")
         grid = tk.Frame(panel.body, bg=COLORS["panel"])
@@ -769,4 +802,51 @@ class TarzanParPanels:
 
 
     def ui(self, parent):
-        return self.ui_panel(parent)
+        panel = self.panel("ui", parent, "UI PANEL PLAY / REC")
+        tk.Label(panel.body, text="PRZYCISKI FUNKCYJNE PLAY / REC", bg=COLORS["panel"], fg=COLORS["muted"],
+                 font=("Segoe UI", 9, "bold"), anchor="w").pack(fill="x", pady=(0, 6))
+
+        grid = tk.Frame(panel.body, bg=COLORS["panel"])
+        grid.pack(fill="x")
+
+        buttons = [
+            ("F1", "rec_p45_sw_f1", "rec_p46_led_f1"),
+            ("F2", "rec_p47_sw_f2", "rec_p48_led_f2"),
+            ("F3", "rec_p49_sw_f3", "rec_p50_led_f3"),
+            ("F4", "rec_p51_sw_f4", "rec_p52_led_f4"),
+        ]
+
+        for i, (label, sw, led_sig) in enumerate(buttons):
+            cell = tk.Frame(grid, bg="#0f171d", highlightbackground="#30424f", highlightthickness=1)
+            cell.grid(row=0, column=i, sticky="nsew", padx=5, pady=5)
+
+            btn = tk.Button(
+                cell,
+                text=label,
+                bg="#243847",
+                fg="#f2f7fb",
+                activebackground="#31556e",
+                activeforeground="#ffffff",
+                relief="flat",
+                font=("Segoe UI", 16, "bold"),
+                height=2,
+                command=lambda s=sw: self._set_or_toggle(s),
+            )
+            btn.pack(fill="x", padx=7, pady=(7, 5))
+
+            row = tk.Frame(cell, bg="#0f171d")
+            row.pack(fill="x", padx=7, pady=(0, 7))
+            tk.Label(row, text="LED", bg="#0f171d", fg=COLORS["muted"],
+                     font=("Segoe UI", 8, "bold")).pack(side="left")
+            led = Led(row, size=26, bg="#0f171d")
+            led.pack(side="right")
+            try:
+                led.set(self.bus.get(led_sig))
+            except Exception:
+                led.set(0)
+
+        for i in range(4):
+            grid.grid_columnconfigure(i, weight=1)
+
+        return panel
+

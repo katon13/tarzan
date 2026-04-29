@@ -7,9 +7,18 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from core.tarzanSignalBus import get_signal_bus
-from editor.PAR.tarzanParBridge import TarzanParBridge
-from editor.PAR.tarzanParPanels import TarzanParPanels
-from editor.PAR.tarzanParWidgets import COLORS, apply_dark_style
+try:
+    from editor.PAR.tarzanParBridge import TarzanParBridge
+except ModuleNotFoundError:
+    from tarzanParBridge import TarzanParBridge
+try:
+    from editor.PAR.tarzanParPanels import TarzanParPanels
+except ModuleNotFoundError:
+    from tarzanParPanels import TarzanParPanels
+try:
+    from editor.PAR.tarzanParWidgets import COLORS, apply_dark_style
+except ModuleNotFoundError:
+    from tarzanParWidgets import COLORS, apply_dark_style
 
 try:
     from core.tarzanProfiler import profile_method, profile_block
@@ -48,7 +57,14 @@ DEFAULT_VISIBLE = {
     "autostatus": True,
     "system": True,
     "settings": True,
-    "all_signals": False,
+    "all_signals": False,    "lamp": True,
+    "mass_regulator": True,
+    "shock_sensor_panel": True,
+    "light_bh1750": True,
+    "level_xyz": True,
+    "temperature": True,
+    "laser": True,
+
 }
 
 DEFAULT_PANEL_ZONES = {
@@ -72,7 +88,14 @@ DEFAULT_PANEL_ZONES = {
     "autostatus": "right",
     "system": "right",
     "settings": "right",
-    "all_signals": "left",
+    "all_signals": "left",    "lamp": "middle_top",
+    "mass_regulator": "middle_top",
+    "shock_sensor_panel": "middle_top",
+    "light_bh1750": "middle_top",
+    "level_xyz": "middle_top",
+    "temperature": "middle_top",
+    "laser": "middle_top",
+
 }
 
 DEFAULT_PANEL_LAYOUT = {
@@ -96,7 +119,14 @@ DEFAULT_PANEL_LAYOUT = {
     "bridge": {"zone": "middle_bottom", "order": 10, "colspan": 3, "rowspan": 1},
     "poextbus": {"zone": "middle_bottom", "order": 20, "colspan": 4, "rowspan": 1},
     "functions": {"zone": "middle_bottom", "order": 30, "colspan": 4, "rowspan": 1},
-    "timeline": {"zone": "bottom", "order": 10, "colspan": 8, "rowspan": 2},
+    "timeline": {"zone": "bottom", "order": 10, "colspan": 8, "rowspan": 2},    "lamp": {"zone": "middle_top", "order": 50, "colspan": 2, "rowspan": 2},
+    "mass_regulator": {"zone": "middle_top", "order": 60, "colspan": 3, "rowspan": 2},
+    "shock_sensor_panel": {"zone": "middle_top", "order": 70, "colspan": 2, "rowspan": 2},
+    "light_bh1750": {"zone": "middle_top", "order": 80, "colspan": 2, "rowspan": 2},
+    "level_xyz": {"zone": "middle_top", "order": 90, "colspan": 3, "rowspan": 2},
+    "temperature": {"zone": "middle_top", "order": 100, "colspan": 2, "rowspan": 2},
+    "laser": {"zone": "middle_top", "order": 110, "colspan": 2, "rowspan": 2},
+
 }
 
 
@@ -444,7 +474,7 @@ class TarzanParApp(tk.Tk):
         self.center = self.layout_master
         self.mid = self.middle_top
 
-        tk.Label(self.footer, text="TARZAN PAR v0.34.0 ZONE UI FIX", bg="#020304", fg=COLORS["muted"]).pack(side="left", padx=12)
+        tk.Label(self.footer, text="TARZAN PAR v0.44.0 REAL MOTOR SYNC", bg="#020304", fg=COLORS["muted"]).pack(side="left", padx=12)
         tk.Label(self.footer, text="PULPIT ANATOMII RUCHU — TEST/LIVE/MIX — TAKE → SIGNALBUS", bg="#020304", fg=COLORS["muted"]).pack(side="left", expand=True)
         self.clock = tk.Label(self.footer, text="", bg="#020304", fg=COLORS["muted"])
         self.clock.pack(side="right", padx=12)
@@ -453,7 +483,10 @@ class TarzanParApp(tk.Tk):
         tk.Label(self.left, text="URZĄDZENIA", bg=COLORS["panel2"], fg=COLORS["text"], anchor="w", padx=12, pady=9, font=("Segoe UI", 11, "bold")).pack(fill="x")
         items = [
             ("axes", "  🦾  Osie i Silniki"), ("limits", "  ♟  Krańcówki"), ("sensors", "  ◈  Czujniki"),
-            ("operator", "  ⌁  Sterowanie Operatora"), ("ui", "  ▣  UI (Panel)"), ("bridge", "  ↔  Mostek PLAY ↔ REC"),
+            ("lamp", "  ▣  Lampka pracy ramienia"), ("mass_regulator", "  ⚖  Regulator masy"), ("shock_sensor_panel", "  ◈  Wstrząs"),
+            ("operator", "  ⌁  Sterowanie Operatora"), ("ui", "  ▣  UI (Panel)"),
+            ("light_bh1750", "  ☀  BH1750"), ("level_xyz", "  ⊕  Poziom XYZ"), ("temperature", "  ℃  Temperatura"), ("laser", "  ⌁  Laser"),
+            ("bridge", "  ↔  Mostek PLAY ↔ REC"),
             ("dron", "  🛩  DRON"), ("lcd", "  ▤  LCD 1602"), ("matrix_led", "  ▦  Matrix LED 8x8"),
             ("keyboard", "  ⌨  Klawiatura"), ("poextbus_cnc", "  ▥  PoExtBus / CNC"), ("functions", "  🔒  Funkcje / Rezerwy"),
             ("camera", "  📷  Kamera i KHR"), ("autostatus", "  ⚙  AUTOSTATUS"), ("system", "  ⚙  System i Status"),
@@ -559,6 +592,13 @@ class TarzanParApp(tk.Tk):
             "system": p.system,
             "settings": p.settings,
             "all_signals": p.all_signals,
+            "lamp": getattr(p, "lamp_panel", None),
+            "mass_regulator": getattr(p, "mass_regulator_panel", None),
+            "shock_sensor_panel": getattr(p, "shock_sensor_panel", None),
+            "light_bh1750": getattr(p, "light_bh1750_panel", None),
+            "level_xyz": getattr(p, "level_xyz_panel", None),
+            "temperature": getattr(p, "temperature_panel", None),
+            "laser": getattr(p, "laser_panel", None),
         }
 
         cursor_by_zone = {z: {"row": 0, "col": 0, "row_height": 1} for z in zones}
@@ -639,7 +679,14 @@ class TarzanParApp(tk.Tk):
 
             "operator": ("middle_top", 10, 4, 2),
             "ui": ("middle_top", 20, 4, 2),
-            "functions": ("middle_top", 30, 4, 2),
+            "lamp": ("middle_top", 30, 2, 2),
+            "mass_regulator": ("middle_top", 40, 3, 2),
+            "shock_sensor_panel": ("middle_top", 50, 2, 2),
+            "light_bh1750": ("middle_top", 60, 2, 2),
+            "level_xyz": ("middle_top", 70, 3, 2),
+            "temperature": ("middle_top", 80, 2, 2),
+            "laser": ("middle_top", 90, 2, 2),
+            "functions": ("middle_top", 100, 4, 2),
 
             "limits": ("middle_bottom", 10, 4, 3),
             "sensors": ("middle_bottom", 20, 4, 3),
@@ -734,6 +781,13 @@ class TarzanParApp(tk.Tk):
             "system": "System",
             "settings": "Ustawienia symulacji",
             "all_signals": "Wszystkie sygnały",
+            "lamp": "Lampka pracy ramienia",
+            "mass_regulator": "Regulator masy",
+            "shock_sensor_panel": "Czujnik wstrząsowy",
+            "light_bh1750": "Czujnik światła BH1750",
+            "level_xyz": "Czujnik poziomu XYZ",
+            "temperature": "Czujnik temperatury",
+            "laser": "Czujnik laserowy",
         }
 
         zone_colors = {

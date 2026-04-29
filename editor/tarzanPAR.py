@@ -28,7 +28,14 @@ if ENABLE_EHR_PROFILER:
     except Exception:
         pass
 
-from editor.PAR.tarzanParApp import TarzanParApp
+try:
+    from editor.PAR.tarzanParApp import TarzanParApp
+except ModuleNotFoundError:
+    # Twardy fallback dla uruchamiania bez poprawnego PYTHONPATH / po ręcznej podmianie plików.
+    PAR_DIR = Path(__file__).resolve().parent / "PAR"
+    if str(PAR_DIR) not in sys.path:
+        sys.path.insert(0, str(PAR_DIR))
+    from tarzanParApp import TarzanParApp
 
 
 def launch_par() -> None:

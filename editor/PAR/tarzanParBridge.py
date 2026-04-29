@@ -5,8 +5,14 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from core.tarzanSignalBus import TarzanSignalBus, get_signal_bus
-from editor.PAR.tarzanParProtocolMapper import TarzanParProtocolMapper
-from editor.PAR.tarzanParTakePlayer import TarzanParTakePlayer, TarzanTakeData
+try:
+    from editor.PAR.tarzanParProtocolMapper import TarzanParProtocolMapper
+except ModuleNotFoundError:
+    from tarzanParProtocolMapper import TarzanParProtocolMapper
+try:
+    from editor.PAR.tarzanParTakePlayer import TarzanParTakePlayer, TarzanTakeData
+except ModuleNotFoundError:
+    from tarzanParTakePlayer import TarzanParTakePlayer, TarzanTakeData
 
 
 class TarzanParBridge:

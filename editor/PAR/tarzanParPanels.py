@@ -5,7 +5,10 @@ from tkinter import ttk
 from typing import Dict, List, Optional
 
 from core.tarzanSignalBus import TarzanSignalBus, TarzanSignalState
-from editor.PAR.tarzanParWidgets import COLORS, AxisCard, Led, Panel, SignalRow
+try:
+    from editor.PAR.tarzanParWidgets import COLORS, AxisCard, Led, Panel, SignalRow
+except ModuleNotFoundError:
+    from tarzanParWidgets import COLORS, AxisCard, Led, Panel, SignalRow
 
 try:
     from core.tarzanProfiler import profile_method, profile_block
@@ -57,13 +60,13 @@ SENSOR_LABELS = {
 }
 
 AXIS_SIGNAL_BINDINGS = {
-    "CAM_H": {"step": ["TAKE_CAM_H_STEP", "cnc_x_cam_h_ctr"], "dir": ["TAKE_CAM_H_DIR", "cnc_x_cam_h_dir"], "en": []},
-    "CAM_V": {"step": ["TAKE_CAM_V_STEP", "cnc_y_cam_v_ctr"], "dir": ["TAKE_CAM_V_DIR", "cnc_y_cam_v_dir"], "en": []},
-    "CAM_T": {"step": ["TAKE_CAM_T_STEP", "cnc_a_arm_tilt_ctr"], "dir": ["TAKE_CAM_T_DIR", "cnc_a_arm_tilt_dir"], "en": []},
-    "CAM_F": {"step": ["TAKE_CAM_F_STEP", "cnc_z_focus_ctr"], "dir": ["TAKE_CAM_F_DIR", "cnc_z_focus_dir"], "en": []},
-    "ARM_H": {"step": ["TAKE_ARM_H_STEP", "play_p46_step_ctr_arm_h", "cnc_b_arm_h_ctr"], "dir": ["TAKE_ARM_H_DIR", "play_p38_step_dir_arm_h", "cnc_b_arm_h_dir"], "en": ["play_p50_step_en_arm_h"]},
-    "ARM_V": {"step": ["TAKE_ARM_V_STEP", "play_p48_step_ctr_arm_v", "cnc_c_arm_v_ctr"], "dir": ["TAKE_ARM_V_DIR", "play_p39_step_dir_arm_v", "cnc_c_arm_v_dir"], "en": ["play_p51_step_en_arm_v"]},
-    "DRON": {"step": ["TAKE_DRON_STEP"], "dir": ["TAKE_DRON_DIR"], "en": []},
+    "CAM_H": {"step": ["TAKE_CAM_H_STEP", "cnc_x_cam_h_ctr"], "dir": ["TAKE_CAM_H_DIR", "cnc_x_cam_h_dir"], "en": [], "left": ["cam_h_limit_left", "play_p06_cam_h_limit_left"], "right": ["cam_h_limit_right", "play_p05_cam_h_limit_right"]},
+    "CAM_V": {"step": ["TAKE_CAM_V_STEP", "cnc_y_cam_v_ctr"], "dir": ["TAKE_CAM_V_DIR", "cnc_y_cam_v_dir"], "en": [], "left": ["cam_v_limit_down", "play_p08_cam_v_limit_down"], "right": ["cam_v_limit_up", "play_p07_cam_v_limit_up"]},
+    "CAM_T": {"step": ["TAKE_CAM_T_STEP", "cnc_a_arm_tilt_ctr"], "dir": ["TAKE_CAM_T_DIR", "cnc_a_arm_tilt_dir"], "en": [], "left": ["cam_tilt_limit", "play_p10_cam_tilt_limit"], "right": ["cam_tilt_limit", "play_p10_cam_tilt_limit"]},
+    "CAM_F": {"step": ["TAKE_CAM_F_STEP", "cnc_z_focus_ctr"], "dir": ["TAKE_CAM_F_DIR", "cnc_z_focus_dir"], "en": [], "left": [], "right": []},
+    "ARM_H": {"step": ["TAKE_ARM_H_STEP", "play_p46_step_ctr_arm_h", "cnc_b_arm_h_ctr"], "dir": ["TAKE_ARM_H_DIR", "play_p38_step_dir_arm_h", "cnc_b_arm_h_dir"], "en": ["play_p50_step_en_arm_h"], "left": ["arm_h_limit_left", "play_p03_arm_h_limit_left"], "right": ["arm_h_limit_right", "play_p01_arm_h_auto_limit", "play_p02_arm_h_limit_right"]},
+    "ARM_V": {"step": ["TAKE_ARM_V_STEP", "play_p48_step_ctr_arm_v", "cnc_c_arm_v_ctr"], "dir": ["TAKE_ARM_V_DIR", "play_p39_step_dir_arm_v", "cnc_c_arm_v_dir"], "en": ["play_p51_step_en_arm_v"], "left": ["arm_v_limit_down", "play_p04_arm_v_limit_up"], "right": ["arm_v_limit_up", "play_p09_arm_v_auto_limit"]},
+    "DRON": {"step": ["TAKE_DRON_STEP"], "dir": ["TAKE_DRON_DIR"], "en": [], "left": [], "right": []},
 }
 
 
@@ -111,7 +114,14 @@ class TarzanParPanels:
                     icon_path = axis_icon(axis_name, size=64, state="active", ext="png")
                 except Exception:
                     icon_path = None
-            card = AxisCard(cards, title, fallback_icon, image_path=icon_path)
+            card = AxisCard(
+                cards,
+                title,
+                fallback_icon,
+                image_path=icon_path,
+                on_step_left=lambda a=key: self._manual_axis_step(a, 0),
+                on_step_right=lambda a=key: self._manual_axis_step(a, 1),
+            )
             card.grid(row=0, column=col, sticky="nsew", padx=5, pady=4)
             cards.grid_columnconfigure(col, weight=1)
             self.axis_cards[key] = card
@@ -205,7 +215,7 @@ class TarzanParPanels:
             tk.Label(row, text=label, bg=COLORS["panel"], fg=COLORS["text"], font=("Segoe UI", 16)).pack(side="left")
             tk.Button(row, text="", width=5, bg="#e8e8e8", relief="sunken",
                       command=lambda n=sw_name: self.bus.toggle_input(n, source="PAR_UI")).pack(side="left", padx=20)
-            led = Led(row, size=26, bg=COLORS["panel"])
+            led = Led(row, size=28, bg=COLORS["panel"])
             led.pack(side="right")
             led.set(self.bus.get(led_name) or self.bus.get(sw_name))
         tk.Label(panel.body, text="ENCODER A     1234\nENCODER B     5678", bg=COLORS["panel"], fg=COLORS["green"], font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=10)
@@ -220,9 +230,9 @@ class TarzanParPanels:
             row = tk.Frame(inner, bg=COLORS["panel"])
             row.pack(fill="x", pady=3)
             tk.Label(row, text=self.bridge_label(name), bg=COLORS["panel"], fg=COLORS["text"], width=22, anchor="w", font=("Segoe UI", 10)).pack(side="left")
-            l1 = Led(row, size=22, bg=COLORS["panel"]); l1.pack(side="left", padx=4); l1.set(self.bus.get(name))
+            l1 = Led(row, size=28, bg=COLORS["panel"]); l1.pack(side="left", padx=4); l1.set(self.bus.get(name))
             tk.Label(row, text="→", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 16, "bold")).pack(side="left", padx=6)
-            l2 = Led(row, size=22, bg=COLORS["panel"]); l2.pack(side="left", padx=4); l2.set(not self.bus.get(name))
+            l2 = Led(row, size=28, bg=COLORS["panel"]); l2.pack(side="left", padx=4); l2.set(not self.bus.get(name))
         return panel
 
     def dron(self, parent):
@@ -234,7 +244,7 @@ class TarzanParPanels:
                  font=("Segoe UI", 13, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
 
         value = self.bus.get("play_p14_drone_release") if hasattr(self, "bus") else self.state.get("play_p14_drone_release")
-        led = Led(row, size=30, bg=COLORS["panel"])
+        led = Led(row, size=28, bg=COLORS["panel"])
         led.pack(side="right", padx=6)
         led.set(value)
 
@@ -263,7 +273,7 @@ class TarzanParPanels:
         return panel
 
     def matrix_led_panel(self, parent):
-        panel = self.panel("matrix_led", parent, "MATRIX LED 8x8 — PLAY / REC")
+        panel = self.panel("matrix_led", parent, "MATRIX LED 8x8 — REC")
         grid = tk.Frame(panel.body, bg=COLORS["panel"])
         grid.pack(anchor="w", pady=4)
         self.matrix_cells = []
@@ -277,13 +287,13 @@ class TarzanParPanels:
         names = [n for n in self.bus.names() if "matrix" in n.lower() or "led_data" in n.lower() or "led_latch" in n.lower() or "led_clk" in n.lower()]
         for name in names:
             meta = self.bus.get_meta(name)
-            row = SignalRow(panel.body, self.clean(meta.opis if meta else name), self.bus.get(name), command=None, icon="▦", led_size=18)
+            row = SignalRow(panel.body, self.clean(meta.opis if meta else name), self.bus.get(name), command=None, icon="▦", led_size=22)
             row.pack(fill="x", pady=1)
             self.rows[name] = row
         return panel
 
     def matrix(self, parent):
-        panel = self.panel("matrix", parent, "MATRIX LED 8x8")
+        panel = self.panel("matrix", parent, "MATRIX LED 8x8 — REC")
         wrap = tk.Frame(panel.body, bg=COLORS["panel"])
         wrap.pack(fill="x")
 
@@ -307,7 +317,6 @@ class TarzanParPanels:
                     dot = tk.Canvas(grid, width=15, height=15, bg="#05080a", highlightthickness=0)
                     dot.grid(row=r, column=c, padx=1, pady=1)
                     dot.create_oval(2, 2, 13, 13, fill=color, outline="")
-        matrix_box(wrap, "PLAY MATRIX", lambda r, c: r in (0, 7) or c in (0, 7) or (r == c and 1 < r < 6))
         matrix_box(wrap, "REC MATRIX", lambda r, c: (r in (1, 6) and 1 <= c <= 6) or (c in (1, 6) and 1 <= r <= 6))
         return panel
 
@@ -345,7 +354,7 @@ class TarzanParPanels:
             cmd = None
             if meta and meta.is_input:
                 cmd = lambda n=name: self.bus.toggle_input(n, source="PAR_POEXTBUS")
-            row = SignalRow(inner, self._hardware_label(name), self.bus.get(name), command=cmd, icon="▤", led_size=18)
+            row = SignalRow(inner, self._hardware_label(name), self.bus.get(name), command=cmd, icon="▤", led_size=22)
             row.pack(fill="x", pady=1)
             self.rows[name] = row
         return panel
@@ -434,11 +443,143 @@ class TarzanParPanels:
         return panel
 
 
+
+    # ------------------------------------------------------------------
+    # NOWE OKNA WSKAŹNIKOWE CZUJNIKÓW / URZĄDZEŃ
+    # Zasada: czujniki są tylko odczytem/wskaźnikiem. Nie ustawiamy ich z UI.
+    # Wyjątek: lampka pracy ramienia jest klikalnym wskaźnikiem ON/OFF.
+    # ------------------------------------------------------------------
+    def _big_value(self, parent, label: str, signal_name: str, suffix: str = "", decimals: int = 0):
+        frame = tk.Frame(parent, bg=COLORS["panel"])
+        frame.pack(fill="x", pady=6)
+        tk.Label(frame, text=label.upper(), bg=COLORS["panel"], fg=COLORS["muted"],
+                 font=("Segoe UI", 9, "bold"), anchor="center").pack(fill="x")
+        value_label = tk.Label(frame, text=self._format_value(self.bus.get(signal_name), suffix, decimals),
+                               bg=COLORS["panel"], fg=COLORS["green"],
+                               font=("Consolas", 24, "bold"), anchor="center", justify="center")
+        value_label.pack(fill="x")
+        self.rows[signal_name] = type(
+            "_BigValueProxy",
+            (),
+            {"set": lambda _self, v, lab=value_label, suf=suffix, dec=decimals: lab.configure(text=self._format_value(v, suf, dec))}
+        )()
+        return value_label
+
+    def _format_value(self, value, suffix: str = "", decimals: int = 0):
+        try:
+            number = float(value or 0)
+            if decimals > 0:
+                text = f"{number:.{decimals}f}"
+            else:
+                text = str(int(round(number)))
+        except Exception:
+            text = str(value)
+        return f"{text} {suffix}".rstrip()
+
+    def _indicator_led_row(self, parent, label: str, signal_name: str):
+        row = tk.Frame(parent, bg=COLORS["panel"])
+        row.pack(fill="x", pady=5)
+        tk.Label(row, text=label.upper(), bg=COLORS["panel"], fg=COLORS["text"],
+                 font=("Segoe UI", 11, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
+        led = Led(row, size=28, bg=COLORS["panel"])
+        led.pack(side="right", padx=6)
+        led.set(self.bus.get(signal_name))
+        self.rows[signal_name] = type("_LedProxy", (), {"set": lambda _self, v, l=led: l.set(v)})()
+        return led
+
+    def lamp_panel(self, parent):
+        panel = self.panel("lamp", parent, "PRACA")
+        canvas = tk.Canvas(panel.body, width=92, height=70, bg=COLORS["panel"], highlightthickness=0)
+        canvas.pack(padx=8, pady=8)
+        state = self.bus.get("par_lamp_auto_active")
+        rect = canvas.create_rectangle(
+            14, 10, 78, 60,
+            fill=COLORS["red"] if state else "#5b6268",
+            outline="#d7e0e5",
+            width=3,
+        )
+        
+        def update_lamp(v, c=canvas, r=rect):
+            c.itemconfigure(r, fill=COLORS["red"] if v else "#5b6268")
+
+        def toggle(_event=None):
+            self.bus.toggle_input("par_lamp_auto_active", source="PAR_LAMP")
+
+        canvas.bind("<Button-1>", toggle)
+        panel.body.bind("<Button-1>", toggle)
+        self.rows["par_lamp_auto_active"] = type("_LampProxy", (), {"set": lambda _self, v: update_lamp(v)})()
+        return panel
+
+    def mass_regulator_panel(self, parent):
+        panel = self.panel("mass_regulator", parent, "REGULATOR MASY")
+        self._indicator_led_row(panel.body, "REGULATOR WŁĄCZONY", "par_mass_reg_enable")
+        self._indicator_led_row(panel.body, "MASA DODANA", "par_mass_reg_limit_add")
+        self._indicator_led_row(panel.body, "MASA ODJĘTA", "par_mass_reg_limit_remove")
+        return panel
+
+    def shock_sensor_panel(self, parent):
+        panel = self.panel("shock_sensor_panel", parent, "WSTRZĄS")
+        led = Led(panel.body, size=60, bg=COLORS["panel"])
+        led.pack(expand=True, pady=10)
+        led.set(self.bus.get("par_shock_sensor_state"))
+        self.rows["par_shock_sensor_state"] = type("_ShockProxy", (), {"set": lambda _self, v: led.set(v)})()
+        return panel
+
+    def light_bh1750_panel(self, parent):
+        panel = self.panel("light_bh1750", parent, "ŚWIATŁO")
+        self._big_value(panel.body, "LUMENY / LUX", "par_bh1750_lux", "lx", 0)
+        return panel
+
+    def level_xyz_panel(self, parent):
+        panel = self.panel("level_xyz", parent, "POZIOM")
+        row = tk.Frame(panel.body, bg=COLORS["panel"])
+        row.pack(fill="both", expand=True, padx=4, pady=6)
+
+        for col, (axis, sig) in enumerate([("X", "par_level_x"), ("Y", "par_level_y"), ("Z", "par_level_z")]):
+            box = tk.Frame(row, bg=COLORS["panel"])
+            box.grid(row=0, column=col, sticky="nsew", padx=4)
+            row.grid_columnconfigure(col, weight=1)
+
+            tk.Label(box, text=axis, bg=COLORS["panel"], fg=COLORS["muted"],
+                     font=("Segoe UI", 13, "bold"), anchor="center").pack(fill="x")
+            value_label = tk.Label(
+                box,
+                text=self._format_value(self.bus.get(sig), "", 0),
+                bg=COLORS["panel"],
+                fg=COLORS["green"],
+                font=("Consolas", 24, "bold"),
+                anchor="center",
+                justify="center",
+            )
+            value_label.pack(fill="both", expand=True)
+            self.rows[sig] = type(
+                "_LevelValueProxy",
+                (),
+                {"set": lambda _self, v, lab=value_label: lab.configure(text=self._format_value(v, "", 0))}
+            )()
+        return panel
+
+
+    def temperature_panel(self, parent):
+        panel = self.panel("temperature", parent, "TEMPERATURA")
+        self._big_value(panel.body, "TEMPERATURA", "par_temperature_c", "°C", 1)
+        return panel
+
+    def laser_panel(self, parent):
+        panel = self.panel("laser", parent, "LASER")
+        led = Led(panel.body, size=60, bg=COLORS["panel"])
+        led.pack(expand=True, pady=10)
+        led.set(self.bus.get("par_laser_set"))
+        self.rows["par_laser_set"] = type("_LaserProxy", (), {"set": lambda _self, v: led.set(v)})()
+        return panel
+
+
+
     def camera(self, parent):
         panel = self.panel("camera", parent, "KAMERA — KHR / KLONOWANIE")
         vals = [("KAMERA START", 0), ("KAMERA BUSY", 1), ("KAMERA ERROR", 0), ("COPY DONE", 1), ("COPY ERROR", 0), ("KAMERA RDY", 1)]
         for name, val in vals:
-            row = SignalRow(panel.body, name, val, icon=" ", led_size=24)
+            row = SignalRow(panel.body, name, val, icon=" ", led_size=22)
             row.pack(fill="x", pady=3)
         tk.Button(panel.body, text="COPY START", bg=COLORS["button"], fg=COLORS["text"], relief="flat", command=lambda: self.bus.log("KHR", "COPY START")).pack(fill="x", pady=8)
         return panel
@@ -447,7 +588,7 @@ class TarzanParPanels:
         panel = self.panel("autostatus", parent, "AUTOSTATUS (PLAY)")
         vals = [("AUTO ACTIVE", 0), ("SNAPSHOT BUSY", 0), ("RECOVERY ACTIVE", 0), ("RECOVERY DONE", 1), ("SAFETY OK", 1), ("ERROR", 0)]
         for name, val in vals:
-            row = SignalRow(panel.body, name, val, icon=" ", led_size=24)
+            row = SignalRow(panel.body, name, val, icon=" ", led_size=22)
             row.pack(fill="x", pady=3)
         return panel
 
@@ -455,7 +596,7 @@ class TarzanParPanels:
         panel = self.panel("system", parent, "SYSTEM I STATUS")
         tk.Button(panel.body, text="SYSTEM OK", bg="#b0211a", fg="#fff", relief="flat", font=("Segoe UI", 10, "bold")).pack(fill="x", pady=5)
         for name, val in [("SYSTEM OK", 1), ("POKEYS CHARGE PUMP", 1), ("1-WIRE ACTIVE", 1)]:
-            SignalRow(panel.body, name, val, icon=" ", led_size=24).pack(fill="x", pady=3)
+            SignalRow(panel.body, name, val, icon=" ", led_size=22).pack(fill="x", pady=3)
         tk.Label(panel.body, text="VDD AKTUALNE        24.1 V\nTEMPERATURA         42.3 °C", bg=COLORS["panel"], fg=COLORS["green"], font=("Segoe UI", 14, "bold")).pack(anchor="w", pady=14)
         return panel
 
@@ -509,10 +650,28 @@ class TarzanParPanels:
             meta = self.bus.get_meta(name)
             label = f"{meta.plytka if meta else ''} {meta.pin if meta else '-'}  {name}"
             cmd = (lambda n=name: self.bus.toggle_input(n, source="PAR")) if (meta and meta.is_input) else None
-            row = SignalRow(inner, label, self.bus.get(name), command=cmd, icon="", led_size=18)
+            row = SignalRow(inner, label, self.bus.get(name), command=cmd, icon="", led_size=22)
             row.pack(fill="x", pady=1)
             self.rows[name] = row
         return panel
+
+
+    def _manual_axis_step(self, axis: str, direction: int):
+        bind = AXIS_SIGNAL_BINDINGS.get(axis, {})
+        for name in bind.get("dir", []):
+            if self.bus.exists(name):
+                self.bus.force_signal(name, int(direction), source="PAR_AXIS_STEP")
+        for name in bind.get("en", []):
+            if self.bus.exists(name):
+                self.bus.force_signal(name, 1, source="PAR_AXIS_STEP")
+        for name in bind.get("step", []):
+            if self.bus.exists(name):
+                self.bus.force_signal(name, 1, source="PAR_AXIS_STEP")
+                try:
+                    self.app.after(70, lambda n=name: self.bus.force_signal(n, 0, source="PAR_AXIS_STEP"))
+                except Exception:
+                    pass
+
 
     def on_state_change(self, name: str, state: TarzanSignalState):
         if name in self.rows:
@@ -527,6 +686,8 @@ class TarzanParPanels:
             card.set_dir(self._first_value(bind.get("dir", [])))
             en_names = bind.get("en", [])
             card.set_en(self._first_value(en_names) if en_names else 1)
+            card.set_end_left(self._first_value(bind.get("left", [])))
+            card.set_end_right(self._first_value(bind.get("right", [])))
 
     def _first_value(self, names: List[str]):
         for name in names:
@@ -623,7 +784,7 @@ class TarzanParPanels:
                  font=("Segoe UI", 13, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
 
         value = self.bus.get("play_p14_drone_release") if hasattr(self, "bus") else self.state.get("play_p14_drone_release")
-        led = Led(row, size=30, bg=COLORS["panel"])
+        led = Led(row, size=28, bg=COLORS["panel"])
         led.pack(side="right", padx=6)
         led.set(value)
 
@@ -644,7 +805,7 @@ class TarzanParPanels:
                  font=("Segoe UI", 13, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
 
         value = self.bus.get("play_p14_drone_release") if hasattr(self, "bus") else self.state.get("play_p14_drone_release")
-        led = Led(row, size=30, bg=COLORS["panel"])
+        led = Led(row, size=28, bg=COLORS["panel"])
         led.pack(side="right", padx=6)
         led.set(value)
 
@@ -838,7 +999,7 @@ class TarzanParPanels:
             row.pack(fill="x", padx=7, pady=(0, 7))
             tk.Label(row, text="LED", bg="#0f171d", fg=COLORS["muted"],
                      font=("Segoe UI", 8, "bold")).pack(side="left")
-            led = Led(row, size=26, bg="#0f171d")
+            led = Led(row, size=28, bg="#0f171d")
             led.pack(side="right")
             try:
                 led.set(self.bus.get(led_sig))

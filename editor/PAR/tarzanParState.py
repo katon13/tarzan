@@ -2,7 +2,10 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List
-from editor.PAR.tarzanParSignalsAdapter import ParSignal
+try:
+    from editor.PAR.tarzanParSignalsAdapter import ParSignal
+except ModuleNotFoundError:
+    from tarzanParSignalsAdapter import ParSignal
 
 
 @dataclass

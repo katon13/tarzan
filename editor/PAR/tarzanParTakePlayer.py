@@ -10,7 +10,10 @@ from typing import Any, Callable, Dict, List, Optional
 
 from core.tarzanUstawienia import CZAS_PROBKOWANIA_MS
 from core.tarzanSignalBus import TarzanSignalBus
-from editor.PAR.tarzanParProtocolMapper import TarzanParProtocolMapper
+try:
+    from editor.PAR.tarzanParProtocolMapper import TarzanParProtocolMapper
+except ModuleNotFoundError:
+    from tarzanParProtocolMapper import TarzanParProtocolMapper
 
 
 @dataclass

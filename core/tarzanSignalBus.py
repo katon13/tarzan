@@ -119,6 +119,7 @@ class TarzanSignalBus:
         self.debug_override_outputs: bool = False
         self.live_adapter: Any = None
         self._load_signal_map()
+        self._ensure_par_sensor_virtual_signals()
         self.log("BUS", f"SignalBus start mode={self.mode} signals={len(self.meta)}")
 
     # ------------------------------------------------------------------
@@ -230,6 +231,52 @@ class TarzanSignalBus:
         if meta.typ in {"F", "RESERVED"}:
             return None
         return 1 if str(meta.default).strip() == "1" else 0
+
+
+    def _ensure_par_sensor_virtual_signals(self) -> None:
+        """Wirtualne sygnały PAR dla nowych okien wskaźnikowych czujników."""
+        virtuals = [
+            ("par_lamp_auto_active", "PAR", "LH", "IN", "0", "Lampka pracy ramienia / automatyka włączona", "PAR_LAMP"),
+            ("par_mass_reg_enable", "PAR", "LH", "IN", "0", "Regulator masy — sygnał włączający", "REGULATOR_MASY"),
+            ("par_mass_reg_limit_add", "PAR", "LH", "IN", "0", "Regulator masy — masa dodana", "REGULATOR_MASY"),
+            ("par_mass_reg_limit_remove", "PAR", "LH", "IN", "0", "Regulator masy — masa odjęta", "REGULATOR_MASY"),
+            ("par_shock_sensor_state", "PAR", "LH", "IN", "0", "Czujnik wstrząsowy — stan wysoki/niski", "CZUJNIK_WSTRZASOWY"),
+            ("par_bh1750_lux", "PAR", "ANALOG", "IN", "0", "BH1750 — odczyt światła lux", "CZUJNIK_SWIATLA"),
+            ("par_level_x", "PAR", "ANALOG", "IN", "0", "Poziom XYZ — X", "CZUJNIK_POZIOMU_XYZ"),
+            ("par_level_y", "PAR", "ANALOG", "IN", "0", "Poziom XYZ — Y", "CZUJNIK_POZIOMU_XYZ"),
+            ("par_level_z", "PAR", "ANALOG", "IN", "0", "Poziom XYZ — Z", "CZUJNIK_POZIOMU_XYZ"),
+            ("par_temperature_c", "PAR", "ANALOG", "IN", "0", "Temperatura — odczyt C", "CZUJNIK_TEMPERATURY"),
+            ("par_laser_set", "PAR", "LH", "IN", "0", "Laser — SET", "CZUJNIK_LASEROWY"),
+            ("par_laser_error", "PAR", "LH", "IN", "0", "Laser — ERROR", "CZUJNIK_LASEROWY"),
+            ("par_laser_state_high", "PAR", "LH", "IN", "0", "Laser — stan wysoki", "CZUJNIK_LASEROWY"),
+            ("par_laser_state_low", "PAR", "LH", "IN", "1", "Laser — stan niski", "CZUJNIK_LASEROWY"),
+        ]
+        for name, board, typ, direction, default, opis, group in virtuals:
+            if name in self.meta:
+                continue
+            meta = TarzanSignalMeta(
+                nazwa=name,
+                plytka=board,
+                typ=typ,
+                kierunek=direction,
+                default=default,
+                opis=opis,
+                grupa=group,
+                status="AKTYWNY",
+                hardware_function="PAR_SENSOR_INDICATOR",
+                hardware_label=opis,
+                klasa_wykonawcza="core.tarzanSignalBus.py",
+                logika_trybow="TEST/LIVE/MIX",
+                rola_logiki="PAR_SENSOR_INDICATOR",
+            )
+            self.meta[name] = meta
+            self.state[name] = TarzanSignalState(
+                name=name,
+                value=self._default_value(meta),
+                mode=self.mode,
+                source="PAR_VIRTUAL",
+            )
+
 
     # ------------------------------------------------------------------
     # SUBSKRYPCJE / LOG

@@ -1,1 +1,1 @@
-"""TARZAN PAR — Pulpit Anatomii Ruchu."""
+# TARZAN package marker

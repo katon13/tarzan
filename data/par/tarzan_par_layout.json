@@ -8,8 +8,8 @@
     "sensors": true,
     "operator": true,
     "ui": true,
-    "bridge": true,
-    "poextbus": true,
+    "bridge": false,
+    "poextbus": false,
     "functions": false,
     "timeline": true,
     "dron": true,
@@ -21,158 +21,158 @@
     "system": true,
     "settings": true,
     "all_signals": true,
-    "matrix_led": true,
-    "poextbus_cnc": true
+    "matrix_led": false,
+    "poextbus_cnc": false
   },
   "panel_zones": {
     "timeline": "bottom",
-    "all_signals": "left",
     "bridge": "middle_bottom",
-    "poextbus": "middle_bottom",
     "functions": "middle_bottom",
-    "limits": "middle_top",
-    "sensors": "middle_top",
-    "operator": "middle_top",
-    "ui": "middle_top",
+    "ui": "middle_bottom",
     "take": "right",
-    "info": "right",
-    "log": "right",
-    "dron": "right",
-    "lcd": "right",
-    "matrix": "right",
-    "keyboard": "right",
-    "camera": "right",
-    "autostatus": "right",
     "system": "right",
+    "info": "right",
+    "poextbus": "middle_bottom",
+    "keyboard": "middle_bottom",
+    "lcd": "middle_bottom",
+    "matrix": "middle_bottom",
+    "axes": "top",
+    "operator": "middle_bottom",
+    "limits": "left",
+    "log": "bottom",
     "settings": "right",
-    "axes": "top"
+    "sensors": "left",
+    "all_signals": "left",
+    "dron": "middle_bottom",
+    "autostatus": "right",
+    "camera": "right"
   },
   "panel_layout": {
     "timeline": {
       "zone": "bottom",
       "order": 10,
-      "colspan": 8,
-      "rowspan": 2
-    },
-    "all_signals": {
-      "zone": "left",
-      "order": 10,
-      "colspan": 4,
+      "colspan": 9,
       "rowspan": 3
     },
     "bridge": {
       "zone": "middle_bottom",
       "order": 10,
       "colspan": 3,
-      "rowspan": 1
-    },
-    "poextbus": {
-      "zone": "middle_bottom",
-      "order": 20,
-      "colspan": 4,
-      "rowspan": 1
+      "rowspan": 2
     },
     "functions": {
       "zone": "middle_bottom",
-      "order": 30,
+      "order": 20,
       "colspan": 4,
       "rowspan": 1
     },
-    "limits": {
-      "zone": "middle_top",
-      "order": 10,
-      "colspan": 3,
-      "rowspan": 2
-    },
-    "sensors": {
-      "zone": "middle_top",
-      "order": 20,
-      "colspan": 3,
-      "rowspan": 2
-    },
-    "operator": {
-      "zone": "middle_top",
-      "order": 30,
-      "colspan": 3,
-      "rowspan": 1
-    },
     "ui": {
-      "zone": "middle_top",
-      "order": 40,
-      "colspan": 3,
-      "rowspan": 1
+      "zone": "middle_bottom",
+      "order": 30,
+      "colspan": 2,
+      "rowspan": 4
     },
     "take": {
       "zone": "right",
       "order": 10,
       "colspan": 4,
-      "rowspan": 1
+      "rowspan": 2
     },
-    "info": {
+    "system": {
       "zone": "right",
       "order": 20,
       "colspan": 4,
-      "rowspan": 1
+      "rowspan": 3
     },
-    "log": {
+    "info": {
       "zone": "right",
       "order": 30,
       "colspan": 4,
-      "rowspan": 2
+      "rowspan": 3
     },
-    "dron": {
+    "poextbus": {
+      "zone": "middle_bottom",
+      "order": 40,
+      "colspan": 4,
+      "rowspan": 3
+    },
+    "keyboard": {
+      "zone": "middle_bottom",
+      "order": 50,
+      "colspan": 2,
+      "rowspan": 4
+    },
+    "lcd": {
+      "zone": "middle_bottom",
+      "order": 60,
+      "colspan": 3,
+      "rowspan": 4
+    },
+    "matrix": {
+      "zone": "middle_bottom",
+      "order": 70,
+      "colspan": 2,
+      "rowspan": 4
+    },
+    "axes": {
+      "zone": "top",
+      "order": 10,
+      "colspan": 16,
+      "rowspan": 5
+    },
+    "operator": {
+      "zone": "middle_bottom",
+      "order": 80,
+      "colspan": 5,
+      "rowspan": 4
+    },
+    "limits": {
+      "zone": "left",
+      "order": 10,
+      "colspan": 4,
+      "rowspan": 7
+    },
+    "log": {
+      "zone": "bottom",
+      "order": 20,
+      "colspan": 7,
+      "rowspan": 3
+    },
+    "settings": {
       "zone": "right",
       "order": 40,
       "colspan": 4,
-      "rowspan": 1
-    },
-    "lcd": {
-      "zone": "right",
-      "order": 50,
-      "colspan": 4,
-      "rowspan": 1
-    },
-    "matrix": {
-      "zone": "right",
-      "order": 60,
-      "colspan": 4,
       "rowspan": 2
     },
-    "keyboard": {
+    "sensors": {
+      "zone": "left",
+      "order": 20,
+      "colspan": 4,
+      "rowspan": 5
+    },
+    "all_signals": {
+      "zone": "left",
+      "order": 30,
+      "colspan": 4,
+      "rowspan": 5
+    },
+    "dron": {
+      "zone": "middle_bottom",
+      "order": 90,
+      "colspan": 2,
+      "rowspan": 4
+    },
+    "autostatus": {
       "zone": "right",
-      "order": 70,
+      "order": 50,
       "colspan": 4,
       "rowspan": 2
     },
     "camera": {
       "zone": "right",
-      "order": 80,
+      "order": 60,
       "colspan": 4,
-      "rowspan": 1
-    },
-    "autostatus": {
-      "zone": "right",
-      "order": 90,
-      "colspan": 4,
-      "rowspan": 1
-    },
-    "system": {
-      "zone": "right",
-      "order": 100,
-      "colspan": 4,
-      "rowspan": 1
-    },
-    "settings": {
-      "zone": "right",
-      "order": 110,
-      "colspan": 4,
-      "rowspan": 1
-    },
-    "axes": {
-      "zone": "top",
-      "order": 10,
-      "colspan": 12,
-      "rowspan": 2
+      "rowspan": 4
     }
   },
   "grid": {
@@ -190,45 +190,40 @@
   "zone_layout": {
     "left": {
       "col": 0,
-      "colspan": 4,
       "row": 0,
+      "colspan": 3,
       "rowspan": 16
     },
     "top": {
-      "col": 4,
-      "colspan": 16,
+      "col": 3,
       "row": 0,
-      "rowspan": 3
+      "colspan": 16,
+      "rowspan": 5
     },
     "middle_top": {
-      "col": 4,
+      "col": 3,
+      "row": 5,
       "colspan": 16,
-      "row": 3,
-      "rowspan": 5
+      "rowspan": 4
     },
     "middle_bottom": {
-      "col": 4,
+      "col": 3,
+      "row": 9,
       "colspan": 16,
-      "row": 8,
-      "rowspan": 5
+      "rowspan": 4
     },
     "bottom": {
-      "col": 4,
-      "colspan": 16,
+      "col": 3,
       "row": 13,
+      "colspan": 16,
       "rowspan": 3
     },
     "right": {
-      "col": 20,
-      "colspan": 4,
+      "col": 19,
       "row": 0,
+      "colspan": 5,
       "rowspan": 16
     }
   },
-  "row_height_px": 80,
-  "layout_presets": {
-    "AUTO_TARZAN": {
-      "description": "Preset operatorski dostępny z Projektanta Układu: AUTO ROZMIESZCZENIE — UKŁAD TARZAN"
-    }
-  }
+  "row_height_px": 80
 }

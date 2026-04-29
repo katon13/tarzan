@@ -444,7 +444,7 @@ class TarzanParApp(tk.Tk):
         self.center = self.layout_master
         self.mid = self.middle_top
 
-        tk.Label(self.footer, text="TARZAN PAR v0.33.0 FIX PANEL RESIZE HANDLES", bg="#020304", fg=COLORS["muted"]).pack(side="left", padx=12)
+        tk.Label(self.footer, text="TARZAN PAR v0.34.0 ZONE UI FIX", bg="#020304", fg=COLORS["muted"]).pack(side="left", padx=12)
         tk.Label(self.footer, text="PULPIT ANATOMII RUCHU — TEST/LIVE/MIX — TAKE → SIGNALBUS", bg="#020304", fg=COLORS["muted"]).pack(side="left", expand=True)
         self.clock = tk.Label(self.footer, text="", bg="#020304", fg=COLORS["muted"])
         self.clock.pack(side="right", padx=12)
@@ -849,24 +849,10 @@ class TarzanParApp(tk.Tk):
         tk.Spinbox(grid_body, from_=40, to=180, width=6, textvariable=row_height_var, bg="#101820",
                    fg=COLORS["text"], insertbackground=COLORS["text"], command=draw_preview if "draw_preview" in locals() else None).grid(row=2, column=1, sticky="w", padx=8)
 
-        tk.Button(
-            grid_body,
-            text="PRESET FULL HD 5/15/4",
-            bg="#202b33",
-            fg=COLORS["text"],
-            relief="flat",
-            command=lambda: layout_preset(),
-        ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        # Przyciski presetów ukryte na życzenie operatora.
+        # Funkcje layout_preset() i auto_layout_tarzan() zostają w kodzie jako zapas,
+        # ale nie są pokazywane w UI Projektanta.
 
-        tk.Button(
-            grid_body,
-            text="AUTO ROZMIESZCZENIE — UKŁAD TARZAN",
-            bg="#1d842c",
-            fg="#ffffff",
-            relief="flat",
-            font=("Segoe UI", 9, "bold"),
-            command=lambda: auto_layout_tarzan(),
-        ).grid(row=4, column=0, columnspan=2, sticky="ew", pady=(6, 0))
 
         zone_box = tk.Frame(left_col, bg=COLORS["panel"], highlightbackground=COLORS["border"], highlightthickness=1)
         zone_box.pack(fill="x", pady=(0, 10))
@@ -909,18 +895,38 @@ class TarzanParApp(tk.Tk):
             zone_row.set(vals["row"].get())
             zone_colspan.set(vals["colspan"].get())
             zone_rowspan.set(vals["rowspan"].get())
+            try:
+                refresh_zone_buttons()
+            except Exception:
+                pass
             status_var.set(f"Strefa: {rev_zone.get(zone, zone)} — możesz przeciągnąć ją na podglądzie")
+            refresh_zone_buttons()
             draw_preview()
 
+        zone_button_widgets = {}
+
+        def refresh_zone_buttons():
+            for _zone, _btn in zone_button_widgets.items():
+                active = selected_zone.get() == _zone
+                _btn.configure(
+                    bg="#ffe08a" if active else zone_colors.get(_zone, "#202b33"),
+                    fg="#111111" if active else "#ffffff",
+                    relief="solid" if active else "flat",
+                    bd=2 if active else 1,
+                )
+
         for label, zone in [("LEWA", "left"), ("GÓRA", "top"), ("ŚR. GÓRA", "middle_top"), ("ŚR. DÓŁ", "middle_bottom"), ("DÓŁ", "bottom"), ("PRAWA", "right")]:
-            tk.Button(
+            _btn = tk.Button(
                 zone_buttons,
                 text=label,
                 bg=zone_colors.get(zone, "#202b33"),
                 fg="#ffffff",
                 relief="flat",
+                bd=1,
                 command=lambda z=zone: select_zone(z),
-            ).pack(side="left", expand=True, fill="x", padx=2)
+            )
+            _btn.pack(side="left", expand=True, fill="x", padx=2)
+            zone_button_widgets[zone] = _btn
 
         fields = [
             ("Kol start", zone_col),
@@ -1747,6 +1753,7 @@ class TarzanParApp(tk.Tk):
 
         render_rows()
         select_zone("top")
+        refresh_zone_buttons()
         win.after(200, draw_preview)
         win.after(800, draw_preview)
 

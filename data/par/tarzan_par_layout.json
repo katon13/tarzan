@@ -42,9 +42,7 @@
     "functions": "middle_bottom",
     "lcd": "middle_bottom",
     "matrix": "middle_bottom",
-    "take": "right",
     "poextbus": "middle_bottom",
-    "system": "right",
     "keyboard": "middle_bottom",
     "limits": "middle_bottom",
     "operator": "middle_bottom",
@@ -56,10 +54,12 @@
     "level_xyz": "middle_top",
     "shock_sensor_panel": "middle_top",
     "laser": "middle_top",
+    "take": "right",
+    "system": "right",
     "autostatus": "right",
     "settings": "right",
-    "axes": "top",
-    "camera": "right"
+    "camera": "right",
+    "axes": "top"
   },
   "panel_layout": {
     "timeline": {
@@ -122,22 +122,10 @@
       "colspan": 2,
       "rowspan": 3
     },
-    "take": {
-      "zone": "right",
-      "order": 10,
-      "colspan": 3,
-      "rowspan": 2
-    },
     "poextbus": {
       "zone": "middle_bottom",
       "order": 60,
       "colspan": 4,
-      "rowspan": 3
-    },
-    "system": {
-      "zone": "right",
-      "order": 20,
-      "colspan": 3,
       "rowspan": 3
     },
     "keyboard": {
@@ -191,7 +179,7 @@
     "level_xyz": {
       "zone": "middle_top",
       "order": 60,
-      "colspan": 4,
+      "colspan": 3,
       "rowspan": 2
     },
     "shock_sensor_panel": {
@@ -206,6 +194,18 @@
       "colspan": 2,
       "rowspan": 2
     },
+    "take": {
+      "zone": "right",
+      "order": 10,
+      "colspan": 3,
+      "rowspan": 2
+    },
+    "system": {
+      "zone": "right",
+      "order": 20,
+      "colspan": 3,
+      "rowspan": 3
+    },
     "autostatus": {
       "zone": "right",
       "order": 30,
@@ -218,17 +218,17 @@
       "colspan": 3,
       "rowspan": 3
     },
-    "axes": {
-      "zone": "top",
-      "order": 10,
-      "colspan": 16,
-      "rowspan": 6
-    },
     "camera": {
       "zone": "right",
       "order": 50,
       "colspan": 3,
       "rowspan": 4
+    },
+    "axes": {
+      "zone": "top",
+      "order": 10,
+      "colspan": 16,
+      "rowspan": 6
     }
   },
   "grid": {

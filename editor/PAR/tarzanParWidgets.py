@@ -132,22 +132,15 @@ class AxisCard(tk.Frame):
         self._hold_direction = None
         self._motor_idle_after = None
 
-        tk.Label(
-            self,
-            text=title,
-            bg=COLORS["panel3"],
-            fg=COLORS["text"],
-            font=("Segoe UI", 11, "bold"),
-        ).pack(anchor="w", padx=10, pady=(10, 4))
-
+        # Ikona osi jest teraz na samej górze karty, wycentrowana.
+        # Dzięki temu operator od razu widzi, którą oś reprezentuje okno.
         top = tk.Frame(self, bg=COLORS["panel3"])
-        top.pack(fill="x", padx=10, pady=(0, 4))
+        top.pack(fill="x", padx=8, pady=(6, 2))
 
-        # Zostaje ikona osi. Stary mały symbol silnika z góry został usunięty.
         if image_path and Path(image_path).exists():
             try:
                 self._photo = tk.PhotoImage(file=image_path)
-                tk.Label(top, image=self._photo, bg=COLORS["panel3"]).pack(side="left", padx=(0, 8))
+                tk.Label(top, image=self._photo, bg=COLORS["panel3"]).pack(anchor="center")
             except Exception:
                 tk.Label(
                     top,
@@ -155,7 +148,7 @@ class AxisCard(tk.Frame):
                     bg=COLORS["panel3"],
                     fg=COLORS["blue"],
                     font=("Segoe UI Symbol", 30, "bold"),
-                ).pack(side="left", padx=(0, 8))
+                ).pack(anchor="center")
         else:
             tk.Label(
                 top,
@@ -163,7 +156,17 @@ class AxisCard(tk.Frame):
                 bg=COLORS["panel3"],
                 fg=COLORS["blue"],
                 font=("Segoe UI Symbol", 30, "bold"),
-            ).pack(side="left", padx=(0, 8))
+            ).pack(anchor="center")
+
+        tk.Label(
+            self,
+            text=title,
+            bg=COLORS["panel3"],
+            fg=COLORS["text"],
+            font=("Segoe UI", 10, "bold"),
+            justify="center",
+            wraplength=170,
+        ).pack(fill="x", padx=8, pady=(0, 5))
 
         led_row = tk.Frame(self, bg=COLORS["panel3"])
         led_row.pack(fill="x", padx=8, pady=4)
@@ -173,16 +176,9 @@ class AxisCard(tk.Frame):
 
         end_row = tk.Frame(self, bg=COLORS["panel3"])
         end_row.pack(fill="x", padx=8, pady=(4, 2))
-        self.end_left = self._mini_led(end_row, "KONIEC LEWO", 0, size=22)
-        self.end_right = self._mini_led(end_row, "KONIEC PRAWO", 0, size=22)
+        self.end_left = self._mini_led(end_row, "STOP LEWO", 0, size=22)
+        self.end_right = self._mini_led(end_row, "STOP PRAWO", 0, size=22)
 
-        tk.Label(
-            self,
-            text="KROKI",
-            bg=COLORS["panel3"],
-            fg=COLORS["muted"],
-            font=("Segoe UI", 9, "bold"),
-        ).pack(anchor="w", padx=8, pady=(6, 0))
 
         btns = tk.Frame(self, bg=COLORS["panel3"])
         btns.pack(fill="x", padx=8, pady=5)
@@ -225,20 +221,13 @@ class AxisCard(tk.Frame):
         # Nie ma stałego timera: rysuje się tylko po impulsie STEP albo zmianie DIR/EN.
         self.motor_canvas = tk.Canvas(
             self,
-            width=150,
-            height=82,
+            width=190,
+            height=130,
             bg=COLORS["panel3"],
             highlightthickness=0,
         )
         self.motor_canvas.pack(fill="x", padx=8, pady=(0, 10))
-        self.motor_state_label = tk.Label(
-            self,
-            text="SILNIK: STOP",
-            bg=COLORS["panel3"],
-            fg=COLORS["muted"],
-            font=("Segoe UI", 8, "bold"),
-        )
-        self.motor_state_label.pack(anchor="center", pady=(0, 8))
+        self.motor_state_label = None
         self._draw_motor(active=False)
 
     def _mini_led(self, parent, label, value, size: int = 26):
@@ -297,59 +286,38 @@ class AxisCard(tk.Frame):
         c = self.motor_canvas
         try:
             c.delete("all")
-            w = max(int(c.winfo_width()), 150)
-            h = max(int(c.winfo_height()), 82)
+            w = max(int(c.winfo_width()), 190)
+            h = max(int(c.winfo_height()), 130)
         except Exception:
             return
 
-        cx = w / 2
-        cy = h / 2 + 2
-        body_w = min(96, max(72, w - 44))
-        body_h = 42
-        x1 = cx - body_w / 2
-        x2 = cx + body_w / 2
-        y1 = cy - body_h / 2
-        y2 = cy + body_h / 2
-
-        outline = COLORS["green"] if active else "#5f6b72"
-        fill = "#18272b" if active else "#141b20"
-
-        # Mocowania i obudowa.
-        c.create_rectangle(x1 - 12, cy - 7, x1, cy + 7, fill="#2b363c", outline="#6b777e")
-        c.create_rectangle(x2, cy - 7, x2 + 12, cy + 7, fill="#2b363c", outline="#6b777e")
-        c.create_oval(x1, y1, x2, y2, fill=fill, outline=outline, width=2)
-        c.create_oval(cx - 24, cy - 24, cx + 24, cy + 24, fill="#0b1115", outline="#7f8c92", width=1)
-
-        # Wirnik — realniejszy niż znak tekstowy. Obraca się skokowo od STEP.
         import math
-        angle = math.radians(self.motor_angle)
-        blades = 4
-        color = COLORS["green"] if active else COLORS["amber"]
-        for i in range(blades):
-            a = angle + i * math.pi / 2
-            x_end = cx + math.cos(a) * 22
-            y_end = cy + math.sin(a) * 22
-            x_mid = cx + math.cos(a) * 7
-            y_mid = cy + math.sin(a) * 7
-            c.create_line(x_mid, y_mid, x_end, y_end, fill=color, width=4, capstyle=tk.ROUND)
-        c.create_oval(cx - 5, cy - 5, cx + 5, cy + 5, fill="#dfe6e9", outline="")
+        cx = w / 2
+        cy = h / 2
+        outer_r = min(w, h) * 0.38
+        inner_r = outer_r * 0.22
+        outline = COLORS["green"] if active else "#6b777e"
 
-        # Kierunek jako mała strzałka pod silnikiem.
-        if self.dir.state:
-            arrow = "PRAWO →"
-        else:
-            arrow = "← LEWO"
-        c.create_text(cx, h - 9, text=arrow if active else "STOP", fill=color if active else COLORS["muted"], font=("Segoe UI", 8, "bold"))
+        # Silnik krokowy: duży okrąg, mała oś, czerwona linia położenia.
+        # Bez magnesów, bez tła/owalu i bez strzałek.
+        c.create_oval(cx - outer_r, cy - outer_r, cx + outer_r, cy + outer_r, fill="#101820", outline=outline, width=3)
+        c.create_oval(cx - inner_r, cy - inner_r, cx + inner_r, cy + inner_r, fill="#dfe6e9", outline="#111", width=2)
+        angle = math.radians(self.motor_angle - 90)
+        x2 = cx + math.cos(angle) * (outer_r - 8)
+        y2 = cy + math.sin(angle) * (outer_r - 8)
+        c.create_line(cx, cy, x2, y2, fill="#ff2b22", width=4, capstyle=tk.ROUND)
+        c.create_oval(cx - 3, cy - 3, cx + 3, cy + 3, fill="#111", outline="")
 
     def _motor_step(self):
         # Synchronizacja z realnym STEP/DIR: tylko zbocze STEP obraca wirnik.
         direction = 1 if self.dir.state else -1
-        self.motor_angle = (self.motor_angle + direction * 32) % 360
+        self.motor_angle = (self.motor_angle + direction * (360.0 / 200.0)) % 360
         self._draw_motor(active=True)
-        self.motor_state_label.configure(
-            text="SILNIK: PRAWO" if self.dir.state else "SILNIK: LEWO",
-            fg=COLORS["green"],
-        )
+        if self.motor_state_label:
+            self.motor_state_label.configure(
+                text="SILNIK: PRAWO" if self.dir.state else "SILNIK: LEWO",
+                fg=COLORS["green"],
+            )
         self._schedule_motor_idle()
 
     def _schedule_motor_idle(self):
@@ -364,7 +332,8 @@ class AxisCard(tk.Frame):
         self._motor_idle_after = None
         if not self.step.state and self._hold_direction is None:
             self._draw_motor(active=False)
-            self.motor_state_label.configure(text="SILNIK: STOP", fg=COLORS["muted"])
+            if self.motor_state_label:
+                self.motor_state_label.configure(text="SILNIK: STOP", fg=COLORS["muted"])
 
     def set_step(self, value):
         value = 1 if value else 0
@@ -390,3 +359,153 @@ class AxisCard(tk.Frame):
 
     def set_end_right(self, value):
         self.end_right.set(1 if value else 0)
+
+# =====================================================================
+# TARZAN PAR — KOREKTY v7: logowanie położenia silnika
+# =====================================================================
+_prev_axiscard_motor_step_v7 = AxisCard._motor_step
+
+def _axiscard_motor_step_v7(self):
+    _prev_axiscard_motor_step_v7(self)
+    cb = getattr(self, "on_motor_step_log", None)
+    if cb:
+        try:
+            cb()
+        except Exception:
+            pass
+
+AxisCard._motor_step = _axiscard_motor_step_v7
+
+# =====================================================================
+# TARZAN PAR — KOREKTY v8: prostokątne STEP/DIR/EN i większe krańcówki osi
+# =====================================================================
+class _TarzanRectLed(tk.Canvas):
+    def __init__(self, parent, width=42, height=18, active_color=COLORS["blue"], bg=COLORS["panel3"], **kwargs):
+        super().__init__(parent, width=width, height=height, bg=bg, highlightthickness=0, bd=0, **kwargs)
+        self.width = width
+        self.height = height
+        self.active_color = active_color
+        self.state = 0
+        self.draw()
+
+    def set(self, value):
+        self.state = 1 if value else 0
+        self.draw()
+
+    def draw(self):
+        self.delete("all")
+        if self.state:
+            fill = self.active_color
+            outline = "#d7f0ff" if self.active_color == COLORS["blue"] else "#dfffe2"
+        else:
+            fill = "#24313a"
+            outline = "#5f6b72"
+        self.create_rectangle(2, 2, self.width - 2, self.height - 2, fill=fill, outline=outline, width=2)
+        if self.state:
+            self.create_rectangle(6, 5, max(8, self.width // 2), 8, fill="#ffffff", outline="", stipple="gray50")
+
+
+def _axiscard_mini_led_v8(self, parent, label, value, size: int = 26):
+    box = tk.Frame(parent, bg=COLORS["panel3"])
+    box.pack(side="left", fill="x", expand=True)
+    tk.Label(
+        box,
+        text=label,
+        bg=COLORS["panel3"],
+        fg=COLORS["blue"] if label in {"STEP", "DIR"} else COLORS["text"],
+        font=("Segoe UI", 8, "bold"),
+    ).pack()
+
+    if label in {"STEP", "DIR", "EN"}:
+        active = COLORS["blue"] if label in {"STEP", "DIR"} else COLORS["green"]
+        led = _TarzanRectLed(box, width=44, height=18, active_color=active, bg=COLORS["panel3"])
+    else:
+        # Krańcówki przy silniku mają być większe i czytelniejsze.
+        led = Led(box, size=max(size, 30), bg=COLORS["panel3"])
+    led.pack(pady=2)
+    led.set(value)
+    return led
+
+AxisCard._mini_led = _axiscard_mini_led_v8
+
+# =====================================================================
+# TARZAN PAR — KOREKTY v9 wg uwag użytkownika
+# Zakres: tylko PAR / widżety osi. Bez EHR i Projektanta Układu.
+# =====================================================================
+
+# LED-y bez białych rozbłysków; niebieskie prostokąty STEP/DIR mają delikatną niebieską ramkę.
+def _tarzan_led_draw_v9(self):
+    self.delete("all")
+    color = COLORS["green"] if self.state else COLORS["red"]
+    glow = "#134d16" if self.state else "#5a1613"
+    self.create_oval(1, 1, self.size - 1, self.size - 1, fill=glow, outline="#26333a", width=1)
+    self.create_oval(4, 4, self.size - 4, self.size - 4, fill=color, outline="#111", width=1)
+
+Led.draw = _tarzan_led_draw_v9
+
+
+def _tarzan_rect_led_draw_v9(self):
+    self.delete("all")
+    if self.state:
+        fill = self.active_color
+        outline = "#5ebeff" if self.active_color == COLORS["blue"] else "#7dff84"
+    else:
+        fill = "#24313a"
+        outline = "#3d5969" if self.active_color == COLORS["blue"] else "#5f6b72"
+    self.create_rectangle(2, 2, self.width - 2, self.height - 2, fill=fill, outline=outline, width=2)
+
+try:
+    _TarzanRectLed.draw = _tarzan_rect_led_draw_v9
+except NameError:
+    pass
+
+# Oś pionowa ramienia: v11 usuwa znaki +/− rysowane bezpośrednio w polu silnika.
+# Wizualizacja regulatora masy zostaje tylko w osobnym pasku pod silnikiem.
+try:
+    AxisCard._draw_motor = _prev_axiscard_draw_motor_v9
+except NameError:
+    pass
+
+# =====================================================================
+# TARZAN PAR — KOREKTY v11: porządek okien osi
+# - brak nagłówka KROKI,
+# - krańcówki jako STOP LEWO / STOP PRAWO z diodą przed tekstem,
+# - bez dodatkowych +/- rysowanych w polu silnika.
+# =====================================================================
+def _axiscard_mini_led_v11(self, parent, label, value, size: int = 26):
+    box = tk.Frame(parent, bg=COLORS["panel3"])
+    box.pack(side="left", fill="x", expand=True, padx=2)
+
+    if label in {"STOP LEWO", "STOP PRAWO"}:
+        row = tk.Frame(box, bg=COLORS["panel3"])
+        row.pack(anchor="center", pady=2)
+        led = Led(row, size=max(size, 30), bg=COLORS["panel3"])
+        led.pack(side="left", padx=(0, 5))
+        tk.Label(
+            row,
+            text=label,
+            bg=COLORS["panel3"],
+            fg=COLORS["text"],
+            font=("Segoe UI", 8, "bold"),
+        ).pack(side="left")
+        led.set(value)
+        return led
+
+    tk.Label(
+        box,
+        text=label,
+        bg=COLORS["panel3"],
+        fg=COLORS["blue"] if label in {"STEP", "DIR"} else COLORS["text"],
+        font=("Segoe UI", 8, "bold"),
+    ).pack()
+
+    if label in {"STEP", "DIR", "EN"}:
+        active = COLORS["blue"] if label in {"STEP", "DIR"} else COLORS["green"]
+        led = _TarzanRectLed(box, width=44, height=18, active_color=active, bg=COLORS["panel3"])
+    else:
+        led = Led(box, size=max(size, 30), bg=COLORS["panel3"])
+    led.pack(pady=2)
+    led.set(value)
+    return led
+
+AxisCard._mini_led = _axiscard_mini_led_v11

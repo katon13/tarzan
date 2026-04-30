@@ -250,6 +250,14 @@ class TarzanSignalBus:
             ("par_laser_error", "PAR", "LH", "IN", "0", "Laser — ERROR", "CZUJNIK_LASEROWY"),
             ("par_laser_state_high", "PAR", "LH", "IN", "0", "Laser — stan wysoki", "CZUJNIK_LASEROWY"),
             ("par_laser_state_low", "PAR", "LH", "IN", "1", "Laser — stan niski", "CZUJNIK_LASEROWY"),
+            ("par_lcd_line1", "PAR", "TEXT", "IN", "TARZAN PLAY", "LCD 1602 — linia 1", "LCD_1602"),
+            ("par_lcd_line2", "PAR", "TEXT", "IN", "READY", "LCD 1602 — linia 2", "LCD_1602"),
+            ("par_lcd_play_line1", "PAR", "TEXT", "IN", "TARZAN PLAY", "PLAY LCD 1602 — linia 1", "LCD_1602"),
+            ("par_lcd_play_line2", "PAR", "TEXT", "IN", "READY", "PLAY LCD 1602 — linia 2", "LCD_1602"),
+            ("par_lcd_rec_line1", "PAR", "TEXT", "IN", "TARZAN REC", "REC LCD 1602 — linia 1", "LCD_1602"),
+            ("par_lcd_rec_line2", "PAR", "TEXT", "IN", "READY", "REC LCD 1602 — linia 2", "LCD_1602"),
+            ("par_matrix_pattern", "PAR", "TEXT", "IN", "", "Matrix LED 8x8 — wzór", "MATRIX_LED"),
+            ("par_mass_reg_value", "PAR", "ANALOG", "IN", "0", "Regulator masy — pozycja procentowa", "REGULATOR_MASY"),
         ]
         for name, board, typ, direction, default, opis, group in virtuals:
             if name in self.meta:
@@ -408,6 +416,8 @@ class TarzanSignalBus:
             return True
 
     def _normalize_value(self, meta: TarzanSignalMeta, value: Any) -> Any:
+        if meta.typ == "TEXT":
+            return str(value)
         if meta.typ == "ANALOG":
             try:
                 return float(value)

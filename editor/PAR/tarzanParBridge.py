@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from core.tarzanSignalBus import TarzanSignalBus, get_signal_bus
 try:
@@ -16,10 +16,17 @@ except ModuleNotFoundError:
 
 
 class TarzanParBridge:
-    def __init__(self, bus: Optional[TarzanSignalBus] = None) -> None:
+    def __init__(
+        self,
+        bus: Optional[TarzanSignalBus] = None,
+        after: Optional[Callable[..., Any]] = None,
+        after_cancel: Optional[Callable[[Any], Any]] = None,
+    ) -> None:
         self.bus = bus or get_signal_bus("TEST")
         self.mapper = TarzanParProtocolMapper(self.bus.names())
         self.take_player = TarzanParTakePlayer(self.bus, self.mapper)
+        if after is not None and after_cancel is not None:
+            self.take_player.set_scheduler(after, after_cancel)
 
     def set_mode(self, mode: str) -> None:
         self.bus.set_mode(mode)

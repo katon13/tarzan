@@ -32,53 +32,47 @@
     "poextbus_cnc": false
   },
   "panel_zones": {
-    "mass_regulator": "bottom",
     "timeline": "bottom",
     "log": "bottom",
     "sensors": "left",
+    "info": "left",
+    "all_signals": "left",
+    "mass_regulator": "middle_bottom",
     "ui": "middle_bottom",
     "functions": "middle_bottom",
     "lcd": "middle_bottom",
     "matrix": "middle_bottom",
-    "all_signals": "left",
+    "take": "right",
     "poextbus": "middle_bottom",
+    "system": "right",
     "keyboard": "middle_bottom",
     "limits": "middle_bottom",
     "operator": "middle_bottom",
-    "camera": "middle_bottom",
     "dron": "middle_top",
     "bridge": "middle_top",
     "lamp": "middle_top",
     "light_bh1750": "middle_top",
-    "level_xyz": "middle_top",
     "temperature": "middle_top",
+    "level_xyz": "middle_top",
     "shock_sensor_panel": "middle_top",
     "laser": "middle_top",
-    "take": "right",
-    "system": "right",
-    "info": "right",
     "autostatus": "right",
     "settings": "right",
-    "axes": "top"
+    "axes": "top",
+    "camera": "right"
   },
   "panel_layout": {
-    "mass_regulator": {
-      "zone": "bottom",
-      "order": 10,
-      "colspan": 3,
-      "rowspan": 3
-    },
     "timeline": {
       "zone": "bottom",
-      "order": 20,
-      "colspan": 6,
-      "rowspan": 3
+      "order": 10,
+      "colspan": 7,
+      "rowspan": 5
     },
     "log": {
       "zone": "bottom",
-      "order": 30,
-      "colspan": 7,
-      "rowspan": 3
+      "order": 20,
+      "colspan": 9,
+      "rowspan": 5
     },
     "sensors": {
       "zone": "left",
@@ -86,64 +80,82 @@
       "colspan": 4,
       "rowspan": 4
     },
-    "ui": {
+    "info": {
+      "zone": "left",
+      "order": 20,
+      "colspan": 4,
+      "rowspan": 4
+    },
+    "all_signals": {
+      "zone": "left",
+      "order": 30,
+      "colspan": 4,
+      "rowspan": 9
+    },
+    "mass_regulator": {
       "zone": "middle_bottom",
       "order": 10,
       "colspan": 2,
-      "rowspan": 4
+      "rowspan": 3
+    },
+    "ui": {
+      "zone": "middle_bottom",
+      "order": 20,
+      "colspan": 2,
+      "rowspan": 3
     },
     "functions": {
       "zone": "middle_bottom",
-      "order": 20,
+      "order": 30,
       "colspan": 4,
       "rowspan": 1
     },
     "lcd": {
       "zone": "middle_bottom",
-      "order": 30,
-      "colspan": 4,
-      "rowspan": 4
+      "order": 40,
+      "colspan": 3,
+      "rowspan": 3
     },
     "matrix": {
       "zone": "middle_bottom",
-      "order": 40,
+      "order": 50,
       "colspan": 2,
-      "rowspan": 4
+      "rowspan": 3
     },
-    "all_signals": {
-      "zone": "left",
-      "order": 20,
-      "colspan": 4,
-      "rowspan": 12
+    "take": {
+      "zone": "right",
+      "order": 10,
+      "colspan": 3,
+      "rowspan": 2
     },
     "poextbus": {
       "zone": "middle_bottom",
-      "order": 50,
+      "order": 60,
       "colspan": 4,
+      "rowspan": 3
+    },
+    "system": {
+      "zone": "right",
+      "order": 20,
+      "colspan": 3,
       "rowspan": 3
     },
     "keyboard": {
       "zone": "middle_bottom",
-      "order": 60,
+      "order": 70,
       "colspan": 2,
-      "rowspan": 4
+      "rowspan": 3
     },
     "limits": {
       "zone": "middle_bottom",
-      "order": 70,
-      "colspan": 4,
-      "rowspan": 4
+      "order": 80,
+      "colspan": 5,
+      "rowspan": 3
     },
     "operator": {
       "zone": "middle_bottom",
-      "order": 80,
-      "colspan": 5,
-      "rowspan": 4
-    },
-    "camera": {
-      "zone": "middle_bottom",
       "order": 90,
-      "colspan": 2,
+      "colspan": 5,
       "rowspan": 4
     },
     "dron": {
@@ -170,57 +182,39 @@
       "colspan": 2,
       "rowspan": 2
     },
-    "level_xyz": {
+    "temperature": {
       "zone": "middle_top",
       "order": 50,
       "colspan": 2,
       "rowspan": 2
     },
-    "temperature": {
+    "level_xyz": {
       "zone": "middle_top",
       "order": 60,
-      "colspan": 2,
+      "colspan": 4,
       "rowspan": 2
     },
     "shock_sensor_panel": {
       "zone": "middle_top",
       "order": 70,
-      "colspan": 1,
+      "colspan": 2,
       "rowspan": 2
     },
     "laser": {
       "zone": "middle_top",
       "order": 80,
-      "colspan": 1,
+      "colspan": 2,
       "rowspan": 2
-    },
-    "take": {
-      "zone": "right",
-      "order": 10,
-      "colspan": 3,
-      "rowspan": 2
-    },
-    "system": {
-      "zone": "right",
-      "order": 20,
-      "colspan": 3,
-      "rowspan": 4
-    },
-    "info": {
-      "zone": "right",
-      "order": 30,
-      "colspan": 3,
-      "rowspan": 3
     },
     "autostatus": {
       "zone": "right",
-      "order": 40,
+      "order": 30,
       "colspan": 3,
       "rowspan": 4
     },
     "settings": {
       "zone": "right",
-      "order": 50,
+      "order": 40,
       "colspan": 3,
       "rowspan": 3
     },
@@ -228,7 +222,13 @@
       "zone": "top",
       "order": 10,
       "colspan": 16,
-      "rowspan": 7
+      "rowspan": 6
+    },
+    "camera": {
+      "zone": "right",
+      "order": 50,
+      "colspan": 3,
+      "rowspan": 4
     }
   },
   "grid": {
@@ -254,25 +254,25 @@
       "col": 4,
       "row": 0,
       "colspan": 16,
-      "rowspan": 7
+      "rowspan": 6
     },
     "middle_top": {
       "col": 4,
-      "row": 7,
+      "row": 6,
       "colspan": 16,
       "rowspan": 2
     },
     "middle_bottom": {
       "col": 4,
-      "row": 9,
+      "row": 8,
       "colspan": 16,
-      "rowspan": 4
+      "rowspan": 3
     },
     "bottom": {
       "col": 4,
-      "row": 13,
+      "row": 11,
       "colspan": 16,
-      "rowspan": 3
+      "rowspan": 5
     },
     "right": {
       "col": 20,

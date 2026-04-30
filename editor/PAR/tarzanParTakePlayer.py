@@ -1,9 +1,13 @@
-"""Odtwarzacz TAKE TXT dla PAR/SignalBus."""
+"""Odtwarzacz TAKE TXT dla PAR/SignalBus.
+
+Zasada bezpieczeństwa PAR:
+- brak threading.Thread w odtwarzaniu TAKE,
+- PLAY działa przez Tkinter app.after(CZAS_PROBKOWANIA_MS),
+- SignalBus.notify() i aktualizacje paneli Tkinter zostają w głównym wątku UI.
+"""
 from __future__ import annotations
 
 import csv
-import threading
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -42,8 +46,16 @@ class TarzanParTakePlayer:
         self.loop = False
         self.speed = 1.0
         self.on_row: Optional[Callable[[Dict[str, str]], None]] = None
-        self._thread: Optional[threading.Thread] = None
-        self._stop_event = threading.Event()
+
+        # Scheduler Tkintera podawany przez TarzanParApp/Bridge.
+        # Nie używać wątków: SignalBus.notify() dochodzi do Tkinter UI.
+        self._after: Optional[Callable[..., Any]] = None
+        self._after_cancel: Optional[Callable[[Any], Any]] = None
+        self._after_id: Any = None
+
+    def set_scheduler(self, after: Callable[..., Any], after_cancel: Callable[[Any], Any]) -> None:
+        self._after = after
+        self._after_cancel = after_cancel
 
     def load(self, path: str | Path) -> TarzanTakeData:
         path = Path(path)
@@ -90,6 +102,7 @@ class TarzanParTakePlayer:
             take.columns = list(reader.fieldnames or [])
             take.rows = [dict(row) for row in reader]
 
+        self.stop(reset_to_zero=False, log_stop=False)
         self.take = take
         self.index = 0
         self.bus.loaded_take_path = str(path)
@@ -97,7 +110,7 @@ class TarzanParTakePlayer:
         return take
 
     def unload(self) -> None:
-        self.stop()
+        self.stop(reset_to_zero=False)
         self.take = None
         self.index = 0
         self.bus.loaded_take_path = None
@@ -128,36 +141,65 @@ class TarzanParTakePlayer:
     def play(self) -> None:
         if not self.take or not self.take.rows or self.playing:
             return
+        if self._after is None:
+            self.bus.log("TAKE", "PLAY zablokowany: brak app.after()")
+            return
         self.playing = True
-        self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
         self.bus.log("TAKE", "PLAY")
+        self._schedule_next(delay_ms=0)
 
     def pause(self) -> None:
+        if not self.playing:
+            return
         self.playing = False
-        self._stop_event.set()
+        self._cancel_after()
         self.bus.log("TAKE", "PAUSE")
 
-    def stop(self) -> None:
+    def stop(self, *, reset_to_zero: bool = True, log_stop: bool = True) -> None:
         self.playing = False
-        self._stop_event.set()
+        self._cancel_after()
         self.index = 0
-        self.bus.log("TAKE", "STOP")
+        if reset_to_zero and self.take and self.take.rows:
+            self.apply_row(self.take.rows[0])
+        if log_stop:
+            self.bus.log("TAKE", "STOP")
 
-    def _run(self) -> None:
-        sample_s = max(0.001, CZAS_PROBKOWANIA_MS / 1000.0 / max(0.01, self.speed))
-        while self.playing and self.take and self.take.rows and not self._stop_event.is_set():
-            if self.index >= len(self.take.rows):
-                if self.loop:
-                    self.index = 0
-                else:
-                    self.playing = False
-                    break
-            row = self.take.rows[self.index]
-            self.apply_row(row)
-            self.index += 1
-            time.sleep(sample_s)
+    def _schedule_next(self, delay_ms: Optional[int] = None) -> None:
+        if not self.playing or self._after is None:
+            return
+        delay = self._sample_delay_ms() if delay_ms is None else max(0, int(delay_ms))
+        self._after_id = self._after(delay, self._tick)
+
+    def _cancel_after(self) -> None:
+        if self._after_id is not None and self._after_cancel is not None:
+            try:
+                self._after_cancel(self._after_id)
+            except Exception:
+                pass
+        self._after_id = None
+
+    def _tick(self) -> None:
+        self._after_id = None
+        if not self.playing or not self.take or not self.take.rows:
+            return
+        if self.index >= len(self.take.rows):
+            if self.loop:
+                self.index = 0
+            else:
+                self.playing = False
+                self.bus.log("TAKE", "KONIEC")
+                return
+        row = self.take.rows[self.index]
+        self.apply_row(row)
+        self.index += 1
+        self._schedule_next()
+
+    def _sample_delay_ms(self) -> int:
+        try:
+            speed = max(0.01, float(self.speed))
+        except Exception:
+            speed = 1.0
+        return max(1, int(round(CZAS_PROBKOWANIA_MS / speed)))
 
     def _row_time(self, row: Dict[str, str]) -> int:
         try:

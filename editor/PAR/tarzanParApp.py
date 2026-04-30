@@ -194,7 +194,7 @@ class TarzanParApp(tk.Tk):
         self.row_height_px = int(self.layout_cfg.get("row_height_px", DEFAULT_ROW_HEIGHT_PX))
 
         self.bus = get_signal_bus("TEST")
-        self.bridge = TarzanParBridge(self.bus)
+        self.bridge = TarzanParBridge(self.bus, after=self.after, after_cancel=self.after_cancel)
         self.panels = TarzanParPanels(self, self.bus)
         self.bus.subscribe(self.panels.on_state_change)
         self.take_label = None
@@ -1864,6 +1864,6 @@ class TarzanParApp(tk.Tk):
         self.clock.configure(text=f"CZAS SYSTEMU: {time.strftime('%H:%M:%S')}    TAKE: {self.bus.take_time_ms} ms    FPS: 60")
         self.panels.update_log()
         self.panels.refresh_axis_cards()
-        self.panels.draw_timeline()
+        # Timeline aktualizuje się zbiorczo po zmianach sygnałów.
         self.update_take_label()
         self.after(500, self.tick)

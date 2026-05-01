@@ -70,11 +70,40 @@ AXIS_SIGNAL_BINDINGS = {
 }
 
 
+class _RowRegistry(dict):
+    def __setitem__(self, key, value):
+        if key in self:
+            current = dict.__getitem__(self, key)
+            if isinstance(current, list):
+                current.append(value)
+                dict.__setitem__(self, key, current)
+            else:
+                dict.__setitem__(self, key, [current, value])
+            return
+        dict.__setitem__(self, key, value)
+
+    def set_value(self, key, value):
+        current = dict.get(self, key)
+        if current is None:
+            return
+        if isinstance(current, list):
+            for proxy in list(current):
+                try:
+                    proxy.set(value)
+                except Exception:
+                    pass
+            return
+        try:
+            current.set(value)
+        except Exception:
+            pass
+
+
 class TarzanParPanels:
     def __init__(self, app, bus: TarzanSignalBus) -> None:
         self.app = app
         self.bus = bus
-        self.rows: Dict[str, SignalRow] = {}
+        self.rows: Dict[str, SignalRow] = _RowRegistry()
         self.axis_cards: Dict[str, AxisCard] = {}
         self.log_text: Optional[tk.Text] = None
         self.timeline_canvas: Optional[tk.Canvas] = None
@@ -90,6 +119,36 @@ class TarzanParPanels:
         canvas.create_window((0, 0), window=inner, anchor="nw")
         canvas.configure(yscrollcommand=scroll.set)
         inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        def _on_mousewheel(event):
+            try:
+                if getattr(event, 'delta', 0):
+                    canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
+                elif getattr(event, 'num', None) == 4:
+                    canvas.yview_scroll(-1, 'units')
+                elif getattr(event, 'num', None) == 5:
+                    canvas.yview_scroll(1, 'units')
+            except Exception:
+                pass
+
+        def _bind_mousewheel(_event=None):
+            for widget in (canvas, inner):
+                widget.bind_all('<MouseWheel>', _on_mousewheel, add='+')
+                widget.bind_all('<Button-4>', _on_mousewheel, add='+')
+                widget.bind_all('<Button-5>', _on_mousewheel, add='+')
+
+        def _unbind_mousewheel(_event=None):
+            for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+                try:
+                    canvas.unbind_all(sequence)
+                except Exception:
+                    pass
+
+        canvas.bind('<Enter>', _bind_mousewheel, add='+')
+        inner.bind('<Enter>', _bind_mousewheel, add='+')
+        canvas.bind('<Leave>', _unbind_mousewheel, add='+')
+        inner.bind('<Leave>', _unbind_mousewheel, add='+')
+
         canvas.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
         return inner
@@ -445,9 +504,6 @@ class TarzanParPanels:
 
 
     # ------------------------------------------------------------------
-    # NOWE OKNA WSKAŹNIKOWE CZUJNIKÓW / URZĄDZEŃ
-    # Zasada: czujniki są tylko odczytem/wskaźnikiem. Nie ustawiamy ich z UI.
-    # Wyjątek: lampka pracy ramienia jest klikalnym wskaźnikiem ON/OFF.
     # ------------------------------------------------------------------
     def _big_value(self, parent, label: str, signal_name: str, suffix: str = "", decimals: int = 0):
         frame = tk.Frame(parent, bg=COLORS["panel"])
@@ -675,7 +731,7 @@ class TarzanParPanels:
 
     def on_state_change(self, name: str, state: TarzanSignalState):
         if name in self.rows:
-            self.rows[name].set(state.value)
+            self.rows.set_value(name, state.value)
         self.refresh_axis_cards()
         self.update_log()
 
@@ -695,12 +751,6 @@ class TarzanParPanels:
                 return self.bus.get(name)
         return 0
 
-    def update_log(self):
-        if not self.log_text:
-            return
-        self.log_text.delete("1.0", "end")
-        self.log_text.insert("end", "\n".join(self.bus.log_lines[-80:]))
-        self.log_text.see("end")
 
     def draw_timeline(self):
         canvas = self.timeline_canvas
@@ -796,24 +846,6 @@ class TarzanParPanels:
 
 
 
-    def build_dron_panel(self, parent):
-        panel = self.panel("dron", parent, "DRON")
-        row = tk.Frame(panel.body, bg=COLORS["panel"])
-        row.pack(fill="x", pady=6)
-
-        tk.Label(row, text="ZWOLNIENIE", bg=COLORS["panel"], fg=COLORS["text"],
-                 font=("Segoe UI", 13, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
-
-        value = self.bus.get("play_p14_drone_release") if hasattr(self, "bus") else self.state.get("play_p14_drone_release")
-        led = Led(row, size=28, bg=COLORS["panel"])
-        led.pack(side="right", padx=6)
-        led.set(value)
-
-        tk.Button(panel.body, text="ZWOLNIJ DRONA", bg="#7a251f", fg="#fff", relief="flat",
-                  font=("Segoe UI", 10, "bold"),
-                  command=lambda: self._set_or_toggle("play_p14_drone_release", 1)).pack(fill="x", pady=(8, 2))
-
-        return panel
 
 
 
@@ -837,23 +869,6 @@ class TarzanParPanels:
 
 
 
-    def build_lcd_panel(self, parent):
-        panel = self.panel("lcd", parent, "WYŚWIETLACZE LCD 1602")
-        wrap = tk.Frame(panel.body, bg=COLORS["panel"])
-        wrap.pack(fill="x")
-
-        def lcd_box(parent, title, lines):
-            box = tk.Frame(parent, bg="#07110a", highlightbackground="#284130", highlightthickness=1)
-            box.pack(fill="x", pady=5)
-            tk.Label(box, text=title, bg="#07110a", fg=COLORS["muted"],
-                     font=("Segoe UI", 9, "bold"), anchor="w").pack(fill="x", padx=8, pady=(5, 0))
-            for line in lines:
-                tk.Label(box, text=line[:16].ljust(16), bg="#07110a", fg="#38ff6a",
-                         font=("Consolas", 14, "bold"), anchor="w").pack(fill="x", padx=10)
-
-        lcd_box(wrap, "PLAY LCD", ["TARZAN PLAY", f"MODE {self.bus.mode if hasattr(self, 'bus') else 'TEST'}"])
-        lcd_box(wrap, "REC LCD", ["TARZAN REC", "READY"])
-        return panel
 
 
 
@@ -874,39 +889,7 @@ class TarzanParPanels:
             grid.grid_columnconfigure(i, weight=1)
         return panel
 
-    def build_keyboard_panel(self, parent):
-        panel = self.panel("keyboard", parent, "KLAWIATURA")
-        grid = tk.Frame(panel.body, bg=COLORS["panel"])
-        grid.pack(fill="x")
 
-        keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"]
-        for i, label in enumerate(keys):
-            tk.Button(grid, text=label, bg="#202b33", fg=COLORS["text"], relief="flat",
-                      font=("Segoe UI", 15, "bold"), width=4, height=2,
-                      command=lambda k=label: self._log("KEYBOARD", f"KEY {k}")).grid(
-                          row=i // 3, column=i % 3, sticky="nsew", padx=4, pady=4
-                      )
-
-        for i in range(3):
-            grid.grid_columnconfigure(i, weight=1)
-        return panel
-
-    def klawiatura(self, parent):
-        panel = self.panel("keyboard", parent, "KLAWIATURA")
-        grid = tk.Frame(panel.body, bg=COLORS["panel"])
-        grid.pack(fill="x")
-
-        keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"]
-        for i, label in enumerate(keys):
-            tk.Button(grid, text=label, bg="#202b33", fg=COLORS["text"], relief="flat",
-                      font=("Segoe UI", 15, "bold"), width=4, height=2,
-                      command=lambda k=label: self._log("KEYBOARD", f"KEY {k}")).grid(
-                          row=i // 3, column=i % 3, sticky="nsew", padx=4, pady=4
-                      )
-
-        for i in range(3):
-            grid.grid_columnconfigure(i, weight=1)
-        return panel
 
     def _set_or_toggle(self, name, value=None):
         try:
@@ -1012,7 +995,6 @@ class TarzanParPanels:
         return panel
 
 # =====================================================================
-# TARZAN PAR — finalne metody symulatora po scaleniu patchy
 # =====================================================================
 
 class _ParValueProxy:
@@ -1046,13 +1028,15 @@ _PAR_BURGUNDY = "#7a1630"
 
 
 
-def _par_click_sensor_panel(self, parent, *, key, title, signal, on_text, off_text, extra=None):
+def _par_click_sensor_panel(self, parent, *, key, title, signal, on_text, off_text, extra=None, led_size=92, show_text=True):
     panel = self.panel(key, parent, title)
     state = {"value": 1 if self.bus.get(signal) else 0}
-    led = tk.Canvas(panel.body, width=92, height=92, bg=COLORS["panel"], highlightthickness=0)
+    led = tk.Canvas(panel.body, width=led_size, height=led_size, bg=COLORS["panel"], highlightthickness=0)
     led.pack(anchor="center", pady=(2, 5))
-    label = tk.Label(panel.body, bg=COLORS["panel"], fg=COLORS["text"], font=("Segoe UI", 10, "bold"))
-    label.pack(fill="x")
+    label = None
+    if show_text:
+        label = tk.Label(panel.body, bg=COLORS["panel"], fg=COLORS["text"], font=("Segoe UI", 10, "bold"))
+        label.pack(fill="x")
 
     def draw(value=None):
         if value is not None:
@@ -1060,9 +1044,12 @@ def _par_click_sensor_panel(self, parent, *, key, title, signal, on_text, off_te
         led.delete("all")
         color = COLORS["red"] if state["value"] else COLORS["green"]
         glow = "#5a1613" if state["value"] else "#134d16"
-        led.create_oval(5, 5, 87, 87, fill=glow, outline="")
-        led.create_oval(16, 16, 76, 76, fill=color, outline="#111", width=2)
-        label.configure(text=on_text if state["value"] else off_text)
+        outer_pad = max(4, int(led_size * 0.05))
+        inner_pad = max(12, int(led_size * 0.17))
+        led.create_oval(outer_pad, outer_pad, led_size - outer_pad, led_size - outer_pad, fill=glow, outline="")
+        led.create_oval(inner_pad, inner_pad, led_size - inner_pad, led_size - inner_pad, fill=color, outline="#111", width=2)
+        if label is not None:
+            label.configure(text=on_text if state["value"] else off_text)
 
     def toggle(_event=None):
         new_value = 0 if state["value"] else 1
@@ -1073,7 +1060,8 @@ def _par_click_sensor_panel(self, parent, *, key, title, signal, on_text, off_te
         draw(new_value)
 
     led.bind("<Button-1>", toggle)
-    label.bind("<Button-1>", toggle)
+    if label is not None:
+        label.bind("<Button-1>", toggle)
     draw()
     self.rows[signal] = _ParValueProxy(draw)
     return panel
@@ -1162,7 +1150,7 @@ def _par_temperature_panel_final(self, parent):
     return _par_canvas_sensor_slider_panel_final(
         self, parent,
         key="temperature",
-        title="TEMPERATURA POWIETRZA",
+        title="TEMPERATURA",
         signal="par_temperature_c",
         unit="°C",
         start=-20,
@@ -1176,11 +1164,13 @@ def _par_shock_sensor_panel_final(self, parent):
         self,
         parent,
         key="shock_sensor_panel",
-        title="WSTRZĄS",
+        title="SHOK",
         signal="par_shock_sensor_state",
         on_text="WSTRZĄS = 1",
         off_text="SPOKÓJ = 0",
         extra={"rec_p39_shock_sensor": lambda v: v},
+        led_size=62,
+        show_text=False,
     )
 
 
@@ -1189,7 +1179,7 @@ def _par_laser_panel_final(self, parent):
         self,
         parent,
         key="laser",
-        title="OŚ LASER",
+        title="LASER",
         signal="par_laser_set",
         on_text="UTRACONA OŚ = 1",
         off_text="OŚ OK = 0",
@@ -1198,11 +1188,13 @@ def _par_laser_panel_final(self, parent):
             "par_laser_state_high": lambda v: v,
             "par_laser_state_low": lambda v: 0 if v else 1,
         },
+        led_size=62,
+        show_text=False,
     )
 
 
 def _par_matrix_final(self, parent):
-    panel = self.panel("matrix", parent, "MATRIX LED 8x8 — EDYCJA")
+    panel = self.panel("matrix", parent, "MATRIX LED")
     holder = tk.Frame(panel.body, bg=COLORS["panel"])
     holder.pack(fill="both", expand=True)
     holder.grid_rowconfigure(0, weight=1)
@@ -1251,7 +1243,7 @@ def _par_matrix_final(self, parent):
 
 
 def _par_lcd_final(self, parent):
-    panel = self.panel("lcd", parent, "WYŚWIETLACZE LCD 1602 — EDYCJA")
+    panel = self.panel("lcd", parent, "WYŚWIETLACZE LCD 1602")
     wrap = tk.Frame(panel.body, bg=COLORS["panel"])
     wrap.pack(fill="x")
 
@@ -1301,137 +1293,10 @@ def _par_keyboard_final(self, parent):
     return panel
 
 
-def _par_limits_final(self, parent):
-    panel = self.panel("limits", parent, "KRAŃCÓWKI")
-    body = tk.Frame(panel.body, bg=COLORS["panel"])
-    body.pack(fill="both", expand=True)
-    raw_names = self._group_or_search("KRAŃCÓWKI", ["limit"])
-    names = []
-    for name in raw_names:
-        label = self.limit_label(name)
-        blob = f"{name} {label}".upper()
-        if "PIN WOLNY" in blob or "WOLNY" in blob or "FREE" in blob:
-            continue
-        names.append(name)
-    if not names:
-        tk.Label(body, text="Brak krańcówek w mapie sygnałów.", bg=COLORS["panel"], fg=COLORS["red"]).pack(anchor="w")
-        return panel
-
-    cols = 3
-    for col in range(cols):
-        body.grid_columnconfigure(col, weight=1, uniform="limit_col")
-
-    for i, name in enumerate(names):
-        r = i // cols
-        c = i % cols
-        cell = tk.Frame(body, bg=COLORS["panel"])
-        cell.grid(row=r, column=c, sticky="ew", padx=3, pady=1)
-        cell.grid_columnconfigure(1, weight=1)
-
-        led = Led(cell, size=17, bg=COLORS["panel"])
-        led.grid(row=0, column=0, sticky="w", padx=(0, 4))
-        led.set(self.bus.get(name))
-        self.rows[name] = _ParValueProxy(lambda v, l=led: l.set(v))
-
-        label = tk.Label(
-            cell, text=self.limit_label(name), bg=COLORS["panel"], fg=COLORS["text"],
-            anchor="w", font=("Segoe UI", 8),
-        )
-        label.grid(row=0, column=1, sticky="ew")
-
-        def click(_event=None, n=name):
-            self.bus.toggle_input(n, source="PAR_LIMIT")
-        cell.bind("<Button-1>", click)
-        label.bind("<Button-1>", click)
-        led.bind("<Button-1>", click)
-    return panel
 
 
-def _par_ui_panel_final(self, parent):
-    panel = self.panel("ui", parent, "PANEL PLAY/REC")
-    buttons = [
-        ("F1", "rec_p45_sw_f1", "rec_p46_led_f1"),
-        ("F2", "rec_p47_sw_f2", "rec_p48_led_f2"),
-        ("F3", "rec_p49_sw_f3", "rec_p50_led_f3"),
-        ("F4", "rec_p51_sw_f4", "rec_p52_led_f4"),
-    ]
-    grid = tk.Frame(panel.body, bg=COLORS["panel"])
-    grid.pack(fill="x")
-    grid.grid_columnconfigure(1, weight=0)
-    grid.grid_columnconfigure(3, weight=1)
-
-    for i, (label_text, sw_sig, led_sig) in enumerate(buttons):
-        tk.Label(
-            grid,
-            text=label_text,
-            bg=COLORS["panel"],
-            fg=COLORS["text"],
-            width=3,
-            font=("Segoe UI", 10, "bold"),
-        ).grid(row=i, column=0, sticky="w", padx=(0, 3), pady=3)
-        btn = tk.Button(
-            grid,
-            text="",
-            width=4,
-            height=1,
-            bg=COLORS["button"],
-            activebackground="#31556e",
-            relief="raised",
-        )
-        btn.grid(row=i, column=1, sticky="w", padx=(0, 8), pady=3)
-        btn.bind("<ButtonPress-1>", lambda _e, s=sw_sig: _par_set_signal(self, s, 1, "PAR_UI_BUTTON"))
-        btn.bind("<ButtonRelease-1>", lambda _e, s=sw_sig: _par_set_signal(self, s, 0, "PAR_UI_BUTTON"))
-
-        # LED jest osobnym sygnałem z mapy i nie jest zespolony z przyciskiem.
-        tk.Label(grid, text="LED", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 7, "bold")).grid(row=i, column=2, sticky="e", padx=(4, 3))
-        led = Led(grid, size=30, bg=COLORS["panel"])
-        led.grid(row=i, column=3, sticky="w", padx=(0, 0), pady=3)
-        led.set(self.bus.get(led_sig))
-        self.rows[led_sig] = _ParValueProxy(lambda v, l=led: l.set(v))
-    return panel
 
 
-def _par_mass_regulator_panel_final(self, parent):
-    panel = self.panel("mass_regulator", parent, "REGULATOR MASY")
-    state = {"mode": "OFF"}
-    buttons = {}
-
-    def paint_buttons():
-        for mode, btn in buttons.items():
-            active = state["mode"] == mode
-            if mode == "ADD":
-                btn.configure(bg=COLORS["green"] if active else COLORS["button"], fg="#061006" if active else COLORS["text"])
-            elif mode == "REMOVE":
-                btn.configure(bg=COLORS["blue"] if active else COLORS["button"], fg="#ffffff")
-
-    def set_mode(mode):
-        # Dwa przyciski dają trzy stany: OFF / DODAJ / UJMIJ. Ponowne kliknięcie aktywnego wyłącza.
-        state["mode"] = "OFF" if state["mode"] == mode else mode
-        add = 1 if state["mode"] == "ADD" else 0
-        rem = 1 if state["mode"] == "REMOVE" else 0
-        en = 1 if state["mode"] in {"ADD", "REMOVE"} else 0
-        for sig, val in [
-            ("play_p41_mass_reg_enable", en),
-            ("rec_p36_mass_reg_enable", en),
-            ("play_p13_mass_reg_limit_add", add),
-            ("play_p23_mass_reg_limit_remove", rem),
-            ("par_mass_reg_enable", en),
-            ("par_mass_reg_limit_add", add),
-            ("par_mass_reg_limit_remove", rem),
-        ]:
-            _par_set_signal(self, sig, val, "PAR_MASS_3STATE")
-        paint_buttons()
-
-    wrap = tk.Frame(panel.body, bg=COLORS["panel"])
-    wrap.pack(fill="both", expand=True)
-    btn_add = tk.Button(wrap, text="DODAJ\nMASY", bg=COLORS["button"], fg=COLORS["text"], relief="raised", font=("Segoe UI", 10, "bold"), command=lambda: set_mode("ADD"))
-    btn_rem = tk.Button(wrap, text="UJMIJ\nMASY", bg=COLORS["button"], fg=COLORS["text"], relief="raised", font=("Segoe UI", 10, "bold"), command=lambda: set_mode("REMOVE"))
-    btn_add.pack(side="left", fill="both", expand=True, padx=(0, 4), pady=2)
-    btn_rem.pack(side="left", fill="both", expand=True, padx=(4, 0), pady=2)
-    buttons["ADD"] = btn_add
-    buttons["REMOVE"] = btn_rem
-    paint_buttons()
-    return panel
 
 
 def _par_lamp_panel_final(self, parent):
@@ -1993,10 +1858,1331 @@ def _par_level_xyz_panel_final(self, parent):
     return panel
 
 
-# Finalne przypięcie tylko raz — bez historycznych warstw patchy.
-TarzanParPanels.axes = _par_axes_final
-TarzanParPanels.refresh_axis_cards = _par_refresh_axis_cards_final
-TarzanParPanels.on_state_change = _par_on_state_change_final
+
+# ---------------------------------------------------------------------
+# Spójna logika LED wg mapy sygnałów:
+# IN aktywny = klikalny w PAR; OUT = podgląd; F/RESERVED = fioletowy i zablokowany.
+# ---------------------------------------------------------------------
+def _par_signal_blocked(self, name: str) -> bool:
+    meta = self.bus.get_meta(name)
+    if not meta:
+        return False
+    try:
+        return bool(meta.is_forbidden) or meta.typ in {"F", "RESERVED"} or meta.kierunek in {"F", "RESERVED"}
+    except Exception:
+        return meta.typ in {"F", "RESERVED"} or meta.kierunek in {"F", "RESERVED"}
+
+
+def _par_signal_clickable_input(self, name: str) -> bool:
+    meta = self.bus.get_meta(name)
+    if not meta:
+        return False
+    return bool(getattr(meta, "is_input", False)) and not _par_signal_blocked(self, name)
+
+
+def _par_signal_row(self, parent, name: str, label: str, *, icon: str = "", led_size: int = 22, source: str = "PAR"):
+    blocked = _par_signal_blocked(self, name)
+    command = (lambda n=name: self.bus.toggle_input(n, source=source)) if _par_signal_clickable_input(self, name) else None
+    row = SignalRow(parent, label, self.bus.get(name), command=command, icon=icon, led_size=led_size, blocked=blocked)
+    row.pack(fill="x", pady=1)
+    self.rows[name] = row
+    return row
+
+
+def _par_sensors_led_logic_final(self, parent):
+    panel = self.panel("sensors", parent, "CZUJNIKI / ANALOG / I2C / 1-WIRE")
+    inner = self._scroll_body(panel)
+    names = self._group_or_search("CZUJNIKI", ["sensor", "czujnik", "pot", "analog", "i2c", "1-wire", "wire"])
+    for name in names:
+        meta = self.bus.get_meta(name)
+        if not meta:
+            continue
+        if getattr(meta, "is_analog", False) and not _par_signal_blocked(self, name):
+            self._analog_row(inner, name, self.sensor_label(name))
+        else:
+            _par_signal_row(self, inner, name, self.sensor_label(name), icon="◈", led_size=22, source="PAR_SENSOR")
+    if not names:
+        tk.Label(inner, text="Brak czujników — sprawdź ładowanie pełnej mapy I/O.", bg=COLORS["panel"], fg=COLORS["red"]).pack(anchor="w")
+    return panel
+
+
+def _par_functions_panel_led_logic_final(self, parent):
+    panel = self.panel("functions", parent, "FUNKCJE SPRZĘTOWE / REZERWY")
+    inner = self._scroll_body(panel)
+    names = []
+    for name in self.bus.names():
+        if _par_signal_blocked(self, name):
+            names.append(name)
+    for name in names:
+        meta = self.bus.get_meta(name)
+        label = f"{meta.plytka} {meta.pin or meta.kanal or '-'}  {name}" if meta else name
+        _par_signal_row(self, inner, name, label, icon="🔒", led_size=22, source="PAR_BLOCKED")
+    return panel
+
+
+
+
+def _par_poextbus_cnc_led_logic_final(self, parent):
+    panel = self.panel("poextbus_cnc", parent, "PoExtBus / CNC / PULSE ENGINE")
+    inner = self._scroll_body(panel)
+    names = []
+    for needle in ["poextbus", "cnc_", "pulse engine", "pulse_engine"]:
+        for name in self.bus.search(needle):
+            if name not in names:
+                names.append(name)
+    for name in names:
+        _par_signal_row(self, inner, name, self._hardware_label(name), icon="▤", led_size=22, source="PAR_POEXTBUS")
+    return panel
+
+
+
+
+
+# =====================================================================
+# TARZAN PAR — DOMKNIĘCIE CSV NA BAZIE DZIAŁAJĄCYCH PLIKÓW
+# Zakres: tylko PAR. Bez usuwania istniejących sekcji.
+# =====================================================================
+
+class _CsvProxy:
+    def __init__(self, fn):
+        self.fn = fn
+    def set(self, value):
+        try:
+            self.fn(value)
+        except Exception:
+            pass
+
+
+def _csv_led(parent, value=0, *, size=22, mode="normal", bg=None):
+    bg = bg or COLORS["panel"]
+    c = tk.Canvas(parent, width=size, height=size, bg=bg, highlightthickness=0, bd=0)
+    state = {"value": 1 if value else 0}
+
+    def draw(v=None):
+        if v is not None:
+            state["value"] = 1 if v else 0
+        c.delete("all")
+        if mode == "violet":
+            outer, inner, outline = "#3d145f", COLORS.get("violet", "#9b35ff"), "#c58cff"
+        elif mode == "gray":
+            outer = "#283038" if state["value"] else "#20262c"
+            inner = "#8b949b" if state["value"] else "#5b646b"
+            outline = "#c7d0d6"
+        elif mode == "neutral":
+            outer = "#20262c" if not state["value"] else "#5a1613"
+            inner = "#5b646b" if not state["value"] else COLORS["red"]
+            outline = "#c7d0d6" if not state["value"] else "#111"
+        else:
+            outer = "#134d16" if state["value"] else "#5a1613"
+            inner = COLORS["green"] if state["value"] else COLORS["red"]
+            outline = "#111"
+        c.create_oval(1, 1, size - 1, size - 1, fill=outer, outline="")
+        c.create_oval(4, 4, size - 4, size - 4, fill=inner, outline=outline, width=2)
+    draw()
+    c.csv_set = draw
+    return c
+
+
+
+
+def _tarzan_bridge_csv(self, parent):
+    panel = self.panel("bridge", parent, "MOSTEK PLAY ↔ REC")
+    inner = self._scroll_body(panel)
+    names = self.bus.by_group("MOSTEK_PLAY_REC")
+    for name in names:
+        label = self.bridge_label(name)
+        frame = tk.Frame(inner, bg=COLORS["panel"])
+        frame.pack(fill="x", pady=2)
+        tk.Label(frame, text=label, bg=COLORS["panel"], fg=COLORS["text"], width=20, anchor="w", font=("Segoe UI", 9)).pack(side="left")
+        led = _csv_led(frame, self.bus.get(name), mode="gray", bg=COLORS["panel"])
+        led.pack(side="left", padx=4)
+        tk.Label(frame, text="→", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 12, "bold")).pack(side="left", padx=4)
+        self.rows[name] = _CsvProxy(lambda v, l=led: l.csv_set(v))
+    return panel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# =====================================================================
+# TARZAN PAR — KOREKTY LISTY WSZYSTKICH SYGNAŁÓW / RRP / AUTO / CNC
+# =====================================================================
+
+# Korekty map osi wg uwag operatora.
+try:
+    AXIS_SIGNAL_BINDINGS["ARM_V"]["left"] = ["arm_v_limit_down", "play_p12_arm_v_limit_down"]
+    AXIS_SIGNAL_BINDINGS["ARM_V"]["right"] = ["arm_v_limit_up", "play_p04_arm_v_limit_up"]
+    AXIS_SIGNAL_BINDINGS["CAM_T"]["left"] = ["cam_tilt_limit", "play_p10_cam_tilt_limit"]
+    AXIS_SIGNAL_BINDINGS["CAM_T"]["right"] = []
+    AXIS_SIGNAL_BINDINGS["ARM_H"]["right"] = ["arm_h_limit_right", "play_p01_arm_h_auto_limit", "play_p02_arm_h_limit_right"]
+    AXIS_SIGNAL_BINDINGS["ARM_H"]["left"] = ["arm_h_limit_left", "play_p03_arm_h_limit_left"]
+except Exception:
+    pass
+
+_MANUAL_FORCE_SIGNALS = {
+    "play_p15_rrp_dir_h_res", "play_p38_step_dir_arm_h", "play_p39_step_dir_arm_v", "play_p40_step_dir_arm_tilt",
+    "play_p46_step_ctr_arm_h", "play_p48_step_ctr_arm_v", "play_p49_step_ctr_arm_tilt",
+    "play_p50_step_en_arm_h", "play_p51_step_en_arm_v", "play_p52_step_en_arm_tilt",
+    "play_p53_rrp_en_res", "rec_p12_rec_dir_arm_h", "rec_p13_rec_dir_arm_v", "rec_p15_rec_ctr_arm_h",
+    "rec_p16_rec_ctr_arm_v", "rec_p38_auto_enable", "par_lamp_auto_active", "par_mass_reg_enable",
+    "par_mass_reg_limit_add", "par_mass_reg_limit_remove", "par_shock_sensor_state",
+}
+
+_LINKED_SIGNAL_GROUPS = {
+    "play_p14_drone_release": ["play_p14_drone_release"],
+    "play_p16_action_led": ["play_p16_action_led", "par_lamp_auto_active"],
+    "par_lamp_auto_active": ["par_lamp_auto_active", "play_p16_action_led"],
+    "play_p13_mass_reg_limit_add": ["play_p13_mass_reg_limit_add", "par_mass_reg_limit_add"],
+    "par_mass_reg_limit_add": ["play_p13_mass_reg_limit_add", "par_mass_reg_limit_add"],
+    "play_p23_mass_reg_limit_remove": ["play_p23_mass_reg_limit_remove", "par_mass_reg_limit_remove"],
+    "par_mass_reg_limit_remove": ["play_p23_mass_reg_limit_remove", "par_mass_reg_limit_remove"],
+    "play_p41_mass_reg_enable": ["play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"],
+    "rec_p36_mass_reg_enable": ["play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"],
+    "par_mass_reg_enable": ["play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"],
+    "rec_p39_shock_sensor": ["rec_p39_shock_sensor", "par_shock_sensor_state"],
+    "par_shock_sensor_state": ["rec_p39_shock_sensor", "par_shock_sensor_state"],
+    "play_p37_step_disconnect_manual": ["play_p37_step_disconnect_manual"],
+    "rec_p38_auto_enable": ["rec_p38_auto_enable"],
+}
+
+_SIGNAL_LABEL_OVERRIDES = {
+    "play_p15_rrp_dir_h_res": "PLAY P15  play_p15_rrp_dir_h_res  REZERWA RRP DIR H",
+    "play_p42_res": "PLAY P42  play_p42_res  REZERWA",
+    "play_p43_res": "PLAY P43  play_p43_res  REZERWA",
+    "play_p44_res": "PLAY P44  play_p44_res  REZERWA",
+    "play_p53_rrp_en_res": "PLAY P53  play_p53_rrp_en_res  REZERWA RRP EN",
+    "play_p55_bridge_rec_enable": "PLAY P55  play_p55_bridge_rec_enable  MOSTEK / REZERWA",
+    "rec_p27_free_limit_res": "REC P27  rec_p27_free_limit_res  PIN WOLNY",
+    "rec_p35_free_keyboard_old": "REC P35  rec_p35_free_keyboard_old  PIN WOLNY",
+    "rec_p40_free_limit_res": "REC P40  rec_p40_free_limit_res  PIN WOLNY",
+    "rec_p41_free_aux_pot": "REC P41  rec_p41_free_aux_pot  REZERWA",
+    "rec_p42_free_keyboard_old": "REC P42  rec_p42_free_keyboard_old  REZERWA",
+    "rec_p43_free_keyboard_old": "REC P43  rec_p43_free_keyboard_old  REZERWA",
+    "rec_p44_free_keyboard_old": "REC P44  rec_p44_free_keyboard_old  REZERWA",
+    "rec_p55_free_cart_spare": "REC P55  rec_p55_free_cart_spare  REZERWA / ZAPAS",
+}
+
+_VIOLET_NAME_PARTS = (
+    "kb", "lcd_", "i2c_", "led_data", "led_latch", "led_clk", "poextbus", "res", "free"
+)
+_GRAY_NAME_PARTS = ("bridge_",)
+
+
+def _final_force_or_toggle(self, name: str, *, source: str = "PAR"):
+    current = 1 if self.bus.get(name) else 0
+    new_value = 0 if current else 1
+    meta = self.bus.get_meta(name)
+    try:
+        if name in _MANUAL_FORCE_SIGNALS:
+            self.bus.force_signal(name, new_value, source=source)
+        elif meta and getattr(meta, "is_input", False) and not getattr(meta, "is_forbidden", False):
+            self.bus.toggle_input(name, source=source)
+        elif meta and getattr(meta, "is_output", False):
+            self.bus.force_signal(name, new_value, source=source)
+        else:
+            self.bus.force_signal(name, new_value, source=source)
+    except Exception:
+        try:
+            self.bus.force_signal(name, new_value, source=source)
+        except Exception:
+            pass
+
+
+def _final_signal_style(self, name: str):
+    meta = self.bus.get_meta(name)
+    lower = (name or "").lower()
+    if name == "play_p15_rrp_dir_h_res":
+        return "neutral"
+    if any(part in lower for part in _GRAY_NAME_PARTS) or (meta and (meta.grupa or "").upper() == "MOSTEK_PLAY_REC"):
+        return "gray"
+    if any(part in lower for part in _VIOLET_NAME_PARTS) or (meta and (meta.is_forbidden or (meta.typ in {"F", "RESERVED"}) or (meta.kierunek in {"F", "RESERVED"}))):
+        return "violet"
+    return "normal"
+
+
+def _final_signal_clickable(self, name: str):
+    meta = self.bus.get_meta(name)
+    if name in _MANUAL_FORCE_SIGNALS:
+        return True
+    if not meta:
+        return True
+    if getattr(meta, "is_forbidden", False):
+        return False
+    return bool(getattr(meta, "is_input", False))
+
+
+def _final_signal_label(self, name: str):
+    if name in _SIGNAL_LABEL_OVERRIDES:
+        return _SIGNAL_LABEL_OVERRIDES[name]
+    meta = self.bus.get_meta(name)
+    board = meta.plytka if meta else ""
+    pin = meta.pin if (meta and meta.pin is not None) else (meta.kanal if meta and meta.kanal else "-")
+    opis = (meta.opis or "") if meta else ""
+    if opis:
+        return f"{board} {pin}  {name}  {opis}"
+    return f"{board} {pin}  {name}"
+
+
+def _csv_signal_row_final(self, parent, name: str, label: str, *, mode="normal", clickable=False, source="PAR"):
+    frame = tk.Frame(parent, bg=COLORS["panel"])
+    frame.pack(fill="x", pady=1)
+    fg = COLORS["muted"] if mode in {"violet", "gray"} else COLORS["text"]
+    text_label = tk.Label(frame, text=label, bg=COLORS["panel"], fg=fg, anchor="w", font=("Segoe UI", 9), justify="left", wraplength=520)
+    text_label.pack(side="left", fill="x", expand=True)
+    led = _csv_led(frame, self.bus.get(name), mode=mode, bg=COLORS["panel"])
+    led.pack(side="right", padx=(8, 4))
+    self.rows[name] = _CsvProxy(lambda v, l=led: l.csv_set(v))
+
+    if clickable:
+        def click(_e=None, n=name):
+            _final_force_or_toggle(self, n, source=source)
+        for widget in (frame, text_label, led):
+            widget.bind("<Button-1>", click)
+    return frame
+
+
+def _final_emit_pulse(self, names, *, source="PAR_PULSE", delay_ms=70):
+    for name in names:
+        try:
+            self.bus.force_signal(name, 1, source=source)
+            self.app.after(delay_ms, lambda n=name, s=source: self.bus.force_signal(n, 0, source=s))
+        except Exception:
+            pass
+
+
+def _set_many_signals(self, names, value, *, source="PAR_LINK"):
+    for name in names:
+        try:
+            self.bus.force_signal(name, value, source=source)
+        except Exception:
+            try:
+                self.bus.set_input(name, value, source=source)
+            except Exception:
+                pass
+
+
+def _pulse_many_signals(self, names, *, source="PAR_PULSE", delay_ms=70):
+    unique = []
+    seen = set()
+    for name in names:
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        unique.append(name)
+    if unique:
+        _final_emit_pulse(self, unique, source=source, delay_ms=delay_ms)
+
+
+def _final_linked_set(self, name: str, value):
+    linked = _LINKED_SIGNAL_GROUPS.get(name, [name])
+    for target in linked:
+        proxy = self.rows.get(target)
+        if proxy and target != name:
+            try:
+                proxy.set(value)
+            except Exception:
+                pass
+
+
+
+
+def _tarzan_automatyka_panel_v2(self, parent):
+    panel = self.panel("automatyka", parent, "AUTOMATYKA")
+    box = tk.Frame(panel.body, bg=COLORS["panel"])
+    box.pack(fill="both", expand=True)
+    c = tk.Canvas(box, width=78, height=78, bg=COLORS["panel"], highlightthickness=0)
+    c.pack(anchor="center", pady=6)
+    state = {"value": 1 if self.bus.get("play_p37_step_disconnect_manual") else 0}
+    def draw(v=None):
+        if v is not None:
+            state["value"] = 1 if v else 0
+        c.delete("all")
+        body = COLORS["red"] if state["value"] else "#66707a"
+        glow = "#5a1613" if state["value"] else "#2c343a"
+        c.create_oval(8, 8, 70, 70, fill=glow, outline="")
+        c.create_polygon(39,12, 26,39, 34,39, 29,65, 53,31, 42,31, 50,12, fill=body, outline="#111", width=1)
+    def toggle(_e=None):
+        _final_force_or_toggle(self, "play_p37_step_disconnect_manual", source="PAR_AUTO")
+    c.bind("<Button-1>", toggle)
+    draw()
+    self.rows["play_p37_step_disconnect_manual"] = _CsvProxy(draw)
+    return panel
+
+
+def _tarzan_auto_panel_v2(self, parent):
+    panel = self.panel("autostatus", parent, "AUTO")
+    wrap = tk.Frame(panel.body, bg=COLORS["panel"])
+    wrap.pack(fill="both", expand=True)
+    led = _csv_led(wrap, self.bus.get("rec_p38_auto_enable"), mode="normal", bg=COLORS["panel"], size=62)
+    led.pack(anchor="center", pady=10)
+    def click(_e=None):
+        _final_force_or_toggle(self, "rec_p38_auto_enable", source="PAR_AUTO_WINDOW")
+    for w in (wrap, led):
+        w.bind("<Button-1>", click)
+    self.rows["rec_p38_auto_enable"] = _CsvProxy(lambda v: led.csv_set(v))
+    return panel
+
+
+
+
+def _tarzan_ui_panel_v2(self, parent):
+    panel = self.panel("ui", parent, "UI PANEL PLAY / REC")
+    grid = tk.Frame(panel.body, bg=COLORS["panel"])
+    grid.pack(fill="x")
+    self._ui_button_widgets = {}
+    self._ui_led_widgets = {}
+    buttons = [
+        ("F1", "rec_p45_sw_f1", "rec_p46_led_f1"),
+        ("F2", "rec_p47_sw_f2", "rec_p48_led_f2"),
+        ("F3", "rec_p49_sw_f3", "rec_p50_led_f3"),
+        ("F4", "rec_p51_sw_f4", "rec_p52_led_f4"),
+    ]
+    for i, (label_text, sw, led_sig) in enumerate(buttons):
+        cell = tk.Frame(grid, bg="#0f171d", highlightbackground="#30424f", highlightthickness=1)
+        cell.grid(row=0, column=i, sticky="nsew", padx=5, pady=5)
+        led = Led(cell, size=28, bg="#0f171d")
+        led.pack(pady=(7, 4))
+        led.set(self.bus.get(led_sig))
+        btn = tk.Button(cell, text=label_text, bg="#243847", fg="#f2f7fb", activebackground="#31556e", activeforeground="#ffffff", relief="flat", font=("Segoe UI", 16, "bold"), height=2)
+        btn.pack(fill="x", padx=7, pady=(0, 3))
+        underline = tk.Frame(cell, bg=COLORS["green"], height=4)
+        underline.pack(fill="x", padx=7, pady=(0, 7))
+        btn.bind("<ButtonPress-1>", lambda _e, s=sw: _par_set_signal(self, s, 1, "PAR_UI_BUTTON"))
+        btn.bind("<ButtonRelease-1>", lambda _e, s=sw: _par_set_signal(self, s, 0, "PAR_UI_BUTTON"))
+        btn.bind("<Leave>", lambda _e, s=sw: _par_set_signal(self, s, 0, "PAR_UI_BUTTON"))
+        self._ui_button_widgets[sw] = btn
+        self._ui_led_widgets[led_sig] = led
+        self.rows[led_sig] = _ParValueProxy(lambda v, l=led: l.set(v))
+        self.rows[sw] = _ParValueProxy(lambda v, b=btn: b.configure(bg=COLORS["green"] if v else "#243847", fg="#061006" if v else "#f2f7fb"))
+        try:
+            self.rows[sw].set(self.bus.get(sw))
+        except Exception:
+            pass
+    for i in range(4):
+        grid.grid_columnconfigure(i, weight=1)
+    return panel
+
+
+def _tarzan_mass_regulator_panel_v2(self, parent):
+    panel = self.panel("mass_regulator", parent, "REGULATOR MASY")
+    wrap = tk.Frame(panel.body, bg=COLORS["panel"])
+    wrap.pack(fill="both", expand=True)
+
+    enable_box = tk.Frame(wrap, bg=COLORS["panel3"], highlightbackground=COLORS["border"], highlightthickness=1)
+    enable_box.pack(fill="x", pady=(0, 6))
+    enable_led = Led(enable_box, size=26, bg=COLORS["panel3"])
+    enable_led.pack(pady=6)
+
+    btn_row = tk.Frame(wrap, bg=COLORS["panel"])
+    btn_row.pack(fill="x")
+    add_btn = tk.Button(btn_row, text="DODAJ\nMASY", bg=COLORS["button"], fg=COLORS["text"], relief="raised", font=("Segoe UI", 10, "bold"))
+    rem_btn = tk.Button(btn_row, text="UJMIJ\nMASY", bg=COLORS["button"], fg=COLORS["text"], relief="raised", font=("Segoe UI", 10, "bold"))
+    add_btn.pack(side="left", fill="both", expand=True, padx=(0, 4), pady=2)
+    rem_btn.pack(side="left", fill="both", expand=True, padx=(4, 0), pady=2)
+
+    def set_mass_mode(mode: str):
+        current_add = 1 if self.bus.get("par_mass_reg_limit_add") else 0
+        current_rem = 1 if self.bus.get("par_mass_reg_limit_remove") else 0
+
+        if mode == "ADD":
+            new_add = 0 if current_add else 1
+            new_rem = 0
+        else:
+            new_rem = 0 if current_rem else 1
+            new_add = 0
+
+        new_en = 1 if (new_add or new_rem) else 0
+
+        for sig, val in [
+            ("play_p13_mass_reg_limit_add", new_add),
+            ("par_mass_reg_limit_add", new_add),
+            ("play_p23_mass_reg_limit_remove", new_rem),
+            ("par_mass_reg_limit_remove", new_rem),
+            ("play_p41_mass_reg_enable", new_en),
+            ("rec_p36_mass_reg_enable", new_en),
+            ("par_mass_reg_enable", new_en),
+        ]:
+            try:
+                self.bus.force_signal(sig, val, source="PAR_MASS_EXCLUSIVE")
+            except Exception:
+                try:
+                    self.bus.set_input(sig, val, source="PAR_MASS_EXCLUSIVE")
+                except Exception:
+                    pass
+
+    add_btn.configure(command=lambda: set_mass_mode("ADD"))
+    rem_btn.configure(command=lambda: set_mass_mode("REMOVE"))
+
+    def paint_enable(v=None):
+        value = self.bus.get("par_mass_reg_enable") if v is None else v
+        enable_box.configure(bg="#143d16" if value else COLORS["panel3"])
+        enable_led.configure(bg="#143d16" if value else COLORS["panel3"])
+        enable_led.set(value)
+
+    def paint_add(v=None):
+        value = self.bus.get("par_mass_reg_limit_add") if v is None else v
+        add_btn.configure(bg=COLORS["green"] if value else COLORS["button"], fg="#061006" if value else COLORS["text"])
+
+    def paint_rem(v=None):
+        value = self.bus.get("par_mass_reg_limit_remove") if v is None else v
+        rem_btn.configure(bg=COLORS["blue"] if value else COLORS["button"], fg="#ffffff")
+
+    self.rows["par_mass_reg_enable"] = _ParValueProxy(paint_enable)
+    self.rows["play_p41_mass_reg_enable"] = _ParValueProxy(paint_enable)
+    self.rows["rec_p36_mass_reg_enable"] = _ParValueProxy(paint_enable)
+    self.rows["par_mass_reg_limit_add"] = _ParValueProxy(paint_add)
+    self.rows["play_p13_mass_reg_limit_add"] = _ParValueProxy(paint_add)
+    self.rows["par_mass_reg_limit_remove"] = _ParValueProxy(paint_rem)
+    self.rows["play_p23_mass_reg_limit_remove"] = _ParValueProxy(paint_rem)
+    paint_enable(); paint_add(); paint_rem()
+    return panel
+
+
+def _tarzan_dron_panel_v2(self, parent):
+    panel = self.panel("dron", parent, "DRON")
+    row = tk.Frame(panel.body, bg=COLORS["panel"])
+    row.pack(fill="x", pady=6)
+    tk.Label(row, text="ZWOLNIENIE", bg=COLORS["panel"], fg=COLORS["text"], font=("Segoe UI", 13, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
+    led = Led(row, size=28, bg=COLORS["panel"])
+    led.pack(side="right", padx=6)
+    led.set(self.bus.get("play_p14_drone_release"))
+    btn = tk.Button(panel.body, text="ZWOLNIJ DRONA", bg="#7a251f", fg="#fff", relief="flat", font=("Segoe UI", 10, "bold"), command=lambda: _final_force_or_toggle(self, "play_p14_drone_release", source="PAR_DRON"))
+    btn.pack(fill="x", pady=(8, 2))
+    self.rows["play_p14_drone_release"] = _ParValueProxy(lambda v: led.set(v))
+    return panel
+
+
+def _tarzan_axes_final_v2(self, parent):
+    panel = _par_axes_final(self, parent)
+    try:
+        card = self.axis_cards.get("CAM_T")
+        if card:
+            left_parent = getattr(card.end_left, 'master', None)
+            right_parent = getattr(card.end_right, 'master', None)
+            if left_parent and not getattr(card, '_cam_t_label_fixed', False):
+                for child in left_parent.winfo_children():
+                    if isinstance(child, tk.Label):
+                        child.configure(text="STOP")
+                for child in right_parent.winfo_children():
+                    if isinstance(child, tk.Label):
+                        child.configure(text="")
+                card._cam_t_label_fixed = True
+    except Exception:
+        pass
+    return panel
+
+
+def _tarzan_refresh_axis_cards_final_v2(self):
+    _par_refresh_axis_cards_final(self)
+    try:
+        card = self.axis_cards.get("CAM_T")
+        if card:
+            value = 1 if (self.bus.get("cam_tilt_limit") or self.bus.get("play_p10_cam_tilt_limit")) else 0
+            card.set_end_left(value)
+            card.set_end_right(0)
+    except Exception:
+        pass
+
+
+def _tarzan_rrp_panel_v2(self, parent):
+    panel = self.panel("operator", parent, "STEROWANIE OPERATORA (RRP)")
+    root = tk.Frame(panel.body, bg=COLORS["panel"])
+    root.pack(fill="both", expand=True)
+    root.grid_columnconfigure(0, weight=1)
+    root.grid_columnconfigure(1, weight=1)
+
+    axis_map = {
+        "ARM_H": {"step": ["play_p46_step_ctr_arm_h", "rec_p15_rec_ctr_arm_h", "cnc_b_arm_h_ctr"], "dir": ["play_p38_step_dir_arm_h", "rec_p12_rec_dir_arm_h", "cnc_b_arm_h_dir"]},
+        "ARM_V": {"step": ["play_p48_step_ctr_arm_v", "rec_p16_rec_ctr_arm_v", "cnc_c_arm_v_ctr"], "dir": ["play_p39_step_dir_arm_v", "rec_p13_rec_dir_arm_v", "cnc_c_arm_v_dir"]},
+        "CAM_H": {"step": ["rec_p01_copy_ctr_cam_h", "cnc_x_cam_h_ctr", "TAKE_CAM_H_STEP"], "dir": ["rec_p03_copy_dir_cam_h", "cnc_x_cam_h_dir", "TAKE_CAM_H_DIR"]},
+        "CAM_V": {"step": ["rec_p02_copy_ctr_cam_v", "cnc_y_cam_v_ctr", "TAKE_CAM_V_STEP"], "dir": ["rec_p04_copy_dir_cam_v", "cnc_y_cam_v_dir", "TAKE_CAM_V_DIR"]},
+        "CAM_T": {"step": ["rec_p06_copy_ctr_tilt", "cnc_a_arm_tilt_ctr", "play_p49_step_ctr_arm_tilt", "TAKE_CAM_T_STEP"], "dir": ["rec_p08_copy_dir_tilt", "cnc_a_arm_tilt_dir", "play_p40_step_dir_arm_tilt", "TAKE_CAM_T_DIR"]},
+        "CAM_F": {"step": ["rec_p05_copy_ctr_focus", "cnc_z_focus_ctr", "TAKE_CAM_F_STEP"], "dir": ["rec_p07_copy_dir_focus", "cnc_z_focus_dir", "TAKE_CAM_F_DIR"]},
+    }
+
+    def axis_state(axis_key):
+        current = axis_map.get(axis_key, axis_map["ARM_H"])
+        dir_value = 0
+        for dir_name in current["dir"]:
+            try:
+                if self.bus.exists(dir_name):
+                    dir_value = 1 if self.bus.get(dir_name) else 0
+                    break
+            except Exception:
+                pass
+        return current, dir_value
+
+    def knob(cell, title, signal, default_axis):
+        box = tk.Frame(cell, bg=COLORS["panel3"], highlightbackground=COLORS["border"], highlightthickness=1)
+        box.pack(fill="both", expand=True, padx=4, pady=4)
+        tk.Label(box, text=title, bg=COLORS["panel3"], fg=COLORS["text"], font=("Segoe UI", 9, "bold")).pack(fill="x")
+
+        axis_var = tk.StringVar(value=default_axis)
+        tune_var = tk.DoubleVar(value=1.0)
+        state = {"value": float(self.bus.get(signal) or 0), "after_id": None}
+
+        position_frame = tk.Frame(box, bg=COLORS["panel3"])
+        position_frame.pack(fill="x", padx=6, pady=(6, 2))
+        position_value = tk.Label(position_frame, text="0", bg="#0f171d", fg=COLORS["green"], relief="flat", font=("Consolas", 18, "bold"), pady=4)
+        position_value.pack(fill="x", pady=(2, 0))
+
+        canvas_size = 122
+        canvas = tk.Canvas(box, width=canvas_size, height=canvas_size, bg=COLORS["panel3"], highlightthickness=0)
+        canvas.pack(pady=(2, 4))
+
+        buttons_row = tk.Frame(box, bg=COLORS["panel3"])
+        buttons_row.pack(fill="x", padx=6, pady=(0, 6))
+        dir_btn = tk.Button(buttons_row, text="DIR", bg=COLORS["button"], fg=COLORS["text"], relief="flat", font=("Segoe UI", 9, "bold"))
+        dir_btn.pack(side="left", fill="x", expand=True)
+
+        controls = tk.Frame(box, bg=COLORS["panel3"])
+        controls.pack(fill="x", padx=6, pady=(0, 4))
+
+        axis_wrap = tk.Frame(controls, bg=COLORS["green"], highlightthickness=0)
+        axis_wrap.pack(fill="x", pady=(0, 6))
+        axis_menu = tk.OptionMenu(axis_wrap, axis_var, default_axis, *axis_map.keys())
+        axis_menu.configure(bg=COLORS["green"], fg="#061006", activebackground="#43ff4e", activeforeground="#061006", relief="flat", highlightthickness=0, font=("Segoe UI", 10, "bold"), anchor="center")
+        axis_menu["menu"].configure(bg=COLORS["green"], fg="#061006", activebackground="#43ff4e", activeforeground="#061006", font=("Segoe UI", 10, "bold"))
+        axis_menu.pack(fill="x", padx=4, pady=4)
+
+        tune_scale = tk.Scale(controls, from_=0.2, to=3.0, resolution=0.1, orient="horizontal", variable=tune_var, bg=COLORS["panel3"], troughcolor="#0f7d18", fg=COLORS["text"], highlightthickness=0, bd=0, length=170, showvalue=False)
+        tune_scale.pack(fill="x")
+
+        def paint_dir(v=None):
+            _current, dir_value = axis_state(axis_var.get())
+            active = dir_value if v is None else (1 if v else 0)
+            dir_btn.configure(bg=COLORS["green"] if active else COLORS["button"], fg="#061006" if active else COLORS["text"])
+
+        def draw(v=None):
+            import math
+            if v is not None:
+                state["value"] = max(0.0, min(4095.0, float(v)))
+            canvas.delete("all")
+            cx = canvas_size // 2
+            cy = canvas_size // 2
+            r = 40
+            canvas.create_arc(cx-r, cy-r, cx+r, cy+r, start=225, extent=270, style="arc", outline="#5f6b72", width=8)
+            frac = state["value"] / 4095.0
+            angle_deg = 225 + 270 * frac
+            angle = math.radians(angle_deg)
+            x = cx + math.cos(angle) * (r - 5)
+            y = cy - math.sin(angle) * (r - 5)
+            canvas.create_oval(cx-26, cy-26, cx+26, cy+26, fill="#101820", outline=COLORS["border"], width=2)
+            canvas.create_line(cx, cy, x, y, fill=COLORS["red"], width=4, capstyle=tk.ROUND)
+            canvas.create_oval(cx-5, cy-5, cx+5, cy+5, fill="#dfe6e9", outline="#111")
+            position_value.configure(text=str(int(state["value"])))
+
+        def pulse_step(delay_ms):
+            current, _dir_value = axis_state(axis_var.get())
+            _pulse_many_signals(self, current["step"], source="PAR_RRP_STEP", delay_ms=delay_ms)
+
+        def stop_generator():
+            after_id = state.get("after_id")
+            if after_id is not None:
+                try:
+                    self.app.after_cancel(after_id)
+                except Exception:
+                    pass
+                state["after_id"] = None
+
+        def generator_tick():
+            stop_generator()
+            value = float(state["value"])
+            if value <= 0.0:
+                return
+            speed_factor = max(0.2, float(tune_var.get()))
+            intensity = value / 4095.0
+            delay_ms = max(18, int(260 / max(0.05, intensity * speed_factor)))
+            pulse_step(delay_ms)
+            state["after_id"] = self.app.after(delay_ms, generator_tick)
+
+        def restart_generator():
+            stop_generator()
+            if float(state["value"]) > 0.0:
+                generator_tick()
+
+        def toggle_dir():
+            current, dir_value = axis_state(axis_var.get())
+            new_value = 0 if dir_value else 1
+            _set_many_signals(self, current["dir"], new_value, source="PAR_RRP_DIR")
+            paint_dir(new_value)
+
+        def on_axis_change(*_args):
+            paint_dir()
+            draw()
+            restart_generator()
+
+        def on_tune_change(*_args):
+            restart_generator()
+
+        def apply_delta(delta_steps):
+            if not delta_steps:
+                return
+            step_size = 48
+            val = max(0, min(4095, int(state["value"] + (delta_steps * step_size))))
+            if val == int(state["value"]):
+                return
+            state["value"] = val
+            self.bus.force_signal(signal, val, source="PAR_RRP_POT")
+            draw()
+            restart_generator()
+
+        def on_wheel(event):
+            delta_steps = 0
+            if getattr(event, "delta", 0):
+                delta_steps = 1 if event.delta > 0 else -1
+            elif getattr(event, "num", None) == 4:
+                delta_steps = 1
+            elif getattr(event, "num", None) == 5:
+                delta_steps = -1
+            apply_delta(delta_steps)
+            return "break"
+
+        axis_var.trace_add("write", on_axis_change)
+        tune_var.trace_add("write", on_tune_change)
+        dir_btn.configure(command=toggle_dir)
+        canvas.bind("<MouseWheel>", on_wheel)
+        canvas.bind("<Button-4>", on_wheel)
+        canvas.bind("<Button-5>", on_wheel)
+        box.bind("<Destroy>", lambda _e: stop_generator(), add="+")
+        self.rows[signal] = _CsvProxy(lambda v: (draw(v), restart_generator()))
+        draw()
+        paint_dir()
+        restart_generator()
+        return box
+
+    left = tk.Frame(root, bg=COLORS["panel"])
+    left.grid(row=0, column=0, sticky="nsew")
+    right = tk.Frame(root, bg=COLORS["panel"])
+    right.grid(row=0, column=1, sticky="nsew")
+    knob(left, "POTENCJOMETR RRP X", "play_p45_rrp_pot_h", "ARM_H")
+    knob(right, "POTENCJOMETR RRP Y", "play_p47_rrp_pot_v", "ARM_V")
+    return panel
+
+def _tarzan_on_state_change_v2(self, name, state):
+    _par_on_state_change_final(self, name, state)
+    _final_linked_set(self, name, state.value)
+    try:
+        if name in {"play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"}:
+            for extra in ["play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"]:
+                if extra != name and self.bus.exists(extra):
+                    self.bus.force_signal(extra, state.value, source="PAR_LINK")
+        elif name in {"play_p13_mass_reg_limit_add", "par_mass_reg_limit_add"}:
+            for extra in ["play_p13_mass_reg_limit_add", "par_mass_reg_limit_add"]:
+                if extra != name and self.bus.exists(extra):
+                    self.bus.force_signal(extra, state.value, source="PAR_LINK")
+        elif name in {"play_p23_mass_reg_limit_remove", "par_mass_reg_limit_remove"}:
+            for extra in ["play_p23_mass_reg_limit_remove", "par_mass_reg_limit_remove"]:
+                if extra != name and self.bus.exists(extra):
+                    self.bus.force_signal(extra, state.value, source="PAR_LINK")
+        elif name in {"par_lamp_auto_active", "play_p16_action_led"}:
+            for extra in ["par_lamp_auto_active", "play_p16_action_led"]:
+                if extra != name and self.bus.exists(extra):
+                    self.bus.force_signal(extra, state.value, source="PAR_LINK")
+        elif name in {"par_shock_sensor_state", "rec_p39_shock_sensor"}:
+            for extra in ["par_shock_sensor_state", "rec_p39_shock_sensor"]:
+                if extra != name and self.bus.exists(extra):
+                    self.bus.force_signal(extra, state.value, source="PAR_LINK")
+    except Exception:
+        pass
+
+
+try:
+    _AXIS_TIMELINE_ROWS[:] = [
+        ("ARM_H", "STEP", ["TAKE_ARM_H_STEP", "play_p46_step_ctr_arm_h", "cnc_b_arm_h_ctr"], COLORS["green"]),
+        ("ARM_H", "DIR",  ["TAKE_ARM_H_DIR",  "play_p38_step_dir_arm_h", "cnc_b_arm_h_dir"], COLORS["blue"]),
+        ("ARM_V", "STEP", ["TAKE_ARM_V_STEP", "play_p48_step_ctr_arm_v", "cnc_c_arm_v_ctr"], COLORS["green"]),
+        ("ARM_V", "DIR",  ["TAKE_ARM_V_DIR",  "play_p39_step_dir_arm_v", "cnc_c_arm_v_dir"], COLORS["blue"]),
+        ("CAM_H", "STEP", ["TAKE_CAM_H_STEP", "cnc_x_cam_h_ctr", "rec_p01_copy_ctr_cam_h"], COLORS["green"]),
+        ("CAM_H", "DIR",  ["TAKE_CAM_H_DIR",  "cnc_x_cam_h_dir", "rec_p03_copy_dir_cam_h"], COLORS["blue"]),
+        ("CAM_V", "STEP", ["TAKE_CAM_V_STEP", "cnc_y_cam_v_ctr", "rec_p02_copy_ctr_cam_v"], COLORS["green"]),
+        ("CAM_V", "DIR",  ["TAKE_CAM_V_DIR",  "cnc_y_cam_v_dir", "rec_p04_copy_dir_cam_v"], COLORS["blue"]),
+        ("CAM_T", "STEP", ["TAKE_CAM_T_STEP", "cnc_a_arm_tilt_ctr", "rec_p06_copy_ctr_tilt"], COLORS["green"]),
+        ("CAM_T", "DIR",  ["TAKE_CAM_T_DIR",  "cnc_a_arm_tilt_dir", "rec_p08_copy_dir_tilt"], COLORS["blue"]),
+        ("CAM_F", "STEP", ["TAKE_CAM_F_STEP", "cnc_z_focus_ctr", "rec_p05_copy_ctr_focus"], COLORS["green"]),
+        ("CAM_F", "DIR",  ["TAKE_CAM_F_DIR",  "cnc_z_focus_dir", "rec_p07_copy_dir_focus"], COLORS["blue"]),
+    ]
+except Exception:
+    pass
+
+
+# =====================================================================
+# w liście zgodnie z uwagami operatora. LED zawsze po lewej stronie.
+# =====================================================================
+
+_ALL_SIGNALS_FORCE_CLICK = {
+    "play_p15_rrp_dir_h_res", "play_p38_step_dir_arm_h", "play_p39_step_dir_arm_v", "play_p40_step_dir_arm_tilt",
+    "play_p41_mass_reg_enable", "play_p42_res", "play_p43_res", "play_p44_res",
+    "play_p46_step_ctr_arm_h", "play_p48_step_ctr_arm_v", "play_p49_step_ctr_arm_tilt",
+    "play_p50_step_en_arm_h", "play_p51_step_en_arm_v", "play_p52_step_en_arm_tilt", "play_p53_rrp_en_res",
+    "rec_p12_rec_dir_arm_h", "rec_p13_rec_dir_arm_v", "rec_p15_rec_ctr_arm_h", "rec_p16_rec_ctr_arm_v",
+    "rec_p27_free_limit_res", "rec_p35_free_keyboard_old", "rec_p36_mass_reg_enable", "rec_p38_auto_enable",
+    "rec_p40_free_limit_res", "rec_p41_free_aux_pot", "rec_p42_free_keyboard_old", "rec_p43_free_keyboard_old", "rec_p44_free_keyboard_old",
+    "rec_p46_led_f1", "rec_p48_led_f2", "rec_p50_led_f3", "rec_p52_led_f4",
+    "rec_p53_copy_cam_v_limit_up",
+}
+
+_ALL_SIGNALS_PASSIVE = {
+    "play_p17_bridge_rec_dir_x", "play_p18_bridge_rec_dir_y", "play_p19_bridge_rec_dir_z",
+    "play_p20_bridge_rec_ctr_x", "play_p21_bridge_rec_ctr_y", "play_p22_bridge_rec_ctr_z",
+    "rec_p17_bridge_play_dir_x", "rec_p18_bridge_play_dir_y", "rec_p19_bridge_play_dir_z",
+    "rec_p20_bridge_play_ctr_x", "rec_p21_bridge_play_ctr_y", "rec_p22_bridge_play_ctr_z",
+    "rec_p37_bridge_play_rec_in", "rec_p54_bridge_play_rec_out", "play_p55_bridge_rec_enable",
+}
+
+
+def _all_signals_style_v3(self, name: str):
+    lower = (name or "").lower()
+    meta = self.bus.get_meta(name)
+    if name == "play_p15_rrp_dir_h_res":
+        return "neutral"
+    if name in _ALL_SIGNALS_PASSIVE or "bridge_" in lower:
+        return "gray"
+    if lower.startswith("cnc_"):
+        return "gray"
+    if any(k in lower for k in ("kb", "lcd_", "i2c_", "led_data", "led_latch", "led_clk", "poextbus")):
+        return "violet"
+    if any(k in lower for k in ("_res", "free_", "_free")):
+        return "violet"
+    if meta and (getattr(meta, "is_forbidden", False) or getattr(meta, "typ", "") in {"F", "RESERVED"} or getattr(meta, "kierunek", "") in {"F", "RESERVED"}):
+        return "violet"
+    return "normal"
+
+
+def _all_signals_clickable_v3(self, name: str):
+    if name in _ALL_SIGNALS_PASSIVE:
+        return False
+    if name in _ALL_SIGNALS_FORCE_CLICK:
+        return True
+    meta = self.bus.get_meta(name)
+    if meta is None:
+        return True
+    if getattr(meta, "is_input", False):
+        return True
+    if getattr(meta, "is_output", False):
+        return True
+    return True
+
+
+def _all_signals_label_v3(self, name: str):
+    if name in _SIGNAL_LABEL_OVERRIDES:
+        return _SIGNAL_LABEL_OVERRIDES[name]
+    meta = self.bus.get_meta(name)
+    board = meta.plytka if meta else ""
+    pin = meta.pin if (meta and meta.pin is not None) else (meta.kanal if meta and meta.kanal else "-")
+    opis = (meta.opis or "") if meta else ""
+    opis = " ".join(str(opis).split())
+    extra = ""
+    lower = name.lower()
+    if name in _ALL_SIGNALS_PASSIVE or "bridge_" in lower:
+        extra = "  [MOSTEK]"
+    elif any(k in lower for k in ("_res", "free_", "_free")):
+        extra = "  [REZERWA]"
+    elif lower.startswith("cnc_"):
+        extra = "  [CNC]"
+    if opis:
+        return f"{board} {pin}  {name}  {opis}{extra}"
+    return f"{board} {pin}  {name}{extra}"
+
+
+def _all_signals_toggle_v3(self, name: str, *, source: str = "PAR_ALL"):
+    current = 1 if self.bus.get(name) else 0
+    new_value = 0 if current else 1
+    try:
+        self.bus.force_signal(name, new_value, source=source)
+    except Exception:
+        try:
+            self.bus.set_input(name, new_value, source=source)
+        except Exception:
+            pass
+
+
+
+
+
+
+
+# =====================================================================
+# Zakres: tylko lista nadrzędna PAR, reszty nie ruszać.
+# =====================================================================
+
+_ALL_SIGNALS_PULSE = {
+    "play_p46_step_ctr_arm_h", "play_p48_step_ctr_arm_v", "play_p49_step_ctr_arm_tilt",
+    "rec_p15_rec_ctr_arm_h", "rec_p16_rec_ctr_arm_v",
+    "cnc_x_cam_h_ctr", "cnc_y_cam_v_ctr", "cnc_z_focus_ctr", "cnc_a_arm_tilt_ctr",
+    "cnc_b_arm_h_ctr", "cnc_c_arm_v_ctr", "cnc_d_cart_ctr",
+}
+
+_ALL_SIGNALS_LINK_V4 = {
+    "play_p13_mass_reg_limit_add": ["play_p13_mass_reg_limit_add", "par_mass_reg_limit_add"],
+    "par_mass_reg_limit_add": ["play_p13_mass_reg_limit_add", "par_mass_reg_limit_add"],
+    "play_p23_mass_reg_limit_remove": ["play_p23_mass_reg_limit_remove", "par_mass_reg_limit_remove"],
+    "par_mass_reg_limit_remove": ["play_p23_mass_reg_limit_remove", "par_mass_reg_limit_remove"],
+    "play_p41_mass_reg_enable": ["play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"],
+    "rec_p36_mass_reg_enable": ["play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"],
+    "par_mass_reg_enable": ["play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"],
+    "play_p16_action_led": ["play_p16_action_led", "par_lamp_auto_active"],
+    "par_lamp_auto_active": ["play_p16_action_led", "par_lamp_auto_active"],
+    "rec_p39_shock_sensor": ["rec_p39_shock_sensor", "par_shock_sensor_state"],
+    "par_shock_sensor_state": ["rec_p39_shock_sensor", "par_shock_sensor_state"],
+    "play_p14_drone_release": ["play_p14_drone_release"],
+    "rec_p38_auto_enable": ["rec_p38_auto_enable"],
+}
+
+
+def _all_signals_set_many_v4(self, names, value, *, source='PAR_ALL_LINK'):
+    for target in names:
+        try:
+            self.bus.force_signal(target, value, source=source)
+        except Exception:
+            try:
+                self.bus.set_input(target, value, source=source)
+            except Exception:
+                pass
+
+
+def _all_signals_toggle_v4(self, name: str, *, source: str = 'PAR_ALL'):
+    if name in _ALL_SIGNALS_PASSIVE:
+        return
+    current = 1 if self.bus.get(name) else 0
+    new_value = 0 if current else 1
+
+    if name in _ALL_SIGNALS_PULSE:
+        pulse_targets = [name]
+        if name == 'play_p46_step_ctr_arm_h':
+            pulse_targets.append('rec_p15_rec_ctr_arm_h')
+        elif name == 'play_p48_step_ctr_arm_v':
+            pulse_targets.append('rec_p16_rec_ctr_arm_v')
+        _final_emit_pulse(self, pulse_targets, source=source, delay_ms=70)
+        return
+
+    linked = _ALL_SIGNALS_LINK_V4.get(name)
+    if linked:
+        _all_signals_set_many_v4(self, linked, new_value, source=source)
+        return
+
+    if name == 'rec_p53_copy_cam_v_limit_up':
+        _all_signals_set_many_v4(self, ['rec_p53_copy_cam_v_limit_up', 'play_p07_cam_v_limit_up'], new_value, source=source)
+        return
+
+    try:
+        self.bus.force_signal(name, new_value, source=source)
+    except Exception:
+        try:
+            self.bus.set_input(name, new_value, source=source)
+        except Exception:
+            pass
+
+
+
+
+
+
+# =====================================================================
+# Zakres dokładnie wg uwagi operatora:
+# - sama nazwa sygnału (bez opisów / płytek / pinów),
+# - LED po lewej,
+# - działające przełączanie po kliknięciu,
+# - własny scroll + kółko myszy.
+# =====================================================================
+
+def _all_signals_scroll_body_v5(panel):
+    canvas = tk.Canvas(panel.body, bg=COLORS['panel'], highlightthickness=0, bd=0)
+    inner = tk.Frame(canvas, bg=COLORS['panel'])
+    window_id = canvas.create_window((0, 0), window=inner, anchor='nw')
+
+    def _on_inner_configure(_event=None):
+        try:
+            canvas.configure(scrollregion=canvas.bbox('all'))
+        except Exception:
+            pass
+
+    def _on_canvas_configure(event):
+        try:
+            canvas.itemconfigure(window_id, width=event.width)
+            canvas.configure(scrollregion=canvas.bbox('all'))
+        except Exception:
+            pass
+
+    def _on_mousewheel(event):
+        try:
+            if getattr(event, 'delta', 0):
+                delta = int(-1 * (event.delta / 120))
+                if delta:
+                    canvas.yview_scroll(delta, 'units')
+            elif getattr(event, 'num', None) == 4:
+                canvas.yview_scroll(-1, 'units')
+            elif getattr(event, 'num', None) == 5:
+                canvas.yview_scroll(1, 'units')
+        except Exception:
+            pass
+        return 'break'
+
+    def _bind_mousewheel_recursive(widget):
+        try:
+            widget.bind('<MouseWheel>', _on_mousewheel, add='+')
+            widget.bind('<Button-4>', _on_mousewheel, add='+')
+            widget.bind('<Button-5>', _on_mousewheel, add='+')
+        except Exception:
+            pass
+        try:
+            for child in widget.winfo_children():
+                _bind_mousewheel_recursive(child)
+        except Exception:
+            pass
+
+    inner.bind('<Configure>', lambda e: (_on_inner_configure(e), _bind_mousewheel_recursive(inner)), add='+')
+    canvas.bind('<Configure>', _on_canvas_configure)
+    panel.body.bind('<MouseWheel>', _on_mousewheel, add='+')
+    panel.body.bind('<Button-4>', _on_mousewheel, add='+')
+    panel.body.bind('<Button-5>', _on_mousewheel, add='+')
+    _bind_mousewheel_recursive(canvas)
+    _bind_mousewheel_recursive(inner)
+
+    canvas.pack(fill='both', expand=True)
+    return inner
+
+
+def _all_signals_label_v5(self, name: str):
+    return str(name)
+
+
+def _all_signals_toggle_v5(self, name: str, *, source: str = 'PAR_ALL'):
+    if name in _ALL_SIGNALS_PASSIVE:
+        return
+
+    current = 1 if self.bus.get(name) else 0
+    new_value = 0 if current else 1
+
+    if name in _ALL_SIGNALS_PULSE:
+        pulse_targets = [name]
+        if name == 'play_p46_step_ctr_arm_h':
+            pulse_targets.append('rec_p15_rec_ctr_arm_h')
+        elif name == 'play_p48_step_ctr_arm_v':
+            pulse_targets.append('rec_p16_rec_ctr_arm_v')
+        _final_emit_pulse(self, pulse_targets, source=source, delay_ms=180)
+        for target in pulse_targets:
+            if target in self.rows:
+                try:
+                    self.rows.set_value(target, 1)
+                except Exception:
+                    pass
+        return
+
+    linked = _ALL_SIGNALS_LINK_V4.get(name)
+    if linked:
+        _all_signals_set_many_v4(self, linked, new_value, source=source)
+        for target in linked:
+            if target in self.rows:
+                try:
+                    self.rows.set_value(target, new_value)
+                except Exception:
+                    pass
+        return
+
+    if name == 'rec_p53_copy_cam_v_limit_up':
+        linked = ['rec_p53_copy_cam_v_limit_up', 'play_p07_cam_v_limit_up']
+        _all_signals_set_many_v4(self, linked, new_value, source=source)
+        for target in linked:
+            if target in self.rows:
+                try:
+                    self.rows.set_value(target, new_value)
+                except Exception:
+                    pass
+        return
+
+    ok = False
+    try:
+        ok = bool(self.bus.force_signal(name, new_value, source=source))
+    except Exception:
+        ok = False
+    if not ok:
+        try:
+            ok = bool(self.bus.set_input(name, new_value, source=source))
+        except Exception:
+            ok = False
+    if not ok:
+        try:
+            self.bus.write_output(name, new_value, source=source)
+            ok = True
+        except Exception:
+            ok = False
+
+    if name in self.rows:
+        try:
+            self.rows.set_value(name, new_value)
+        except Exception:
+            pass
+
+
+def _csv_signal_row_final_v5(self, parent, name: str, label: str, *, mode='normal', clickable=False, source='PAR'):
+    frame = tk.Frame(parent, bg=COLORS['panel'])
+    frame.pack(fill='x', pady=1)
+    fg = COLORS['muted'] if mode in {'violet', 'gray'} else COLORS['text']
+
+    led = _csv_led(frame, self.bus.get(name), mode=mode, bg=COLORS['panel'])
+    led.pack(side='left', padx=(2, 8))
+
+    text_label = tk.Label(
+        frame,
+        text=label,
+        bg=COLORS['panel'],
+        fg=fg,
+        anchor='w',
+        font=('Segoe UI', 9),
+        justify='left',
+        wraplength=0,
+    )
+    text_label.pack(side='left', fill='x', expand=True)
+    self.rows[name] = _CsvProxy(lambda v, l=led: l.csv_set(v))
+
+    if clickable:
+        def click(_e=None, n=name):
+            _all_signals_toggle_v5(self, n, source=source)
+        for widget in (frame, text_label, led):
+            widget.bind('<Button-1>', click)
+            try:
+                widget.configure(cursor='hand2')
+            except Exception:
+                pass
+    return frame
+
+
+def _tarzan_all_signals_final_v5(self, parent):
+    panel = self.panel('all_signals', parent, 'WSZYSTKIE SYGNAŁY')
+    inner = _all_signals_scroll_body_v5(panel)
+    for name in self.bus.names():
+        _csv_signal_row_final_v5(
+            self,
+            inner,
+            name,
+            _all_signals_label_v5(self, name),
+            mode=_all_signals_style_v3(self, name),
+            clickable=_all_signals_clickable_v3(self, name),
+            source='PAR_ALL',
+        )
+    return panel
+
+
+
+# =====================================================================
+# TARZAN PAR — HOTFIX NA BAZIE OSTATNIEGO PLIKU UŻYTKOWNIKA
+# Zakres:
+# 1. CNC: tylko sama nazwa sygnału jak we Wszystkich sygnałach
+# 2. Krańcówki: bez dubla MASS MAX / MASS MIN
+# 3. SOK: przywrócony STEP + animacja koła
+# =====================================================================
+
+def _tarzan_cnc_signals_panel_v3(self, parent):
+    panel = self.panel("cnc_signals", parent, "CNC")
+    inner = self._scroll_body(panel)
+    names = [n for n in self.bus.names() if n.startswith("cnc_")]
+    for name in names:
+        _csv_signal_row_final(self, inner, name, str(name), mode="gray", clickable=False, source="PAR_CNC")
+    return panel
+
+
+def _par_limits_led_logic_final_v3(self, parent):
+    panel = self.panel("limits", parent, "KRAŃCÓWKI")
+    body = tk.Frame(panel.body, bg=COLORS["panel"])
+    body.pack(fill="both", expand=True)
+
+    raw_names = self._group_or_search("KRAŃCÓWKI", ["limit"])
+    names = []
+    seen_labels = set()
+
+    for name in raw_names:
+        label = self.limit_label(name)
+        blob = f"{name} {label}".upper()
+        if "PIN WOLNY" in blob or "WOLNY" in blob or "FREE" in blob:
+            continue
+        key = label.strip().upper()
+        if key in seen_labels:
+            continue
+        seen_labels.add(key)
+        names.append(name)
+
+    if not names:
+        tk.Label(body, text="Brak krańcówek w mapie sygnałów.", bg=COLORS["panel"], fg=COLORS["red"]).pack(anchor="w")
+        return panel
+
+    cols = 3
+    for col in range(cols):
+        body.grid_columnconfigure(col, weight=1, uniform="limit_col")
+
+    for i, name in enumerate(names):
+        r = i // cols
+        c = i % cols
+        cell = tk.Frame(body, bg=COLORS["panel"])
+        cell.grid(row=r, column=c, sticky="ew", padx=3, pady=1)
+        cell.grid_columnconfigure(1, weight=1)
+
+        blocked = _par_signal_blocked(self, name)
+        led = Led(cell, size=17, bg=COLORS["panel"], blocked=blocked)
+        led.grid(row=0, column=0, sticky="w", padx=(0, 4))
+        led.set(self.bus.get(name))
+        self.rows[name] = _ParValueProxy(lambda v, l=led: l.set(v))
+
+        label = tk.Label(
+            cell,
+            text=self.limit_label(name),
+            bg=COLORS["panel"],
+            fg=COLORS["muted"] if blocked else COLORS["text"],
+            anchor="w",
+            font=("Segoe UI", 8),
+        )
+        label.grid(row=0, column=1, sticky="ew")
+
+        if _par_signal_clickable_input(self, name):
+            def click(_event=None, n=name):
+                self.bus.toggle_input(n, source="PAR_LIMIT")
+            for widget in (cell, label, led):
+                widget.bind("<Button-1>", click)
+
+    return panel
+
+
+def _tarzan_sok_section_v3(self, parent, title, dir_sig, ctr_sig, extra_buttons=(), mode_options=()):
+    box = tk.Frame(parent, bg=COLORS['panel3'], highlightbackground=COLORS['border'], highlightthickness=1)
+    tk.Label(box, text=title, bg=COLORS['panel3'], fg=COLORS['text'], font=('Segoe UI', 9, 'bold')).pack(fill='x', pady=(2, 0))
+
+    state = {'angle': 0}
+    mode_var = tk.StringVar(value=mode_options[0] if mode_options else '')
+    mode_buttons = []
+
+    signal_map = {
+        'FOKUS': {'dir': ['rec_p07_copy_dir_focus', 'cnc_z_focus_dir', 'TAKE_CAM_F_DIR'], 'step': ['rec_p05_copy_ctr_focus', 'cnc_z_focus_ctr', 'TAKE_CAM_F_STEP']},
+        'POCHYŁ': {'dir': ['rec_p08_copy_dir_tilt', 'cnc_a_arm_tilt_dir', 'play_p40_step_dir_arm_tilt', 'TAKE_CAM_T_DIR'], 'step': ['rec_p06_copy_ctr_tilt', 'cnc_a_arm_tilt_ctr', 'play_p49_step_ctr_arm_tilt', 'TAKE_CAM_T_STEP']},
+        'POZIOM': {'dir': ['rec_p03_copy_dir_cam_h', 'cnc_x_cam_h_dir', 'TAKE_CAM_H_DIR'], 'step': ['rec_p01_copy_ctr_cam_h', 'cnc_x_cam_h_ctr', 'TAKE_CAM_H_STEP']},
+        'PION': {'dir': ['rec_p04_copy_dir_cam_v', 'cnc_y_cam_v_dir', 'TAKE_CAM_V_DIR'], 'step': ['rec_p02_copy_ctr_cam_v', 'cnc_y_cam_v_ctr', 'TAKE_CAM_V_STEP']},
+    }
+
+    def selected_signals():
+        if mode_options:
+            selected = mode_var.get()
+            if selected in signal_map:
+                return signal_map[selected]['dir'], signal_map[selected]['step']
+        return [dir_sig], [ctr_sig]
+
+    def paint_mode_buttons():
+        for opt, btn in mode_buttons:
+            active = mode_var.get() == opt
+            btn.configure(bg=COLORS['green'] if active else COLORS['button'], fg='#061006' if active else COLORS['text'])
+
+    if mode_options:
+        mode_row = tk.Frame(box, bg=COLORS['panel3'])
+        mode_row.pack(fill='x', padx=4, pady=(2, 0))
+        for opt in mode_options:
+            btn = tk.Button(
+                mode_row,
+                text=opt,
+                bg=COLORS['button'],
+                fg=COLORS['text'],
+                activebackground=COLORS['green'],
+                activeforeground='#061006',
+                relief='flat',
+                font=('Segoe UI', 8, 'bold'),
+                command=lambda o=opt: (mode_var.set(o), paint_mode_buttons()),
+            )
+            btn.pack(side='left', fill='x', expand=True, padx=2)
+            mode_buttons.append((opt, btn))
+
+    mid = tk.Frame(box, bg=COLORS['panel3'])
+    mid.pack(fill='both', expand=True)
+    c = tk.Canvas(mid, width=120, height=120, bg=COLORS['panel3'], highlightthickness=0)
+    c.pack(pady=(4, 2))
+
+    def draw():
+        import math
+        c.delete('all')
+        cx = 60
+        cy = 60
+        r = 40
+        c.create_oval(cx-r, cy-r, cx+r, cy+r, fill='#101820', outline='#8d99a3', width=2)
+        for i in range(24):
+            a = math.radians(i * 15 + state['angle'])
+            x1 = cx + math.cos(a) * (r - 2)
+            y1 = cy + math.sin(a) * (r - 2)
+            x2 = cx + math.cos(a) * (r - 10)
+            y2 = cy + math.sin(a) * (r - 10)
+            c.create_line(x1, y1, x2, y2, fill='#dfe6e9', width=2)
+        c.create_line(cx, 12, cx, 24, fill=COLORS['red'], width=4, capstyle=tk.ROUND)
+
+    def pulse_step(direction):
+        active_dir_sigs, active_ctr_sigs = selected_signals()
+        state['angle'] = (state['angle'] + (15 if direction else -15)) % 360
+        draw()
+        _set_many_signals(self, active_dir_sigs, 1 if direction else 0, source='PAR_SOK_DIR')
+        _pulse_many_signals(self, active_ctr_sigs, source='PAR_SOK_STEP', delay_ms=70)
+
+    btn_row = tk.Frame(box, bg=COLORS['panel3'])
+    btn_row.pack(fill='x', padx=6, pady=(0, 6))
+    left_btn = tk.Button(
+        btn_row,
+        text='LEWO',
+        bg=COLORS['button'],
+        fg=COLORS['text'],
+        activebackground=COLORS['green'],
+        activeforeground='#061006',
+        relief='flat',
+        font=('Segoe UI', 9, 'bold'),
+        command=lambda: pulse_step(0),
+    )
+    left_btn.pack(side='left', fill='x', expand=True, padx=(0, 3))
+    right_btn = tk.Button(
+        btn_row,
+        text='PRAWO',
+        bg=COLORS['button'],
+        fg=COLORS['text'],
+        activebackground=COLORS['green'],
+        activeforeground='#061006',
+        relief='flat',
+        font=('Segoe UI', 9, 'bold'),
+        command=lambda: pulse_step(1),
+    )
+    right_btn.pack(side='left', fill='x', expand=True, padx=(3, 0))
+
+    paint_mode_buttons()
+    draw()
+    return box
+
+
+def _tarzan_sok_panel_v3(self, parent):
+    panel = self.panel('sok', parent, 'SOK — STEROWNIK OBROTOWY KURKOWY')
+    grid = tk.Frame(panel.body, bg=COLORS['panel'])
+    grid.pack(fill='both', expand=True)
+    for r in range(2):
+        grid.grid_rowconfigure(r, weight=1)
+    for c in range(2):
+        grid.grid_columnconfigure(c, weight=1)
+
+    sections = [
+        ('SOKPan', 'rec_p17_bridge_play_dir_x', 'rec_p20_bridge_play_ctr_x', (), ()),
+        ('SOKTilt', 'rec_p18_bridge_play_dir_y', 'rec_p21_bridge_play_ctr_y', (), ()),
+        ('SOKFokus', 'rec_p07_copy_dir_focus', 'rec_p05_copy_ctr_focus', (), ('FOKUS', 'POCHYŁ')),
+        ('SOKCam', 'rec_p04_copy_dir_cam_v', 'rec_p02_copy_ctr_cam_v', (), ('POZIOM', 'PION')),
+    ]
+    for idx, (title, dir_sig, ctr_sig, extras, mode_options) in enumerate(sections):
+        box = _tarzan_sok_section_v3(self, grid, title, dir_sig, ctr_sig, extras, mode_options)
+        box.grid(row=idx // 2, column=idx % 2, sticky='nsew', padx=4, pady=4)
+    return panel
+
+# =====================================================================
+# TARZAN PAR — finalne przypięcie aktywnych wersji
+# =====================================================================
+TarzanParPanels.axes = _tarzan_axes_final_v2
+TarzanParPanels.refresh_axis_cards = _tarzan_refresh_axis_cards_final_v2
+TarzanParPanels.on_state_change = _tarzan_on_state_change_v2
 TarzanParPanels._schedule_timeline_redraw = _schedule_timeline_redraw
 TarzanParPanels.timeline = _par_timeline_final
 TarzanParPanels.draw_timeline = _par_draw_timeline_final
@@ -2013,8 +3199,22 @@ TarzanParPanels.lcd = _par_lcd_final
 TarzanParPanels.lcd_panel = _par_lcd_final
 TarzanParPanels.keyboard = _par_keyboard_final
 TarzanParPanels.keyboard_panel = _par_keyboard_final
-TarzanParPanels.limits = _par_limits_final
-TarzanParPanels.ui_panel = _par_ui_panel_final
-TarzanParPanels.mass_regulator_panel = _par_mass_regulator_panel_final
+TarzanParPanels.limits = _par_limits_led_logic_final_v3
+TarzanParPanels.sensors = _par_sensors_led_logic_final
+TarzanParPanels.functions_panel = _par_functions_panel_led_logic_final
+TarzanParPanels.functions = _par_functions_panel_led_logic_final
+TarzanParPanels.all_signals = _tarzan_all_signals_final_v5
+TarzanParPanels.poextbus_cnc = _par_poextbus_cnc_led_logic_final
+TarzanParPanels.ui = _tarzan_ui_panel_v2
+TarzanParPanels.ui_panel = _tarzan_ui_panel_v2
+TarzanParPanels.mass_regulator_panel = _tarzan_mass_regulator_panel_v2
 TarzanParPanels.lamp_panel = _par_lamp_panel_final
 TarzanParPanels.level_xyz_panel = _par_level_xyz_panel_final
+TarzanParPanels.bridge = _tarzan_bridge_csv
+TarzanParPanels.automatyka_panel = _tarzan_automatyka_panel_v2
+TarzanParPanels.cnc_signals_panel = _tarzan_cnc_signals_panel_v3
+TarzanParPanels.operator = _tarzan_rrp_panel_v2
+TarzanParPanels.sok_panel = _tarzan_sok_panel_v3
+TarzanParPanels.autostatus = _tarzan_auto_panel_v2
+TarzanParPanels.dron = _tarzan_dron_panel_v2
+TarzanParPanels.dron_panel = _tarzan_dron_panel_v2

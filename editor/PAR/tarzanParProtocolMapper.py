@@ -50,13 +50,13 @@ class TarzanParProtocolMapper:
             ),
             AxisProtocolMap(
                 prefix="CAM_T", axis_key="cam_t", label="oś pochyłu kamery",
-                step_signals=self._pick("cnc_a_arm_tilt_ctr", "rec_p08_copy_ctr_cam_tilt"),
-                dir_signals=self._pick("cnc_a_arm_tilt_dir", "rec_p08_copy_dir_cam_tilt"),
+                step_signals=self._pick("cnc_a_arm_tilt_ctr", "rec_p06_copy_ctr_tilt"),
+                dir_signals=self._pick("cnc_a_arm_tilt_dir", "rec_p08_copy_dir_tilt"),
             ),
             AxisProtocolMap(
                 prefix="CAM_F", axis_key="cam_f", label="oś ostrości kamery",
-                step_signals=self._pick("cnc_z_cam_f_ctr", "rec_p07_copy_ctr_cam_f"),
-                dir_signals=self._pick("cnc_z_cam_f_dir", "rec_p07_copy_dir_cam_f"),
+                step_signals=self._pick("cnc_z_focus_ctr", "rec_p05_copy_ctr_focus"),
+                dir_signals=self._pick("cnc_z_focus_dir", "rec_p07_copy_dir_focus"),
             ),
             AxisProtocolMap(
                 prefix="ARM_H", axis_key="arm_h", label="oś pozioma ramienia",

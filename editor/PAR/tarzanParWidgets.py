@@ -17,6 +17,7 @@ COLORS = {
     "red": "#ff2b22",
     "amber": "#f0a622",
     "blue": "#2688f0",
+    "violet": "#9b35ff",
     "button": "#202b33",
 }
 
@@ -33,10 +34,15 @@ def apply_dark_style(root: tk.Tk) -> None:
 
 
 class Led(tk.Canvas):
-    def __init__(self, parent, size: int = 24, bg: str = COLORS["panel"], **kwargs):
+    def __init__(self, parent, size: int = 24, bg: str = COLORS["panel"], blocked: bool = False, **kwargs):
         super().__init__(parent, width=size, height=size, bg=bg, highlightthickness=0, bd=0, **kwargs)
         self.size = size
         self.state = 0
+        self.blocked = bool(blocked)
+        self.draw()
+
+    def set_blocked(self, blocked: bool = True):
+        self.blocked = bool(blocked)
         self.draw()
 
     def set(self, value):
@@ -45,12 +51,16 @@ class Led(tk.Canvas):
 
     def draw(self):
         self.delete("all")
-        color = COLORS["green"] if self.state else COLORS["red"]
-        glow = "#134d16" if self.state else "#5a1613"
+        if self.blocked:
+            color = COLORS.get("violet", "#9b35ff")
+            glow = "#3d145f"
+            outline = "#c58cff"
+        else:
+            color = COLORS["green"] if self.state else COLORS["red"]
+            glow = "#134d16" if self.state else "#5a1613"
+            outline = "#111"
         self.create_oval(1, 1, self.size - 1, self.size - 1, fill=glow, outline="")
-        self.create_oval(4, 4, self.size - 4, self.size - 4, fill=color, outline="#111")
-        self.create_oval(7, 5, max(8, self.size // 2), max(8, self.size // 2), fill="#ffffff", outline="", stipple="gray50")
-
+        self.create_oval(4, 4, self.size - 4, self.size - 4, fill=color, outline=outline, width=2 if self.blocked else 1)
 
 class Panel(tk.Frame):
     def __init__(self, parent, title: str, on_hide: Optional[Callable[[], None]] = None):
@@ -67,9 +77,10 @@ class Panel(tk.Frame):
 
 
 class SignalRow(tk.Frame):
-    def __init__(self, parent, label: str, value=0, command: Optional[Callable[[], None]] = None, icon: str = "●", led_size: int = 22):
+    def __init__(self, parent, label: str, value=0, command: Optional[Callable[[], None]] = None, icon: str = "●", led_size: int = 22, blocked: bool = False):
         super().__init__(parent, bg=COLORS["panel"])
-        self.command = command
+        self.blocked = bool(blocked)
+        self.command = None if self.blocked else command
 
         if icon:
             tk.Label(
@@ -86,13 +97,14 @@ class SignalRow(tk.Frame):
             self,
             text=label,
             bg=COLORS["panel"],
-            fg=COLORS["text"],
+            fg=COLORS["muted"] if self.blocked else COLORS["text"],
             anchor="w",
             font=("Segoe UI", 10),
         ).pack(side="left", fill="x", expand=True)
 
         # Stały, prawostronny wskaźnik dla list: Krańcówki / Czujniki / Wszystkie sygnały.
-        self.led = Led(self, size=led_size, bg=COLORS["panel"])
+        # F/RESERVED są zablokowane i fioletowe, zgodnie z mapą sygnałów.
+        self.led = Led(self, size=led_size, bg=COLORS["panel"], blocked=self.blocked)
         self.led.pack(side="right", padx=(8, 4))
         self.led.set(value)
 
@@ -106,6 +118,11 @@ class SignalRow(tk.Frame):
 
     def set(self, value):
         self.led.set(value)
+
+    def set_blocked(self, blocked: bool = True):
+        self.blocked = bool(blocked)
+        self.command = None if self.blocked else self.command
+        self.led.set_blocked(blocked)
 
 
 

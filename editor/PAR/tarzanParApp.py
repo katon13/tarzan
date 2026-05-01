@@ -64,6 +64,9 @@ DEFAULT_VISIBLE = {
     "level_xyz": True,
     "temperature": True,
     "laser": True,
+    "sok": True,
+    "cnc_signals": True,
+    "automatyka": True,
 
 }
 
@@ -95,6 +98,9 @@ DEFAULT_PANEL_ZONES = {
     "level_xyz": "middle_top",
     "temperature": "middle_top",
     "laser": "middle_top",
+    "sok": "middle_top",
+    "cnc_signals": "middle_bottom",
+    "automatyka": "middle_top",
 
 }
 
@@ -126,6 +132,9 @@ DEFAULT_PANEL_LAYOUT = {
     "level_xyz": {"zone": "middle_top", "order": 90, "colspan": 3, "rowspan": 2},
     "temperature": {"zone": "middle_top", "order": 100, "colspan": 2, "rowspan": 2},
     "laser": {"zone": "middle_top", "order": 110, "colspan": 2, "rowspan": 2},
+    "automatyka": {"zone": "middle_top", "order": 55, "colspan": 2, "rowspan": 2},
+    "sok": {"zone": "middle_top", "order": 120, "colspan": 3, "rowspan": 6},
+    "cnc_signals": {"zone": "middle_bottom", "order": 5, "colspan": 4, "rowspan": 3},
 
 }
 
@@ -486,6 +495,7 @@ class TarzanParApp(tk.Tk):
             ("lamp", "  ▣  Lampka pracy ramienia"), ("mass_regulator", "  ⚖  Regulator masy"), ("shock_sensor_panel", "  ◈  Wstrząs"),
             ("operator", "  ⌁  Sterowanie Operatora"), ("ui", "  ▣  UI (Panel)"),
             ("light_bh1750", "  ☀  BH1750"), ("level_xyz", "  ⊕  Poziom XYZ"), ("temperature", "  ℃  Temperatura"), ("laser", "  ⌁  Laser"),
+            ("automatyka", "  ⚡  AUTOMATYKA"), ("sok", "  ◉  SOK"), ("cnc_signals", "  ▥  CNC"),
             ("bridge", "  ↔  Mostek PLAY ↔ REC"),
             ("dron", "  🛩  DRON"), ("lcd", "  ▤  LCD 1602"), ("matrix_led", "  ▦  Matrix LED 8x8"),
             ("keyboard", "  ⌨  Klawiatura"), ("poextbus_cnc", "  ▥  PoExtBus / CNC"), ("functions", "  🔒  Funkcje / Rezerwy"),
@@ -570,35 +580,38 @@ class TarzanParApp(tk.Tk):
 
         builders = {
             "axes": p.axes,
-            "take": getattr(p, "take_control", None),
-            "info": getattr(p, "info_panel", None),
-            "log": getattr(p, "log_panel", None),
+            "take": p.take,
+            "info": p.info_panel,
+            "log": p.log_panel,
             "limits": p.limits,
             "sensors": p.sensors,
             "operator": p.operator,
-            "ui": getattr(p, "ui_panel", getattr(p, "ui", None)),
+            "ui": p.ui,
             "bridge": p.bridge,
-            "poextbus": getattr(p, "poextbus", getattr(p, "poextbus_panel", None)),
-            "poextbus_cnc": getattr(p, "poextbus_cnc", None),
-            "functions": getattr(p, "functions", getattr(p, "functions_panel", None)),
+            "poextbus": p.poextbus,
+            "poextbus_cnc": p.poextbus_cnc,
+            "functions": p.functions,
             "timeline": p.timeline,
-            "dron": getattr(p, "dron", getattr(p, "dron_panel", None)),
-            "lcd": getattr(p, "lcd", getattr(p, "lcd_panel", None)),
-            "matrix": getattr(p, "matrix", getattr(p, "matrix_panel", None)),
-            "matrix_led": getattr(p, "matrix_led_panel", None),
-            "keyboard": getattr(p, "keyboard", getattr(p, "keyboard_panel", None)),
+            "dron": p.dron,
+            "lcd": p.lcd,
+            "matrix": p.matrix,
+            "matrix_led": p.matrix,
+            "keyboard": p.keyboard,
             "camera": p.camera,
             "autostatus": p.autostatus,
             "system": p.system,
             "settings": p.settings,
             "all_signals": p.all_signals,
-            "lamp": getattr(p, "lamp_panel", None),
-            "mass_regulator": getattr(p, "mass_regulator_panel", None),
-            "shock_sensor_panel": getattr(p, "shock_sensor_panel", None),
-            "light_bh1750": getattr(p, "light_bh1750_panel", None),
-            "level_xyz": getattr(p, "level_xyz_panel", None),
-            "temperature": getattr(p, "temperature_panel", None),
-            "laser": getattr(p, "laser_panel", None),
+            "lamp": p.lamp_panel,
+            "mass_regulator": p.mass_regulator_panel,
+            "shock_sensor_panel": p.shock_sensor_panel,
+            "light_bh1750": p.light_bh1750_panel,
+            "level_xyz": p.level_xyz_panel,
+            "temperature": p.temperature_panel,
+            "laser": p.laser_panel,
+            "automatyka": p.automatyka_panel,
+            "sok": p.sok_panel,
+            "cnc_signals": p.cnc_signals_panel,
         }
 
         cursor_by_zone = {z: {"row": 0, "col": 0, "row_height": 1} for z in zones}
@@ -788,6 +801,9 @@ class TarzanParApp(tk.Tk):
             "level_xyz": "Czujnik poziomu XYZ",
             "temperature": "Czujnik temperatury",
             "laser": "Czujnik laserowy",
+            "automatyka": "AUTOMATYKA",
+            "sok": "SOK — Sterownik Obrotowy Kurkowy",
+            "cnc_signals": "Sygnały CNC",
         }
 
         zone_colors = {

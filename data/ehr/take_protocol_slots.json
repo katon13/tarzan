@@ -19,7 +19,7 @@
       "path": "data/take/TAKE_001_v17.txt"
     },
     {
-      "path": "data/take/TAKE_001_v09.txt"
+      "path": "data/take/TAKE_001_v42.txt"
     },
     {
       "path": "data/take/TAKE_002_v16.txt"
@@ -31,7 +31,7 @@
       "path": null
     }
   ],
-  "active_slot": 3,
+  "active_slot": 6,
   "axis_activity": {
     "oś pozioma kamery": true,
     "oś pionowa kamery": true,

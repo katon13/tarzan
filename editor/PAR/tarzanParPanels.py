@@ -13,6 +13,11 @@ except ModuleNotFoundError:
     from tarzanParWidgets import COLORS, AxisCard, Led, Panel, SignalRow
 
 try:
+    from editor.PAR.tarzanNextionPreview import TarzanNextionPreviewPanel
+except ModuleNotFoundError:
+    from tarzanNextionPreview import TarzanNextionPreviewPanel
+
+try:
     from core.tarzanProfiler import profile_method, profile_block
 except Exception:
     def profile_method(name=None):
@@ -829,7 +834,7 @@ class TarzanParPanels:
     def temperature_panel(self, p): return self._par_canvas_sensor_slider_panel(p, key="temp", title="TEMPERATURA (\u00b0C)", signal="par_temperature_c", unit="\u00b0C", start=-20, end=50, decimals=1)
     def light_bh1750_panel(self, p): return self._par_canvas_sensor_slider_panel(p, key="light", title="ŚWIATŁO (BH1750)", signal="par_bh1750_lux", unit="lx", start=0, end=120000)
     def shock_sensor_panel(self, p): return self._par_click_sensor_panel(p, key="shock", title="SHOK", signal="par_shock_sensor_state", on_text="WSTRZĄS WYKRYTY", off_text="BRAK WSTRZĄSÓW")
-    def laser_panel(self, p): return self._par_click_sensor_panel(p, key="laser", title="LASER DALMIERZ", signal="par_laser_set", on_text="LASER ON", off_text="LASER OFF")
+    def laser_panel(self, p): return self._par_click_sensor_panel(p, key="laser", title="LASER", signal="par_laser_set", on_text="LASER ON", off_text="LASER OFF")
 
     def automatyka_panel(self, parent):
         panel = self.panel("automatyka", parent, "AUTOMATYKA")
@@ -1463,7 +1468,7 @@ class TarzanParPanels:
         center = tk.Frame(top, bg=COLORS["panel"])
         center.pack(anchor="center", pady=2)
 
-        tk.Button(center, text="LOAD", bg="#d7dde2", fg="#101820", font=("Segoe UI", 12, "bold"), width=8,
+        tk.Button(center, text="LOAD", bg="#d7dde2", fg="#101820", font=("Segoe UI", 11, "bold"), width=8,
                   height=1, command=self.app.load_take_dialog).pack(side="left", padx=5, pady=3)
         for txt, cmd, bg, fg in [
             ("PLAY", self.app.play_take, COLORS["green"], "#061006"),
@@ -1477,12 +1482,24 @@ class TarzanParPanels:
             pan.body,
             text="TAKE: brak",
             bg=COLORS["panel"],
-            fg=COLORS["text"],
-            font=("Segoe UI", 14, "bold"),
+            fg=COLORS["green"],
+            font=("Segoe UI", 14),
         )
         self.app.take_label.pack(fill="x", pady=8)
 
         return pan
+
+    def nextion_5_preview(self, p):
+        panel = self.panel("nextion_5_preview", p, "NEXTION 5 — PODGLĄD")
+        preview = TarzanNextionPreviewPanel(panel.body, self.app.bridge.nextion, "nextion_5", "NEXTION 5 — KOMUNIKATY")
+        preview.pack(fill="both", expand=True)
+        return panel
+
+    def nextion_7_preview(self, p):
+        panel = self.panel("nextion_7_preview", p, "NEXTION 7 — PODGLĄD")
+        preview = TarzanNextionPreviewPanel(panel.body, self.app.bridge.nextion, "nextion_7", "NEXTION 7 — USTAWIENIA")
+        preview.pack(fill="both", expand=True)
+        return panel
 
     def camera(self, p):
         panel = self.panel("camera", p, "KAMERA I KHR")

@@ -1,0 +1,620 @@
+{
+  "screen": {
+    "name": "nextion_5",
+    "width": 480,
+    "height": 272
+  },
+  "pages": [
+    {
+      "id": "boot",
+      "title": "BOOT",
+      "components": [
+        {
+          "id": "title",
+          "label": "TARZAN",
+          "type": "title",
+          "font_size": 20,
+          "color": "#24e22d",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t0",
+            "property": "txt"
+          },
+          "bind": "system.mode"
+        },
+        {
+          "id": "subtitle",
+          "label": "Rozruch panelu 5\"",
+          "type": "text",
+          "font_size": 12,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t1",
+            "property": "txt"
+          },
+          "bind": "system.loaded_take"
+        },
+        {
+          "id": "status",
+          "label": "Aktywne sygnały",
+          "type": "value",
+          "font_size": 18,
+          "color": "#f0a622",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "n0",
+            "property": "val"
+          },
+          "bind": "system.active_outputs"
+        },
+        {
+          "id": "ready",
+          "label": "Mass regulator",
+          "type": "led",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "p0",
+            "property": "val"
+          },
+          "bind": "io.mass_reg_enable"
+        }
+      ]
+    },
+    {
+      "id": "home",
+      "title": "HOME",
+      "components": [
+        {
+          "id": "mode",
+          "label": "Tryb",
+          "type": "title",
+          "font_size": 18,
+          "color": "#24e22d",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t0",
+            "property": "txt"
+          },
+          "bind": "system.mode"
+        },
+        {
+          "id": "take",
+          "label": "TAKE",
+          "type": "text",
+          "font_size": 12,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t1",
+            "property": "txt"
+          },
+          "bind": "system.loaded_take"
+        },
+        {
+          "id": "time",
+          "label": "Czas próbkowania",
+          "type": "value",
+          "font_size": 18,
+          "color": "#61c9ff",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "n0",
+            "property": "val"
+          },
+          "bind": "system.take_time_ms"
+        },
+        {
+          "id": "shock",
+          "label": "WSTRZĄS",
+          "type": "led",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "p0",
+            "property": "val"
+          },
+          "bind": "io.shock_sensor"
+        }
+      ]
+    },
+    {
+      "id": "alarm",
+      "title": "ALARM",
+      "components": [
+        {
+          "id": "alarm_title",
+          "label": "Integralność mechaniczna",
+          "type": "title",
+          "font_size": 18,
+          "color": "#ff2b22",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t0",
+            "property": "txt"
+          },
+          "bind": "system.mode"
+        },
+        {
+          "id": "shock",
+          "label": "Czujnik wstrząsu",
+          "type": "led",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "p0",
+            "property": "val"
+          },
+          "bind": "io.shock_sensor"
+        },
+        {
+          "id": "mass",
+          "label": "Regulator masy",
+          "type": "led",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "p1",
+            "property": "val"
+          },
+          "bind": "io.mass_reg_enable"
+        },
+        {
+          "id": "auto",
+          "label": "AUTO ENABLE",
+          "type": "led",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "p2",
+            "property": "val"
+          },
+          "bind": "io.rec_auto_enable"
+        }
+      ]
+    },
+    {
+      "id": "quick_actions",
+      "title": "QUICK ACTIONS",
+      "components": [
+        {
+          "id": "f1",
+          "label": "START / READY",
+          "type": "button",
+          "font_size": 16,
+          "color": "#24e22d",
+          "text": "START / READY",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "b0",
+            "property": "txt"
+          }
+        },
+        {
+          "id": "f2",
+          "label": "STOP / HOLD",
+          "type": "button",
+          "font_size": 16,
+          "color": "#ff2b22",
+          "text": "STOP / HOLD",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "b1",
+            "property": "txt"
+          }
+        },
+        {
+          "id": "f3",
+          "label": "RESET ALARM",
+          "type": "button",
+          "font_size": 16,
+          "color": "#f0a622",
+          "text": "RESET ALARM",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "b2",
+            "property": "txt"
+          }
+        },
+        {
+          "id": "f4",
+          "label": "HOME ALL",
+          "type": "button",
+          "font_size": 16,
+          "color": "#61c9ff",
+          "text": "HOME ALL",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "b3",
+            "property": "txt"
+          }
+        }
+      ]
+    },
+    {
+      "id": "status_axes",
+      "title": "STATUS OSI",
+      "components": [
+        {
+          "id": "arm_h",
+          "label": "ARM_H ENABLE",
+          "type": "led",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "p0",
+            "property": "val"
+          },
+          "bind": "io.arm_h_enable"
+        },
+        {
+          "id": "arm_v",
+          "label": "ARM_V ENABLE",
+          "type": "led",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "p1",
+            "property": "val"
+          },
+          "bind": "io.arm_v_enable"
+        },
+        {
+          "id": "play_led",
+          "label": "Lampka pracy",
+          "type": "led",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "p2",
+            "property": "val"
+          },
+          "bind": "io.play_action_led"
+        },
+        {
+          "id": "sig",
+          "label": "Sygnały",
+          "type": "value",
+          "font_size": 18,
+          "color": "#24e22d",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "n0",
+            "property": "val"
+          },
+          "bind": "system.signal_count"
+        }
+      ]
+    },
+    {
+      "id": "mass_reg",
+      "title": "REGULATOR MASY",
+      "components": [
+        {
+          "id": "mass1",
+          "label": "ENABLE",
+          "type": "led",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "p0",
+            "property": "val"
+          },
+          "bind": "io.mass_reg_enable"
+        },
+        {
+          "id": "mass2",
+          "label": "AUTO",
+          "type": "led",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "p1",
+            "property": "val"
+          },
+          "bind": "io.rec_auto_enable"
+        },
+        {
+          "id": "txt",
+          "label": "Stan regulatora",
+          "type": "text",
+          "font_size": 12,
+          "color": "#eef4f7",
+          "text": "Panel 5\" pokazuje gotowość i alarmy regulatora.",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t0",
+            "property": "txt"
+          }
+        },
+        {
+          "id": "take",
+          "label": "TAKE",
+          "type": "text",
+          "font_size": 12,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t1",
+            "property": "txt"
+          },
+          "bind": "system.loaded_take"
+        }
+      ]
+    },
+    {
+      "id": "confirm",
+      "title": "CONFIRM",
+      "components": [
+        {
+          "id": "txt1",
+          "label": "Potwierdzenie operatora",
+          "type": "text",
+          "font_size": 16,
+          "color": "#eef4f7",
+          "text": "Czy kontynuować procedurę?",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t0",
+            "property": "txt"
+          }
+        },
+        {
+          "id": "yes",
+          "label": "TAK",
+          "type": "button",
+          "font_size": 18,
+          "color": "#24e22d",
+          "text": "TAK",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "b0",
+            "property": "txt"
+          }
+        },
+        {
+          "id": "no",
+          "label": "NIE",
+          "type": "button",
+          "font_size": 18,
+          "color": "#ff2b22",
+          "text": "NIE",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "b1",
+            "property": "txt"
+          }
+        },
+        {
+          "id": "mode",
+          "label": "TRYB",
+          "type": "text",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t1",
+            "property": "txt"
+          },
+          "bind": "system.mode"
+        }
+      ]
+    },
+    {
+      "id": "errors",
+      "title": "ERRORS",
+      "components": [
+        {
+          "id": "err1",
+          "label": "Last error",
+          "type": "text",
+          "font_size": 12,
+          "color": "#ff2b22",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t0",
+            "property": "txt"
+          },
+          "bind": "nextion_5.last_error"
+        },
+        {
+          "id": "port",
+          "label": "Port",
+          "type": "text",
+          "font_size": 12,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t1",
+            "property": "txt"
+          },
+          "bind": "nextion_5.port"
+        },
+        {
+          "id": "con",
+          "label": "Connected",
+          "type": "led",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "p0",
+            "property": "val"
+          },
+          "bind": "nextion_5.connected"
+        },
+        {
+          "id": "mode",
+          "label": "Tracking mode",
+          "type": "text",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t2",
+            "property": "txt"
+          },
+          "bind": "vision.tracking_mode"
+        }
+      ]
+    },
+    {
+      "id": "camera_short",
+      "title": "KAMERA",
+      "components": [
+        {
+          "id": "src",
+          "label": "Źródło",
+          "type": "text",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t0",
+            "property": "txt"
+          },
+          "bind": "vision.source"
+        },
+        {
+          "id": "track",
+          "label": "Tracking",
+          "type": "text",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t1",
+            "property": "txt"
+          },
+          "bind": "vision.tracking_mode"
+        },
+        {
+          "id": "target",
+          "label": "Cel",
+          "type": "text",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t2",
+            "property": "txt"
+          },
+          "bind": "vision.active_target"
+        },
+        {
+          "id": "fps",
+          "label": "FPS",
+          "type": "value",
+          "font_size": 18,
+          "color": "#24e22d",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "n0",
+            "property": "val"
+          },
+          "bind": "vision.camera_fps"
+        }
+      ]
+    },
+    {
+      "id": "shutdown",
+      "title": "SHUTDOWN",
+      "components": [
+        {
+          "id": "txt1",
+          "label": "Bezpieczne zamknięcie",
+          "type": "text",
+          "font_size": 16,
+          "color": "#eef4f7",
+          "text": "Wyłącz automatykę i pozostaw ramię w stanie bezpiecznym.",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t0",
+            "property": "txt"
+          }
+        },
+        {
+          "id": "txt2",
+          "label": "Tryb",
+          "type": "text",
+          "font_size": 14,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t1",
+            "property": "txt"
+          },
+          "bind": "system.mode"
+        },
+        {
+          "id": "txt3",
+          "label": "TAKE",
+          "type": "text",
+          "font_size": 12,
+          "color": "#eef4f7",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "t2",
+            "property": "txt"
+          },
+          "bind": "system.loaded_take"
+        },
+        {
+          "id": "txt4",
+          "label": "Aktywne wyjścia",
+          "type": "value",
+          "font_size": 18,
+          "color": "#f0a622",
+          "text": "",
+          "bg_color": "#0d1318",
+          "nextion": {
+            "component": "n0",
+            "property": "val"
+          },
+          "bind": "system.active_outputs"
+        }
+      ]
+    }
+  ]
+}

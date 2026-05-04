@@ -2,7 +2,7 @@
   "panels": {
     "axes": true,
     "take": true,
-    "info": true,
+    "info": false,
     "log": true,
     "limits": true,
     "sensors": false,
@@ -31,6 +31,8 @@
     "sok": true,
     "cnc_signals": true,
     "automatyka": true,
+    "nextion_5_preview": true,
+    "nextion_7_preview": true,
     "matrix_led": false,
     "poextbus_cnc": false
   },
@@ -38,13 +40,15 @@
     "operator": "bottom",
     "timeline": "bottom",
     "log": "bottom",
-    "dron": "left",
+    "take": "left",
     "sensors": "left",
     "info": "left",
-    "all_signals": "left",
+    "dron": "left",
     "ui": "middle_bottom",
+    "all_signals": "left",
     "functions": "middle_bottom",
     "lcd": "middle_bottom",
+    "settings": "left",
     "matrix": "middle_bottom",
     "keyboard": "middle_bottom",
     "limits": "middle_bottom",
@@ -57,15 +61,15 @@
     "level_xyz": "middle_top",
     "shock_sensor_panel": "middle_top",
     "laser": "middle_top",
-    "poextbus": "right",
     "sok": "right",
-    "take": "right",
+    "poextbus": "right",
     "camera": "right",
-    "settings": "right",
-    "cnc_signals": "right",
     "system": "right",
+    "nextion_7_preview": "right",
+    "nextion_5_preview": "right",
     "axes": "top",
-    "bridge": "top"
+    "bridge": "top",
+    "cnc_signals": "top"
   },
   "panel_layout": {
     "operator": {
@@ -86,7 +90,7 @@
       "colspan": 6,
       "rowspan": 5
     },
-    "dron": {
+    "take": {
       "zone": "left",
       "order": 10,
       "colspan": 4,
@@ -104,11 +108,11 @@
       "colspan": 4,
       "rowspan": 2
     },
-    "all_signals": {
+    "dron": {
       "zone": "left",
       "order": 40,
       "colspan": 4,
-      "rowspan": 12
+      "rowspan": 2
     },
     "ui": {
       "zone": "middle_bottom",
@@ -116,16 +120,28 @@
       "colspan": 3,
       "rowspan": 3
     },
+    "all_signals": {
+      "zone": "left",
+      "order": 50,
+      "colspan": 4,
+      "rowspan": 9
+    },
     "functions": {
       "zone": "middle_bottom",
       "order": 20,
       "colspan": 4,
-      "rowspan": 1
+      "rowspan": 3
     },
     "lcd": {
       "zone": "middle_bottom",
       "order": 30,
       "colspan": 3,
+      "rowspan": 3
+    },
+    "settings": {
+      "zone": "left",
+      "order": 60,
+      "colspan": 4,
       "rowspan": 3
     },
     "matrix": {
@@ -200,58 +216,58 @@
       "colspan": 1,
       "rowspan": 2
     },
-    "poextbus": {
+    "sok": {
       "zone": "right",
       "order": 10,
       "colspan": 4,
-      "rowspan": 3
+      "rowspan": 5
     },
-    "sok": {
+    "poextbus": {
       "zone": "right",
       "order": 20,
-      "colspan": 4,
-      "rowspan": 6
-    },
-    "take": {
-      "zone": "right",
-      "order": 30,
       "colspan": 4,
       "rowspan": 3
     },
     "camera": {
       "zone": "right",
-      "order": 40,
+      "order": 30,
       "colspan": 4,
       "rowspan": 4
     },
-    "settings": {
+    "system": {
+      "zone": "right",
+      "order": 40,
+      "colspan": 4,
+      "rowspan": 2
+    },
+    "nextion_7_preview": {
       "zone": "right",
       "order": 50,
       "colspan": 4,
-      "rowspan": 1
+      "rowspan": 6
     },
-    "cnc_signals": {
+    "nextion_5_preview": {
       "zone": "right",
       "order": 60,
       "colspan": 4,
-      "rowspan": 6
-    },
-    "system": {
-      "zone": "right",
-      "order": 70,
-      "colspan": 4,
-      "rowspan": 2
+      "rowspan": 5
     },
     "axes": {
       "zone": "top",
       "order": 10,
-      "colspan": 16,
+      "colspan": 14,
       "rowspan": 6
     },
     "bridge": {
       "zone": "top",
       "order": 20,
       "colspan": 3,
+      "rowspan": 6
+    },
+    "cnc_signals": {
+      "zone": "top",
+      "order": 30,
+      "colspan": 2,
       "rowspan": 6
     }
   },

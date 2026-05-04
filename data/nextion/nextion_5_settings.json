@@ -1,0 +1,17 @@
+{
+  "device_name": "Nextion NX8048P050",
+  "startup_page": "boot",
+  "screen_role": "komunikaty_i_szybkie_akcje",
+  "pages_order": [
+    "boot",
+    "home",
+    "alarm",
+    "quick_actions",
+    "status_axes",
+    "mass_reg",
+    "confirm",
+    "errors",
+    "camera_short",
+    "shutdown"
+  ]
+}

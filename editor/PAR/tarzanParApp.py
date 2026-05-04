@@ -8,9 +8,12 @@ from tkinter import filedialog, messagebox, ttk
 
 from core.tarzanSignalBus import get_signal_bus
 try:
-    from editor.PAR.tarzanParBridge import TarzanParBridge
+    from core.tarzanParBridge import TarzanParBridge
 except ModuleNotFoundError:
-    from tarzanParBridge import TarzanParBridge
+    try:
+        from editor.PAR.tarzanParBridge import TarzanParBridge
+    except ModuleNotFoundError:
+        from tarzanParBridge import TarzanParBridge
 try:
     from editor.PAR.tarzanParPanels import TarzanParPanels
 except ModuleNotFoundError:
@@ -67,6 +70,8 @@ DEFAULT_VISIBLE = {
     "sok": True,
     "cnc_signals": True,
     "automatyka": True,
+    "nextion_5_preview": True,
+    "nextion_7_preview": True,
 
 }
 
@@ -101,6 +106,8 @@ DEFAULT_PANEL_ZONES = {
     "sok": "middle_top",
     "cnc_signals": "middle_bottom",
     "automatyka": "middle_top",
+    "nextion_5_preview": "right",
+    "nextion_7_preview": "right",
 
 }
 
@@ -135,6 +142,8 @@ DEFAULT_PANEL_LAYOUT = {
     "automatyka": {"zone": "middle_top", "order": 55, "colspan": 2, "rowspan": 2},
     "sok": {"zone": "middle_top", "order": 120, "colspan": 3, "rowspan": 6},
     "cnc_signals": {"zone": "middle_bottom", "order": 5, "colspan": 4, "rowspan": 3},
+    "nextion_5_preview": {"zone": "right", "order": 120, "colspan": 4, "rowspan": 3},
+    "nextion_7_preview": {"zone": "right", "order": 130, "colspan": 4, "rowspan": 4},
 
 }
 
@@ -210,6 +219,11 @@ class TarzanParApp(tk.Tk):
 
         self.build()
         self.refresh()
+        try:
+            self.bridge.nextion_connect()
+            self.bridge.nextion_sync(force=True)
+        except Exception:
+            pass
         self.after(500, self.tick)
 
     def load_layout(self):
@@ -501,6 +515,7 @@ class TarzanParApp(tk.Tk):
             ("keyboard", "  ⌨  Klawiatura"), ("poextbus_cnc", "  ▥  PoExtBus / CNC"), ("functions", "  🔒  Funkcje / Rezerwy"),
             ("camera", "  📷  Kamera i KHR"), ("autostatus", "  ⚙  AUTOSTATUS"), ("system", "  ⚙  System i Status"),
             ("take", "  🎬  TAKE Player"), ("info", "  ℹ  Panel informacyjny"), ("log", "  📜  Logi"), ("all_signals", "  ✣  Wszystkie Sygnały"),
+            ("nextion_5_preview", "  🖥  Nextion 5 podgląd"), ("nextion_7_preview", "  🖥  Nextion 7 podgląd"),
         ]
         for key, label in items:
             tk.Button(self.left, text=label, anchor="w", bg="#101820", fg=COLORS["text"], relief="flat", font=("Segoe UI", 10), command=lambda k=key: self.toggle_panel(k)).pack(fill="x", ipady=8, pady=1)
@@ -612,6 +627,8 @@ class TarzanParApp(tk.Tk):
             "automatyka": p.automatyka_panel,
             "sok": p.sok_panel,
             "cnc_signals": p.cnc_signals_panel,
+            "nextion_5_preview": p.nextion_5_preview,
+            "nextion_7_preview": p.nextion_7_preview,
         }
 
         cursor_by_zone = {z: {"row": 0, "col": 0, "row_height": 1} for z in zones}
@@ -802,6 +819,8 @@ class TarzanParApp(tk.Tk):
             "temperature": "Czujnik temperatury",
             "laser": "Czujnik laserowy",
             "automatyka": "AUTOMATYKA",
+            "nextion_5_preview": "Nextion 5 podgląd",
+            "nextion_7_preview": "Nextion 7 podgląd",
             "sok": "SOK — Sterownik Obrotowy Kurkowy",
             "cnc_signals": "Sygnały CNC",
         }
@@ -1882,4 +1901,10 @@ class TarzanParApp(tk.Tk):
         self.panels.refresh_axis_cards()
         # Timeline aktualizuje się zbiorczo po zmianach sygnałów.
         self.update_take_label()
+        try:
+            self.bridge.nextion_sync()
+            for line in self.bridge.nextion_poll():
+                self.bus.log("NEXTION", line)
+        except Exception as exc:
+            self.bus.log("NEXTION", f"poll error: {exc}")
         self.after(500, self.tick)

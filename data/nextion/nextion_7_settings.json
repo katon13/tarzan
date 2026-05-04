@@ -1,0 +1,22 @@
+{
+  "device_name": "Nextion NX8048P070",
+  "startup_page": "boot",
+  "screen_role": "ustawienia_strategiczne_par_khr_tracking",
+  "pages_order": [
+    "boot",
+    "home",
+    "par",
+    "vision",
+    "tracking",
+    "tracking_profile",
+    "face_recognition",
+    "axes",
+    "safety",
+    "take",
+    "io_play",
+    "io_rec",
+    "io_cnc",
+    "service",
+    "about"
+  ]
+}

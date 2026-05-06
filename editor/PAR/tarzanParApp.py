@@ -224,6 +224,7 @@ class TarzanParApp(tk.Tk):
             self.bridge.nextion_sync(force=True)
         except Exception:
             pass
+        self.after(100, self.nextion_tick)
         self.after(500, self.tick)
 
     def load_layout(self):
@@ -515,7 +516,6 @@ class TarzanParApp(tk.Tk):
             ("keyboard", "  ⌨  Klawiatura"), ("poextbus_cnc", "  ▥  PoExtBus / CNC"), ("functions", "  🔒  Funkcje / Rezerwy"),
             ("camera", "  📷  Kamera i KHR"), ("autostatus", "  ⚙  AUTOSTATUS"), ("system", "  ⚙  System i Status"),
             ("take", "  🎬  TAKE Player"), ("info", "  ℹ  Panel informacyjny"), ("log", "  📜  Logi"), ("all_signals", "  ✣  Wszystkie Sygnały"),
-            ("nextion_5_preview", "  🖥  Nextion 5 podgląd"), ("nextion_7_preview", "  🖥  Nextion 7 podgląd"),
         ]
         for key, label in items:
             tk.Button(self.left, text=label, anchor="w", bg="#101820", fg=COLORS["text"], relief="flat", font=("Segoe UI", 10), command=lambda k=key: self.toggle_panel(k)).pack(fill="x", ipady=8, pady=1)
@@ -819,8 +819,6 @@ class TarzanParApp(tk.Tk):
             "temperature": "Czujnik temperatury",
             "laser": "Czujnik laserowy",
             "automatyka": "AUTOMATYKA",
-            "nextion_5_preview": "Nextion 5 podgląd",
-            "nextion_7_preview": "Nextion 7 podgląd",
             "sok": "SOK — Sterownik Obrotowy Kurkowy",
             "cnc_signals": "Sygnały CNC",
         }
@@ -1885,6 +1883,16 @@ class TarzanParApp(tk.Tk):
     def stop_take(self):
         self.bridge.stop_take()
 
+    def nextion_tick(self):
+        try:
+            self.bridge.nextion_poll()
+            self.bridge.nextion_sync(force=False)
+            if hasattr(self.panels, "nextion_refresh_previews"):
+                self.panels.nextion_refresh_previews()
+        except Exception:
+            pass
+        self.after(100, self.nextion_tick)
+
     def update_take_label(self):
         if not self.take_label:
             return
@@ -1901,10 +1909,4 @@ class TarzanParApp(tk.Tk):
         self.panels.refresh_axis_cards()
         # Timeline aktualizuje się zbiorczo po zmianach sygnałów.
         self.update_take_label()
-        try:
-            self.bridge.nextion_sync()
-            for line in self.bridge.nextion_poll():
-                self.bus.log("NEXTION", line)
-        except Exception as exc:
-            self.bus.log("NEXTION", f"poll error: {exc}")
         self.after(500, self.tick)

@@ -7,10 +7,10 @@
   },
   "nextion_7": {
     "port": "COM7",
-    "baudrate": 115200,
-    "enabled": false,
+    "baudrate": 9600,
+    "enabled": true,
     "description": "Nextion NX8048P070 — ustawienia strategiczne PAR / KHR / tracking"
   },
   "poll_interval_ms": 100,
-  "sync_interval_ms": 300
+  "sync_interval_ms": 100
 }

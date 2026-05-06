@@ -6,28 +6,14 @@
   <component name="ChangeListManager">
     <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/par/tarzan_par_layout.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/par/tarzan_par_layout.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanParBridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanParBridge.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/nextion/nextion_ports.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/nextion/nextion_ports.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParProtocolMapper.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParProtocolMapper.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParWidgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParWidgets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/TarzanTakeProtocolLight.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanAxisSandbox.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrApp.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrMainTakeSettings.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrMainTakeSettingsDialog.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrMultiAxisModel.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrTakeModel.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrUi.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanTakeTxtCore.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/TarzanEhrTakeSandbox.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/TarzanTakeProtocolLight.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/tarzanAxisSandbox.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/tarzanEHR.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/tarzanEhrMultiAxisModel.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanSterownikSOK.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanSterownikSOK.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/device.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/device.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tarzan.zip" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -84,7 +70,7 @@
     &quot;Python.tarzanAxisSandbox (1).executor&quot;: &quot;Run&quot;,
     &quot;Python.tarzanAxisSandbox.executor&quot;: &quot;Run&quot;,
     &quot;Python.tarzanCameraTracker.executor&quot;: &quot;Run&quot;,
-    &quot;Python.tarzanEHR.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanEHR.executor&quot;: &quot;Debug&quot;,
     &quot;Python.tarzanEdytorChoreografiiRuchu.executor&quot;: &quot;Run&quot;,
     &quot;Python.tarzanEdytorChoreografiiRuchuNowy.executor&quot;: &quot;Run&quot;,
     &quot;Python.tarzanEdytorChoreografiiRuchu_v2.executor&quot;: &quot;Run&quot;,
@@ -92,6 +78,7 @@
     &quot;Python.tarzanKHR.executor&quot;: &quot;Run&quot;,
     &quot;Python.tarzanKHRTest.executor&quot;: &quot;Run&quot;,
     &quot;Python.tarzanKrzyweRuchu.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanNextionSandbox.executor&quot;: &quot;Run&quot;,
     &quot;Python.tarzanPAR.executor&quot;: &quot;Run&quot;,
     &quot;Python.tarzanParPanels.executor&quot;: &quot;Run&quot;,
     &quot;Python.tarzanProfiler.executor&quot;: &quot;Run&quot;,
@@ -168,6 +155,28 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="tarzanNextionSandbox" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="tarzan" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardware/tarzanNextion" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/hardware/tarzanNextion/tarzanNextionSandbox.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="tarzanPAR" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
@@ -212,35 +221,13 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="tarzanTest" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="tarzan" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/tarzanTest.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <recent_temporary>
       <list>
         <item itemvalue="Python.tarzanPAR" />
-        <item itemvalue="Python.tarzanKHR" />
+        <item itemvalue="Python.tarzanNextionSandbox" />
         <item itemvalue="Python.tarzanParPanels" />
+        <item itemvalue="Python.tarzanKHR" />
         <item itemvalue="Python.tarzanEHR" />
-        <item itemvalue="Python.tarzanTest" />
       </list>
     </recent_temporary>
   </component>

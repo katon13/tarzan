@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 try:
-    from hardware.tarzanNextion import TarzanNextionBridge
+    from hardware.tarzanNextion.bridge import TarzanNextionBridge
 except Exception:
     TarzanNextionBridge = None
 

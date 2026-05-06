@@ -246,6 +246,7 @@ class TarzanParPanels:
         self.timeline_canvas: Optional[tk.Canvas] = None
         self._timeline_icon_cache = {}
         self._timeline_after_id = None
+        self.nextion_preview_widgets = {}
 
     def panel(self, key: str, parent, title: str) -> Panel:
         return Panel(parent, title=title, on_hide=lambda: self.app.hide_panel(key))
@@ -1074,6 +1075,7 @@ class TarzanParPanels:
 
     def _do_draw_timeline(self):
         self._timeline_after_id = None
+        self.nextion_preview_widgets = {}
         self.draw_timeline()
 
     def _axis_icon_path(self, axis_key: str):
@@ -1489,18 +1491,6 @@ class TarzanParPanels:
 
         return pan
 
-    def nextion_5_preview(self, p):
-        panel = self.panel("nextion_5_preview", p, "NEXTION 5 — PODGLĄD")
-        preview = TarzanNextionPreviewPanel(panel.body, self.app.bridge.nextion, "nextion_5", "NEXTION 5 — KOMUNIKATY")
-        preview.pack(fill="both", expand=True)
-        return panel
-
-    def nextion_7_preview(self, p):
-        panel = self.panel("nextion_7_preview", p, "NEXTION 7 — PODGLĄD")
-        preview = TarzanNextionPreviewPanel(panel.body, self.app.bridge.nextion, "nextion_7", "NEXTION 7 — USTAWIENIA")
-        preview.pack(fill="both", expand=True)
-        return panel
-
     def camera(self, p):
         panel = self.panel("camera", p, "KAMERA I KHR")
         b = tk.Frame(panel.body, bg=COLORS["panel"], padx=8, pady=8); b.pack(fill="x")
@@ -1560,3 +1550,26 @@ class TarzanParPanels:
     def functions_panel(self, p): return self.functions(p)
     def take_control(self, p): return self.take(p)
     def dron_panel(self, p): return self.dron(p)
+
+    def nextion_5_preview(self, parent):
+        panel = self.panel("nextion_5_preview", parent, "NEXTION 5")
+        bridge = self.app.bridge.nextion if hasattr(self.app.bridge, "nextion") and self.app.bridge.nextion is not None else self.app.bridge
+        widget = TarzanNextionPreviewPanel(panel.body, bridge, "nextion_5", "NEXTION 5 — PODGLĄD")
+        widget.pack(fill="both", expand=True)
+        self.nextion_preview_widgets["nextion_5"] = widget
+        return panel
+
+    def nextion_7_preview(self, parent):
+        panel = self.panel("nextion_7_preview", parent, "NEXTION 7")
+        bridge = self.app.bridge.nextion if hasattr(self.app.bridge, "nextion") and self.app.bridge.nextion is not None else self.app.bridge
+        widget = TarzanNextionPreviewPanel(panel.body, bridge, "nextion_7", "NEXTION 7 — PODGLĄD")
+        widget.pack(fill="both", expand=True)
+        self.nextion_preview_widgets["nextion_7"] = widget
+        return panel
+
+    def nextion_refresh_previews(self):
+        for widget in list(self.nextion_preview_widgets.values()):
+            try:
+                widget.refresh()
+            except Exception:
+                pass

@@ -17,6 +17,8 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self.title = title
         self.state: Dict[str, Any] = {}
         self.component_widgets: Dict[str, Any] = {}
+        self.component_meta: Dict[str, Dict[str, Any]] = {}
+        self.current_page_id: Optional[str] = None
         self.panel = Panel(self, title=title)
         self.panel.pack(fill="both", expand=True)
         self._build_shell()
@@ -70,18 +72,34 @@ class TarzanNextionPreviewPanel(tk.Frame):
     def refresh(self) -> None:
         self.state = self.bridge.snapshot()
         page = self.bridge.get_page(self.screen_key)
-        self.page_label.configure(text=f"{self.screen_key.upper()} | {page.get('title', page.get('id', 'PAGE'))}")
+        page_id = page.get("id", "")
+        self.page_label.configure(text=f"{self.screen_key.upper()} | {page.get('title', page_id or 'PAGE')}")
+
+        if self.current_page_id != page_id:
+            self._rebuild_page(page)
+            self.current_page_id = page_id
+        else:
+            self._update_page_values(page)
+
+        device = getattr(self.bridge, "devices", {}).get(self.screen_key)
+        port = getattr(device, "port", self.state.get(f'{self.screen_key}.port', ''))
+        connected = bool(getattr(device, "connected", False))
+        err = getattr(device, "last_error", None) or self.state.get(f'{self.screen_key}.last_error', '') or '-'
+        if connected:
+            err = '-'
+        status = [
+            f"PORT: {port}",
+            f"COM: {'OK' if connected else 'OFF'}",
+            f"ERR: {err}",
+        ]
+        self.status.configure(text="   ".join(status))
+
+    def _rebuild_page(self, page: Dict[str, Any]) -> None:
         for child in self.canvas.winfo_children():
             child.destroy()
         self.component_widgets.clear()
+        self.component_meta.clear()
         self._render_page(page)
-        device = self.bridge.devices.get(self.screen_key)
-        status = [
-            f"PORT: {self.state.get(f'{self.screen_key}.port', '')}",
-            f"COM: {'OK' if self.state.get(f'{self.screen_key}.connected') else 'OFF'}",
-            f"ERR: {self.state.get(f'{self.screen_key}.last_error', '') or '-'}",
-        ]
-        self.status.configure(text="   ".join(status))
 
     def _render_page(self, page: Dict[str, Any]) -> None:
         components = list(page.get("components", []))
@@ -93,13 +111,37 @@ class TarzanNextionPreviewPanel(tk.Frame):
             value = self.state.get(bind, comp.get("text", "")) if bind else comp.get("text", "")
             tk.Label(frame, text=comp.get("label", comp.get("id", "")), bg=frame.cget("bg"), fg=COLORS["muted"], anchor="w", font=("Segoe UI", 8, "bold")).pack(fill="x", padx=8, pady=(6, 2))
             ctype = comp.get("type", "text")
+            cid = comp.get("id", f"comp_{i}")
+            self.component_meta[cid] = {"type": ctype, "bind": bind, "text": comp.get("text", "")}
             if ctype in {"led", "indicator"}:
                 led = Led(frame, size=26, bg=frame.cget("bg"))
                 led.pack(padx=8, pady=8)
                 led.set(value)
-                self.component_widgets[comp.get("id", f"comp_{i}")] = led
+                self.component_widgets[cid] = led
             else:
                 fg = comp.get("color", COLORS["text"])
                 font_size = int(comp.get("font_size", 14))
                 justify = comp.get("align", "left")
-                tk.Label(frame, text=str(value), bg=frame.cget("bg"), fg=fg, justify=justify, anchor="w", wraplength=300, font=("Segoe UI", font_size, "bold" if ctype in {"button", "title"} else "normal")).pack(fill="both", expand=True, padx=8, pady=(0, 8))
+                lbl = tk.Label(frame, text=str(value), bg=frame.cget("bg"), fg=fg, justify=justify, anchor="w", wraplength=300, font=("Segoe UI", font_size, "bold" if ctype in {"button", "title"} else "normal"))
+                lbl.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+                self.component_widgets[cid] = lbl
+
+    def _update_page_values(self, page: Dict[str, Any]) -> None:
+        for i, comp in enumerate(list(page.get("components", []))):
+            cid = comp.get("id", f"comp_{i}")
+            widget = self.component_widgets.get(cid)
+            if widget is None:
+                continue
+            bind = comp.get("bind")
+            value = self.state.get(bind, comp.get("text", "")) if bind else comp.get("text", "")
+            ctype = comp.get("type", "text")
+            if ctype in {"led", "indicator"}:
+                try:
+                    widget.set(value)
+                except Exception:
+                    pass
+            else:
+                try:
+                    widget.configure(text=str(value))
+                except Exception:
+                    pass

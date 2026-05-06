@@ -11,6 +11,8 @@ except Exception:  # pragma: no cover
 
 from .protocol import command_bytes
 
+TERMINATOR = b"\xff\xff\xff"
+
 
 @dataclass
 class NextionEvent:
@@ -28,21 +30,26 @@ class TarzanNextionDevice:
         self.events: List[NextionEvent] = []
         self.last_error: Optional[str] = None
         self.connected = False
+        self.handshake_ok = False
+        self.last_handshake: str = ""
 
     def open(self) -> bool:
-        if self.connected:
+        if self.serial_port is not None:
             return True
         if serial is None:
             self.last_error = "Brak pakietu pyserial"
             return False
         try:
-            self.serial_port = serial.Serial(self.port, self.baudrate, timeout=0, write_timeout=0)
-            self.connected = True
+            self.serial_port = serial.Serial(self.port, self.baudrate, timeout=0.05, write_timeout=0.2)
             self.last_error = None
+            self.connected = False
+            self.handshake_ok = False
+            self.last_handshake = ""
             return True
         except Exception as exc:
             self.serial_port = None
             self.connected = False
+            self.handshake_ok = False
             self.last_error = str(exc)
             return False
 
@@ -54,9 +61,18 @@ class TarzanNextionDevice:
                 pass
         self.serial_port = None
         self.connected = False
+        self.handshake_ok = False
+
+    def clear_rx(self) -> None:
+        self.read_buffer.clear()
+        if self.serial_port is not None:
+            try:
+                self.serial_port.reset_input_buffer()
+            except Exception:
+                pass
 
     def send_raw(self, payload: bytes) -> bool:
-        if not self.connected and not self.open():
+        if self.serial_port is None and not self.open():
             return False
         try:
             assert self.serial_port is not None
@@ -71,7 +87,7 @@ class TarzanNextionDevice:
         return self.send_raw(command_bytes(command))
 
     def poll(self) -> List[NextionEvent]:
-        if not self.connected or self.serial_port is None:
+        if self.serial_port is None:
             return []
         try:
             waiting = int(getattr(self.serial_port, "in_waiting", 0) or 0)
@@ -83,14 +99,36 @@ class TarzanNextionDevice:
             return []
 
         out: List[NextionEvent] = []
-        terminator = b"\xff\xff\xff"
-        while terminator in self.read_buffer:
-            idx = self.read_buffer.index(terminator)
+        while TERMINATOR in self.read_buffer:
+            idx = self.read_buffer.index(TERMINATOR)
             packet = bytes(self.read_buffer[:idx])
-            del self.read_buffer[: idx + len(terminator)]
+            del self.read_buffer[: idx + len(TERMINATOR)]
             ev = NextionEvent(packet)
             out.append(ev)
         if out:
             self.events.extend(out)
             self.events = self.events[-50:]
         return out
+
+    def handshake(self, wait_ms: int = 100) -> bool:
+        if self.serial_port is None and not self.open():
+            return False
+        self.clear_rx()
+        if not self.send_command("connect"):
+            return False
+        time.sleep(max(0.01, wait_ms / 1000.0))
+        events = self.poll()
+        for ev in events:
+            if ev.raw.startswith(b"comok"):
+                try:
+                    self.last_handshake = ev.raw.decode("ascii", errors="replace")
+                except Exception:
+                    self.last_handshake = repr(ev.raw)
+                self.connected = True
+                self.handshake_ok = True
+                self.last_error = None
+                return True
+        self.connected = False
+        self.handshake_ok = False
+        self.last_error = self.last_error or f"Brak odpowiedzi na connect w {wait_ms} ms"
+        return False

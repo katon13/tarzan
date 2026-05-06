@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from .config import load_ports
 from .device import TarzanNextionDevice
@@ -28,19 +28,22 @@ class TarzanNextionBridge:
             cfg = self.ports_cfg.get(key, {})
             self.devices[key] = TarzanNextionDevice(key, cfg.get("port", "COM1"), int(cfg.get("baudrate", 115200)))
         self.last_sync = 0.0
-        self.last_snapshot: Dict[str, Any] = {}
+        self.last_sent_snapshot: Dict[str, Any] = {}
         self.last_commands: List[str] = []
 
+    def _enabled(self, screen_key: str) -> bool:
+        return bool(self.ports_cfg.get(screen_key, {}).get("enabled", False))
+
     def connect_enabled(self) -> None:
-        for key, device in self.devices.items():
-            if self.ports_cfg.get(key, {}).get("enabled", False):
-                device.open()
+        for key in self.devices:
+            if self._enabled(key):
+                self.connect_screen(key)
 
     def connect_screen(self, screen_key: str) -> bool:
         device = self.devices.get(screen_key)
         if device is None:
             return False
-        return device.open()
+        return device.handshake(wait_ms=100)
 
     def disconnect_screen(self, screen_key: str) -> None:
         device = self.devices.get(screen_key)
@@ -56,15 +59,15 @@ class TarzanNextionBridge:
         for key, device in self.devices.items():
             base[f"{key}.connected"] = bool(device.connected)
             base[f"{key}.port"] = device.port
+            base[f"{key}.baudrate"] = int(device.baudrate)
             base[f"{key}.last_error"] = device.last_error or ""
             base[f"{key}.page"] = self.active_pages.get(key, "")
-        self.last_snapshot = base
         return base
 
     def set_page(self, screen_key: str, page_id: str) -> None:
         self.active_pages[screen_key] = page_id
         device = self.devices.get(screen_key)
-        if device is not None:
+        if device is not None and device.connected:
             device.send_raw(cmd_page(page_id))
 
     def next_page(self, screen_key: str) -> None:
@@ -102,13 +105,14 @@ class TarzanNextionBridge:
             prop = nxt.get("property", "txt")
             if not component:
                 continue
-            bind = comp.get("bind")
             visible_if = comp.get("visible_if")
             if visible_if:
                 commands.append(cmd_visible(component, bool(state.get(visible_if))))
-            if not bind:
-                continue
-            value = state.get(bind, comp.get("text", ""))
+            bind = comp.get("bind")
+            if bind:
+                value = state.get(bind, comp.get("text", ""))
+            else:
+                value = comp.get("text", "")
             if prop == "val":
                 commands.append(cmd_value(component, value))
             else:
@@ -118,17 +122,19 @@ class TarzanNextionBridge:
     def sync(self, force: bool = False) -> None:
         snapshot = self.snapshot()
         now = time.time()
-        interval = max(0.1, float(self.ports_cfg.get("sync_interval_ms", 300)) / 1000.0)
-        if not force and snapshot == self.last_snapshot and (now - self.last_sync) < interval:
+        interval = max(0.1, float(self.ports_cfg.get("sync_interval_ms", 100)) / 1000.0)
+        if not force and snapshot == self.last_sent_snapshot and (now - self.last_sync) < interval:
             return
         self.last_sync = now
         self.last_commands = []
         for key, device in self.devices.items():
+            if not self._enabled(key) or not device.connected:
+                continue
             commands = self.build_commands(key, snapshot)
             for payload in commands:
                 self.last_commands.append(f"{key}: {payload!r}")
-                if self.ports_cfg.get(key, {}).get("enabled", False):
-                    device.send_raw(payload)
+                device.send_raw(payload)
+        self.last_sent_snapshot = dict(snapshot)
 
     def poll(self) -> List[str]:
         logs: List[str] = []

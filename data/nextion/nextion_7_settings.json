@@ -1,22 +1,29 @@
 {
-  "device_name": "Nextion NX8048P070",
+  "device_name": "Nextion NX80448K070_011",
   "startup_page": "boot",
-  "screen_role": "ustawienia_strategiczne_par_khr_tracking",
+  "screen_role": "nextion7_intro_boot_level_xyz",
   "pages_order": [
     "boot",
-    "home",
-    "par",
-    "vision",
-    "tracking",
-    "tracking_profile",
-    "face_recognition",
-    "axes",
-    "safety",
-    "take",
-    "io_play",
-    "io_rec",
-    "io_cnc",
-    "service",
-    "about"
-  ]
+    "page1",
+    "level_xyz"
+  ],
+  "intro": {
+    "enabled": true,
+    "frames_dir": "img/nextion/intro_max/800_480",
+    "frames": [
+      "nextionIntro_1.png",
+      "nextionIntro_2.png",
+      "nextionIntro_3.png",
+      "nextionIntro_4.png",
+      "nextionIntro_5.png",
+      "nextionIntro_6.png"
+    ],
+    "frame_time_ms": 180,
+    "hold_last_frame": true,
+    "tap_to_page": "page1"
+  },
+  "preview": {
+    "scale": 0.5,
+    "background": "#000000"
+  }
 }

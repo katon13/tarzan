@@ -57,7 +57,10 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self.intro_frames = list(self.intro_cfg.get("frames") or [])
         self.intro_frame_ms = int(self.intro_cfg.get("frame_time_ms", 180) or 180)
         self.tap_to_page = str(self.intro_cfg.get("tap_to_page", "page1") or "page1")
+
         self.level_img_path = root / "img" / "nextion" / "tarzanPoziomicaXYZ.png"
+        self.left_arrow_path = root / "img" / "nextion" / "nextion_left_normal.png"
+        self.right_arrow_path = root / "img" / "nextion" / "nextion_right_normal.png"
 
     def _build_shell(self) -> None:
         toolbar = tk.Frame(self.panel.body, bg=COLORS["panel"])
@@ -183,8 +186,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
             return
 
         self.current_page_id = bridge_page or "boot"
-        page_name = (self.current_page_id or "boot").upper()
-        self.page_label.configure(text=f"{self.screen_key.upper()} | {page_name}")
+        self.page_label.configure(text=f"{self.screen_key.upper()} | {(self.current_page_id or 'boot').upper()}")
         self.status.configure(text=f"PORT: {port}   COM: OK   ERR: -")
         self._render_black()
 
@@ -213,6 +215,8 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self.screen_canvas.configure(bg=self.bg_color)
         self._screen_photo = None
 
+        self._draw_nav_arrows()
+
         bw = int(220 * self.scale)
         bh = int(54 * self.scale)
         x1 = (self.screen_width - bw) // 2
@@ -223,6 +227,31 @@ class TarzanNextionPreviewPanel(tk.Frame):
 
         self.screen_canvas.create_rectangle(x1, y1, x2, y2, fill=COLORS["button"], outline=COLORS["border"], width=2)
         self.screen_canvas.create_text((x1 + x2) // 2, (y1 + y2) // 2, text="POZIOMICA", fill=COLORS["text"], font=("Segoe UI", max(10, int(12 * self.scale)), "bold"))
+
+    def _draw_nav_arrows(self) -> None:
+        left = self._image_for_path(self.left_arrow_path)
+        right = self._image_for_path(self.right_arrow_path)
+        left_x = int(10 * self.scale)
+        left_y = int(165 * self.scale)
+        right_x = int(710 * self.scale)
+        right_y = int(165 * self.scale)
+
+        if left is not None:
+            self.screen_canvas.create_image(left_x, left_y, image=left, anchor="nw")
+        if right is not None:
+            self.screen_canvas.create_image(right_x, right_y, image=right, anchor="nw")
+
+    def _nav_hitboxes(self):
+        left_x = int(10 * self.scale)
+        left_y = int(165 * self.scale)
+        right_x = int(710 * self.scale)
+        right_y = int(165 * self.scale)
+        arrow_w = int(80 * self.scale)
+        arrow_h = int(150 * self.scale)
+        return {
+            "left": (left_x, left_y, left_x + arrow_w, left_y + arrow_h),
+            "right": (right_x, right_y, right_x + arrow_w, right_y + arrow_h),
+        }
 
     def _image_for_path(self, path: Path) -> Optional[tk.PhotoImage]:
         key = str(path)
@@ -277,19 +306,18 @@ class TarzanNextionPreviewPanel(tk.Frame):
 
         photo = self._image_for_path(self.level_img_path)
         self._screen_photo = photo
-
         img_x = int(190 * self.scale)
         img_y = int(30 * self.scale)
         if photo is not None:
             self.screen_canvas.create_image(img_x, img_y, image=photo, anchor="nw")
 
+        self._draw_nav_arrows()
+
         cx = int(400 * self.scale)
         cy = int(240 * self.scale)
 
-        # NAJWAŻNIEJSZE: bierz live wartości bezpośrednio z busa, nie tylko ze snapshotu
         x_raw = self._bus_value("par_level_x", 0)
         y_raw = self._bus_value("par_level_y", 0)
-
         x_val = max(-30, min(30, x_raw))
         y_val = max(-30, min(30, y_raw))
 
@@ -303,10 +331,11 @@ class TarzanNextionPreviewPanel(tk.Frame):
         y2 = int(375 * self.scale)
 
         line_color = COLORS["green"] if (x_val == 0 and y_val == 0) else COLORS["red"]
+        dot_color = COLORS["green"] if (x_val == 0 and y_val == 0) else COLORS["red"]
 
         self.screen_canvas.create_line(x1, cy, x2, cy, fill=line_color, width=1)
         self.screen_canvas.create_line(cx, y1, cx, y2, fill=line_color, width=1)
-        self.screen_canvas.create_oval(dot_x - 8, dot_y - 8, dot_x + 8, dot_y + 8, fill=COLORS["red"], outline=COLORS["red"])
+        self.screen_canvas.create_oval(dot_x - 8, dot_y - 8, dot_x + 8, dot_y + 8, fill=dot_color, outline=dot_color)
 
     def _start_intro(self, force: bool = False) -> None:
         if not self._is_connected():
@@ -355,11 +384,42 @@ class TarzanNextionPreviewPanel(tk.Frame):
     def _on_screen_tap(self, event=None) -> None:
         if not self._is_connected():
             return
+
         if self.current_page_id == "boot" and self._intro_complete:
             self.current_page_id = self.tap_to_page
             self._set_bridge_page(self.tap_to_page)
             self.refresh()
             return
+
+        if event is not None and self.current_page_id in {"page1", "level_xyz"}:
+            boxes = self._nav_hitboxes()
+            lx1, ly1, lx2, ly2 = boxes["left"]
+            rx1, ry1, rx2, ry2 = boxes["right"]
+
+            if lx1 <= event.x <= lx2 and ly1 <= event.y <= ly2:
+                try:
+                    if hasattr(self.bridge, "prev_page"):
+                        self.bridge.prev_page(self.screen_key)
+                    else:
+                        self._switch(-1)
+                        return
+                except Exception:
+                    pass
+                self.refresh()
+                return
+
+            if rx1 <= event.x <= rx2 and ry1 <= event.y <= ry2:
+                try:
+                    if hasattr(self.bridge, "next_page"):
+                        self.bridge.next_page(self.screen_key)
+                    else:
+                        self._switch(1)
+                        return
+                except Exception:
+                    pass
+                self.refresh()
+                return
+
         if self.current_page_id == "page1" and self._page1_button_box:
             x1, y1, x2, y2 = self._page1_button_box
             if event is not None and x1 <= event.x <= x2 and y1 <= event.y <= y2:

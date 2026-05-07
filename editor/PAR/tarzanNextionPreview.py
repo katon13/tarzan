@@ -94,11 +94,25 @@ class TarzanNextionPreviewPanel(tk.Frame):
         if not self._is_connected():
             return
         self._cancel_intro()
-        if step > 0:
-            self.current_page_id = self.tap_to_page
-            self._set_bridge_page(self.tap_to_page)
-        else:
-            self._start_intro(force=True)
+        try:
+            if step > 0:
+                if hasattr(self.bridge, "next_page"):
+                    self.bridge.next_page(self.screen_key)
+                else:
+                    pages = ["boot", "page1", "level_xyz"]
+                    cur = self._bridge_page_id() or "boot"
+                    idx = pages.index(cur) if cur in pages else 0
+                    self._set_bridge_page(pages[(idx + 1) % len(pages)])
+            else:
+                if hasattr(self.bridge, "prev_page"):
+                    self.bridge.prev_page(self.screen_key)
+                else:
+                    pages = ["boot", "page1", "level_xyz"]
+                    cur = self._bridge_page_id() or "boot"
+                    idx = pages.index(cur) if cur in pages else 0
+                    self._set_bridge_page(pages[(idx - 1) % len(pages)])
+        except Exception:
+            pass
         self.refresh()
 
     def _connect(self) -> None:

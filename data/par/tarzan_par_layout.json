@@ -44,11 +44,11 @@
     "sensors": "left",
     "info": "left",
     "dron": "left",
-    "ui": "middle_bottom",
     "all_signals": "left",
+    "settings": "left",
+    "ui": "middle_bottom",
     "functions": "middle_bottom",
     "lcd": "middle_bottom",
-    "settings": "left",
     "matrix": "middle_bottom",
     "keyboard": "middle_bottom",
     "limits": "middle_bottom",
@@ -66,10 +66,10 @@
     "camera": "right",
     "system": "right",
     "nextion_7_preview": "right",
-    "nextion_5_preview": "right",
     "axes": "top",
     "bridge": "top",
-    "cnc_signals": "top"
+    "cnc_signals": "top",
+    "nextion_5_preview": "right"
   },
   "panel_layout": {
     "operator": {
@@ -114,17 +114,23 @@
       "colspan": 4,
       "rowspan": 2
     },
-    "ui": {
-      "zone": "middle_bottom",
-      "order": 10,
-      "colspan": 3,
-      "rowspan": 3
-    },
     "all_signals": {
       "zone": "left",
       "order": 50,
       "colspan": 4,
       "rowspan": 9
+    },
+    "settings": {
+      "zone": "left",
+      "order": 60,
+      "colspan": 4,
+      "rowspan": 3
+    },
+    "ui": {
+      "zone": "middle_bottom",
+      "order": 10,
+      "colspan": 3,
+      "rowspan": 3
     },
     "functions": {
       "zone": "middle_bottom",
@@ -136,12 +142,6 @@
       "zone": "middle_bottom",
       "order": 30,
       "colspan": 3,
-      "rowspan": 3
-    },
-    "settings": {
-      "zone": "left",
-      "order": 60,
-      "colspan": 4,
       "rowspan": 3
     },
     "matrix": {
@@ -246,12 +246,6 @@
       "colspan": 4,
       "rowspan": 6
     },
-    "nextion_5_preview": {
-      "zone": "right",
-      "order": 60,
-      "colspan": 4,
-      "rowspan": 5
-    },
     "axes": {
       "zone": "top",
       "order": 10,
@@ -269,6 +263,12 @@
       "order": 30,
       "colspan": 2,
       "rowspan": 6
+    },
+    "nextion_5_preview": {
+      "zone": "right",
+      "order": 60,
+      "colspan": 4,
+      "rowspan": 5
     }
   },
   "grid": {
@@ -317,7 +317,7 @@
     "right": {
       "col": 17,
       "row": 0,
-      "colspan": 5,
+      "colspan": 7,
       "rowspan": 16
     }
   },

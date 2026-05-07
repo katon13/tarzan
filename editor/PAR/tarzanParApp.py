@@ -1885,13 +1885,26 @@ class TarzanParApp(tk.Tk):
 
     def nextion_tick(self):
         try:
-            self.bridge.nextion_poll()
+            events = self.bridge.nextion_poll()
             self.bridge.nextion_sync(force=False)
+
+            if events and hasattr(self.bus, "log"):
+                for event in events[-10:]:
+                    try:
+                        self.bus.log("NEXTION", str(event))
+                    except Exception:
+                        pass
+
             if hasattr(self.panels, "nextion_refresh_previews"):
                 self.panels.nextion_refresh_previews()
+                if events:
+                    try:
+                        self.after_idle(self.panels.nextion_refresh_previews)
+                    except Exception:
+                        pass
         except Exception:
             pass
-        self.after(100, self.nextion_tick)
+        self.after(50, self.nextion_tick)
 
     def update_take_label(self):
         if not self.take_label:

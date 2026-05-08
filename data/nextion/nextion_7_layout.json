@@ -19,6 +19,31 @@
       "id": "level_xyz",
       "title": "LEVEL XYZ",
       "components": []
+    },
+    {
+      "id": "face_rec",
+      "title": "FACE",
+      "components": []
+    },
+    {
+      "id": "rrp_main",
+      "title": "RRP",
+      "components": []
+    },
+    {
+      "id": "sensors_main",
+      "title": "SENSORS",
+      "components": []
+    },
+    {
+      "id": "settings_main",
+      "title": "SETTINGS",
+      "components": []
+    },
+    {
+      "id": "take_main",
+      "title": "TAKE",
+      "components": []
     }
   ]
 }

@@ -5,7 +5,12 @@
   "pages_order": [
     "boot",
     "page1",
-    "level_xyz"
+    "level_xyz",
+    "face_rec",
+    "rrp_main",
+    "sensors_main",
+    "settings_main",
+    "take_main"
   ],
   "intro": {
     "enabled": true,

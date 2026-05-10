@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1000" viewBox="0 0 1400 1000">
+<style>
+.txt{font-family:Arial,sans-serif;font-size:22px;fill:#111}
+.small{font-family:Arial,sans-serif;font-size:16px;fill:#111}
+.line{stroke:#111;stroke-width:3;fill:none}
+.dash{stroke:#666;stroke-width:2;fill:none;stroke-dasharray:10 8}
+.part{stroke:#111;stroke-width:3;fill:#e9e9e9}
+.accent{stroke:#111;stroke-width:3;fill:#d8d8d8}
+</style>
+<rect width="100%" height="100%" fill="white"/>
+
+<text x="60" y="60" class="txt">KIJANKA — schemat blokowy zasilania i sterowania</text>
+<rect x="110" y="180" width="180" height="70" class="part"/>
+<text x="150" y="223" class="small">Zasilanie główne</text>
+<rect x="380" y="180" width="200" height="70" class="part"/>
+<text x="430" y="223" class="small">Sterownik centralny</text>
+<rect x="700" y="120" width="180" height="70" class="part"/>
+<text x="735" y="163" class="small">Napęd przejazdu</text>
+<rect x="700" y="260" width="180" height="70" class="part"/>
+<text x="715" y="303" class="small">Moduł koła S1</text>
+<rect x="700" y="360" width="180" height="70" class="part"/>
+<text x="715" y="403" class="small">Moduł koła S2</text>
+<rect x="700" y="460" width="180" height="70" class="part"/>
+<text x="715" y="503" class="small">Moduł koła S3</text>
+<rect x="700" y="560" width="180" height="70" class="part"/>
+<text x="715" y="603" class="small">Moduł koła S4</text>
+<rect x="1030" y="180" width="180" height="70" class="part"/>
+<text x="1080" y="223" class="small">IMU / XYZ</text>
+<line x1="290" y1="215" x2="380" y2="215" class="line"/>
+<line x1="580" y1="215" x2="700" y2="155" class="line"/>
+<line x1="580" y1="215" x2="700" y2="295" class="line"/>
+<line x1="580" y1="215" x2="700" y2="395" class="line"/>
+<line x1="580" y1="215" x2="700" y2="495" class="line"/>
+<line x1="580" y1="215" x2="700" y2="595" class="line"/>
+<line x1="880" y1="215" x2="1030" y2="215" class="line"/>
+<text x="100" y="700" class="small">Hamulec i enkoder są lokalnie w każdym module koła.</text>
+</svg>

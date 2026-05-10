@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100">
+<style>
+    .title { font-family: Arial, sans-serif; font-size: 28px; fill: #111; font-weight: bold; }
+    .sub   { font-family: Arial, sans-serif; font-size: 18px; fill: #111; }
+    .txt   { font-family: Arial, sans-serif; font-size: 16px; fill: #111; }
+    .small { font-family: Arial, sans-serif; font-size: 13px; fill: #111; }
+    .tiny  { font-family: Arial, sans-serif; font-size: 11px; fill: #111; }
+    .line  { stroke: #111; stroke-width: 2.5; fill: none; }
+    .thin  { stroke: #333; stroke-width: 1.4; fill: none; }
+    .dash  { stroke: #666; stroke-width: 1.4; fill: none; stroke-dasharray: 10 6; }
+    .ghost { stroke: #888; stroke-width: 1.0; fill: none; stroke-dasharray: 4 4; }
+    .part  { stroke: #111; stroke-width: 2.2; fill: #f3f3f3; }
+    .fill1 { stroke: #111; stroke-width: 2.2; fill: #e0e0e0; }
+    .fill2 { stroke: #111; stroke-width: 2.2; fill: #d2d2d2; }
+    .accent{ stroke: #111; stroke-width: 2.2; fill: #c7c7c7; }
+</style>
+<rect x="0" y="0" width="1600" height="1100" fill="white"/>
+<rect x="20" y="20" width="1560" height="1060" class="line"/>
+
+<text x="40" y="60" class="title">KIJANKA — Side Elevation and Travel Envelope</text>
+<line x1="80" y1="840" x2="1520" y2="840" class="ghost"/>
+<text x="88" y="862" class="small">GROUND</text>
+<rect x="370" y="300" width="620" height="55" class="fill1"/>
+<text x="590" y="290" class="txt">Main base plate</text>
+<circle cx="270" cy="740" r="78" class="ghost"/>
+<text x="165" y="740" class="small">LOW POS</text>
+<circle cx="270" cy="680" r="78" class="part"/>
+<text x="165" y="680" class="small">NOMINAL</text>
+<circle cx="270" cy="620" r="78" class="ghost"/>
+<text x="165" y="620" class="small">HIGH POS</text>
+<circle cx="520" cy="500" r="14" class="fill2"/>
+<line x1="520" y1="500" x2="335" y2="645" class="line"/>
+<line x1="520" y1="500" x2="335" y2="705" class="ghost"/>
+<line x1="520" y1="500" x2="335" y2="585" class="ghost"/>
+<text x="550" y="505" class="txt">P0</text>
+<circle cx="665" cy="548" r="10" class="fill2"/>
+<line x1="520" y1="500" x2="665" y2="548" class="dash"/>
+<line x1="665" y1="548" x2="1090" y2="548" class="line"/>
+<text x="730" y="535" class="txt">Pusher</text>
+<rect x="1090" y="500" width="120" height="90" class="part"/>
+<text x="1114" y="550" class="small">Ball screw</text>
+<rect x="970" y="500" width="100" height="90" class="fill2"/>
+<text x="990" y="550" class="small">GBX</text>
+<rect x="790" y="490" width="160" height="110" class="fill1"/>
+<text x="835" y="548" class="small">Servo</text>
+
+<line x1="270" y1="620" x2="185" y2="620" class="thin"/>
+<line x1="270" y1="740" x2="185" y2="740" class="thin"/>
+<line x1="185" y1="620" x2="185" y2="740" class="thin"/>
+<line x1="185" y1="620" x2="180" y2="630" class="thin"/>
+<line x1="185" y1="620" x2="190" y2="630" class="thin"/>
+<line x1="185" y1="740" x2="180" y2="730" class="thin"/>
+<line x1="185" y1="740" x2="190" y2="730" class="thin"/>
+<text x="193" y="680.0" class="txt" transform="rotate(90 193 680.0)">~70 mm eff. wheel vertical travel</text>
+
+
+<line x1="990" y1="300" x2="1280" y2="300" class="thin"/>
+<line x1="990" y1="840" x2="1280" y2="840" class="thin"/>
+<line x1="1280" y1="300" x2="1280" y2="840" class="thin"/>
+<line x1="1280" y1="300" x2="1275" y2="310" class="thin"/>
+<line x1="1280" y1="300" x2="1285" y2="310" class="thin"/>
+<line x1="1280" y1="840" x2="1275" y2="830" class="thin"/>
+<line x1="1280" y1="840" x2="1285" y2="830" class="thin"/>
+<text x="1288" y="570.0" class="txt" transform="rotate(90 1288 570.0)">~540 mm module height envelope</text>
+
+<rect x="60" y="150" width="520" height="115" class="ghost"/>
+<text x="70" y="170" class="small">Interpretation:</text>
+<text x="70" y="188" class="small">Effective wheel vertical correction is about 70 mm,</text>
+<text x="70" y="206" class="small">generated from 100 mm screw stroke through the lever.</text>
+<text x="70" y="224" class="small">This is suitable for medium unevenness compensation,</text>
+<text x="70" y="242" class="small">not for terrain vehicle behaviour.</text>
+<rect x="960" y="960" width="620" height="110" class="line"/>
+<line x1="1110" y1="960" x2="1110" y2="1070" class="thin"/>
+<line x1="1260" y1="960" x2="1260" y2="1070" class="thin"/>
+<line x1="1410" y1="960" x2="1410" y2="1070" class="thin"/>
+<line x1="1510" y1="960" x2="1510" y2="1070" class="thin"/>
+<line x1="960" y1="995" x2="1580" y2="995" class="thin"/>
+<line x1="960" y1="1030" x2="1580" y2="1030" class="thin"/>
+<text x="975" y="986" class="small">PROJECT</text>
+<text x="975" y="1019" class="txt">KIJANKA</text>
+<text x="975" y="1055" class="small">DRAWING</text>
+<text x="975" y="1082" class="txt">SIDE ELEVATION / TRAVEL ENVELOPE</text>
+<text x="1125" y="986" class="small">DWG NO</text>
+<text x="1125" y="1019" class="txt">KJ-SE-004</text>
+<text x="1275" y="986" class="small">REV</text>
+<text x="1275" y="1019" class="txt">A</text>
+<text x="1425" y="986" class="small">SCALE</text>
+<text x="1425" y="1019" class="txt">NTS</text>
+<text x="1525" y="986" class="small">SHEET</text>
+<text x="1525" y="1019" class="txt">1/1</text>
+<text x="1125" y="1055" class="small">DATE</text>
+<text x="1125" y="1082" class="txt">2026-05-09</text>
+<text x="1275" y="1055" class="small">STATUS</text>
+<text x="1275" y="1082" class="txt">Concept-Prototyping</text>
+<text x="35" y="1075" class="small">Autorska koncepcja techniczna v2 — wymiary główne przyjęte projektowo, do korekty po przeglądzie.</text>
+</svg>

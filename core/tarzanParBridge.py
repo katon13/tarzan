@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 try:
     from hardware.tarzanNextion.bridge import TarzanNextionBridge
@@ -82,6 +82,14 @@ class TarzanParBridge:
 
     def snapshot(self, include_meta: bool = False) -> Dict[str, Any]:
         return self.bus.snapshot(include_meta=include_meta)
+
+    def poll(self) -> List[str]:
+        """Alias dla nextion_poll."""
+        return self.nextion_poll()
+
+    def sync(self, force: bool = False) -> None:
+        """Alias dla nextion_sync."""
+        self.nextion_sync(force=force)
 
     def load_take(self, path: str | Path) -> TarzanTakeData:
         return self.take_player.load(path)

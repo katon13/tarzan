@@ -39,6 +39,22 @@ PAGE1_BUTTONS = [
     ("b_take", "take_main", "Nextion_take_ico_200.png", (500, 240, 200, 200)),
 ]
 
+_RRP_BUTTONS = [
+    ("p1_cam_v", "CAM V", 20, 20),
+    ("p1_cam_t", "CAM T", 120, 20),
+    ("p1_cam_f", "FOCUS", 220, 20),
+    ("p1_cam_h", "CAM H", 320, 20),
+    ("p1_arm_h", "ARM H", 420, 20),
+    ("p1_arm_v", "ARM V", 520, 20),
+    ("p2_cam_v", "CAM V", 20, 260),
+    ("p2_cam_t", "CAM T", 120, 260),
+    ("p2_cam_f", "FOCUS", 220, 260),
+    ("p2_cam_h", "CAM H", 320, 260),
+    ("p2_arm_h", "ARM H", 420, 260),
+    ("p2_arm_v", "ARM V", 520, 260),
+    ("home", "HOME", 700, 385),
+]
+
 
 class TarzanNextionPreviewPanel(tk.Frame):
     def __init__(self, parent, bridge, screen_key: str, title: str) -> None:
@@ -57,6 +73,8 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self._photo_cache: Dict[str, tk.PhotoImage] = {}
         self._screen_photo: Optional[tk.PhotoImage] = None
         self._hitboxes: Dict[str, Tuple[int, int, int, int]] = {}
+
+        self._rrp_drag_target: Optional[str] = None
 
         self.panel = Panel(self, title=title)
         self.panel.pack(fill="both", expand=True)
@@ -92,8 +110,6 @@ class TarzanNextionPreviewPanel(tk.Frame):
 
         self.level_img_path = root / "img" / "nextion" / "tarzanPoziomicaXYZ.png"
         self.page_icons_dir = root / "img" / "nextion" / "page"
-        self.left_arrow_path = root / "img" / "nextion" / "nextion_left_normal.png"
-        self.right_arrow_path = root / "img" / "nextion" / "nextion_right_normal.png"
         self.home_icon_candidates = [
             self.page_icons_dir / "Nextion_home_ico_69.png",
             self.page_icons_dir / "Nextion_home_ico_200.png",
@@ -105,8 +121,6 @@ class TarzanNextionPreviewPanel(tk.Frame):
         toolbar = tk.Frame(self.panel.body, bg=COLORS["panel"])
         toolbar.pack(fill="x", pady=(0, 6))
 
-        tk.Button(toolbar, text="◀", bg=COLORS["button"], fg=COLORS["text"], relief="flat", command=lambda: self._toolbar_switch(-1)).pack(side="left", padx=2)
-        tk.Button(toolbar, text="▶", bg=COLORS["button"], fg=COLORS["text"], relief="flat", command=lambda: self._toolbar_switch(1)).pack(side="left", padx=2)
         tk.Button(toolbar, text="SYNC", bg=COLORS["button"], fg=COLORS["text"], relief="flat", command=lambda: self.bridge.sync(force=True)).pack(side="left", padx=4)
         tk.Button(toolbar, text="POŁĄCZ", bg=COLORS["button"], fg=COLORS["text"], relief="flat", command=self._connect).pack(side="left", padx=4)
         tk.Button(toolbar, text="ROZŁĄCZ", bg=COLORS["button"], fg=COLORS["text"], relief="flat", command=self._disconnect).pack(side="left", padx=2)
@@ -128,6 +142,9 @@ class TarzanNextionPreviewPanel(tk.Frame):
         )
         self.screen_canvas.pack(expand=True, pady=10)
         self.screen_canvas.bind("<Button-1>", self._on_screen_tap)
+        self.screen_canvas.bind("<B1-Motion>", self._on_screen_drag)
+        self.screen_canvas.bind("<B1-Motion>", self._on_screen_drag)
+        self.screen_canvas.bind("<ButtonRelease-1>", self._on_screen_release)
 
         self.status = tk.Label(self.panel.body, text="", bg=COLORS["panel"], fg=COLORS["muted"], anchor="w", justify="left")
         self.status.pack(fill="x", pady=(6, 0))
@@ -177,6 +194,14 @@ class TarzanNextionPreviewPanel(tk.Frame):
         device = getattr(self.bridge, "devices", {}).get(self.screen_key)
         port = getattr(device, "port", self.state.get(f"{self.screen_key}.port", ""))
         err = getattr(device, "last_error", None) or self.state.get(f"{self.screen_key}.last_error", "") or "-"
+        recent_log = ""
+        if hasattr(self.bridge, "get_recent_transport_log"):
+            try:
+                logs = self.bridge.get_recent_transport_log(self.screen_key, limit=1)
+                recent_log = logs[-1] if logs else ""
+            except Exception:
+                recent_log = ""
+
         if connected:
             err = "-"
 
@@ -194,8 +219,17 @@ class TarzanNextionPreviewPanel(tk.Frame):
             self._intro_complete = False
             self.current_page_id = "level_xyz"
             self.page_label.configure(text=f"{self.screen_key.upper()} | LEVEL_XYZ")
-            self.status.configure(text=f"PORT: {port}   COM: OK   ERR: -")
+            self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
             self._render_level_xyz()
+            return
+
+        if bridge_page == "rrp_main":
+            self._cancel_intro()
+            self._intro_complete = False
+            self.current_page_id = "rrp_main"
+            self.page_label.configure(text=f"{self.screen_key.upper()} | RRP_MAIN")
+            self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
+            self._render_rrp_main()
             return
 
         if bridge_page == self.tap_to_page:
@@ -203,7 +237,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
             self._intro_complete = False
             self.current_page_id = self.tap_to_page
             self.page_label.configure(text=f"{self.screen_key.upper()} | {self.tap_to_page.upper()}")
-            self.status.configure(text=f"PORT: {port}   COM: OK   ERR: -")
+            self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
             self._render_page1()
             return
 
@@ -212,20 +246,20 @@ class TarzanNextionPreviewPanel(tk.Frame):
             self._intro_complete = False
             self.current_page_id = bridge_page
             self.page_label.configure(text=f"{self.screen_key.upper()} | {bridge_page.upper()}")
-            self.status.configure(text=f"PORT: {port}   COM: OK   ERR: -")
+            self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
             self._render_placeholder_page(bridge_page)
             return
 
         if self._intro_running or (self.current_page_id == "boot" and self._intro_complete):
             self.current_page_id = "boot"
             self.page_label.configure(text=f"{self.screen_key.upper()} | BOOT")
-            self.status.configure(text=f"PORT: {port}   COM: OK   ERR: -")
+            self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
             self._render_intro_frame(self._intro_index)
             return
 
         self.current_page_id = bridge_page or "boot"
         self.page_label.configure(text=f"{self.screen_key.upper()} | {(self.current_page_id or 'boot').upper()}")
-        self.status.configure(text=f"PORT: {port}   COM: OK   ERR: -")
+        self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
         self._render_black()
 
     def _bridge_page_id(self) -> str:
@@ -252,7 +286,6 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self.screen_canvas.delete("all")
         self.screen_canvas.configure(bg=self.bg_color)
         self._screen_photo = None
-        self._draw_nav_arrows(show_home=False)
 
         for _, target, filename, (x, y, w, h) in PAGE1_BUTTONS:
             sx, sy = int(x * self.scale), int(y * self.scale)
@@ -270,7 +303,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self.screen_canvas.delete("all")
         self.screen_canvas.configure(bg=self.bg_color)
         self._screen_photo = None
-        self._draw_nav_arrows(show_home=True)
+        self._draw_home_only()
         title = PAGE_TITLES.get(page_id, page_id.upper())
         self.screen_canvas.create_text(
             self.screen_width // 2,
@@ -281,26 +314,9 @@ class TarzanNextionPreviewPanel(tk.Frame):
         )
 
     def _draw_nav_arrows(self, show_home: bool) -> None:
-        left = self._image_for_path(self.left_arrow_path)
-        right = self._image_for_path(self.right_arrow_path)
-        left_x = int(5 * self.scale)
-        left_y = int(165 * self.scale)
-        right_x = int(715 * self.scale)
-        right_y = int(165 * self.scale)
-
-        if left is not None:
-            self.screen_canvas.create_image(left_x, left_y, image=left, anchor="nw")
-        if right is not None:
-            self.screen_canvas.create_image(right_x, right_y, image=right, anchor="nw")
-
-        arrow_w = int(80 * self.scale)
-        arrow_h = int(150 * self.scale)
-        self._hitboxes["__left__"] = (left_x, left_y, left_x + arrow_w, left_y + arrow_h)
-        self._hitboxes["__right__"] = (right_x, right_y, right_x + arrow_w, right_y + arrow_h)
-
         if show_home:
-            home_x = int(15 * self.scale)
-            home_y = int(400 * self.scale)
+            home_x = int(700 * self.scale)
+            home_y = int(385 * self.scale)
             home_w = int(69 * self.scale)
             home_h = int(69 * self.scale)
             home = None
@@ -314,6 +330,23 @@ class TarzanNextionPreviewPanel(tk.Frame):
                 self.screen_canvas.create_rectangle(home_x, home_y, home_x + home_w, home_y + home_h, fill="#101820", outline=COLORS["border"], width=2)
                 self.screen_canvas.create_text(home_x + home_w // 2, home_y + home_h // 2, text="HOME", fill=COLORS["text"], font=("Segoe UI", max(8, int(10 * self.scale)), "bold"))
             self._hitboxes["__home__"] = (home_x, home_y, home_x + home_w, home_y + home_h)
+
+    def _draw_home_only(self) -> None:
+        home_x = int(15 * self.scale)
+        home_y = int(400 * self.scale)
+        home_w = int(69 * self.scale)
+        home_h = int(69 * self.scale)
+        home = None
+        for candidate in self.home_icon_candidates:
+            home = self._image_for_path(candidate)
+            if home is not None:
+                break
+        if home is not None:
+            self.screen_canvas.create_image(home_x, home_y, image=home, anchor="nw")
+        else:
+            self.screen_canvas.create_rectangle(home_x, home_y, home_x + home_w, home_y + home_h, fill="#101820", outline=COLORS["border"], width=2)
+            self.screen_canvas.create_text(home_x + home_w // 2, home_y + home_h // 2, text="HOME", fill=COLORS["text"], font=("Segoe UI", max(8, int(10 * self.scale)), "bold"))
+        self._hitboxes["__home__"] = (home_x, home_y, home_x + home_w, home_y + home_h)
 
     def _image_for_path(self, path: Path) -> Optional[tk.PhotoImage]:
         key = str(path)
@@ -394,6 +427,87 @@ class TarzanNextionPreviewPanel(tk.Frame):
         r = max(8, int(16 * self.scale))
         self.screen_canvas.create_oval(dot_x - r, dot_y - r, dot_x + r, dot_y + r, fill=dot_color, outline=dot_color)
 
+    def _rrp_state(self) -> Dict[str, Any]:
+        try:
+            return self.bridge.get_rrp_state(self.screen_key)
+        except Exception:
+            return {
+                "va_p1_axis": -1, "va_p2_axis": -1, "va_p1_dir": 0, "va_p2_dir": 0,
+                "va_p1_val": 0, "va_p2_val": 0, "h_p1_sens": 50, "h_p2_sens": 50,
+                "p1_axis_label": "STOP", "p2_axis_label": "STOP",
+            }
+
+    def _render_rrp_main(self) -> None:
+        self._hitboxes = {}
+        self.screen_canvas.delete("all")
+        self.screen_canvas.configure(bg=self.bg_color)
+        self._screen_photo = None
+
+        state = self._rrp_state()
+
+        def s(v: int) -> int:
+            return int(v * self.scale)
+
+        def draw_slider(x: int, y: int, label: str, value: int, hit_key: str) -> None:
+            sx, sy = s(x), s(y)
+            sw, sh = s(400), s(81)
+            shown = max(0, min(100, int(value)))
+            self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, fill="#1b242b", outline="#3c4b55", width=2)
+            fill_w = int(round((shown / 100.0) * sw))
+            self.screen_canvas.create_rectangle(sx, sy, sx + fill_w, sy + sh, fill="#3a8f2d", outline="")
+            knob_x = sx + fill_w
+            knob_w = s(81)
+            self.screen_canvas.create_rectangle(max(sx, knob_x - knob_w // 2), sy, min(sx + sw, knob_x + knob_w // 2), sy + sh, fill="#d7dde2", outline="#202830")
+            self.screen_canvas.create_text(sx + sw // 2, sy + sh // 2, text=f"{label} SENS: {shown}", fill="#ffffff", font=("Segoe UI", max(8, s(18)), "bold"))
+            self._hitboxes[hit_key] = (sx, sy, sx + sw, sy + sh)
+
+        def draw_display(x: int, y: int, value: int, label: str) -> None:
+            sx, sy = s(x), s(y)
+            sw, sh = s(200), s(81)
+            self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, fill="#0d1014", outline="#4a545d", width=2)
+            self.screen_canvas.create_text(sx + sw // 2, sy + sh // 2, text=str(int(value)), fill="#ffffff", font=("Segoe UI", max(12, s(28)), "bold"))
+            self.screen_canvas.create_text(sx + sw // 2, sy + sh + s(10), text=label, fill="#5f6b72", font=("Segoe UI", max(8, s(10))))
+
+        def draw_button(x: int, y: int, w: int, h: int, text: str, active: bool, key: str) -> None:
+            sx, sy = s(x), s(y)
+            sw, sh = s(w), s(h)
+            fill = "#4cc63f" if active else "#27333b"
+            fg = "#081108" if active else "#ffffff"
+            self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, fill=fill, outline="#d0d7de", width=2)
+            self.screen_canvas.create_text(sx + sw // 2, sy + sh // 2, text=text, fill=fg, font=("Segoe UI", max(8, s(12)), "bold"))
+            self._hitboxes[key] = (sx, sy, sx + sw, sy + sh)
+
+        draw_slider(20, 140, "P1", int(state.get("h_p1_sens", 50)), "slider_p1")
+        draw_slider(20, 380, "P2", int(state.get("h_p2_sens", 50)), "slider_p2")
+        draw_display(420, 140, int(state.get("va_p1_val", 0)), "t_p1_val")
+        draw_display(420, 380, int(state.get("va_p2_val", 0)), "t_p2_val")
+
+        draw_button(680, 20, 100, 100, "DIR", bool(state.get("va_p1_dir", 0)), "p1_dir")
+        draw_button(680, 260, 100, 100, "DIR", bool(state.get("va_p2_dir", 0)), "p2_dir")
+        draw_button(680, 138, 100, 100, "STOP", False, "stop")
+
+        p1_axis = int(state.get("va_p1_axis", -1))
+        p2_axis = int(state.get("va_p2_axis", -1))
+        active_map = {
+            "p1_cam_v": p1_axis == 0,
+            "p1_cam_t": p1_axis == 1,
+            "p1_cam_f": p1_axis == 2,
+            "p1_cam_h": p1_axis == 3,
+            "p1_arm_h": p1_axis == 4,
+            "p1_arm_v": p1_axis == 5,
+            "p2_cam_v": p2_axis == 0,
+            "p2_cam_t": p2_axis == 1,
+            "p2_cam_f": p2_axis == 2,
+            "p2_cam_h": p2_axis == 3,
+            "p2_arm_h": p2_axis == 4,
+            "p2_arm_v": p2_axis == 5,
+        }
+
+        for key, label, x, y in _RRP_BUTTONS:
+            draw_button(x, y, 100, 100, label, active_map.get(key, False), key)
+
+        self._draw_nav_arrows(show_home=True)
+
     def _start_intro(self, force: bool = False) -> None:
         if not self._is_connected():
             return
@@ -440,6 +554,47 @@ class TarzanNextionPreviewPanel(tk.Frame):
         except Exception:
             return False
 
+    def _slider_value_from_hit(self, key: str, x: int) -> int:
+        box = self._hitboxes.get(key)
+        if not box:
+            return 0
+        x1, _, x2, _ = box
+        if x2 <= x1:
+            return 0
+        frac = (x - x1) / float(x2 - x1)
+        return max(0, min(100, int(round(frac * 100))))
+
+    def _refresh_current_page_view(self) -> None:
+        current = self._bridge_page_id() or self.current_page_id or "boot"
+        if current == "rrp_main":
+            self.current_page_id = "rrp_main"
+            self.page_label.configure(text=f"{self.screen_key.upper()} | RRP_MAIN")
+            self._render_rrp_main()
+            return
+        self.refresh()
+
+    def _apply_rrp_preview_slider(self, player: str, x: int) -> None:
+        key = f"slider_{player}"
+        value = self._slider_value_from_hit(key, x)
+        try:
+            self.bridge.preview_rrp_set_value(self.screen_key, player, value)
+        except Exception:
+            return
+        # refresh() zostanie wywołany przez TarzanParApp.nextion_tick() 
+        # gdy zauważy zmianę rewizji rrp w mostku.
+
+    def _on_screen_drag(self, event) -> None:
+        if not self._is_connected():
+            return
+        current = self._bridge_page_id() or self.current_page_id or "boot"
+        if current != "rrp_main":
+            return
+        if self._rrp_drag_target in {"p1", "p2"}:
+            self._apply_rrp_preview_slider(self._rrp_drag_target, int(event.x))
+
+    def _on_screen_release(self, _event) -> None:
+        self._rrp_drag_target = None
+
     def _on_screen_tap(self, event) -> None:
         if not self._is_connected():
             return
@@ -462,21 +617,32 @@ class TarzanNextionPreviewPanel(tk.Frame):
                     self.refresh()
                     return
 
-        left = self._hitboxes.get("__left__")
-        if left and left[0] <= x <= left[2] and left[1] <= y <= left[3]:
-            target = PAGE_TRANSITIONS.get(current, {}).get("left")
-            if target:
-                self._set_bridge_page(target)
-                self.refresh()
-            return
+        if current == "rrp_main":
+            for key in [
+                "p1_cam_v", "p1_cam_t", "p1_cam_f", "p1_cam_h", "p1_arm_h", "p1_arm_v",
+                "p2_cam_v", "p2_cam_t", "p2_cam_f", "p2_cam_h", "p2_arm_h", "p2_arm_v",
+                "p1_dir", "p2_dir", "stop", "home",
+            ]:
+                box = self._hitboxes.get(key)
+                if box and box[0] <= x <= box[2] and box[1] <= y <= box[3]:
+                    try:
+                        self.bridge.preview_rrp_tap(self.screen_key, key)
+                    except Exception:
+                        pass
+                    # refresh() nastąpi automatycznie przez TarzanParApp
+                    return
 
-        right = self._hitboxes.get("__right__")
-        if right and right[0] <= x <= right[2] and right[1] <= y <= right[3]:
-            target = PAGE_TRANSITIONS.get(current, {}).get("right")
-            if target:
-                self._set_bridge_page(target)
-                self.refresh()
-            return
+            slider_p1 = self._hitboxes.get("slider_p1")
+            if slider_p1 and slider_p1[0] <= x <= slider_p1[2] and slider_p1[1] <= y <= slider_p1[3]:
+                self._rrp_drag_target = "p1"
+                self._apply_rrp_preview_slider("p1", x)
+                return
+
+            slider_p2 = self._hitboxes.get("slider_p2")
+            if slider_p2 and slider_p2[0] <= x <= slider_p2[2] and slider_p2[1] <= y <= slider_p2[3]:
+                self._rrp_drag_target = "p2"
+                self._apply_rrp_preview_slider("p2", x)
+                return
 
         home = self._hitboxes.get("__home__")
         if home and home[0] <= x <= home[2] and home[1] <= y <= home[3]:

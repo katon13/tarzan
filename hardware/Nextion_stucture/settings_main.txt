@@ -1,0 +1,69 @@
+Page settings_main
+    Attributes
+        ID               : 0
+        Scope            : local
+        Send Component ID: disabled
+        Width            : 800
+        Locked           : no
+        Fill             : solid color
+        Back. Color      : 0
+    
+    Events
+        Postinitialize Event
+            sendme
+        
+Text t0
+    Attributes
+        ID                  : 1
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 300
+        y coordinate        : 218
+        Width               : 200
+        Height              : 30
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 0
+        Back. Color         : 65535
+        Font Color          : 0
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : SETTINGS
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Button b_home
+    Attributes
+        ID                               : 2
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 700
+        y coordinate                     : 385
+        Width                            : 69
+        Height                           : 69
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 19
+        Back. Picture ID (Pressed)       : 20
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Press Event
+            b_home.pic=19
+        
+        Touch Release Event
+            b_home.pic=20
+            page page1
+            sendme
+        

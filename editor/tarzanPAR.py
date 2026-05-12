@@ -22,7 +22,7 @@ EHR_PROFILER_TOP_N = int(os.environ.get("TARZAN_PAR_PROFILER_TOP_N", "20"))
 if ENABLE_EHR_PROFILER:
     try:
         from core.tarzanProfiler import clear_profiler, enable_profiler, start_profiler_reporting
-        enable_profiler(0)
+        enable_profiler(1)
         clear_profiler()
         start_profiler_reporting(interval_s=EHR_PROFILER_INTERVAL_S, top_n=EHR_PROFILER_TOP_N)
     except Exception:

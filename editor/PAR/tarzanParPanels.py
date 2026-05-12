@@ -69,12 +69,12 @@ SENSOR_LABELS = {
 }
 
 AXIS_SIGNAL_BINDINGS = {
-    "CAM_H": {"step": ["TAKE_CAM_H_STEP", "cnc_x_cam_h_ctr"], "dir": ["TAKE_CAM_H_DIR", "cnc_x_cam_h_dir"], "en": [], "left": ["cam_h_limit_left", "play_p06_cam_h_limit_left"], "right": ["cam_h_limit_right", "play_p05_cam_h_limit_right"]},
-    "CAM_V": {"step": ["TAKE_CAM_V_STEP", "cnc_y_cam_v_ctr"], "dir": ["TAKE_CAM_V_DIR", "cnc_y_cam_v_dir"], "en": [], "left": ["cam_v_limit_down", "play_p08_cam_v_limit_down"], "right": ["cam_v_limit_up", "play_p07_cam_v_limit_up"]},
-    "CAM_T": {"step": ["TAKE_CAM_T_STEP", "cnc_a_arm_tilt_ctr"], "dir": ["TAKE_CAM_T_DIR", "cnc_a_arm_tilt_dir"], "en": [], "left": ["cam_tilt_limit", "play_p10_cam_tilt_limit"], "right": ["cam_tilt_limit", "play_p10_cam_tilt_limit"]},
-    "CAM_F": {"step": ["TAKE_CAM_F_STEP", "cnc_z_focus_ctr"], "dir": ["TAKE_CAM_F_DIR", "cnc_z_focus_dir"], "en": [], "left": [], "right": []},
-    "ARM_H": {"step": ["TAKE_ARM_H_STEP", "play_p46_step_ctr_arm_h", "cnc_b_arm_h_ctr"], "dir": ["TAKE_ARM_H_DIR", "play_p38_step_dir_arm_h", "cnc_b_arm_h_dir"], "en": ["play_p50_step_en_arm_h"], "left": ["arm_h_limit_left", "play_p03_arm_h_limit_left"], "right": ["arm_h_limit_right", "play_p01_arm_h_auto_limit", "play_p02_arm_h_limit_right"]},
-    "ARM_V": {"step": ["TAKE_ARM_V_STEP", "play_p48_step_ctr_arm_v", "cnc_c_arm_v_ctr"], "dir": ["TAKE_ARM_V_DIR", "play_p39_step_dir_arm_v", "cnc_c_arm_v_dir"], "en": ["play_p51_step_en_arm_v"], "left": ["arm_v_limit_down", "play_p04_arm_v_limit_up"], "right": ["arm_v_limit_up", "play_p09_arm_v_auto_limit"]},
+    "CAM_H": {"step": ["TAKE_CAM_H_STEP", "rec_p01_copy_ctr_cam_h", "cnc_x_cam_h_ctr"], "dir": ["TAKE_CAM_H_DIR", "rec_p03_copy_dir_cam_h", "cnc_x_cam_h_dir"], "en": [], "left": ["cam_h_limit_left", "play_p06_cam_h_limit_left"], "right": ["cam_h_limit_right", "play_p05_cam_h_limit_right"]},
+    "CAM_V": {"step": ["TAKE_CAM_V_STEP", "rec_p02_copy_ctr_cam_v", "cnc_y_cam_v_ctr"], "dir": ["TAKE_CAM_V_DIR", "rec_p04_copy_dir_cam_v", "cnc_y_cam_v_dir"], "en": [], "left": ["cam_v_limit_down", "play_p08_cam_v_limit_down"], "right": ["cam_v_limit_up", "play_p07_cam_v_limit_up"]},
+    "CAM_T": {"step": ["TAKE_CAM_T_STEP", "rec_p06_copy_ctr_tilt", "cnc_a_arm_tilt_ctr", "play_p49_step_ctr_arm_tilt"], "dir": ["TAKE_CAM_T_DIR", "rec_p08_copy_dir_tilt", "cnc_a_arm_tilt_dir", "play_p40_step_dir_arm_tilt"], "en": [], "left": ["cam_tilt_limit", "play_p10_cam_tilt_limit"], "right": ["cam_tilt_limit", "play_p10_cam_tilt_limit"]},
+    "CAM_F": {"step": ["TAKE_CAM_F_STEP", "rec_p05_copy_ctr_focus", "cnc_z_focus_ctr"], "dir": ["TAKE_CAM_F_DIR", "rec_p07_copy_dir_focus", "cnc_z_focus_dir"], "en": [], "left": [], "right": []},
+    "ARM_H": {"step": ["TAKE_ARM_H_STEP", "play_p46_step_ctr_arm_h", "rec_p15_rec_ctr_arm_h", "cnc_b_arm_h_ctr"], "dir": ["TAKE_ARM_H_DIR", "play_p38_step_dir_arm_h", "rec_p12_rec_dir_arm_h", "cnc_b_arm_h_dir"], "en": ["play_p50_step_en_arm_h"], "left": ["arm_h_limit_left", "play_p03_arm_h_limit_left"], "right": ["arm_h_limit_right", "play_p01_arm_h_auto_limit", "play_p02_arm_h_limit_right"]},
+    "ARM_V": {"step": ["TAKE_ARM_V_STEP", "play_p48_step_ctr_arm_v", "rec_p16_rec_ctr_arm_v", "cnc_c_arm_v_ctr"], "dir": ["TAKE_ARM_V_DIR", "play_p39_step_dir_arm_v", "rec_p13_rec_dir_arm_v", "cnc_c_arm_v_dir"], "en": ["play_p51_step_en_arm_v"], "left": ["arm_v_limit_down", "play_p04_arm_v_limit_up"], "right": ["arm_v_limit_up", "play_p09_arm_v_auto_limit"]},
     "DRON": {"step": ["TAKE_DRON_STEP"], "dir": ["TAKE_DRON_DIR"], "en": [], "left": [], "right": []},
 }
 
@@ -247,6 +247,13 @@ class TarzanParPanels:
         self._timeline_icon_cache = {}
         self._timeline_after_id = None
         self.nextion_preview_widgets = {}
+        self._last_log_snapshot = ()
+        self._rrp_operator_updaters = []
+        self._last_rrp_refresh_rev = None
+        self._last_preview_state = {}
+        
+        # Centralny system RRP
+        self._rrp_start_ts = time.time()
 
     def panel(self, key: str, parent, title: str) -> Panel:
         return Panel(parent, title=title, on_hide=lambda: self.app.hide_panel(key))
@@ -415,58 +422,37 @@ class TarzanParPanels:
         root.pack(fill="both", expand=True)
         root.grid_columnconfigure(0, weight=1)
         root.grid_columnconfigure(1, weight=1)
+        self._rrp_operator_updaters = []
 
         axis_map = {
-            "ARM_H": {"step": ["play_p46_step_ctr_arm_h", "rec_p15_rec_ctr_arm_h", "cnc_b_arm_h_ctr"], "dir": ["play_p38_step_dir_arm_h", "rec_p12_rec_dir_arm_h", "cnc_b_arm_h_dir"]},
-            "ARM_V": {"step": ["play_p48_step_ctr_arm_v", "rec_p16_rec_ctr_arm_v", "cnc_c_arm_v_ctr"], "dir": ["play_p39_step_dir_arm_v", "rec_p13_rec_dir_arm_v", "cnc_c_arm_v_dir"]},
-            "CAM_H": {"step": ["rec_p01_copy_ctr_cam_h", "cnc_x_cam_h_ctr", "TAKE_CAM_H_STEP"], "dir": ["rec_p03_copy_dir_cam_h", "cnc_x_cam_h_dir", "TAKE_CAM_H_DIR"]},
-            "CAM_V": {"step": ["rec_p02_copy_ctr_cam_v", "cnc_y_cam_v_ctr", "TAKE_CAM_V_STEP"], "dir": ["rec_p04_copy_dir_cam_v", "cnc_y_cam_v_dir", "TAKE_CAM_V_DIR"]},
-            "CAM_T": {"step": ["rec_p06_copy_ctr_tilt", "cnc_a_arm_tilt_ctr", "play_p49_step_ctr_arm_tilt", "TAKE_CAM_T_STEP"], "dir": ["rec_p08_copy_dir_tilt", "cnc_a_arm_tilt_dir", "play_p40_step_dir_arm_tilt", "TAKE_CAM_T_DIR"]},
-            "CAM_F": {"step": ["rec_p05_copy_ctr_focus", "cnc_z_focus_ctr", "TAKE_CAM_F_STEP"], "dir": ["rec_p07_copy_dir_focus", "cnc_z_focus_dir", "TAKE_CAM_F_DIR"]},
+            "CAM_V": {"step": ["TAKE_CAM_V_STEP", "rec_p02_copy_ctr_cam_v", "cnc_y_cam_v_ctr"], "dir": ["TAKE_CAM_V_DIR", "rec_p04_copy_dir_cam_v", "cnc_y_cam_v_dir"]},
+            "CAM_T": {"step": ["TAKE_CAM_T_STEP", "rec_p06_copy_ctr_tilt", "cnc_a_arm_tilt_ctr", "play_p49_step_ctr_arm_tilt"], "dir": ["TAKE_CAM_T_DIR", "rec_p08_copy_dir_tilt", "cnc_a_arm_tilt_dir", "play_p40_step_dir_arm_tilt"]},
+            "CAM_F": {"step": ["TAKE_CAM_F_STEP", "rec_p05_copy_ctr_focus", "cnc_z_focus_ctr"], "dir": ["TAKE_CAM_F_DIR", "rec_p07_copy_dir_focus", "cnc_z_focus_dir"]},
+            "CAM_H": {"step": ["TAKE_CAM_H_STEP", "rec_p01_copy_ctr_cam_h", "cnc_x_cam_h_ctr"], "dir": ["TAKE_CAM_H_DIR", "rec_p03_copy_dir_cam_h", "cnc_x_cam_h_dir"]},
+            "ARM_H": {"step": ["TAKE_ARM_H_STEP", "play_p46_step_ctr_arm_h", "rec_p15_rec_ctr_arm_h", "cnc_b_arm_h_ctr"], "dir": ["TAKE_ARM_H_DIR", "play_p38_step_dir_arm_h", "rec_p12_rec_dir_arm_h", "cnc_b_arm_h_dir"]},
+            "ARM_V": {"step": ["TAKE_ARM_V_STEP", "play_p48_step_ctr_arm_v", "rec_p16_rec_ctr_arm_v", "cnc_c_arm_v_ctr"], "dir": ["TAKE_ARM_V_DIR", "play_p39_step_dir_arm_v", "rec_p13_rec_dir_arm_v", "cnc_c_arm_v_dir"]},
         }
+        axis_idx_to_name = {0: "CAM_V", 1: "CAM_T", 2: "CAM_F", 3: "CAM_H", 4: "ARM_H", 5: "ARM_V"}
 
-        def knob(cell, title, signal, default_axis):
+        def knob(cell, title, signal, player):
             box = tk.Frame(cell, bg=COLORS["panel3"], highlightbackground=COLORS["border"], highlightthickness=1)
             box.pack(fill="both", expand=True, padx=4, pady=4)
             tk.Label(box, text=title, bg=COLORS["panel3"], fg=COLORS["text"], font=("Segoe UI", 9, "bold")).pack(fill="x")
 
-            axis_var = tk.StringVar(value=default_axis)
-            tune_var = tk.DoubleVar(value=1.0)
-            state = {"value": float(self.bus.get(signal) or 0), "after_id": None}
+            state = {"value": float(self.bus.get(signal) or 0)}
 
             val_lbl = tk.Label(box, text="0", bg="#0f171d", fg=COLORS["green"], font=("Consolas", 18, "bold"), pady=4)
             val_lbl.pack(fill="x", padx=6)
 
-            can = tk.Canvas(box, width=122, height=122, bg=COLORS["panel3"], highlightthickness=0)
-            can.pack()
+            axis_lbl = tk.Label(box, text="STOP", bg=COLORS["panel3"], fg="#5f6b72", font=("Segoe UI", 10, "bold"))
+            axis_lbl.pack(pady=2)
 
-            dir_btn = tk.Button(box, text="DIR", bg=COLORS["button"], fg=COLORS["text"], relief="flat", font=("Segoe UI", 9, "bold"))
-            dir_btn.pack(fill="x", padx=6, pady=2)
-
-            ax_wrap = tk.Frame(box, bg=COLORS["green"])
-            ax_wrap.pack(fill="x", padx=6, pady=2)
-            ax_menu = tk.OptionMenu(ax_wrap, axis_var, *axis_map.keys())
-            ax_menu.configure(bg=COLORS["green"], fg="#061006", activebackground="#43ff4e", relief="flat", highlightthickness=0, font=("Segoe UI", 10, "bold"))
-            ax_menu.pack(fill="x", padx=2, pady=2)
-
-            tk.Scale(
-                box,
-                from_=0.2,
-                to=3.0,
-                resolution=0.1,
-                orient="horizontal",
-                variable=tune_var,
-                bg=COLORS["panel3"],
-                fg=COLORS["green"],
-                troughcolor="#0f7d18",
-                showvalue=False,
-                highlightthickness=0,
-                bd=0,
-                relief="flat",
-            ).pack(fill="x", padx=6, pady=(32, 0))
+            can = tk.Canvas(box, width=122, height=122, bg=COLORS["panel3"], highlightthickness=0, takefocus=True)
+            can.pack(pady=10)
 
             def drw(v=None):
-                if v is not None: state["value"] = max(0.0, min(4095.0, float(v)))
+                if v is not None:
+                    state["value"] = max(0.0, min(4095.0, float(v)))
                 can.delete("all")
                 cx, cy, r = 61, 61, 40
                 can.create_arc(cx-r, cy-r, cx+r, cy+r, start=225, extent=270, style="arc", outline="#5f6b72", width=8)
@@ -475,67 +461,53 @@ class TarzanParPanels:
                 angle = math.radians(angle_deg)
                 x = cx + math.cos(angle) * (r - 5)
                 y = cy - math.sin(angle) * (r - 5)
-                can.create_oval(cx-26, cy-26, cx+26, cy+26, fill="#101820", outline=COLORS["border"], width=2)
-                can.create_line(cx, cy, x, y, fill=COLORS["red"], width=4, capstyle=tk.ROUND)
-                can.create_oval(cx-5, cy-5, cx+5, cy+5, fill="#dfe6e9", outline="#111")
-                val_lbl.configure(text=str(int(state["value"])))
                 
-                cur_ax = axis_var.get()
-                bnd = axis_map.get(cur_ax, {})
-                cur_dir = 0
-                for d in bnd.get("dir", []):
-                    if self.bus.exists(d) and self.bus.get(d): cur_dir = 1; break
-                dir_btn.configure(bg=COLORS["green"] if cur_dir else COLORS["button"], fg="#061006" if cur_dir else COLORS["text"])
-
-            def tick():
-                if state["after_id"]: self.app.after_cancel(state["after_id"]); state["after_id"] = None
-                val = state["value"]
-                if val > 0:
-                    intensity = val / 4095.0
-                    speed = max(0.2, float(tune_var.get()))
-                    delay = max(18, int(260 / max(0.05, intensity * speed)))
-                    cur_ax = axis_var.get()
-                    bnd = axis_map.get(cur_ax, {})
-                    self._pulse_many_signals(bnd.get("step", []), delay_ms=delay, src="PAR_RRP")
-                    state["after_id"] = self.app.after(delay, tick)
-
-            def restart_tick(*_a): tick()
-
-            def toggle_dir():
-                cur_ax = axis_var.get()
-                bnd = axis_map.get(cur_ax, {})
-                cur_dir = 0
-                for d in bnd.get("dir", []):
-                    if self.bus.exists(d) and self.bus.get(d): cur_dir = 1; break
-                new_v = 1 - cur_dir
-                for d in bnd.get("dir", []): self.bus.force_signal(d, new_v, source="PAR_RRP_DIR")
-                drw()
+                # Pobieramy stan osi z szyny dla celów wizualnych
+                bridge_axis = int(self.bus.get(f"par_rrp_{player}_axis", -1))
+                is_active = (bridge_axis != -1)
+                
+                knob_color = COLORS["red"] if is_active else "#5f6b72"
+                can.create_oval(cx-26, cy-26, cx+26, cy+26, fill="#101820", outline=COLORS["border"], width=2)
+                can.create_line(cx, cy, x, y, fill=knob_color, width=4, capstyle=tk.ROUND)
+                can.create_oval(cx-5, cy-5, cx+5, cy+5, fill="#dfe6e9", outline="#111")
+                
+                axis_name = axis_idx_to_name.get(bridge_axis, "STOP")
+                axis_lbl.configure(text=axis_name, fg=COLORS["red"] if is_active else "#5f6b72")
+                val_lbl.configure(text=str(int(state["value"])))
 
             def on_wheel(event):
                 delta = 0
-                if getattr(event, "delta", 0): delta = 1 if event.delta > 0 else -1
-                elif getattr(event, "num", None) == 4: delta = 1
-                elif getattr(event, "num", None) == 5: delta = -1
+                if getattr(event, "delta", 0):
+                    delta = 1 if event.delta > 0 else -1
+                elif getattr(event, "num", None) == 4:
+                    delta = 1
+                elif getattr(event, "num", None) == 5:
+                    delta = -1
                 if delta:
-                    nv = max(0, min(4095, int(state["value"] + delta * 48)))
+                    nv = max(0, min(4095, int(state["value"] + delta * 64)))
                     state["value"] = nv
                     self.bus.force_signal(signal, nv, source="PAR_RRP_POT")
-                    drw(); tick()
+                    drw()
                 return "break"
 
-            axis_var.trace_add("write", restart_tick)
-            tune_var.trace_add("write", restart_tick)
-            dir_btn.configure(command=toggle_dir)
-            can.bind("<MouseWheel>", on_wheel)
-            can.bind("<Button-4>", on_wheel)
-            can.bind("<Button-5>", on_wheel)
-            drw(); self.rows[signal] = _ParValueProxy(lambda v: (drw(v), tick()))
-            tick()
+            # Bindingi dla wszystkich elementów widżetu (pewność wheel + focus)
+            for w in (can, box, val_lbl, axis_lbl):
+                w.bind("<MouseWheel>", on_wheel)
+                w.bind("<Button-4>", on_wheel)
+                w.bind("<Button-5>", on_wheel)
+                w.bind("<Enter>", lambda e, target=can: target.focus_set())
+            
+            # Rejestrujemy proxy dla sygnałów, aby UI reagowało na zmiany z Bridge
+            self._register_signal_proxy(f"par_rrp_{player}_axis", lambda v: drw())
+            self._register_signal_proxy(signal, lambda v: drw(v))
+            self._rrp_operator_updaters.append(drw)
+            
+            drw()
 
         l_f = tk.Frame(root, bg=COLORS["panel"]); l_f.grid(row=0, column=0, sticky="nsew")
         r_f = tk.Frame(root, bg=COLORS["panel"]); r_f.grid(row=0, column=1, sticky="nsew")
-        knob(l_f, "POTENCJOMETR RRP X", "play_p45_rrp_pot_h", "ARM_H")
-        knob(r_f, "POTENCJOMETR RRP Y", "play_p47_rrp_pot_v", "ARM_V")
+        knob(l_f, "POTENCJOMETR RRP X (P1)", "play_p45_rrp_pot_h", "p1")
+        knob(r_f, "POTENCJOMETR RRP Y (P2)", "play_p47_rrp_pot_v", "p2")
         return panel
 
     # --- SEKCA: SOK (STEROWNIK OBROTOWY) ---
@@ -988,7 +960,7 @@ class TarzanParPanels:
         for n in b.get("dir", []): self.bus.force_signal(n, dir, source="PAR_STEP")
         self._pulse_many_signals(b.get("step", []), src="PAR_STEP")
 
-    def _pulse_many_signals(self, names, delay_ms=70, src="PAR_PULSE"):
+    def _pulse_many_signals(self, names, delay_ms=10, src="PAR_PULSE"):
         for n in names:
             self.bus.force_signal(n, 1, source=src)
             self.app.after(delay_ms, lambda name=n: self.bus.force_signal(name, 0, source=src))
@@ -1075,7 +1047,6 @@ class TarzanParPanels:
 
     def _do_draw_timeline(self):
         self._timeline_after_id = None
-        self.nextion_preview_widgets = {}
         self.draw_timeline()
 
     def _axis_icon_path(self, axis_key: str):
@@ -1568,7 +1539,30 @@ class TarzanParPanels:
         return panel
 
     def nextion_refresh_previews(self):
-        for widget in list(self.nextion_preview_widgets.values()):
+        bridge = self.app.bridge.nextion if hasattr(self.app.bridge, "nextion") and self.app.bridge.nextion is not None else self.app.bridge
+        snapshot = bridge.snapshot() if hasattr(bridge, "snapshot") else {}
+
+        rrp_rev = snapshot.get("nextion_7.rrp_rev")
+        if rrp_rev != self._last_rrp_refresh_rev:
+            self._last_rrp_refresh_rev = rrp_rev
+            for updater in list(getattr(self, "_rrp_operator_updaters", [])):
+                try:
+                    updater()
+                except Exception:
+                    pass
+
+        for screen_key, widget in list(self.nextion_preview_widgets.items()):
+            state_key = (
+                snapshot.get(f"{screen_key}.connected"),
+                snapshot.get(f"{screen_key}.page"),
+                snapshot.get(f"{screen_key}.rrp_rev"),
+                snapshot.get(f"{screen_key}.log_last"),
+                snapshot.get("par_level_x"),
+                snapshot.get("par_level_y"),
+            )
+            if self._last_preview_state.get(screen_key) == state_key:
+                continue
+            self._last_preview_state[screen_key] = state_key
             try:
                 widget.refresh()
             except Exception:

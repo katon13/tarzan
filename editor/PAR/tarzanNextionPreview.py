@@ -437,6 +437,24 @@ class TarzanNextionPreviewPanel(tk.Frame):
                 "p1_axis_label": "STOP", "p2_axis_label": "STOP",
             }
 
+    def _rrp_disabled_keys(self, state: Dict[str, Any]) -> set[str]:
+        disabled: set[str] = set()
+        p1_axis = int(state.get("va_p1_axis", -1))
+        p2_axis = int(state.get("va_p2_axis", -1))
+        axis_key_map = {
+            0: "cam_v",
+            1: "cam_t",
+            2: "cam_f",
+            3: "cam_h",
+            4: "arm_h",
+            5: "arm_v",
+        }
+        if p1_axis in axis_key_map:
+            disabled.add(f"p2_{axis_key_map[p1_axis]}")
+        if p2_axis in axis_key_map:
+            disabled.add(f"p1_{axis_key_map[p2_axis]}")
+        return disabled
+
     def _render_rrp_main(self) -> None:
         self._hitboxes = {}
         self.screen_canvas.delete("all")
@@ -468,13 +486,24 @@ class TarzanNextionPreviewPanel(tk.Frame):
             self.screen_canvas.create_text(sx + sw // 2, sy + sh // 2, text=str(int(value)), fill="#ffffff", font=("Segoe UI", max(12, s(28)), "bold"))
             self.screen_canvas.create_text(sx + sw // 2, sy + sh + s(10), text=label, fill="#5f6b72", font=("Segoe UI", max(8, s(10))))
 
+        disabled_keys = self._rrp_disabled_keys(state)
+
         def draw_button(x: int, y: int, w: int, h: int, text: str, active: bool, key: str) -> None:
             sx, sy = s(x), s(y)
             sw, sh = s(w), s(h)
-            fill = "#4cc63f" if active else "#27333b"
-            fg = "#081108" if active else "#ffffff"
-            self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, fill=fill, outline="#d0d7de", width=2)
+            disabled = key in disabled_keys
+            if disabled:
+                fill = "#151b20"
+                fg = "#7f8b93"
+                outline = "#46525b"
+            else:
+                fill = "#4cc63f" if active else "#27333b"
+                fg = "#081108" if active else "#ffffff"
+                outline = "#d0d7de"
+            self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, fill=fill, outline=outline, width=2)
             self.screen_canvas.create_text(sx + sw // 2, sy + sh // 2, text=text, fill=fg, font=("Segoe UI", max(8, s(12)), "bold"))
+            if disabled:
+                self.screen_canvas.create_line(sx + s(10), sy + s(10), sx + sw - s(10), sy + sh - s(10), fill="#b74141", width=max(2, s(2)))
             self._hitboxes[key] = (sx, sy, sx + sw, sy + sh)
 
         draw_slider(20, 140, "P1", int(state.get("h_p1_sens", 50)), "slider_p1")
@@ -625,6 +654,8 @@ class TarzanNextionPreviewPanel(tk.Frame):
             ]:
                 box = self._hitboxes.get(key)
                 if box and box[0] <= x <= box[2] and box[1] <= y <= box[3]:
+                    if key in self._rrp_disabled_keys(self._rrp_state()):
+                        return
                     try:
                         self.bridge.preview_rrp_tap(self.screen_key, key)
                     except Exception:

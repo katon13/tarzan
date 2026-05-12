@@ -89,22 +89,31 @@ class TarzanNextionDevice:
     def poll(self) -> List[NextionEvent]:
         if self.serial_port is None:
             return []
+        
+        # Czytamy dostępne dane z portu
         try:
-            waiting = int(getattr(self.serial_port, "in_waiting", 0) or 0)
-            if waiting:
-                self.read_buffer.extend(self.serial_port.read(waiting))
+            if self.serial_port.in_waiting > 0:
+                self.read_buffer.extend(self.serial_port.read(self.serial_port.in_waiting))
         except Exception as exc:
-            self.last_error = str(exc)
+            self.last_error = f"Błąd odczytu: {exc}"
             self.close()
             return []
 
         out: List[NextionEvent] = []
-        while TERMINATOR in self.read_buffer:
-            idx = self.read_buffer.index(TERMINATOR)
-            packet = bytes(self.read_buffer[:idx])
-            del self.read_buffer[: idx + len(TERMINATOR)]
-            ev = NextionEvent(packet)
-            out.append(ev)
+        
+        # Szukamy pakietów w buforze
+        while True:
+            # 1. Standardowy terminator Nextion
+            if TERMINATOR in self.read_buffer:
+                idx = self.read_buffer.index(TERMINATOR)
+                packet = bytes(self.read_buffer[:idx])
+                del self.read_buffer[: idx + len(TERMINATOR)]
+                out.append(NextionEvent(packet))
+                continue
+            
+
+            break
+
         if out:
             self.events.extend(out)
             self.events = self.events[-50:]
@@ -117,6 +126,10 @@ class TarzanNextionDevice:
         if not self.send_command("connect"):
             return False
         time.sleep(max(0.01, wait_ms / 1000.0))
+        # Czytamy wszystko co przyszło
+        if self.serial_port and self.serial_port.in_waiting:
+            self.read_buffer.extend(self.serial_port.read(self.serial_port.in_waiting))
+        
         events = self.poll()
         for ev in events:
             if ev.raw.startswith(b"comok"):

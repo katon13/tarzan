@@ -258,6 +258,14 @@ class TarzanSignalBus:
             ("par_lcd_rec_line2", "PAR", "TEXT", "IN", "READY", "REC LCD 1602 — linia 2", "LCD_1602"),
             ("par_matrix_pattern", "PAR", "TEXT", "IN", "", "Matrix LED 8x8 — wzór", "MATRIX_LED"),
             ("par_mass_reg_value", "PAR", "ANALOG", "IN", "0", "Regulator masy — pozycja procentowa", "REGULATOR_MASY"),
+            ("par_rrp_p1_axis", "PAR", "ANALOG", "IN", "-1", "RRP P1 — wybrana oś", "RRP"),
+            ("par_rrp_p1_dir", "PAR", "LH", "IN", "0", "RRP P1 — kierunek", "RRP"),
+            ("par_rrp_p1_sens", "PAR", "ANALOG", "IN", "50", "RRP P1 — czułość", "RRP"),
+            ("par_rrp_p1_val", "PAR", "TEXT", "IN", "0", "RRP P1 — wartość/gęstość STEP", "RRP"),
+            ("par_rrp_p2_axis", "PAR", "ANALOG", "IN", "-1", "RRP P2 — wybrana oś", "RRP"),
+            ("par_rrp_p2_dir", "PAR", "LH", "IN", "0", "RRP P2 — kierunek", "RRP"),
+            ("par_rrp_p2_sens", "PAR", "ANALOG", "IN", "50", "RRP P2 — czułość", "RRP"),
+            ("par_rrp_p2_val", "PAR", "TEXT", "IN", "0", "RRP P2 — wartość/gęstość STEP", "RRP"),
         ]
         for name, board, typ, direction, default, opis, group in virtuals:
             if name in self.meta:

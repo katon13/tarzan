@@ -224,8 +224,8 @@ class TarzanParApp(tk.Tk):
             self.bridge.nextion_sync(force=True)
         except Exception:
             pass
-        self.after(50, self.nextion_tick)
-        self.after(500, self.tick)
+        self.after(150, self.nextion_tick)
+        self.after(300, self.tick)
 
     def load_layout(self):
         try:
@@ -934,7 +934,7 @@ class TarzanParApp(tk.Tk):
         row_height_var = tk.IntVar(value=int(getattr(self, "row_height_px", DEFAULT_ROW_HEIGHT_PX)))
         tk.Label(grid_body, text="Wysokość wiersza px", bg=COLORS["panel"], fg=COLORS["text"]).grid(row=2, column=0, sticky="w", pady=4)
         tk.Spinbox(grid_body, from_=40, to=180, width=6, textvariable=row_height_var, bg="#101820",
-                   fg=COLORS["text"], insertbackground=COLORS["text"], command=draw_preview if "draw_preview" in locals() else None).grid(row=2, column=1, sticky="w", padx=8)
+                   fg=COLORS["text"], insertbackground=COLORS["text"], command=lambda: draw_preview() if "draw_preview" in locals() else None).grid(row=2, column=1, sticky="w", padx=8)
 
         # Przyciski presetów ukryte na życzenie operatora.
         # Funkcje layout_preset() i auto_layout_tarzan() zostają w kodzie jako zapas,
@@ -1822,7 +1822,10 @@ class TarzanParApp(tk.Tk):
             self._clamp_zone_layout()
             self._clamp_panel_layout()
             self.refresh()
-            draw_preview()
+            try:
+                draw_preview()
+            except Exception:
+                pass
             if save:
                 self.save_layout()
 
@@ -1883,15 +1886,17 @@ class TarzanParApp(tk.Tk):
     def stop_take(self):
         self.bridge.stop_take()
 
+    @profile_method("PAR_APP.nextion_tick")
     def nextion_tick(self):
         try:
             self.bridge.poll()
             self.bridge.sync(force=False)
             if hasattr(self.panels, "nextion_refresh_previews"):
                 self.panels.nextion_refresh_previews()
-        except Exception:
-            pass
-        self.after(50, self.nextion_tick)
+        except Exception as exc:
+            if hasattr(self.bus, "log"):
+                self.bus.log("PAR_ERROR", f"Nextion Tick Error: {exc}")
+        self.after(150, self.nextion_tick)
 
     def update_take_label(self):
         if not self.take_label:
@@ -1909,4 +1914,4 @@ class TarzanParApp(tk.Tk):
         self.panels.refresh_axis_cards()
         # Timeline aktualizuje się zbiorczo po zmianach sygnałów.
         self.update_take_label()
-        self.after(500, self.tick)
+        self.after(300, self.tick)

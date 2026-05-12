@@ -2850,59 +2850,5 @@
     "logika_trybow": "ZABRONIONY",
     "rola_logiki": "SYSTEM",
     "uwaga_logiki": "Sygnał systemowy lub bezpieczeństwa PoKeys57U; nie wolno przypisywać go dowolnie do logiki trybów."
-  },
-  {
-    "nazwa": "par_rrp_p1_axis",
-    "plytka": "PAR",
-    "kanal": "RRP_P1",
-    "typ": "NUMERIC",
-    "kierunek": "INOUT",
-    "default": "-1",
-    "opis": "Wybrana oś dla toru 1 RRP (-1=STOP, 0-5=OŚ)."
-  },
-  {
-    "nazwa": "par_rrp_p1_dir",
-    "plytka": "PAR",
-    "kanal": "RRP_P1",
-    "typ": "LH",
-    "kierunek": "INOUT",
-    "default": "0",
-    "opis": "Kierunek dla toru 1 RRP."
-  },
-  {
-    "nazwa": "par_rrp_p1_sens",
-    "plytka": "PAR",
-    "kanal": "RRP_P1",
-    "typ": "NUMERIC",
-    "kierunek": "INOUT",
-    "default": "50",
-    "opis": "Czułość dla toru 1 RRP (0-100)."
-  },
-  {
-    "nazwa": "par_rrp_p2_axis",
-    "plytka": "PAR",
-    "kanal": "RRP_P2",
-    "typ": "NUMERIC",
-    "kierunek": "INOUT",
-    "default": "-1",
-    "opis": "Wybrana oś dla toru 2 RRP (-1=STOP, 0-5=OŚ)."
-  },
-  {
-    "nazwa": "par_rrp_p2_dir",
-    "plytka": "PAR",
-    "kanal": "RRP_P2",
-    "typ": "LH",
-    "kierunek": "INOUT",
-    "default": "0",
-    "opis": "Kierunek dla toru 2 RRP."
-  },
-  {
-    "nazwa": "par_rrp_p2_sens",
-    "plytka": "PAR",
-    "kanal": "RRP_P2",
-    "typ": "NUMERIC",
-    "kierunek": "INOUT",
-    "default": "50",
-    "opis": "Czułość dla toru 2 RRP (0-100)."
   }
 ]

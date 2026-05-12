@@ -2,7 +2,7 @@ Page rrp_main
     Attributes
         ID               : 0
         Scope            : local
-        Send Component ID: disabled
+        Send Component ID: on press and release
         Width            : 800
         Locked           : no
         Fill             : solid color
@@ -97,7 +97,7 @@ Text t_p1_val
     Attributes
         ID                  : 3
         Scope               : local
-        Send Component ID   : disabled
+        Send Component ID   : on press and release
         x coordinate        : 420
         y coordinate        : 140
         Width               : 200
@@ -119,7 +119,7 @@ Text t_p2_val
     Attributes
         ID                  : 5
         Scope               : local
-        Send Component ID   : disabled
+        Send Component ID   : on press and release
         x coordinate        : 420
         y coordinate        : 380
         Width               : 200
@@ -137,11 +137,59 @@ Text t_p2_val
         Horizontal Spacing  : 0
         Vertical Spacing    : 0
     
+Text t_buf_p1
+    Attributes
+        ID                  : 28
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 505
+        y coordinate        : 218
+        Width               : 100
+        Height              : 30
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 0
+        Back. Color         : 0
+        Font Color          : 0
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : 
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t_buf_p2
+    Attributes
+        ID                  : 29
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 514
+        y coordinate        : 356
+        Width               : 100
+        Height              : 30
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 0
+        Back. Color         : 0
+        Font Color          : 0
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : 
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
 Slider h_p1_sens
     Attributes
         ID                     : 2
         Scope                  : local
-        Send Component ID      : disabled
+        Send Component ID      : on press and release
         x coordinate           : 20
         y coordinate           : 140
         Width                  : 400
@@ -156,11 +204,18 @@ Slider h_p1_sens
         Upper range limit      : 100
         Lower range limit      : 0
     
+    Events
+        Touch Release Event
+            cov h_p1_sens.val,t_buf_p1.txt,0
+            print "rrp:p1_se="
+            prints t_buf_p1.txt,0
+            printh FF FF FF
+        
 Slider h_p2_sens
     Attributes
         ID                     : 4
         Scope                  : local
-        Send Component ID      : disabled
+        Send Component ID      : on press and release
         x coordinate           : 20
         y coordinate           : 380
         Width                  : 400
@@ -175,11 +230,18 @@ Slider h_p2_sens
         Upper range limit      : 100
         Lower range limit      : 0
     
+    Events
+        Touch Release Event
+            cov h_p2_sens.val,t_buf_p2.txt,0
+            print "rrp:p2_se="
+            prints t_buf_p2.txt,0
+            printh FF FF FF
+        
 Button b_home
     Attributes
         ID                               : 1
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 700
         y coordinate                     : 385
         Width                            : 69
@@ -210,7 +272,7 @@ Button b_stop
     Attributes
         ID                               : 25
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 680
         y coordinate                     : 138
         Width                            : 100
@@ -270,12 +332,14 @@ Button b_stop
             t_p2_val.txt="0"
             h_p1_sens.val=10
             h_p2_sens.val=10
+            print "rrp:stop=1"
+            printh FF FF FF
         
 Dual-state Button b_p1_cam_v
     Attributes
         ID                               : 6
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 20
         y coordinate                     : 20
         Width                            : 100
@@ -320,12 +384,15 @@ Dual-state Button b_p1_cam_v
                 tsw b_p2_arm_v,1
             }
             tsw b_p2_cam_v,0
+            print "rrp:p1_ax="
+            print "0"
+            printh FF FF FF
         
 Dual-state Button b_p2_cam_v
     Attributes
         ID                               : 7
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 20
         y coordinate                     : 260
         Width                            : 100
@@ -370,12 +437,15 @@ Dual-state Button b_p2_cam_v
                 tsw b_p1_arm_v,1
             }
             tsw b_p1_cam_v,0
+            print "rrp:p2_ax="
+            print "0"
+            printh FF FF FF
         
 Dual-state Button b_p1_dir
     Attributes
         ID                               : 8
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 680
         y coordinate                     : 20
         Width                            : 100
@@ -396,12 +466,21 @@ Dual-state Button b_p1_dir
     Events
         Touch Release Event
             va_p1_dir.val=b_p1_dir.val
+            print "rrp:p1_dr="
+            if(va_p1_dir.val==0)
+            {
+                print "0"
+            }else
+            {
+                print "1"
+            }
+            printh FF FF FF
         
 Dual-state Button b_p2_dir
     Attributes
         ID                               : 9
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 680
         y coordinate                     : 260
         Width                            : 100
@@ -422,12 +501,21 @@ Dual-state Button b_p2_dir
     Events
         Touch Release Event
             va_p2_dir.val=b_p2_dir.val
+            print "rrp:p2_dr="
+            if(va_p2_dir.val==0)
+            {
+                print "0"
+            }else
+            {
+                print "1"
+            }
+            printh FF FF FF
         
 Dual-state Button b_p1_cam_t
     Attributes
         ID                               : 10
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 120
         y coordinate                     : 20
         Width                            : 100
@@ -472,12 +560,15 @@ Dual-state Button b_p1_cam_t
                 tsw b_p2_arm_v,1
             }
             tsw b_p2_cam_t,0
+            print "rrp:p1_ax="
+            print "1"
+            printh FF FF FF
         
 Dual-state Button b_p1_cam_f
     Attributes
         ID                               : 11
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 220
         y coordinate                     : 20
         Width                            : 100
@@ -522,12 +613,15 @@ Dual-state Button b_p1_cam_f
                 tsw b_p2_arm_v,1
             }
             tsw b_p2_cam_f,0
+            print "rrp:p1_ax="
+            print "2"
+            printh FF FF FF
         
 Dual-state Button b_p1_cam_h
     Attributes
         ID                               : 12
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 320
         y coordinate                     : 20
         Width                            : 100
@@ -572,12 +666,15 @@ Dual-state Button b_p1_cam_h
                 tsw b_p2_arm_v,1
             }
             tsw b_p2_cam_h,0
+            print "rrp:p1_ax="
+            print "3"
+            printh FF FF FF
         
 Dual-state Button b_p1_arm_h
     Attributes
         ID                               : 13
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 420
         y coordinate                     : 20
         Width                            : 100
@@ -622,12 +719,15 @@ Dual-state Button b_p1_arm_h
                 tsw b_p2_arm_v,1
             }
             tsw b_p2_arm_h,0
+            print "rrp:p1_ax="
+            print "4"
+            printh FF FF FF
         
 Dual-state Button b_p1_arm_v
     Attributes
         ID                               : 14
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 520
         y coordinate                     : 20
         Width                            : 100
@@ -672,12 +772,15 @@ Dual-state Button b_p1_arm_v
                 tsw b_p2_arm_h,1
             }
             tsw b_p2_arm_v,0
+            print "rrp:p1_ax="
+            print "5"
+            printh FF FF FF
         
 Dual-state Button b_p2_cam_t
     Attributes
         ID                               : 15
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 120
         y coordinate                     : 260
         Width                            : 100
@@ -722,12 +825,15 @@ Dual-state Button b_p2_cam_t
                 tsw b_p1_arm_v,1
             }
             tsw b_p1_cam_t,0
+            print "rrp:p2_ax="
+            print "1"
+            printh FF FF FF
         
 Dual-state Button b_p2_cam_f
     Attributes
         ID                               : 16
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 220
         y coordinate                     : 260
         Width                            : 100
@@ -772,12 +878,15 @@ Dual-state Button b_p2_cam_f
                 tsw b_p1_arm_v,1
             }
             tsw b_p1_cam_f,0
+            print "rrp:p2_ax="
+            print "2"
+            printh FF FF FF
         
 Dual-state Button b_p2_cam_h
     Attributes
         ID                               : 17
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 320
         y coordinate                     : 260
         Width                            : 100
@@ -822,12 +931,15 @@ Dual-state Button b_p2_cam_h
                 tsw b_p1_arm_v,1
             }
             tsw b_p1_cam_h,0
+            print "rrp:p2_ax="
+            print "3"
+            printh FF FF FF
         
 Dual-state Button b_p2_arm_h
     Attributes
         ID                               : 18
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 420
         y coordinate                     : 260
         Width                            : 100
@@ -872,12 +984,15 @@ Dual-state Button b_p2_arm_h
                 tsw b_p1_arm_v,1
             }
             tsw b_p1_arm_h,0
+            print "rrp:p2_ax="
+            print "4"
+            printh FF FF FF
         
 Dual-state Button b_p2_arm_v
     Attributes
         ID                               : 19
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : on press and release
         x coordinate                     : 520
         y coordinate                     : 260
         Width                            : 100
@@ -922,4 +1037,7 @@ Dual-state Button b_p2_arm_v
                 tsw b_p1_arm_h,1
             }
             tsw b_p1_arm_v,0
+            print "rrp:p2_ax="
+            print "5"
+            printh FF FF FF
         

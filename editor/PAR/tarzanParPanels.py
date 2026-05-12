@@ -313,7 +313,7 @@ class TarzanParPanels:
         axes_list = [
             ("ARM_H", "1. OŚ POZIOMA RAMIENIA", "↔"),
             ("ARM_V", "2. OŚ PIONOWA RAMIENIA", "↕"),
-            ("CAM_H", "3. OŚ POZIOMA KAMERY (PAN)", "⟳"),
+            ("CAM_H", "3. OŚ POZIOMA KAMERY", "⟳"),
             ("CAM_V", "4. OŚ PIONOWA KAMERY", "↕"),
             ("CAM_T", "5. OŚ POCHYŁU KAMERY", "↧"),
             ("CAM_F", "6. OŚ OSTROŚCI KAMERY", "◎"),
@@ -439,13 +439,20 @@ class TarzanParPanels:
             box.pack(fill="both", expand=True, padx=4, pady=4)
             tk.Label(box, text=title, bg=COLORS["panel3"], fg=COLORS["text"], font=("Segoe UI", 9, "bold")).pack(fill="x")
 
-            state = {"value": float(self.bus.get(signal) or 0)}
+            # Potencjometr RRP startuje od 0 (zgodnie z oryginałem)
+            state = {"value": float(self.bus.get(signal, 0)), "after_id": None, "last_step_val": -1}
 
             val_lbl = tk.Label(box, text="0", bg="#0f171d", fg=COLORS["green"], font=("Consolas", 18, "bold"), pady=4)
             val_lbl.pack(fill="x", padx=6)
 
-            axis_lbl = tk.Label(box, text="STOP", bg=COLORS["panel3"], fg="#5f6b72", font=("Segoe UI", 10, "bold"))
-            axis_lbl.pack(pady=2)
+            axis_frame = tk.Frame(box, bg=COLORS["panel3"])
+            axis_frame.pack(pady=2)
+            
+            axis_icon_lbl = tk.Label(axis_frame, bg=COLORS["panel3"])
+            axis_icon_lbl.pack(side="left", padx=2)
+            
+            axis_lbl = tk.Label(axis_frame, text="STOP", bg=COLORS["panel3"], fg="#5f6b72", font=("Segoe UI", 10, "bold"))
+            axis_lbl.pack(side="left", padx=2)
 
             can = tk.Canvas(box, width=122, height=122, bg=COLORS["panel3"], highlightthickness=0, takefocus=True)
             can.pack(pady=10)
@@ -462,7 +469,6 @@ class TarzanParPanels:
                 x = cx + math.cos(angle) * (r - 5)
                 y = cy - math.sin(angle) * (r - 5)
                 
-                # Pobieramy stan osi z szyny dla celów wizualnych
                 bridge_axis = int(self.bus.get(f"par_rrp_{player}_axis", -1))
                 is_active = (bridge_axis != -1)
                 
@@ -474,6 +480,51 @@ class TarzanParPanels:
                 axis_name = axis_idx_to_name.get(bridge_axis, "STOP")
                 axis_lbl.configure(text=axis_name, fg=COLORS["red"] if is_active else "#5f6b72")
                 val_lbl.configure(text=str(int(state["value"])))
+                
+                # Zespolenie ikon osi
+                if is_active and axis_icon:
+                    try:
+                        desc = _AXIS_ICON_DESCRIPTIONS.get(axis_name, "")
+                        path = axis_icon(desc, size=32, state="active")
+                        img = self._load_timeline_icon(axis_name) # używamy cache z timeline lub ładujemy małą
+                        axis_icon_lbl.configure(image=img)
+                        axis_icon_lbl.image = img
+                    except Exception: 
+                        axis_icon_lbl.configure(image="")
+                else:
+                    axis_icon_lbl.configure(image="")
+
+            def gen_tick():
+                try:
+                    pot_val = float(self.bus.get(signal, 0))
+                    sens = float(self.bus.get(f"par_rrp_{player}_sens", 50))
+                    intensity = (pot_val / 4095.0) * (sens / 100.0)
+                    
+                    if intensity > 0.01:
+                        delay = max(20, int(40 / intensity)) # Skalowanie dla większej płynności (20-400ms)
+                        bridge_axis = int(self.bus.get(f"par_rrp_{player}_axis", -1))
+                        axis_name = axis_idx_to_name.get(bridge_axis)
+                        
+                        if axis_name in axis_map:
+                            cfg = axis_map[axis_name]
+                            direction = int(self.bus.get(f"par_rrp_{player}_dir", 0))
+                            
+                            for d_sig in cfg["dir"]:
+                                self.bus.force_signal(d_sig, direction, source="PAR_GEN")
+                            
+                            self._pulse_many_signals(cfg["step"], delay_ms=int(delay * 0.4), src="PAR_GEN")
+                            
+                            step_val = int(intensity * 100)
+                            if abs(step_val - state["last_step_val"]) >= 2: # Debouncing aktualizacji Nextiona
+                                state["last_step_val"] = step_val
+                                self.bus.set_input(f"par_rrp_{player}_val", step_val, source="PAR_GEN")
+                            
+                            state["after_id"] = self.app.after(delay, gen_tick)
+                            return
+                            
+                    state["after_id"] = self.app.after(100, gen_tick)
+                except Exception:
+                    state["after_id"] = self.app.after(1000, gen_tick)
 
             def on_wheel(event):
                 delta = 0
@@ -484,25 +535,26 @@ class TarzanParPanels:
                 elif getattr(event, "num", None) == 5:
                     delta = -1
                 if delta:
-                    nv = max(0, min(4095, int(state["value"] + delta * 64)))
+                    nv = max(0, min(4095, int(state["value"] + delta * 128)))
                     state["value"] = nv
                     self.bus.force_signal(signal, nv, source="PAR_RRP_POT")
                     drw()
                 return "break"
 
-            # Bindingi dla wszystkich elementów widżetu (pewność wheel + focus)
-            for w in (can, box, val_lbl, axis_lbl):
+            for w in (can, box, val_lbl, axis_lbl, axis_icon_lbl):
                 w.bind("<MouseWheel>", on_wheel)
                 w.bind("<Button-4>", on_wheel)
                 w.bind("<Button-5>", on_wheel)
                 w.bind("<Enter>", lambda e, target=can: target.focus_set())
             
-            # Rejestrujemy proxy dla sygnałów, aby UI reagowało na zmiany z Bridge
+            box.bind("<Destroy>", lambda e: self.app.after_cancel(state["after_id"]) if state.get("after_id") else None)
+
             self._register_signal_proxy(f"par_rrp_{player}_axis", lambda v: drw())
             self._register_signal_proxy(signal, lambda v: drw(v))
             self._rrp_operator_updaters.append(drw)
             
             drw()
+            gen_tick()
 
         l_f = tk.Frame(root, bg=COLORS["panel"]); l_f.grid(row=0, column=0, sticky="nsew")
         r_f = tk.Frame(root, bg=COLORS["panel"]); r_f.grid(row=0, column=1, sticky="nsew")
@@ -1020,10 +1072,13 @@ class TarzanParPanels:
                         self.bus.force_signal(extra, val, source="PAR_LINK")
         except Exception: pass
 
-        # Odświeżanie kart osi (wizualizacja Step/Dir)
+        # Odświeżanie kart osi (wizualizacja Step/Dir) - DEBOUNCED
         for b in AXIS_SIGNAL_BINDINGS.values():
             if any(name in group for group in b.values()):
-                self.refresh_axis_cards()
+                now = time.time()
+                if now - getattr(self, "_last_axis_card_refresh", 0) > 0.1: # max 10 FPS dla kart osi (oszczędność CPU)
+                    self._last_axis_card_refresh = now
+                    self.refresh_axis_cards()
                 break
 
         # Timeline

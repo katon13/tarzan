@@ -27,9 +27,9 @@ level_xyz
 	51   Line(s) of event code
 	31   Unique line(s) of event code
 rrp_main
-	28   Component(s)
-	382  Line(s) of event code
-	105  Unique line(s) of event code
+	30   Component(s)
+	452  Line(s) of event code
+	131  Unique line(s) of event code
 page1
 	7    Component(s)
 	13   Line(s) of event code
@@ -37,6 +37,6 @@ page1
 
 Total
 	8    Page(s)
-	59   Component(s)
-	511  Line(s) of event code
-	170  Unique line(s) of event code
+	61   Component(s)
+	581  Line(s) of event code
+	195  Unique line(s) of event code

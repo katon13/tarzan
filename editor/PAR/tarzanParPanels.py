@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+try:
+    from editor.TFD.tfd_state import tfd_state
+except:
+    tfd_state = None
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Dict, List, Optional, Any, Callable
@@ -1594,6 +1599,9 @@ class TarzanParPanels:
         return panel
 
     def nextion_refresh_previews(self):
+        if tfd_state:
+            tfd_state.update_from_bus(self.bus)
+
         bridge = self.app.bridge.nextion if hasattr(self.app.bridge, "nextion") and self.app.bridge.nextion is not None else self.app.bridge
         snapshot = bridge.snapshot() if hasattr(bridge, "snapshot") else {}
 
@@ -1614,6 +1622,7 @@ class TarzanParPanels:
                 snapshot.get(f"{screen_key}.log_last"),
                 snapshot.get("par_level_x"),
                 snapshot.get("par_level_y"),
+                tfd_state.packet_id if tfd_state else 0,
             )
             if self._last_preview_state.get(screen_key) == state_key:
                 continue

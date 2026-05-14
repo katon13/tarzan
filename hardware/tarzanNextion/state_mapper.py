@@ -18,6 +18,8 @@ class TarzanNextionStateMapper:
         
         self._file_cache: Dict[str, tuple[float, Any]] = {}
         self._cache: Dict[str, Any] = {}
+        self._last_snapshot = {}
+        self._last_snapshot_time = 0.0
 
     def _load_json(self, path: Path, default: Any) -> Any:
         now = time.time()
@@ -38,6 +40,9 @@ class TarzanNextionStateMapper:
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def snapshot(self) -> Dict[str, Any]:
+        now = time.time()
+        if (now - self._last_snapshot_time) < 0.02:
+            return self._last_snapshot
         khr = self._load_json(self.khr_path, {})
         vision = self._load_json(self.vision_path, {})
         ehr = self._load_json(self.ehr_path, {})
@@ -100,6 +105,8 @@ class TarzanNextionStateMapper:
             "io.arm_v_enable": bget("play_p51_step_en_arm_v"),
         }
         self._cache = out
+        self._last_snapshot = out
+        self._last_snapshot_time = now
         return out
 
     def set_value(self, path: str, value: Any) -> None:

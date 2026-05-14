@@ -227,6 +227,15 @@ class TarzanParApp(tk.Tk):
         self.after(50, self.nextion_tick)
         self.after(200, self.tick)
 
+        # START SERWERA TFD DLA OBS OVERLAY
+        try:
+            import threading
+            from editor.TFD.tarzanTfdOverlayServer import run_server
+            tfd_thread = threading.Thread(target=run_server, daemon=True)
+            tfd_thread.start()
+        except Exception as e:
+            print(f"INFO: Serwer TFD nie został uruchomiony: {e}")
+
     def load_layout(self):
         try:
             return json.loads(LAYOUT_PATH.read_text(encoding="utf-8"))
@@ -1896,7 +1905,7 @@ class TarzanParApp(tk.Tk):
         except Exception as exc:
             if hasattr(self.bus, "log"):
                 self.bus.log("PAR_ERROR", f"Nextion Tick Error: {exc}")
-        self.after(50, self.nextion_tick)
+        self.after(100, self.nextion_tick)
 
     def update_take_label(self):
         if not self.take_label:

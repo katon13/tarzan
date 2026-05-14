@@ -11,15 +11,33 @@
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio/tarzanAudioCatalog.py" beforeDir="false" afterPath="$PROJECT_DIR$/audio/tarzanAudioCatalog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/windows.cdr" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/TarzanTakeProtocolLight.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanAxisSandbox.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrApp.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrMainTakeSettings.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrMainTakeSettingsDialog.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrMultiAxisModel.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrTakeModel.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrUi.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanTakeTxtCore.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/TarzanEhrTakeSandbox.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/TarzanTakeProtocolLight.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/tarzanAxisSandbox.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/tarzanEHR.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/editor/tarzanEhrMultiAxisModel.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/nextion7_Stats.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/nextion7_Stats.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/rrp_main.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/rrp_main.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/page1.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/page1.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/settings_main.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/settings_main.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/take_main.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/take_main.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/nextion/page/Nextion_axes_dir_left.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/Nextion_axes_dir_left.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/nextion/page/Nextion_axes_dir_right.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/Nextion_axes_dir_right.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/nextion/page/Nextion_pot_core_400.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/Nextion_pot_core_400.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/nextion/page/Nextion_pot_core_active_400.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/Nextion_pot_core_active_400.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/state_mapper.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/state_mapper.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

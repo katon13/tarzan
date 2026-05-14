@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>TARZAN TFD OVERLAY</title>
+    <style>
+        /* Inline CSS for safety if external fails, but we use external too */
+    </style>
+    <link rel="stylesheet" href="tarzan_tfd_overlay.css">
+</head>
+<body>
+    <div id="tfd-container">
+        <!-- TOP PANEL -->
+        <div class="panel top-panel">
+            <div class="item tc-item">
+                <span class="label">TC</span>
+                <span id="t_tc" class="value">00:00:00:00</span>
+            </div>
+            <div class="item status-item">
+                <span id="t_status" class="value">LIVE</span>
+            </div>
+            <div class="item date-item">
+                <span id="t0" class="value">00:00:0000</span>
+            </div>
+            <div class="item take-item">
+                <span class="label">TAKE</span>
+                <span id="t_take" class="value">001</span>
+            </div>
+        </div>
+
+        <!-- LEFT PANEL (CAM AXES) -->
+        <div class="panel side-panel left-panel">
+            <div class="axis-group">
+                <div class="item">
+                    <img src="/img/nextion/page/tfd_axis_h.png" class="icon">
+                    <span id="t_axis0" class="value">00000</span>
+                </div>
+                <div class="item">
+                    <img src="/img/nextion/page/tfd_axis_v.png" class="icon">
+                    <span id="t_axis1" class="value">00000</span>
+                </div>
+                <div class="item">
+                    <img src="/img/nextion/page/tfd_axis_t.png" class="icon">
+                    <span id="t_axis2" class="value">00000</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL (ARM AXES + SENSORS) -->
+        <div class="panel side-panel right-panel">
+            <div class="axis-group">
+                <div class="item">
+                    <img src="/img/nextion/page/tfd_axis_f.png" class="icon">
+                    <span id="t_axis3" class="value">00000</span>
+                </div>
+                <div class="item">
+                    <img src="/img/nextion/page/tfd_axis_arm_h.png" class="icon">
+                    <span id="t_axis4" class="value">00000</span>
+                </div>
+                <div class="item">
+                    <img src="/img/nextion/page/tfd_axis_arm_v.png" class="icon">
+                    <span id="t_axis5" class="value">00000</span>
+                </div>
+            </div>
+            <div class="sensor-group">
+                <div class="item">
+                    <img src="/img/nextion/page/tfd_laser.png" class="icon">
+                    <span id="t_laser" class="value">OK</span>
+                </div>
+                <div class="item">
+                    <img src="/img/nextion/page/tfd_limit.png" class="icon">
+                    <span id="t_limits" class="value">OK</span>
+                </div>
+                <div class="item">
+                    <img src="/img/nextion/page/tfd_shock.png" class="icon">
+                    <span id="t_shock" class="value">OFF</span>
+                </div>
+                <div class="item">
+                    <img src="/img/nextion/page/tfd_light.png" class="icon">
+                    <span id="t_light" class="value">00000</span>
+                </div>
+                <div class="item">
+                    <img src="/img/nextion/page/tfd_temp.png" class="icon">
+                    <span id="t_temp" class="value">22C</span>
+                </div>
+                <div class="item">
+                    <img src="/img/nextion/page/tfd_xyz.png" class="icon">
+                    <span id="t_xyz" class="value">X+0 Y+0 Z+0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM PANEL -->
+        <div class="panel bottom-panel">
+            <div class="meta-group">
+                <div class="item">
+                    <span class="label">TITLE:</span>
+                    <span id="t1" class="value">TYTUŁ FILMU</span>
+                </div>
+                <div class="item">
+                    <span class="label">DIRECTOR:</span>
+                    <span id="t2" class="value">REŻYSER</span>
+                </div>
+            </div>
+            <div id="clap-indicator" class="clap-off">CLAP</div>
+        </div>
+    </div>
+    <script src="tarzan_tfd_overlay.js"></script>
+</body>
+</html>

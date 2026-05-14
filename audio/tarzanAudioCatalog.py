@@ -11,5 +11,6 @@ VOICE_MESSAGES = {
     "Playback ready": "Playback_ready.wav",
     "Motion starting": "Motion_starting.wav",
     "Motion stopped": "Motion_stopped.wav",
-    "Emergency stop": "Emergency_stop.wav"
+    "Emergency stop": "Emergency_stop.wav",
+    "clap": "../signals/clap.wav"
 }

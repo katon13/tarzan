@@ -17,8 +17,8 @@ Button b_face
         ID                               : 1
         Scope                            : local
         Send Component ID                : disabled
-        x coordinate                     : 100
-        y coordinate                     : 40
+        x coordinate                     : 500
+        y coordinate                     : 240
         Width                            : 200
         Height                           : 200
         Fill                             : image
@@ -152,8 +152,8 @@ Button b_take
         ID                               : 6
         Scope                            : local
         Send Component ID                : disabled
-        x coordinate                     : 500
-        y coordinate                     : 240
+        x coordinate                     : 100
+        y coordinate                     : 40
         Width                            : 200
         Height                           : 200
         Fill                             : image

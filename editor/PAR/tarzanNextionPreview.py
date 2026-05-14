@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import json
@@ -10,6 +9,24 @@ try:
     from editor.PAR.tarzanParWidgets import COLORS, Panel
 except ModuleNotFoundError:
     from tarzanParWidgets import COLORS, Panel
+
+try:
+    from editor.TFD.tfd_state import tfd_state
+    from editor.TFD.nextion_text_layout import get_layout
+except ImportError:
+    tfd_state = None
+    get_layout = lambda x: []
+
+try:
+    from audio.tarzanAudioPlayer import play as play_audio
+except ImportError:
+    play_audio = lambda msg: None
+
+try:
+    from PIL import Image, ImageTk
+except ImportError:
+    Image = None
+    ImageTk = None
 
 
 PAGE_TRANSITIONS: Dict[str, Dict[str, Optional[str]]] = {
@@ -205,7 +222,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
         if connected:
             err = "-"
 
-        if not connected:
+        if False and not connected:
             self.current_page_id = None
             self.page_label.configure(text=f"{self.screen_key.upper()} | OFF")
             self.status.configure(text=f"PORT: {port}   COM: OFF   ERR: {err}")
@@ -241,6 +258,24 @@ class TarzanNextionPreviewPanel(tk.Frame):
             self._render_page1()
             return
 
+        if bridge_page == "take_main":
+            self._cancel_intro()
+            self._intro_complete = False
+            self.current_page_id = "take_main"
+            self.page_label.configure(text=f"{self.screen_key.upper()} | TAKE_MAIN")
+            self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
+            self._render_take_main()
+            return
+
+        if bridge_page == "settings_main":
+            self._cancel_intro()
+            self._intro_complete = False
+            self.current_page_id = "settings_main"
+            self.page_label.configure(text=f"{self.screen_key.upper()} | SETTINGS_MAIN")
+            self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
+            self._render_settings_main()
+            return
+
         if bridge_page in PAGE_TITLES:
             self._cancel_intro()
             self._intro_complete = False
@@ -250,17 +285,27 @@ class TarzanNextionPreviewPanel(tk.Frame):
             self._render_placeholder_page(bridge_page)
             return
 
-        if self._intro_running or (self.current_page_id == "boot" and self._intro_complete):
+        if self._intro_running or (bridge_page == "boot" and not self._intro_complete):
             self.current_page_id = "boot"
             self.page_label.configure(text=f"{self.screen_key.upper()} | BOOT")
             self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
             self._render_intro_frame(self._intro_index)
             return
 
+        if bridge_page == "boot" and self._intro_complete:
+            self.current_page_id = "boot"
+            self.page_label.configure(text=f"{self.screen_key.upper()} | BOOT")
+            self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
+            self._render_page1() # Nextion zazwyczaj po boot przechodzi do page1
+            return
+
         self.current_page_id = bridge_page or "boot"
         self.page_label.configure(text=f"{self.screen_key.upper()} | {(self.current_page_id or 'boot').upper()}")
         self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
-        self._render_black()
+        if self.current_page_id == "boot":
+            self._render_intro_frame(0)
+        else:
+            self._render_black()
 
     def _bridge_page_id(self) -> str:
         try:
@@ -280,6 +325,211 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self.screen_canvas.delete("all")
         self.screen_canvas.configure(bg=self.bg_color)
         self._screen_photo = None
+
+    def _render_take_main(self) -> None:
+        """Renderuje stronę TAKE_MAIN wykorzystując dane z TFDState i layoutu .txt."""
+        self._hitboxes = {}
+        self.screen_canvas.delete("all")
+        self.screen_canvas.configure(bg=self.bg_color)
+        self._screen_photo = None
+        
+        layout = get_layout("take_main.txt")
+        if not layout:
+            self.screen_canvas.create_text(
+                self.screen_width // 2, self.screen_height // 2,
+                text="BŁĄD: Brak take_main.txt\nSprawdź hardware/Nextion_stucture/",
+                fill="#f00", font=("Segoe UI", 10, "bold")
+            )
+            self._draw_nav_arrows(show_home=True)
+            return
+            
+        packet = tfd_state.get_packet() if tfd_state else {}
+        axes = packet.get("axes", {})
+        sensors = packet.get("sensors", {})
+        
+        val_map = {
+            "t1": packet.get("title", ""),
+            "t2": packet.get("director", ""),
+            "t_take": f"TAKE: {packet.get('take', 1)}",
+            "t_clap": "CLAP" if packet.get("clap") else "",
+            "t_status": packet.get("status", "LIVE"),
+            "t0": packet.get("tc", "00:00:00:00"),
+            "t_axis0": axes.get("axis0", "00000"),
+            "t_axis1": axes.get("axis1", "00000"),
+            "t_axis2": axes.get("axis2", "00000"),
+            "t_axis3": axes.get("axis3", "00000"),
+            "t_axis4": axes.get("axis4", "00000"),
+            "t_axis5": axes.get("axis5", "00000"),
+            "t_laser": sensors.get("laser", "OFF"),
+            "t_limits": sensors.get("limits", "OK"),
+            "t_shock": sensors.get("shock", "OK"),
+            "t_light": sensors.get("light", "OFF"),
+            "t_temp": sensors.get("temp", "0"),
+            "t_xyz": sensors.get("xyz", "0/0")
+        }
+
+        for comp in layout:
+            name = comp["name"]
+            attrs = comp["attrs"]
+            try:
+                x = int(attrs.get("x coordinate", 0))
+                y = int(attrs.get("y coordinate", 0))
+                w = int(attrs.get("Width", 10))
+                h = int(attrs.get("Height", 10))
+            except ValueError: continue
+            
+            sx, sy = int(x * self.scale), int(y * self.scale)
+            sw, sh = int(w * self.scale), int(h * self.scale)
+            
+            if comp["type"] == "Text":
+                text = val_map.get(name, attrs.get("Text", ""))
+                color = self._nextion_color_to_hex(attrs.get("Font Color", "65535"))
+                
+                # Dynamiczne skalowanie czcionki
+                font_size = max(8, int(14 * self.scale))
+                font_weight = "normal"
+                
+                if name == "t0": # Timecode
+                    font_size = max(16, int(36 * self.scale))
+                    font_weight = "bold"
+                elif name in ["t_status", "t_take", "t_clap"]:
+                    font_size = max(12, int(24 * self.scale))
+                    font_weight = "bold"
+                elif name in ["t1", "t2"]:
+                    font_size = max(10, int(20 * self.scale))
+                    
+                # Specjalne traktowanie dla t_status (zielony/czerwony)
+                if name == "t_status":
+                    color = COLORS["green"] if text == "LIVE" else COLORS["red"]
+                if name == "t_clap" and text == "CLAP":
+                    color = "#FF0000"
+                
+                self.screen_canvas.create_text(
+                    sx + sw // 2, sy + sh // 2,
+                    text=text, fill=color,
+                    font=("Consolas", font_size, font_weight),
+                    width=sw
+                )
+            elif comp["type"] == "Button":
+                self._hitboxes[name] = (sx, sy, sx + sw, sy + sh)
+                if name == "b_clap":
+                    self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, outline=COLORS["red"], fill="#200", width=2)
+                    self.screen_canvas.create_text(sx + sw // 2, sy + sh // 2, text="CLAP", fill=COLORS["red"], font=("Segoe UI", 8, "bold"))
+                else:
+                    self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, outline="#333", fill="#222")
+                    self.screen_canvas.create_text(sx + sw // 2, sy + sh // 2, text=name, fill="#aaa", font=("Segoe UI", 8))
+            elif comp["type"] == "Picture":
+                icon = self._get_tfd_icon(name)
+                if icon:
+                    self.screen_canvas.create_image(sx + sw // 2, sy + sh // 2, image=icon)
+                else:
+                    self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, outline="#444", dash=(2, 2))
+
+        self._draw_nav_arrows(show_home=True)
+
+    def _render_settings_main(self) -> None:
+        """Renderuje stronę SETTINGS_MAIN."""
+        self._hitboxes = {}
+        self.screen_canvas.delete("all")
+        self.screen_canvas.configure(bg=self.bg_color)
+        
+        layout = get_layout("settings_main.txt")
+        if not layout:
+            self.screen_canvas.create_text(
+                self.screen_width // 2, self.screen_height // 2,
+                text="BŁĄD: Brak settings_main.txt\nSprawdź hardware/Nextion_stucture/",
+                fill="#f00", font=("Segoe UI", 10, "bold")
+            )
+            self._draw_nav_arrows(show_home=True)
+            return
+            
+        val_map = {
+            "t_title": tfd_state.title if tfd_state else "TYTUŁ",
+            "t_director": tfd_state.director if tfd_state else "REŻYSER"
+        }
+
+        for comp in layout:
+            name = comp["name"]
+            attrs = comp["attrs"]
+            try:
+                x = int(attrs.get("x coordinate", 0))
+                y = int(attrs.get("y coordinate", 0))
+                w = int(attrs.get("Width", 10))
+                h = int(attrs.get("Height", 10))
+            except ValueError: continue
+            
+            sx, sy = int(x * self.scale), int(y * self.scale)
+            sw, sh = int(w * self.scale), int(h * self.scale)
+            
+            if comp["type"] == "Text":
+                text = val_map.get(name, attrs.get("Text", ""))
+                self._hitboxes[name] = (sx, sy, sx + sw, sy + sh)
+                self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, outline="#555", fill="#111")
+                
+                font_size = max(10, int(18 * self.scale))
+                if name in ["t_title", "t_director"]:
+                    font_size = max(12, int(24 * self.scale))
+                
+                self.screen_canvas.create_text(
+                    sx + sw // 2, sy + sh // 2,
+                    text=text, fill="#fff",
+                    font=("Segoe UI", font_size, "bold"),
+                    width=sw
+                )
+            elif comp["type"] == "Button":
+                self._hitboxes[name] = (sx, sy, sx + sw, sy + sh)
+                color = COLORS["green"] if name == "b_save_meta" else "#333"
+                self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, outline="#fff", fill=color)
+                label = "SAVE" if name == "b_save_meta" else name
+                self.screen_canvas.create_text(sx + sw // 2, sy + sh // 2, text=label, fill="#fff", font=("Segoe UI", 9, "bold"))
+
+        self._draw_nav_arrows(show_home=True)
+
+    def _get_tfd_icon(self, name: str) -> Optional[tk.PhotoImage]:
+        if Image is None or ImageTk is None:
+            return None
+            
+        icon_map = {
+            "p_axis0": "tfd_1.png", "p_axis1": "tfd_2.png", "p_axis2": "tfd_3.png",
+            "p_axis3": "tfd_4.png", "p_axis4": "tfd_5.png", "p_axis5": "tfd_6.png",
+            "p_laser": "tfd_laser.png", "p_limits": "tfd_limit.png", 
+            "p_light": "tfd_litht.png", "p_shock": "tfd_shock.png",
+            "p_temp": "tfd_temp.png", "p_xyz": "tfd_xyz.png",
+            "p_clap": "clamp_inacive.png"
+        }
+        filename = icon_map.get(name)
+        if not filename: return None
+        
+        cache_key = f"tfd_icon_{filename}_{self.scale}"
+        if cache_key in self._photo_cache:
+            return self._photo_cache[cache_key]
+            
+        root = Path(__file__).resolve().parents[2]
+        path = root / "img" / "nextion" / "page" / filename
+        if path.exists():
+            try:
+                img = Image.open(path)
+                w, h = img.size
+                img = img.resize((int(w * self.scale), int(h * self.scale)), Image.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                self._photo_cache[cache_key] = photo
+                return photo
+            except Exception:
+                return None
+        return None
+
+    def _nextion_color_to_hex(self, nextion_color: str) -> str:
+        try:
+            val = int(nextion_color)
+            r = (val >> 11) & 0x1F
+            g = (val >> 5) & 0x3F
+            b = val & 0x1F
+            r = int(r * 255 / 31)
+            g = int(g * 255 / 63)
+            b = int(b * 255 / 31)
+            return f"#{r:02x}{g:02x}{b:02x}"
+        except Exception:
+            return "#ffffff"
 
     def _render_page1(self) -> None:
         self._hitboxes = {}
@@ -578,10 +828,11 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self._intro_after_id = None
 
     def _is_connected(self) -> bool:
-        try:
-            return bool(self.state.get(f"{self.screen_key}.connected", False))
-        except Exception:
-            return False
+        """
+        Zwraca True, aby umożliwić interakcję z podglądem w PAR 
+        nawet bez fizycznego połączenia (tryb symulacji/podglądu).
+        """
+        return True
 
     def _slider_value_from_hit(self, key: str, x: int) -> int:
         box = self._hitboxes.get(key)
@@ -673,6 +924,50 @@ class TarzanNextionPreviewPanel(tk.Frame):
             if slider_p2 and slider_p2[0] <= x <= slider_p2[2] and slider_p2[1] <= y <= slider_p2[3]:
                 self._rrp_drag_target = "p2"
                 self._apply_rrp_preview_slider("p2", x)
+                return
+
+        if current == "take_main":
+            # Obsługa przycisku b_clap
+            box = self._hitboxes.get("b_clap")
+            if box and box[0] <= x <= box[2] and box[1] <= y <= box[3]:
+                if tfd_state:
+                    tfd_state.set_clap(1)
+                    play_audio("clap")
+                    # Symulujemy wysłanie do mostka jeśli mostek obsługuje przesyłanie zdarzeń do hardware
+                    if hasattr(self.bridge, "devices"):
+                        dev = self.bridge.devices.get(self.screen_key)
+                        if dev and dev.connected:
+                            dev.send_command("print \"take:clap=1\"")
+                            dev.send_raw(b"\xff\xff\xff")
+                self.refresh()
+                return
+
+        if current == "settings_main":
+            # Obsługa wpisywania metadanych
+            for field in ["t_title", "t_director"]:
+                box = self._hitboxes.get(field)
+                if box and box[0] <= x <= box[2] and box[1] <= y <= box[3]:
+                    from tkinter import simpledialog
+                    old_val = tfd_state.title if field == "t_title" else tfd_state.director
+                    prompt = "Podaj tytuł:" if field == "t_title" else "Podaj reżysera:"
+                    new_val = simpledialog.askstring("Nextion Preview", prompt, initialvalue=old_val)
+                    if new_val is not None and tfd_state:
+                        if field == "t_title": tfd_state.update_meta(title=new_val)
+                        else: tfd_state.update_meta(director=new_val)
+                    self.refresh()
+                    return
+            
+            # Obsługa b_save_meta
+            box = self._hitboxes.get("b_save_meta")
+            if box and box[0] <= x <= box[2] and box[1] <= y <= box[3]:
+                if tfd_state and hasattr(self.bridge, "devices"):
+                    dev = self.bridge.devices.get(self.screen_key)
+                    if dev and dev.connected:
+                        dev.send_command(f"print \"set:title={tfd_state.title}\"")
+                        dev.send_raw(b"\xff\xff\xff")
+                        dev.send_command(f"print \"set:director={tfd_state.director}\"")
+                        dev.send_raw(b"\xff\xff\xff")
+                self.refresh()
                 return
 
         home = self._hitboxes.get("__home__")

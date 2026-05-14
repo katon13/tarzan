@@ -9,6 +9,16 @@ from .protocol import cmd_page, cmd_text, cmd_value, cmd_visible, command_bytes
 from .screen_model import ScreenDefinition, load_screen_definition
 from .state_mapper import TarzanNextionStateMapper
 
+try:
+    from editor.TFD.tfd_state import tfd_state
+except ImportError:
+    tfd_state = None
+
+try:
+    from audio.tarzanAudioPlayer import play as play_audio
+except ImportError:
+    play_audio = lambda msg: None
+
 
 class TarzanNextionBridge:
     def __init__(self, bus) -> None:
@@ -30,6 +40,8 @@ class TarzanNextionBridge:
         self.last_sync = 0.0
         self.last_sent_snapshot: Dict[str, Any] = {}
         self.last_commands: List[str] = []
+        self._snapshot_cache = {}
+        self._snapshot_time = 0.0
         
         # Stan RRP (Physical Source of Truth)
         self.rrp_state = {
@@ -85,6 +97,9 @@ class TarzanNextionBridge:
             device.close()
 
     def snapshot(self) -> Dict[str, Any]:
+        now = time.time()
+        if (now - self._snapshot_time) < 0.02:
+            return self._snapshot_cache
         base = self.state_mapper.snapshot()
         for key, device in self.devices.items():
             base[f"{key}.connected"] = bool(device.connected)
@@ -106,6 +121,8 @@ class TarzanNextionBridge:
         for k, v in self.rrp_state.items():
             base[f"rrp.{k}"] = v
             
+        self._snapshot_cache = base
+        self._snapshot_time = now
         return base
 
     def set_page(self, screen_key: str, page_id: str) -> None:
@@ -208,9 +225,18 @@ class TarzanNextionBridge:
     def sync(self, force: bool = False) -> None:
         snapshot = self.snapshot()
         now = time.time()
+        
+        # AKTUALIZACJA TFD (Telemetria)
+        if tfd_state:
+            # TFD pobiera dane z SignalBus
+            tfd_state.update_from_bus(self.bus)
+
         interval = max(0.05, float(self.ports_cfg.get("sync_interval_ms", 50)) / 1000.0)
         if not force and snapshot == self.last_sent_snapshot and (now - self.last_sync) < interval:
+            # Nawet jeśli snapshot busa się nie zmienił, metadane TFD mogły się zmienić (np. title)
+            # ale obsłużymy to w pętli urządzeń poniżej jeśli potrzeba.
             return
+            
         self.last_sync = now
         self.last_commands = []
         for key, device in self.devices.items():
@@ -219,10 +245,90 @@ class TarzanNextionBridge:
             commands = self.build_commands(key, snapshot)
             commands.extend(self._level_xyz_commands(key, snapshot))
             commands.extend(self._rrp_main_commands(key, snapshot))
+            
+            # DODANE: Wysyłka danych TFD do Nextiona (take_main lub settings_main)
+            if key == "nextion_7":
+                curr_page = self.active_pages.get(key)
+                if curr_page == "take_main":
+                    commands.extend(self._tfd_take_main_commands())
+                elif curr_page == "settings_main":
+                    commands.extend(self._tfd_settings_main_commands())
+
             for payload in commands:
                 self.last_commands.append(f"{key}: {payload!r}")
                 device.send_raw(payload)
         self.last_sent_snapshot = dict(snapshot)
+
+    def _tfd_take_main_commands(self) -> List[bytes]:
+        """
+        Generuje komendy aktualizujące pola TFD na ekranie Nextion take_main.
+        Wykorzystuje sent_cache w tfd_state do optymalizacji (wysyłka tylko zmian).
+        """
+        if not tfd_state:
+            return []
+            
+        packet = tfd_state.get_packet()
+        if not packet:
+            return []
+            
+        cmds = []
+        
+        # 1. Metadane (Tytuł, Reżyser, Take, TC, Status, Clap)
+        meta_data = {
+            "t1": packet.get("title", ""),
+            "t2": packet.get("director", ""),
+            "t_take": f"TAKE: {packet.get('take', 1)}",
+            "t_clap": "CLAP" if packet.get("clap") else "",
+            "t_status": packet.get("status", "LIVE"),
+            "t0": packet.get("t0", "00:00:0000"),
+            "t_tc": packet.get("tc", "00:00:00:00")
+        }
+        
+        for comp, val in meta_data.items():
+            if tfd_state.should_update(f"nextion_7.{comp}", val):
+                cmds.append(cmd_text(comp, val))
+                
+        # 2. Osie (t_axis0..5)
+        axes = packet.get("axes", {})
+        for i in range(6):
+            comp = f"t_axis{i}"
+            val = axes.get(f"axis{i}", "00000")
+            if tfd_state.should_update(f"nextion_7.{comp}", val):
+                cmds.append(cmd_text(comp, val))
+                
+        # 3. Czujniki
+        sensors = packet.get("sensors", {})
+        sensor_map = {
+            "t_laser": sensors.get("laser"),
+            "t_limits": sensors.get("limits"),
+            "t_shock": sensors.get("shock"),
+            "t_light": sensors.get("light"),
+            "t_temp": sensors.get("temp"),
+            "t_xyz": sensors.get("xyz")
+        }
+        
+        for comp, val in sensor_map.items():
+            if val is not None:
+                if tfd_state.should_update(f"nextion_7.{comp}", val):
+                    cmds.append(cmd_text(comp, val))
+                    
+        return cmds
+
+    def _tfd_settings_main_commands(self) -> List[bytes]:
+        """
+        Aktualizuje pola tekstowe na stronie ustawień fizycznego Nextiona.
+        """
+        if not tfd_state:
+            return []
+            
+        cmds = []
+        # t_title i t_director na stronie settings_main
+        if tfd_state.should_update("nextion_7.settings.title", tfd_state.title):
+            cmds.append(cmd_text("t_title", tfd_state.title))
+        if tfd_state.should_update("nextion_7.settings.director", tfd_state.director):
+            cmds.append(cmd_text("t_director", tfd_state.director))
+            
+        return cmds
 
     def poll(self) -> List[str]:
         logs: List[str] = []
@@ -231,15 +337,35 @@ class TarzanNextionBridge:
                 raw = event.raw
                 logs.append(f"{key} EVENT {raw!r}")
 
-                # Obs³uga zdarzeñ tekstowych (np. rrp:)
+                # Obs³uga zdarzeñ tekstowych (np. rrp:, set:, take:)
                 try:
                     msg = raw.decode("ascii", errors="replace")
+                    
+                    # 1. RRP EVENTS
                     if msg.startswith("rrp:"):
                         self._handle_rrp_event(msg)
                         logs.append(f"{key} RRP EVENT: {msg}")
                         continue
-                except Exception:
-                    pass
+                        
+                    # 2. TFD METADATA EVENTS (set:title=..., set:director=...)
+                    if msg.startswith("set:") and tfd_state:
+                        parts = msg.replace("set:", "").split("=", 1)
+                        if len(parts) == 2:
+                            k, v = parts[0], parts[1]
+                            if k == "title": tfd_state.update_meta(title=v)
+                            if k == "director": tfd_state.update_meta(director=v)
+                            logs.append(f"{key} TFD SET: {k}={v}")
+                        continue
+                        
+                    # 3. TFD CLAP EVENT (take:clap=1)
+                    if msg.startswith("take:clap=1") and tfd_state:
+                        tfd_state.set_clap(1)
+                        play_audio("clap")
+                        logs.append(f"{key} TFD CLAP!")
+                        continue
+                        
+                except Exception as e:
+                    logs.append(f"{key} DECODE ERROR: {e}")
 
                 if len(raw) >= 2 and raw[0] == 0x66:
                     page_id = self._page_id_from_index(key, int(raw[1]))

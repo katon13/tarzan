@@ -231,6 +231,25 @@ class TarzanNextionPreviewPanel(tk.Frame):
 
         bridge_page = self._bridge_page_id()
 
+        # Obsługa BOOT / INTRO
+        if bridge_page == "boot" or not bridge_page:
+            if not self._intro_complete and not self._intro_running:
+                # Automatyczny start intro przy wejściu na boot
+                self._start_intro()
+                return
+
+            self.current_page_id = "boot"
+            self.page_label.configure(text=f"{self.screen_key.upper()} | BOOT")
+            self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
+            
+            if self._intro_running:
+                self._render_intro_frame(self._intro_index)
+            elif self._intro_complete:
+                self._render_page1() # Nextion zazwyczaj po boot przechodzi do page1
+            else:
+                self._render_intro_frame(0)
+            return
+
         if bridge_page == "level_xyz":
             self._cancel_intro()
             self._intro_complete = False
@@ -283,20 +302,6 @@ class TarzanNextionPreviewPanel(tk.Frame):
             self.page_label.configure(text=f"{self.screen_key.upper()} | {bridge_page.upper()}")
             self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
             self._render_placeholder_page(bridge_page)
-            return
-
-        if self._intro_running or (bridge_page == "boot" and not self._intro_complete):
-            self.current_page_id = "boot"
-            self.page_label.configure(text=f"{self.screen_key.upper()} | BOOT")
-            self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
-            self._render_intro_frame(self._intro_index)
-            return
-
-        if bridge_page == "boot" and self._intro_complete:
-            self.current_page_id = "boot"
-            self.page_label.configure(text=f"{self.screen_key.upper()} | BOOT")
-            self.status.configure(text=f"PORT: {port}   COM: OK   {recent_log}")
-            self._render_page1() # Nextion zazwyczaj po boot przechodzi do page1
             return
 
         self.current_page_id = bridge_page or "boot"
@@ -605,12 +610,29 @@ class TarzanNextionPreviewPanel(tk.Frame):
         if not path.exists():
             return None
         try:
-            image = tk.PhotoImage(file=str(path))
-            if self.scale == 0.5:
-                image = image.subsample(2, 2)
-            self._photo_cache[key] = image
-            return image
-        except Exception:
+            # Używamy PIL jeśli dostępne (obsługuje JPG/BMP i lepsze skalowanie)
+            if Image and ImageTk:
+                img = Image.open(path)
+                if self.scale != 1.0:
+                    w = int(img.width * self.scale)
+                    h = int(img.height * self.scale)
+                    img = img.resize((w, h), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                self._photo_cache[key] = photo
+                return photo
+            else:
+                # Fallback do wbudowanego PhotoImage (tylko PNG/GIF)
+                image = tk.PhotoImage(file=str(path))
+                if self.scale != 1.0:
+                    # subsample() przyjmuje tylko liczby całkowite
+                    factor = int(1.0 / self.scale) if self.scale < 1.0 else 1
+                    if factor > 1:
+                        image = image.subsample(factor, factor)
+                self._photo_cache[key] = image
+                return image
+        except Exception as exc:
+            if hasattr(self, "bridge") and hasattr(self.bridge, "bus") and hasattr(self.bridge.bus, "log"):
+                self.bridge.bus.log("PAR_ERROR", f"Błąd ładowania obrazu {path.name}: {exc}")
             return None
 
     def _image_for_frame(self, filename: str) -> Optional[tk.PhotoImage]:
@@ -788,35 +810,49 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self._draw_nav_arrows(show_home=True)
 
     def _start_intro(self, force: bool = False) -> None:
-        if not self._is_connected():
-            return
-        if self._intro_running and not force:
-            return
-        self._cancel_intro()
-        self._intro_running = True
-        self._intro_complete = False
-        self._intro_index = 0
-        self.current_page_id = "boot"
-        self._set_bridge_page("boot")
-        self.refresh()
-        self._schedule_intro_step()
+        try:
+            if not self._is_connected():
+                return
+            if self._intro_running and not force:
+                return
+            self._cancel_intro()
+            self._intro_running = True
+            self._intro_complete = False
+            self._intro_index = 0
+            self.current_page_id = "boot"
+            self._set_bridge_page("boot")
+            # Nie wywołujemy refresh() tutaj, bo start intro jest zwykle wywoływany Z refresh()
+            self._schedule_intro_step()
+        except Exception as exc:
+            self._intro_running = False
+            if hasattr(self.bridge, "bus") and hasattr(self.bridge.bus, "log"):
+                self.bridge.bus.log("PAR_ERROR", f"Błąd startu intro: {exc}")
 
     def _schedule_intro_step(self) -> None:
         def _step() -> None:
-            if not self._is_connected():
-                self._cancel_intro()
-                return
-            if self._intro_index >= len(self.intro_frames) - 1:
-                self._intro_running = False
-                self._intro_complete = True
-                self.current_page_id = "boot"
+            try:
+                if not self._intro_running:
+                    return
+                if not self._is_connected():
+                    self._cancel_intro()
+                    return
+                
+                if not self.intro_frames or self._intro_index >= len(self.intro_frames) - 1:
+                    self._intro_running = False
+                    self._intro_complete = True
+                    self.current_page_id = "boot"
+                    self.refresh()
+                    return
+                
+                self._intro_index += 1
                 self.refresh()
-                return
-            self._intro_index += 1
-            self.refresh()
-            self._schedule_intro_step()
+                self._schedule_intro_step()
+            except Exception as exc:
+                self._intro_running = False
+                if hasattr(self.bridge, "bus") and hasattr(self.bridge.bus, "log"):
+                    self.bridge.bus.log("PAR_ERROR", f"Błąd kroku intro: {exc}")
 
-        self._intro_after_id = self.after(self.intro_frame_ms, _step)
+        self._intro_after_id = self.after(max(10, self.intro_frame_ms), _step)
 
     def _cancel_intro(self) -> None:
         self._intro_running = False

@@ -13,56 +13,49 @@ class NextionLayoutParser:
             return []
         
         try:
-            content = self.file_path.read_text(encoding='utf-8')
+            content = self.file_path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             try:
-                content = self.file_path.read_text(encoding='iso-8859-1')
+                content = self.file_path.read_text(encoding="iso-8859-1")
             except:
                 return []
 
         self.page_name = self.file_path.stem
         
-        current_obj = {}
+        current_comp = None
+        
         for line in content.splitlines():
-            line = line.strip()
-            if not line:
-                if current_obj:
-                    self.components.append(current_obj)
-                    current_obj = {}
+            comp_match = re.match(r"^(\w+)\s+([\w\.]+)", line)
+            if comp_match:
+                comp_type = comp_match.group(1)
+                comp_name = comp_match.group(2)
+                current_comp = {"type": comp_type, "name": comp_name, "attrs": {}}
+                self.components.append(current_comp)
                 continue
             
-            if ":" in line:
+            if ":" in line and current_comp:
                 parts = line.split(":", 1)
-                key = parts[0].strip().lower()
-                val = parts[1].strip()
-                
-                if key == "type": current_obj["type"] = val
-                elif key == "obj": current_obj["name"] = val
-                elif key == "x": 
-                    try: current_obj["x"] = int(val)
-                    except: current_obj["x"] = 0
-                elif key == "y": 
-                    try: current_obj["y"] = int(val)
-                    except: current_obj["y"] = 0
-                elif key == "w": 
-                    try: current_obj["w"] = int(val)
-                    except: current_obj["w"] = 0
-                elif key == "h": 
-                    try: current_obj["h"] = int(val)
-                    except: current_obj["h"] = 0
-                elif key == "txt": current_obj["text"] = val
-                elif key == "pco": current_obj["color"] = val
-                elif key == "bco": current_obj["bgcolor"] = val
-                elif key == "pic": current_obj["pic"] = val
+                attr_name = parts[0].strip()
+                attr_val = parts[1].strip()
+                current_comp["attrs"][attr_name] = attr_val
 
-        if current_obj:
-            self.components.append(current_obj)
-            
         return self.components
 
+_layout_cache = {}
+
 def get_layout(page_name):
-    # Szukamy pliku .txt w hardware/Nextion_stucture/
+    if page_name.lower().endswith(".txt"):
+        base_name = page_name[:-4]
+    else:
+        base_name = page_name
+        
+    if base_name in _layout_cache:
+        return _layout_cache[base_name]
+
     root = Path(__file__).resolve().parents[2]
-    file_path = root / "hardware" / "Nextion_stucture" / f"{page_name}.txt"
+    file_path = root / "hardware" / "Nextion_structure" / f'{base_name}.txt'
+    
     parser = NextionLayoutParser(file_path)
-    return parser.parse()
+    layout = parser.parse()
+    _layout_cache[base_name] = layout
+    return layout

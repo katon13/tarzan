@@ -424,7 +424,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
                     self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, outline="#333", fill="#222")
                     self.screen_canvas.create_text(sx + sw // 2, sy + sh // 2, text=name, fill="#aaa", font=("Segoe UI", 8))
             elif comp["type"] == "Picture":
-                icon = self._get_tfd_icon(name)
+                icon = self._get_tfd_icon(name, packet)
                 if icon:
                     self.screen_canvas.create_image(sx + sw // 2, sy + sh // 2, image=icon)
                 else:
@@ -490,7 +490,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
 
         self._draw_nav_arrows(show_home=True)
 
-    def _get_tfd_icon(self, name: str) -> Optional[tk.PhotoImage]:
+    def _get_tfd_icon(self, name: str, packet: dict = None) -> Optional[tk.PhotoImage]:
         if Image is None or ImageTk is None:
             return None
             
@@ -500,7 +500,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
             "p_laser": "tfd_laser.png", "p_limits": "tfd_limit.png", 
             "p_light": "tfd_litht.png", "p_shock": "tfd_shock.png",
             "p_temp": "tfd_temp.png", "p_xyz": "tfd_xyz.png",
-            "p_clap": "clamp_inacive.png"
+            "p5": "clamp_acive.png" if packet and packet.get("clap") else "clamp_inacive.png"
         }
         filename = icon_map.get(name)
         if not filename: return None

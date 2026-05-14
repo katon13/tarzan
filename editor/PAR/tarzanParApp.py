@@ -1905,7 +1905,7 @@ class TarzanParApp(tk.Tk):
         except Exception as exc:
             if hasattr(self.bus, "log"):
                 self.bus.log("PAR_ERROR", f"Nextion Tick Error: {exc}")
-        self.after(100, self.nextion_tick)
+        self.after(50, self.nextion_tick)
 
     def update_take_label(self):
         if not self.take_label:

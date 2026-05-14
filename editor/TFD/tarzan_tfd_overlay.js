@@ -10,12 +10,21 @@ function updateData() {
 
             // Axes
             if (data.axes) {
-                document.getElementById('t_axis0').innerText = data.axes.axis0 || '00000';
-                document.getElementById('t_axis1').innerText = data.axes.axis1 || '00000';
-                document.getElementById('t_axis2').innerText = data.axes.axis2 || '00000';
-                document.getElementById('t_axis3').innerText = data.axes.axis3 || '00000';
-                document.getElementById('t_axis4').innerText = data.axes.axis4 || '00000';
-                document.getElementById('t_axis5').innerText = data.axes.axis5 || '00000';
+                for (let i = 0; i < 6; i++) {
+                    const key = 'axis' + i;
+                    const ax = data.axes[key];
+                    const val = (typeof ax === 'object') ? ax.pos : ax;
+                    const el = document.getElementById('t_axis' + i);
+                    if (el) {
+                        el.innerText = val || '00000';
+                        // Opcjonalnie można pokazać status EN/DIR
+                        if (typeof ax === 'object' && !ax.en) {
+                            el.style.color = '#555'; // Szary jeśli wyłączona
+                        } else {
+                            el.style.color = '';
+                        }
+                    }
+                }
             }
 
             // Sensors
@@ -45,4 +54,4 @@ function updateData() {
         .catch(err => console.error('TFD Fetch Error:', err));
 }
 
-setInterval(updateData, 100);
+setInterval(updateData, 50); // 50ms = 20 FPS telemetrii

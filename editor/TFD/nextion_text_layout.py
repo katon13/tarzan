@@ -53,7 +53,7 @@ def get_layout(page_name):
         return _layout_cache[base_name]
 
     root = Path(__file__).resolve().parents[2]
-    file_path = root / "hardware" / "Nextion_structure" / f'{base_name}.txt'
+    file_path = root / "hardware" / "Nextion_stucture" / f'{base_name}.txt'
     
     parser = NextionLayoutParser(file_path)
     layout = parser.parse()

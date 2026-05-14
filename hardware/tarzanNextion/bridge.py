@@ -280,8 +280,7 @@ class TarzanNextionBridge:
             "t_take": f"TAKE: {packet.get('take', 1)}",
             "t_clap": "CLAP" if packet.get("clap") else "",
             "t_status": packet.get("status", "LIVE"),
-            "t0": packet.get("t0", "00:00:0000"),
-            "t_tc": packet.get("tc", "00:00:00:00")
+            "t0": packet.get("tc", "00:00:00:00")
         }
         
         for comp, val in meta_data.items():
@@ -337,9 +336,10 @@ class TarzanNextionBridge:
                 raw = event.raw
                 logs.append(f"{key} EVENT {raw!r}")
 
-                # Obs³uga zdarzeñ tekstowych (np. rrp:, set:, take:)
+                # Obsługa zdarzeń tekstowych (np. rrp:, set:, take:)
                 try:
-                    msg = raw.decode("ascii", errors="replace")
+                    # Dekodujemy z cp1250 dla obsługi polskich znaków
+                    msg = raw.decode("cp1250", errors="replace")
                     
                     # 1. RRP EVENTS
                     if msg.startswith("rrp:"):
@@ -359,9 +359,10 @@ class TarzanNextionBridge:
                         
                     # 3. TFD CLAP EVENT (take:clap=1)
                     if msg.startswith("take:clap=1") and tfd_state:
-                        tfd_state.set_clap(1)
+                        # Dodajemy pełne zdarzenie TFD
+                        tfd_state.add_event("CLAP", "NEXTION_TAKE_MAIN")
                         play_audio("clap")
-                        logs.append(f"{key} TFD CLAP!")
+                        logs.append(f"{key} TFD CLAP EVENT!")
                         continue
                         
                 except Exception as e:

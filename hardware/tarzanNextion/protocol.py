@@ -11,7 +11,8 @@ def _quote(value: Any) -> str:
 
 
 def command_bytes(command: str) -> bytes:
-    return command.encode("ascii", errors="ignore") + TERMINATOR
+    # Używamy cp1250 dla obsługi polskich znaków na fizycznym Nextionie (np. Łódź Żółć Światło)
+    return command.encode("cp1250", errors="replace") + TERMINATOR
 
 
 def cmd_page(page_id: str) -> bytes:

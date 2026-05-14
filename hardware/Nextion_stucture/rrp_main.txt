@@ -10,27 +10,27 @@ Page rrp_main
     
     Events
         Preinitialize Event
-            va_p1_axis.val=0
-            va_p2_axis.val=1
-            b_p1_cam_v.val=0
+            va_p1_axis.val=-1
+            va_p2_axis.val=-1
+            b_p1_cam_v.val=1
             b_p1_cam_t.val=1
             b_p1_cam_f.val=1
             b_p1_cam_h.val=1
             b_p1_arm_h.val=1
             b_p1_arm_v.val=1
             b_p2_cam_v.val=1
-            b_p2_cam_t.val=0
+            b_p2_cam_t.val=1
             b_p2_cam_f.val=1
             b_p2_cam_h.val=1
             b_p2_arm_h.val=1
             b_p2_arm_v.val=1
             tsw b_p1_cam_v,1
-            tsw b_p1_cam_t,0
+            tsw b_p1_cam_t,1
             tsw b_p1_cam_f,1
             tsw b_p1_cam_h,1
             tsw b_p1_arm_h,1
             tsw b_p1_arm_v,1
-            tsw b_p2_cam_v,0
+            tsw b_p2_cam_v,1
             tsw b_p2_cam_t,1
             tsw b_p2_cam_f,1
             tsw b_p2_cam_h,1
@@ -42,8 +42,8 @@ Page rrp_main
             b_p2_dir.val=0
             va_p1_val.val=0
             va_p2_val.val=0
-            h_p1_sens.val=50
-            h_p2_sens.val=50
+            h_p1_sens.val=0
+            h_p2_sens.val=0
         
         Postinitialize Event
             b_home.pic=19
@@ -142,8 +142,8 @@ Text t_buf_p1
         ID                  : 28
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 505
-        y coordinate        : 218
+        x coordinate        : 312
+        y coordinate        : 203
         Width               : 100
         Height              : 30
         Fill                : solid color
@@ -166,8 +166,8 @@ Text t_buf_p2
         ID                  : 29
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 514
-        y coordinate        : 356
+        x coordinate        : 309
+        y coordinate        : 442
         Width               : 100
         Height              : 30
         Fill                : solid color
@@ -191,16 +191,16 @@ Slider h_p1_sens
         Scope                  : local
         Send Component ID      : on press and release
         x coordinate           : 20
-        y coordinate           : 140
+        y coordinate           : 160
         Width                  : 400
-        Height                 : 81
+        Height                 : 35
         Direction              : horizontal
         Fill                   : image
         Cursor width           : 81
         Cursor height          : 81
         Back. Picture ID       : 22
         Slided Back. Picture ID: 23
-        Position               : 10
+        Position               : 0
         Upper range limit      : 100
         Lower range limit      : 0
     
@@ -217,16 +217,16 @@ Slider h_p2_sens
         Scope                  : local
         Send Component ID      : on press and release
         x coordinate           : 20
-        y coordinate           : 380
+        y coordinate           : 400
         Width                  : 400
-        Height                 : 81
+        Height                 : 35
         Direction              : horizontal
         Fill                   : image
         Cursor width           : 81
         Cursor height          : 81
         Back. Picture ID       : 22
         Slided Back. Picture ID: 23
-        Position               : 10
+        Position               : 0
         Upper range limit      : 100
         Lower range limit      : 0
     
@@ -330,8 +330,8 @@ Button b_stop
             va_p2_val.val=0
             t_p1_val.txt="0"
             t_p2_val.txt="0"
-            h_p1_sens.val=10
-            h_p2_sens.val=10
+            h_p1_sens.val=0
+            h_p2_sens.val=0
             print "rrp:stop=1"
             printh FF FF FF
         

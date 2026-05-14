@@ -522,9 +522,9 @@ class TarzanParPanels:
                             state["after_id"] = self.app.after(delay, gen_tick)
                             return
                             
-                    state["after_id"] = self.app.after(100, gen_tick)
+                    state["after_id"] = self.app.after(50, gen_tick)
                 except Exception:
-                    state["after_id"] = self.app.after(1000, gen_tick)
+                    state["after_id"] = self.app.after(200, gen_tick)
 
             def on_wheel(event):
                 delta = 0

@@ -5,38 +5,21 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text" beforeDir="false" afterPath="$PROJECT_DIR$/Nextion2Text" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitattributes" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/tarzanSignalBus.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanSignalBus.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/TarzanTakeProtocolLight.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanAxisSandbox.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrApp.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrMainTakeSettings.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrMainTakeSettingsDialog.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrMultiAxisModel.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrTakeModel.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanEhrUi.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/EHR/tarzanTakeTxtCore.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/TarzanEhrTakeSandbox.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/TarzanTakeProtocolLight.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/tarzanAxisSandbox.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/tarzanEHR.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/editor/tarzanEhrMultiAxisModel.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/nextion7_Stats.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/nextion7_Stats.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/rrp_main.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/rrp_main.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/device.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/device.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tarzan_signals_catalog.json" beforeDir="false" afterPath="$PROJECT_DIR$/tarzan_signals_catalog.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/page/Nextion_axes_dir_left.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/Nextion_axes_dir_left.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/page/Nextion_axes_dir_right.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/Nextion_axes_dir_right.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/page/Nextion_pot_core_400.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/Nextion_pot_core_400.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/page/Nextion_pot_core_active_400.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/Nextion_pot_core_active_400.png" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -132,7 +115,7 @@
     &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;ml.llm.LLMConfigurable&quot;,
     &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
   }
 }</component>

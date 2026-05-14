@@ -33,8 +33,8 @@ class TarzanNextionBridge:
         
         # Stan RRP (Physical Source of Truth)
         self.rrp_state = {
-            "va_p1_axis": -1, "va_p1_dir": 0, "va_p1_val": 0, "h_p1_sens": 50,
-            "va_p2_axis": -1, "va_p2_dir": 0, "va_p2_val": 0, "h_p2_sens": 50,
+            "va_p1_axis": -1, "va_p1_dir": 0, "va_p1_val": 0, "h_p1_sens": 0,
+            "va_p2_axis": -1, "va_p2_dir": 0, "va_p2_val": 0, "h_p2_sens": 0,
             "rrp_rev": 0
         }
 
@@ -208,7 +208,7 @@ class TarzanNextionBridge:
     def sync(self, force: bool = False) -> None:
         snapshot = self.snapshot()
         now = time.time()
-        interval = max(0.1, float(self.ports_cfg.get("sync_interval_ms", 100)) / 1000.0)
+        interval = max(0.05, float(self.ports_cfg.get("sync_interval_ms", 50)) / 1000.0)
         if not force and snapshot == self.last_sent_snapshot and (now - self.last_sync) < interval:
             return
         self.last_sync = now

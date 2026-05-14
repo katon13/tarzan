@@ -224,8 +224,8 @@ class TarzanParApp(tk.Tk):
             self.bridge.nextion_sync(force=True)
         except Exception:
             pass
-        self.after(150, self.nextion_tick)
-        self.after(300, self.tick)
+        self.after(50, self.nextion_tick)
+        self.after(200, self.tick)
 
     def load_layout(self):
         try:
@@ -1896,7 +1896,7 @@ class TarzanParApp(tk.Tk):
         except Exception as exc:
             if hasattr(self.bus, "log"):
                 self.bus.log("PAR_ERROR", f"Nextion Tick Error: {exc}")
-        self.after(150, self.nextion_tick)
+        self.after(50, self.nextion_tick)
 
     def update_take_label(self):
         if not self.take_label:
@@ -1914,4 +1914,4 @@ class TarzanParApp(tk.Tk):
         self.panels.refresh_axis_cards()
         # Timeline aktualizuje się zbiorczo po zmianach sygnałów.
         self.update_take_label()
-        self.after(300, self.tick)
+        self.after(200, self.tick)

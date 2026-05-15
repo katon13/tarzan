@@ -9,8 +9,11 @@ import sys
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+SCRIPT_DIR = Path(__file__).resolve().parent
+
+# Czyścimy sys.path, aby uniknąć kolizji modułu 'editor' z folderem 'editor/editor'
+sys.path = [p for p in sys.path if p not in {str(ROOT_DIR), str(SCRIPT_DIR)}]
+sys.path.insert(0, str(ROOT_DIR))
 
 # PROFILER PAR
 # Domyślnie włączony, bo PAR jest symulatorem I/O i musi pokazywać, co obciąża UI.
@@ -39,6 +42,46 @@ except ModuleNotFoundError:
 
 
 def launch_par() -> None:
+    # START SERWERA TFD DLA OBS OVERLAY
+    print("TFD Overlay Server: Initializing...")
+    try:
+        # Próbujemy różnych wariantów importu ze względu na specyficzną strukturę folderów
+        start_tfd_server = None
+        
+        # 1. Próba standardowa (z ROOT_DIR w sys.path)
+        try:
+            from editor.TFD.tarzanTfdOverlayServer import start_tfd_server
+        except (ModuleNotFoundError, ImportError):
+            pass
+            
+        # 2. Próba z SCRIPT_DIR/TFD
+        if not start_tfd_server:
+            try:
+                tfd_path = str(SCRIPT_DIR / "TFD")
+                if tfd_path not in sys.path:
+                    sys.path.insert(0, tfd_path)
+                from tarzanTfdOverlayServer import start_tfd_server
+            except (ModuleNotFoundError, ImportError):
+                pass
+                
+        # 3. Próba z editor.TFD (bezpośrednio)
+        if not start_tfd_server:
+            try:
+                from TFD.tarzanTfdOverlayServer import start_tfd_server
+            except (ModuleNotFoundError, ImportError):
+                pass
+
+        if start_tfd_server:
+            start_tfd_server()
+            print("TFD Overlay Server: STARTED (http://127.0.0.1:8765/tfd)")
+        else:
+            print("CRITICAL ERROR: Could not find TFD Overlay Server module (editor.TFD.tarzanTfdOverlayServer)")
+            
+    except Exception as e:
+        print(f"CRITICAL WARNING: Could not start TFD Overlay Server: {e}")
+        import traceback
+        traceback.print_exc()
+
     app = TarzanParApp()
     app.mainloop()
 

@@ -679,7 +679,7 @@ class TarzanParPanels:
             btns = tk.Frame(box, bg=COLORS['panel3']); btns.pack(fill='x', padx=4, pady=4)
             tk.Button(
                 btns,
-                text="L",
+                text="◀ LEWO",
                 bg=COLORS["button"],
                 fg=COLORS["text"],
                 activebackground=COLORS["green"],
@@ -689,7 +689,7 @@ class TarzanParPanels:
 
             tk.Button(
                 btns,
-                text="R",
+                text="PRAWO ▶",
                 bg=COLORS["button"],
                 fg=COLORS["text"],
                 activebackground=COLORS["green"],

@@ -306,4 +306,12 @@ class TFDState:
             }
         return self.last_packet
 
-tfd_state = TFDState()
+import sys
+# Singleton gwarantujący jedną instancję w całym procesie (unikamy duplikacji przy różnych importach)
+tfd_state = None
+for _mod in list(sys.modules.values()):
+    if hasattr(_mod, "tfd_state") and isinstance(getattr(_mod, "tfd_state"), TFDState):
+        tfd_state = getattr(_mod, "tfd_state")
+        break
+if tfd_state is None:
+    tfd_state = TFDState()

@@ -11,14 +11,8 @@
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/TFD/nextion_text_layout.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/nextion_text_layout.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.css" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.js" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/TFD/tfd_state.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tfd_state.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/protocol.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/protocol.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/par/tarzan_par_layout.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/par/tarzan_par_layout.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/tfd_metadata.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/tfd_metadata.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

@@ -66,10 +66,10 @@
     "camera": "right",
     "system": "right",
     "nextion_7_preview": "right",
+    "nextion_5_preview": "right",
     "axes": "top",
     "bridge": "top",
-    "cnc_signals": "top",
-    "nextion_5_preview": "right"
+    "cnc_signals": "top"
   },
   "panel_layout": {
     "operator": {
@@ -94,7 +94,7 @@
       "zone": "left",
       "order": 10,
       "colspan": 4,
-      "rowspan": 2
+      "rowspan": 3
     },
     "sensors": {
       "zone": "left",
@@ -118,7 +118,7 @@
       "zone": "left",
       "order": 50,
       "colspan": 4,
-      "rowspan": 9
+      "rowspan": 8
     },
     "settings": {
       "zone": "left",
@@ -246,6 +246,12 @@
       "colspan": 4,
       "rowspan": 6
     },
+    "nextion_5_preview": {
+      "zone": "right",
+      "order": 60,
+      "colspan": 4,
+      "rowspan": 5
+    },
     "axes": {
       "zone": "top",
       "order": 10,
@@ -263,12 +269,6 @@
       "order": 30,
       "colspan": 2,
       "rowspan": 6
-    },
-    "nextion_5_preview": {
-      "zone": "right",
-      "order": 60,
-      "colspan": 4,
-      "rowspan": 5
     }
   },
   "grid": {

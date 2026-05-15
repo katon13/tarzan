@@ -356,127 +356,115 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self._screen_photo = None
 
     def _render_take_main(self) -> None:
-        """Renderuje statyczny, tekstowy podgląd TFD (zastępuje rysowanie na podstawie take_main.txt)."""
+        """Renderuje statyczny, tekstowy podgląd TFD bez grafik i bez take_main.txt."""
         self._hitboxes = {}
         self.screen_canvas.delete("all")
         self.screen_canvas.configure(bg="#000")
         self._screen_photo = None
-        
+
         sc = self.scale
         packet = tfd_state.get_packet() if tfd_state else {}
         axes = packet.get("axes", {})
         sensors = packet.get("sensors", {})
-        
-        # --- GÓRA: TITLE i DIRECTOR ---
-        t1_val = packet.get("title", "---")
-        t1_display = f"TITLE: {t1_val}" if not str(t1_val).startswith("TITLE:") else t1_val
-        
-        self.screen_canvas.create_text(
-            20 * sc, 10 * sc,
-            text=t1_display.upper(),
-            fill="#fff", font=("Consolas", int(32 * sc), "bold"), anchor="nw"
-        )
-        self._hitboxes["t1"] = (20 * sc, 10 * sc, 650 * sc, 55 * sc)
-        
-        t2_val = packet.get("director", "---")
-        t2_display = f"DIRECTOR: {t2_val}" if not str(t2_val).startswith("DIRECTOR:") else t2_val
-        self.screen_canvas.create_text(
-            20 * sc, 60 * sc,
-            text=t2_display,
-            fill="#fff", font=("Consolas", int(24 * sc)), anchor="nw"
-        )
-        self._hitboxes["t2"] = (20 * sc, 60 * sc, 650 * sc, 95 * sc)
-        
-        # --- STATUS ---
-        status = packet.get("status", "LIVE")
-        st_color = COLORS["green"] if status == "LIVE" else COLORS["red"]
-        self.screen_canvas.create_rectangle(
-            680 * sc, 10 * sc, 790 * sc, 90 * sc,
-            outline=st_color, width=int(2 * sc)
-        )
-        self.screen_canvas.create_text(
-            735 * sc, 50 * sc,
-            text=status, fill=st_color, font=("Consolas", int(24 * sc), "bold")
-        )
 
-        self.screen_canvas.create_line(10 * sc, 105 * sc, 790 * sc, 105 * sc, fill="#333")
+        def px(value: int) -> int:
+            return int(value * sc)
 
-        # --- CLAP ---
-        clap_active = packet.get("clap", False)
-        clap_color = COLORS["red"] if clap_active else "#500"
-        self.screen_canvas.create_rectangle(
-            20 * sc, 180 * sc, 120 * sc, 280 * sc,
-            outline=clap_color, fill="#100", width=int(2 * sc)
-        )
-        self.screen_canvas.create_text(
-            70 * sc, 230 * sc,
-            text="CLAP", fill=clap_color, font=("Consolas", int(18 * sc), "bold")
-        )
-        self._hitboxes["b_clap"] = (20 * sc, 180 * sc, 120 * sc, 280 * sc)
+        def font(size: int, weight: str = "normal"):
+            return ("Consolas", max(8, int(size * sc)), weight)
 
-        # --- TAKE ---
-        self.screen_canvas.create_text(
-            230 * sc, 190 * sc,
-            text="TAKE", fill="#777", font=("Consolas", int(14 * sc))
-        )
-        self.screen_canvas.create_text(
-            230 * sc, 240 * sc,
-            text=packet.get('take', '001-01'),
-            fill="#fff", font=("Consolas", int(40 * sc), "bold")
-        )
+        def clean(value: Any, default: str = "---") -> str:
+            text = str(value if value is not None else default)
+            text = "".join(ch if ch.isprintable() else " " for ch in text)
+            return " ".join(text.split()) or default
 
-        # --- OSIE ---
-        def draw_ax(x, y, label, key):
-            val = axes.get(key, {}).get("pos", "+00000") if isinstance(axes.get(key), dict) else "+00000"
-            self.screen_canvas.create_text(
-                x * sc, y * sc,
-                text=label, fill="#666", font=("Consolas", int(11 * sc)), anchor="nw"
-            )
-            self.screen_canvas.create_text(
-                (x + 65) * sc, y * sc,
-                text=val, fill=COLORS["red"], font=("Consolas", int(26 * sc), "bold"), anchor="nw"
-            )
+        def fit(value: Any, max_chars: int, default: str = "---") -> str:
+            text = clean(value, default)
+            if len(text) <= max_chars:
+                return text
+            return text[:max(1, max_chars - 1)] + "…"
 
-        draw_ax(360, 115, "CAM H", "axis0")
-        draw_ax(360, 175, "CAM V", "axis1")
-        draw_ax(360, 235, "ARM H", "axis5")
-        
-        draw_ax(580, 115, "FOCUS", "axis3")
-        draw_ax(580, 175, "CAM T", "axis2")
-        draw_ax(580, 235, "ARM V", "axis4")
+        def axis_value(key: str) -> str:
+            data = axes.get(key, {})
+            if isinstance(data, dict):
+                return clean(data.get("pos", "+00000"), "+00000")[:8]
+            return "+00000"
 
-        self.screen_canvas.create_line(345 * sc, 110 * sc, 345 * sc, 300 * sc, fill="#222")
+        def box(x1: int, y1: int, x2: int, y2: int, outline: str = "#303840", fill: str = "#050708", width: int = 1) -> None:
+            self.screen_canvas.create_rectangle(px(x1), px(y1), px(x2), px(y2), outline=outline, fill=fill, width=max(1, px(width)))
 
-        # --- TIMECODE ---
-        self.screen_canvas.create_text(
-            20 * sc, 320 * sc,
-            text="TC:", fill="#666", font=("Consolas", int(14 * sc)), anchor="nw"
-        )
-        self.screen_canvas.create_text(
-            75 * sc, 312 * sc,
-            text=packet.get('t0', packet.get('tc', '00:00:00:0000')),
-            fill="#fff", font=("Consolas", int(44 * sc), "bold"), anchor="nw"
-        )
+        def text(x: int, y: int, value: Any, *, fill: str = "#ffffff", size: int = 20, weight: str = "normal", anchor: str = "nw", width: int | None = None) -> None:
+            kwargs = {}
+            if width is not None:
+                kwargs["width"] = px(width)
+            self.screen_canvas.create_text(px(x), px(y), text=value, fill=fill, font=font(size, weight), anchor=anchor, **kwargs)
 
-        self.screen_canvas.create_line(10 * sc, 385 * sc, 790 * sc, 385 * sc, fill="#333")
+        # --- GÓRA: metadane i status ---
+        title = fit(packet.get("title", "---"), 28).upper()
+        director = fit(packet.get("director", "---"), 32)
+        status = fit(packet.get("status", "LIVE"), 6).upper()
+        status_color = COLORS["green"] if status == "LIVE" else COLORS["red"]
 
-        # --- SENSORY ---
-        self.screen_canvas.create_text(
-            20 * sc, 400 * sc,
-            text=f"{sensors.get('xyz', '---')}", fill=COLORS["green"], font=("Consolas", int(16 * sc), "bold"), anchor="nw"
-        )
-        self.screen_canvas.create_text(
-            400 * sc, 400 * sc,
-            text=f"LIGHT: {sensors.get('light', '---')}", fill="#ff0", font=("Consolas", int(13 * sc)), anchor="nw"
-        )
-        
-        s_f = ("Consolas", int(11 * sc))
-        self.screen_canvas.create_text(20 * sc, 440 * sc, text=f"LIMITS: {sensors.get('limits', 'OK')}", fill="#0f0", font=s_f, anchor="nw")
-        self.screen_canvas.create_text(180 * sc, 440 * sc, text=f"LASER: {sensors.get('laser', 'OFF')}", fill="#0f0", font=s_f, anchor="nw")
-        self.screen_canvas.create_text(340 * sc, 440 * sc, text=f"SHOCK: {sensors.get('shock', 'OK')}", fill="#0f0", font=s_f, anchor="nw")
-        self.screen_canvas.create_text(500 * sc, 440 * sc, text=f"TEMP: {sensors.get('temp', '22.00 C')}", fill="#0f0", font=s_f, anchor="nw")
+        text(18, 14, f"TITLE: {title}", size=36, weight="bold", width=620)
+        text(18, 58, f"DIRECTOR: {director}", size=26, weight="bold", width=620)
+        self._hitboxes["t1"] = (px(18), px(14), px(630), px(52))
+        self._hitboxes["t2"] = (px(18), px(58), px(630), px(90))
 
-        self._draw_nav_arrows(show_home=True)
+        box(670, 14, 790, 88, outline=status_color, fill="#070707", width=2)
+        self.screen_canvas.create_text(px(730), px(51), text=status, fill=status_color, font=font(30, "bold"))
+        self.screen_canvas.create_line(px(12), px(108), px(790), px(108), fill="#303030")
+
+        # --- LEWA: CLAP, TAKE, TC ---
+        clap_active = bool(packet.get("clap"))
+        clap_color = COLORS["red"] if clap_active else "#7a1414"
+        box(20, 132, 145, 250, outline=clap_color, fill="#140000", width=2)
+        self.screen_canvas.create_text(px(82), px(191), text="CLAP", fill=clap_color, font=font(24, "bold"))
+        self._hitboxes["b_clap"] = (px(20), px(132), px(145), px(250))
+
+        text(180, 136, "TAKE", fill="#9aa3aa", size=18, weight="bold")
+        self.screen_canvas.create_text(px(220), px(202), text=fit(packet.get("take", "001"), 7), fill="#ffffff", font=font(24, "bold"))
+
+        text(20, 288, "TC", fill="#9aa3aa", size=18, weight="bold")
+        text(70, 276, fit(packet.get("t0", packet.get("tc", "00:00:00:0000")), 14), size=40, weight="bold")
+
+        # --- PRAWA: osie ---
+        box(335, 126, 790, 288, outline="#202020", fill="#000000")
+        self.screen_canvas.create_line(px(560), px(130), px(560), px(282), fill="#202020")
+
+        def draw_axis(x: int, y: int, label: str, key: str) -> None:
+            text(x, y, label, fill="#8a9298", size=14, weight="bold")
+            text(x + 70, y - 2, axis_value(key), fill=COLORS["red"], size=28, weight="bold")
+
+        draw_axis(350, 132, "CAM H", "axis0")
+        draw_axis(350, 184, "CAM V", "axis1")
+        draw_axis(350, 236, "ARM H", "axis4")
+        draw_axis(575, 132, "FOCUS", "axis3")
+        draw_axis(575, 184, "CAM T", "axis2")
+        draw_axis(575, 236, "ARM V", "axis5")
+
+        self.screen_canvas.create_line(px(12), px(350), px(790), px(350), fill="#303030")
+
+        # --- DÓŁ: sensory w większych polach tekstowych ---
+        sensor_font = 18
+        sensor_label_color = "#7a838a"
+        sensor_value_color = COLORS["green"]
+
+        def sensor_cell(x: int, y: int, label: str, value: Any, w: int = 245) -> None:
+            box(x, y, x + w, y + 38, outline="#182229", fill="#050b08")
+            text(x + 8, y + 5, label, fill=sensor_label_color, size=13, weight="bold")
+            text(x + 78, y + 5, fit(value, 18), fill=sensor_value_color, size=sensor_font, weight="bold")
+
+        sensor_cell(20, 365, "XYZ", sensors.get("xyz", "---"), 300)
+        sensor_cell(335, 365, "LIGHT", sensors.get("light", "---"), 220)
+        sensor_cell(570, 365, "TEMP", sensors.get("temp", "---"), 220)
+        sensor_cell(20, 415, "LIMITS", sensors.get("limits", "OK"), 210)
+        sensor_cell(245, 415, "LASER", sensors.get("laser", "OFF"), 180)
+        sensor_cell(440, 415, "SHOCK", sensors.get("shock", "OK"), 180)
+
+        # Prosty tekstowy HOME zamiast grafiki, żeby nie zabierać miejsca sensorom.
+        box(690, 414, 790, 460, outline="#3c4b55", fill="#101820")
+        self.screen_canvas.create_text(px(740), px(437), text="HOME", fill="#d0d7de", font=font(18, "bold"))
+        self._hitboxes["__home__"] = (px(690), px(414), px(790), px(460))
 
     def _render_settings_main(self) -> None:
         """Renderuje stronę SETTINGS_MAIN."""

@@ -107,13 +107,13 @@ class TFDState:
             # Upewnij się, że ostatni człon ma 4 cyfry, jeśli to HH:MM:SS:FF
             parts = val.split(":")
             if len(parts) == 4 and len(parts[3]) == 2:
-                val = f"{parts[0]}:{parts[1]}:{parts[2]}:{parts[3]}00"
+                val = f"{parts[0]}:{parts[1]}:{parts[2]}:{parts[3]}0"
         else:
             # Fallback do czasu systemowego
             t = time.time()
             milli = int((t - int(t)) * 1000)
-            # Format 00:00:00:0000 (wymagane 4 cyfry na końcu)
-            val = time.strftime("%H:%M:%S", time.localtime(t)) + f":{milli*10:04d}"
+            # Format 00:00:00:000 (wymagane 3 cyfry na końcu)
+            val = time.strftime("%H:%M:%S", time.localtime(t)) + f":{milli:03d}"
         
         # Zwracamy słownik z obiema wersjami, aby bridge mógł wybrać
         return {
@@ -235,10 +235,11 @@ class TFDState:
         # Czujniki
         laser_active = bus.get("par_laser_set", 0) or bus.get("par_laser_active", 0)
         laser_error = bus.get("par_laser_error", 0)
+        # Czujnik laserowy - dwa stany 0 i 1
         if laser_error:
-            laser_state = "ERR"
+            laser_state = "0"
         else:
-            laser_state = "ON" if laser_active else "OFF"
+            laser_state = "1" if laser_active else "0"
         
         limits_aktywne = any(bus.get(sig, 0) for sig in [
             "play_p03_arm_h_limit_left", "play_p01_arm_h_auto_limit", 
@@ -248,13 +249,16 @@ class TFDState:
         limits_state = "LIMIT!" if limits_aktywne else "OK"
         
         shock_val = bus.get("par_shock_sensor_state", 0) or bus.get("par_shock_active", 0)
-        shock = "SHOCK" if shock_val else "OK"
+        shock = "1" if shock_val else "0"
         
         light_val = bus.get("par_bh1750_lux", 0)
-        light = f'{str(int(light_val)).zfill(5)} LX'
+        light = f'{str(int(light_val)).zfill(5)}'
         
-        temp_val = bus.get("par_temperature_c", "22")
-        temp = f"{temp_val}C"
+        temp_val = bus.get("par_temperature_c", 22.0)
+        try:
+            temp = f"{float(temp_val):.1f}"
+        except:
+            temp = f"{temp_val}"
         
         lx = bus.get('par_level_x', 0)
         ly = bus.get('par_level_y', 0)

@@ -93,12 +93,12 @@ class TFDState:
         return f"{sign}{str(val).zfill(5)}"
 
     def format_tfd_xyz(self, x, y, z):
-        """Format: X+00 Y+00 Z+00 (zaokrąglone do liczb całkowitych)."""
+        """Format: +00 +00 +00 (zaokrąglone do liczb całkowitych)."""
         try:
             ix, iy, iz = int(round(float(x))), int(round(float(y))), int(round(float(z)))
         except:
             ix, iy, iz = 0, 0, 0
-        return f"X{ix:+03d} Y{iy:+03d} Z{iz:+03d}"
+        return f"{ix:+03d} {iy:+03d} {iz:+03d}"
 
     def format_tfd_tc(self, bus_tc=None):
         """Format: HH:MM:SS:mmmm (pełny) i wersja skrócona dla Nextiona (10 znaków)."""
@@ -122,12 +122,20 @@ class TFDState:
         }
 
     def format_tfd_take_number(self, take_num):
-        """Format: 001, 002... (zawsze zwraca same cyfry)"""
+        """Format: 001, 002... lub 001-12 jeśli wersja podana"""
+        s_num = str(take_num)
+        if "-" in s_num:
+            parts = s_num.split("-")
+            try:
+                return f"{str(int(float(parts[0]))).zfill(3)}-{parts[1]}"
+            except:
+                return s_num
+        
         try:
             return str(int(float(take_num))).zfill(3)
         except:
             import re
-            match = re.search(r'(\d+)', str(take_num))
+            match = re.search(r'(\d+)', s_num)
             if match:
                 return str(int(match.group(1))).zfill(3)
             return "001"
@@ -175,18 +183,24 @@ class TFDState:
         
         # Numer ujęcia z ścieżki TAKE lub numeru
         take_path = getattr(bus, "loaded_take_path", None)
-        raw_take = 1
         if take_path:
             import re
             filename = os.path.basename(take_path)
-            # Szukamy cyfr po TAKE_ lub na końcu nazwy
-            match = re.search(r'(?:TAKE_)?(\d+)', filename, re.IGNORECASE)
+            # Szukamy numeru ujęcia i opcjonalnej wersji (np. TAKE_001_v12, TAKE_001-12)
+            # Grupa 1: numer, Grupa 2: wersja (po separatorze - lub _ lub v)
+            match = re.search(r'(?:TAKE_)?(\d+)(?:[-_vV]+(\d+))?', filename, re.IGNORECASE)
             if match:
-                raw_take = match.group(1)
+                num = match.group(1).zfill(3)
+                ver = match.group(2)
+                if ver:
+                    self.take_number = f"{num}-{ver}"
+                else:
+                    self.take_number = num
+            else:
+                self.take_number = "001"
         else:
             raw_take = bus.get("take_num") or bus.get("par_take_num", 1)
-        
-        self.take_number = self.format_tfd_take_number(raw_take)
+            self.take_number = self.format_tfd_take_number(raw_take)
 
         # Pełne dane osi - Mapowanie zgodne z AXIS_SIGNAL_BINDINGS
         axes = {}

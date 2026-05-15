@@ -1,15 +1,28 @@
 import os
-import simpleaudio as sa
+from pathlib import Path
+try:
+    import simpleaudio as sa
+except ImportError:
+    sa = None
+
 from .tarzanAudioCatalog import VOICE_MESSAGES
 
-BASE_PATH = os.path.join(os.path.dirname(__file__), "voice")
+BASE_PATH = Path(__file__).parent / "voice"
 
 def play(message):
-
+    if not sa:
+        return
     if message not in VOICE_MESSAGES:
         return
 
-    file = os.path.join(BASE_PATH, VOICE_MESSAGES[message])
+    rel_path = VOICE_MESSAGES[message]
+    file_path = (BASE_PATH / rel_path).resolve()
 
-    wave = sa.WaveObject.from_wave_file(file)
-    wave.play()
+    if not file_path.exists():
+        return
+
+    try:
+        wave = sa.WaveObject.from_wave_file(str(file_path))
+        wave.play()
+    except Exception as e:
+        print(f"AUDIO ERROR playing {message}: {e}")

@@ -362,7 +362,7 @@ class TarzanNextionBridge:
                 # Obsługa zdarzeń tekstowych (np. rrp:, set:, take:)
                 try:
                     # Oczyszczamy z terminatorów 0xFF i dekodujemy z cp1250 dla obsługi polskich znaków
-                    msg = raw.replace(b'\xff', b'').decode("cp1250", errors="replace")
+                    msg = raw.replace(b'\xff', b'').decode("cp1250", errors="replace").strip("\x00\x1a\r\n ")
                     
                     # 1. RRP EVENTS
                     if msg.startswith("rrp:"):
@@ -373,19 +373,21 @@ class TarzanNextionBridge:
                     # 2. TFD METADATA EVENTS (set:title=..., set:director=...)
                     if "set:" in msg and tfd_state:
                         import re
-                        # Rozdzielamy potencjalnie sklejone komunikaty (np. set:title=Aset:director=B lub title=Adirector=B)
-                        # Szukamy title=... do napotkania director=, set:director= lub końca
-                        t_match = re.search(r'title=(.*?)(?=set:director=|director=|$|set:title=)', msg)
+                        # Rozdzielamy potencjalnie sklejone komunikaty
+                        # Szukamy title=... i director=... bardziej precyzyjnie
+                        t_match = re.search(r'title=([^set:]*)', msg)
                         if t_match:
-                            val = t_match.group(1).replace("set:", "").strip()
-                            tfd_state.update_meta(title=val)
-                            logs.append(f"{key} TFD SET TITLE: {val}")
+                            val = t_match.group(1).split("director=")[0].strip()
+                            if val:
+                                tfd_state.update_meta(title=val)
+                                logs.append(f"{key} TFD SET TITLE: {val}")
                         
-                        d_match = re.search(r'director=(.*?)(?=set:title=|title=|$|set:director=)', msg)
+                        d_match = re.search(r'director=([^set:]*)', msg)
                         if d_match:
-                            val = d_match.group(1).replace("set:", "").strip()
-                            tfd_state.update_meta(director=val)
-                            logs.append(f"{key} TFD SET DIRECTOR: {val}")
+                            val = d_match.group(1).split("title=")[0].strip()
+                            if val:
+                                tfd_state.update_meta(director=val)
+                                logs.append(f"{key} TFD SET DIRECTOR: {val}")
                         
                         # Wymuszamy synchronizację, aby fizyczny Nextion odświeżył pola t1, t2, t_title, t_director
                         self.last_sync = 0  # Force sync in next update()

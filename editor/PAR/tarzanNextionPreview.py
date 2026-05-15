@@ -374,7 +374,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self.screen_canvas.create_text(
             20 * sc, 10 * sc,
             text=t1_display.upper(),
-            fill="#fff", font=("Consolas", int(24 * sc), "bold"), anchor="nw"
+            fill="#fff", font=("Consolas", int(32 * sc), "bold"), anchor="nw"
         )
         self._hitboxes["t1"] = (20 * sc, 10 * sc, 650 * sc, 55 * sc)
         
@@ -383,7 +383,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self.screen_canvas.create_text(
             20 * sc, 60 * sc,
             text=t2_display,
-            fill="#ccc", font=("Consolas", int(18 * sc)), anchor="nw"
+            fill="#fff", font=("Consolas", int(24 * sc)), anchor="nw"
         )
         self._hitboxes["t2"] = (20 * sc, 60 * sc, 650 * sc, 95 * sc)
         
@@ -422,7 +422,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self.screen_canvas.create_text(
             230 * sc, 240 * sc,
             text=packet.get('take', '001-01'),
-            fill="#fff", font=("Consolas", int(32 * sc), "bold")
+            fill="#fff", font=("Consolas", int(40 * sc), "bold")
         )
 
         # --- OSIE ---
@@ -434,7 +434,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
             )
             self.screen_canvas.create_text(
                 (x + 65) * sc, y * sc,
-                text=val, fill=COLORS["red"], font=("Consolas", int(22 * sc), "bold"), anchor="nw"
+                text=val, fill=COLORS["red"], font=("Consolas", int(26 * sc), "bold"), anchor="nw"
             )
 
         draw_ax(360, 115, "CAM H", "axis0")
@@ -455,7 +455,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self.screen_canvas.create_text(
             75 * sc, 312 * sc,
             text=packet.get('t0', packet.get('tc', '00:00:00:0000')),
-            fill="#fff", font=("Consolas", int(36 * sc), "bold"), anchor="nw"
+            fill="#fff", font=("Consolas", int(44 * sc), "bold"), anchor="nw"
         )
 
         self.screen_canvas.create_line(10 * sc, 385 * sc, 790 * sc, 385 * sc, fill="#333")
@@ -463,7 +463,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
         # --- SENSORY ---
         self.screen_canvas.create_text(
             20 * sc, 400 * sc,
-            text=f"XYZ: {sensors.get('xyz', '---')}", fill=COLORS["green"], font=("Consolas", int(13 * sc)), anchor="nw"
+            text=f"{sensors.get('xyz', '---')}", fill=COLORS["green"], font=("Consolas", int(16 * sc), "bold"), anchor="nw"
         )
         self.screen_canvas.create_text(
             400 * sc, 400 * sc,

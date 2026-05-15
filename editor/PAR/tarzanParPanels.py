@@ -275,6 +275,10 @@ class TarzanParPanels:
         self._last_rrp_refresh_rev = None
         self._last_preview_state = {}
         
+        # Logging debounce / deadbands
+        self._last_log_values = {}
+        self._last_log_times = {}
+        
         # Centralny system RRP
         self._rrp_start_ts = time.time()
         self._update_limits_status()
@@ -761,13 +765,7 @@ class TarzanParPanels:
         panel = self.panel("limits", parent, "KRAŃCÓWKI")
         body = tk.Frame(panel.body, bg=COLORS["panel"])
         body.pack(fill="both", expand=True)
-        raw = self._group_or_search("KRAŃCÓWKI", ["limit"])
-        names, seen = [], set()
-        for n in raw:
-            lbl = self.limit_label(n)
-            if any(k in f"{n} {lbl}".upper() for k in ("WOLNY", "FREE")): continue
-            if lbl.upper() in seen: continue
-            seen.add(lbl.upper()); names.append(n)
+        names = self._get_clean_limit_names()
         
         cols = 3
         for i, n in enumerate(names):
@@ -1079,23 +1077,29 @@ class TarzanParPanels:
             if (m and m.grupa == group) or any(k in name.lower() for k in needles): res.append(name)
         return sorted(list(set(res)))
 
-    def _update_limits_status(self):
-        raw = self._group_or_search("KRA\u0143C\u00d3WKI", ["limit"])
+    def _get_clean_limit_names(self):
+        raw = self._group_or_search("KRAŃCÓWKI", ["limit"])
         names, seen = [], set()
         for n in raw:
             lbl = self.limit_label(n)
-            if any(k in f"{n} {lbl}".upper() for k in ("WOLNY", "FREE")): continue
+            if any(k in f"{n} {lbl}".upper() for k in ("WOLNY", "FREE", "STATUS")): continue
             if lbl.upper() in seen: continue
             seen.add(lbl.upper()); names.append(n)
-        active = [f"{i+1:02d}" for i, n in enumerate(names) if self.bus.get(n)]
+        return names
+
+    def _update_limits_status(self):
+        names = self._get_clean_limit_names()
+        active = [str(i+1) for i, n in enumerate(names) if self.bus.get(n)]
         res = "0" if not active else ",".join(active)
         self.bus.force_signal("par_limits_status", res, source="PAR_LIMIT_MONITOR")
 
     def limit_label(self, name: str):
         clean = name
-        if clean.startswith("play_p") or clean.startswith("rec_p"): 
+        if clean.startswith(("play_p", "rec_p")):
             parts = clean.split("_", 3)
             if len(parts) >= 3: clean = "_".join(parts[2:])
+        elif clean.startswith("par_"):
+            clean = clean[4:]
         return LIMIT_LABELS.get(clean, clean.upper().replace("_", " "))
     def sensor_label(self, name: str): return SENSOR_LABELS.get(name, name.upper().replace("_", " "))
 
@@ -1105,10 +1109,63 @@ class TarzanParPanels:
     # --- SYNCHRONIZACJA I TIMELINE ---
 
     def on_state_change(self, name, state):
-        if "limit" in name.lower() or (self.bus.get_meta(name) and self.bus.get_meta(name).grupa == "KRAŃCÓWKI"): self._update_limits_status()
+        is_limit = "limit" in name.lower() or (self.bus.get_meta(name) and self.bus.get_meta(name).grupa == "KRAŃCÓWKI")
+        if is_limit: 
+            self._update_limits_status()
+
         val = state.value
         self.rows.set_value(name, val)
+
+        # Logowanie krańcówek
+        if is_limit and name != "par_limits_status" and val != state.previous_value:
+            limit_names = self._get_clean_limit_names()
+            if name in limit_names:
+                idx = limit_names.index(name)
+                nr = f"{idx+1:02d}"
+                lbl = self.limit_label(name)
+                status = "AKTYWACJA" if val == 1 else "OK"
+                self.bus.log("LIMIT", f"{nr} {status}: {lbl} SRC={state.source}")
         
+                # --- ROZSZERZONE LOGOWANIE (Zgodnie z wytycznymi) ---
+        if val != state.previous_value:
+            if name == "par_laser_set":
+                self.bus.log("LASER", ("ON" if val else "OFF") + f" SRC={state.source}")
+            elif name == "par_shock_sensor_state":
+                self.bus.log("SHOCK", ("AKTYWACJA" if val else "OK") + f" SRC={state.source}")
+            elif name == "par_lamp_auto_active":
+                self.bus.log("PRACA", ("START" if val else "STOP") + f" SRC={state.source}")
+            elif name in {"rec_p45_sw_f1", "rec_p47_sw_f2", "rec_p49_sw_f3", "rec_p51_sw_f4"} and val == 1:
+                f_name = name.split("_")[-1].upper()
+                self.bus.log("PRZYCISK", f"{f_name} AKTYWACJA SRC={state.source}")
+            elif name == "par_temperature_c":
+                last = self._last_log_values.get(name, -999)
+                if abs(val - last) >= 0.5:
+                    self._last_log_values[name] = val
+                    self.bus.log("SENSOR", f"TEMPERATURA {val:.1f}C SRC={state.source}")
+            elif name == "par_bh1750_lux":
+                last = self._last_log_values.get(name, -999)
+                diff = abs(val - last)
+                if diff >= 500 or (last > 0 and diff >= 0.2 * last):
+                    self._last_log_values[name] = val
+                    self.bus.log("SENSOR", f"ŚWIATŁO {int(val)}lx SRC={state.source}")
+            elif name in {"par_level_x", "par_level_y", "par_level_z"}:
+                last = self._last_log_values.get(name, -999)
+                if abs(val - last) >= 10:
+                    self._last_log_values[name] = val
+                    axis = name.split("_")[-1].upper()
+                    self.bus.log("SENSOR", f"POZIOM {axis}: {int(val)} SRC={state.source}")
+
+        if val == 1 and state.previous_value == 0:
+            sok_map = {"rec_p01": ("PAN", "rec_p03"), "rec_p02": ("TILT", "rec_p04"), "rec_p05": ("FOKUS", "rec_p07"), "rec_p06": ("POCHYŁ", "rec_p08")}
+            if name in sok_map:
+                sec, d_sig = sok_map[name]
+                now = time.time()
+                if now - self._last_log_times.get(name, 0) >= 0.5:
+                    self._last_log_times[name] = now
+                    dir_val = self.bus.get(d_sig, 0)
+                    kier = "PRAWO" if dir_val else "LEWO"
+                    self.bus.log("SOK", f"{sec} RUCH {kier} SRC={state.source}")
+
         # --- CENTRALNE ZLICZANIE Z DEDUPLIKACJĄ ---
         if val == 1 and state.previous_value == 0: # Wykrywanie zbocza narastającego
             for ax, bind in AXIS_SIGNAL_BINDINGS.items():

@@ -283,20 +283,18 @@ class AxisCard(tk.Frame):
         if self._hold_direction:
             if self.on_step_right:
                 self.on_step_right()
-            self.set_dir(1)
         else:
             if self.on_step_left:
                 self.on_step_left()
-            self.set_dir(0)
 
-        self.set_step(1)
-        self.after(70, lambda: self.set_step(0))
+        # Usunięto bezpośrednie set_step/set_dir. 
+        # Karta jest pasywna i czeka na impulsy z SignalBus.
 
-        # Przytrzymanie = kolejne impulsy. Docelowo interwał będzie z ustawień panelu.
+        # Przytrzymanie = kolejne impulsy.
         self._hold_after_id = self.after(140, self._do_manual_step)
 
-    def _pulse_counter(self):
-        self.counter += 1
+    def set_counter(self, value):
+        self.counter = value
         self.counter_label.configure(text=f"LICZNIK KROKÓW        {self.counter}")
 
     def _draw_motor(self, active: bool = False):
@@ -357,7 +355,7 @@ class AxisCard(tk.Frame):
         previous = 1 if self.step.state else 0
         self.step.set(value)
         if value and not previous:
-            self._pulse_counter()
+            pass
             self._motor_step()
         elif not value:
             self._schedule_motor_idle()

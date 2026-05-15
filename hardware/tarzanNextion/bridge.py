@@ -10,9 +10,23 @@ from .screen_model import ScreenDefinition, load_screen_definition
 from .state_mapper import TarzanNextionStateMapper
 
 try:
+    # 1. Próba importu absolutnego
     from editor.TFD.tfd_state import tfd_state
-except ImportError:
-    tfd_state = None
+except (ImportError, ModuleNotFoundError):
+    try:
+        # 2. Próba importu bezpośredniego (jeśli editor jest w sys.path)
+        from TFD.tfd_state import tfd_state
+    except (ImportError, ModuleNotFoundError):
+        try:
+            # 3. Próba wymuszenia ścieżki
+            import sys
+            from pathlib import Path
+            _root = Path(__file__).resolve().parents[2]
+            if str(_root) not in sys.path:
+                sys.path.insert(0, str(_root))
+            from editor.TFD.tfd_state import tfd_state
+        except:
+            tfd_state = None
 
 try:
     from audio.tarzanAudioPlayer import play as play_audio
@@ -117,10 +131,13 @@ class TarzanNextionBridge:
                 base[f"{key}.rrp.p1_val"] = self.bus.get("par_rrp_p1_val", "0")
                 base[f"{key}.rrp.p2_val"] = self.bus.get("par_rrp_p2_val", "0")
         
-        # Kompatybilnoæ wsteczna
+        # Kompatybilność wsteczna
         for k, v in self.rrp_state.items():
             base[f"rrp.{k}"] = v
             
+        if tfd_state:
+            base["tfd.packet_id"] = tfd_state.packet_id
+
         self._snapshot_cache = base
         self._snapshot_time = now
         return base
@@ -223,14 +240,13 @@ class TarzanNextionBridge:
         return cmds
 
     def sync(self, force: bool = False) -> None:
+        # AKTUALIZACJA TFD (Telemetria) przed snapshotem
+        if tfd_state:
+            tfd_state.update_from_bus(self.bus)
+
         snapshot = self.snapshot()
         now = time.time()
         
-        # AKTUALIZACJA TFD (Telemetria)
-        if tfd_state:
-            # TFD pobiera dane z SignalBus
-            tfd_state.update_from_bus(self.bus)
-
         interval = max(0.05, float(self.ports_cfg.get("sync_interval_ms", 50)) / 1000.0)
         if not force and snapshot == self.last_sent_snapshot and (now - self.last_sync) < interval:
             # Nawet jeśli snapshot busa się nie zmienił, metadane TFD mogły się zmienić (np. title)
@@ -277,21 +293,28 @@ class TarzanNextionBridge:
         meta_data = {
             "t1": packet.get("title", ""),
             "t2": packet.get("director", ""),
-            "t_take": f"TAKE: {packet.get('take', 1)}",
+            "t_take": str(packet.get('take', '001')),
             "t_clap": "CLAP" if packet.get("clap") else "",
             "t_status": packet.get("status", "LIVE"),
-            "t0": packet.get("tc", "00:00:00:00")
+            "t0": packet.get("t0", "00:00:00:0000")
         }
         
         for comp, val in meta_data.items():
             if tfd_state.should_update(f"nextion_7.{comp}", val):
                 cmds.append(cmd_text(comp, val))
                 
+        # DODANE: Ikona CLAP (p5) - zmiana obrazka na czerwony tło
+        is_clap = bool(packet.get("clap"))
+        pic_id = 51 if is_clap else 50 # 50 = standard, 51 = red bg (zakładamy)
+        if tfd_state.should_update("nextion_7.p5.pic", pic_id):
+            cmds.append(command_bytes(f"p5.pic={pic_id}"))
+                
         # 2. Osie (t_axis0..5)
         axes = packet.get("axes", {})
         for i in range(6):
             comp = f"t_axis{i}"
-            val = axes.get(f"axis{i}", "00000")
+            axis_data = axes.get(f"axis{i}", {})
+            val = axis_data.get("pos", "+00000")
             if tfd_state.should_update(f"nextion_7.{comp}", val):
                 cmds.append(cmd_text(comp, val))
                 
@@ -338,8 +361,8 @@ class TarzanNextionBridge:
 
                 # Obsługa zdarzeń tekstowych (np. rrp:, set:, take:)
                 try:
-                    # Dekodujemy z cp1250 dla obsługi polskich znaków
-                    msg = raw.decode("cp1250", errors="replace")
+                    # Oczyszczamy z terminatorów 0xFF i dekodujemy z cp1250 dla obsługi polskich znaków
+                    msg = raw.replace(b'\xff', b'').decode("cp1250", errors="replace")
                     
                     # 1. RRP EVENTS
                     if msg.startswith("rrp:"):
@@ -348,13 +371,24 @@ class TarzanNextionBridge:
                         continue
                         
                     # 2. TFD METADATA EVENTS (set:title=..., set:director=...)
-                    if msg.startswith("set:") and tfd_state:
-                        parts = msg.replace("set:", "").split("=", 1)
-                        if len(parts) == 2:
-                            k, v = parts[0], parts[1]
-                            if k == "title": tfd_state.update_meta(title=v)
-                            if k == "director": tfd_state.update_meta(director=v)
-                            logs.append(f"{key} TFD SET: {k}={v}")
+                    if "set:" in msg and tfd_state:
+                        import re
+                        # Rozdzielamy potencjalnie sklejone komunikaty (np. set:title=Aset:director=B lub title=Adirector=B)
+                        # Szukamy title=... do napotkania director=, set:director= lub końca
+                        t_match = re.search(r'title=(.*?)(?=set:director=|director=|$|set:title=)', msg)
+                        if t_match:
+                            val = t_match.group(1).replace("set:", "").strip()
+                            tfd_state.update_meta(title=val)
+                            logs.append(f"{key} TFD SET TITLE: {val}")
+                        
+                        d_match = re.search(r'director=(.*?)(?=set:title=|title=|$|set:director=)', msg)
+                        if d_match:
+                            val = d_match.group(1).replace("set:", "").strip()
+                            tfd_state.update_meta(director=val)
+                            logs.append(f"{key} TFD SET DIRECTOR: {val}")
+                        
+                        # Wymuszamy synchronizację, aby fizyczny Nextion odświeżył pola t1, t2, t_title, t_director
+                        self.last_sync = 0  # Force sync in next update()
                         continue
                         
                     # 3. TFD CLAP EVENT (take:clap=1)

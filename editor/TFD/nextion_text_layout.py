@@ -52,10 +52,40 @@ def get_layout(page_name):
     if base_name in _layout_cache:
         return _layout_cache[base_name]
 
-    root = Path(__file__).resolve().parents[2]
-    file_path = root / "hardware" / "Nextion_stucture" / f'{base_name}.txt'
+    # Dynamiczne szukanie korzenia projektu
+    current_file = Path(__file__).resolve()
+    root = current_file.parents[2] # Fallback (editor/TFD/nextion_text_layout.py)
     
+    # Szukamy folderu hardware idąc w górę
+    p = current_file
+    for _ in range(5):
+        if (p / "hardware").exists():
+            root = p
+            break
+        if p.parent == p: break
+        p = p.parent
+
+    file_path = root / "hardware" / "Nextion_structure" / f'{base_name}.txt'
+    
+    # Maksymalna odporność: jeśli nie ma w domyślnym miejscu, szukaj w hardware
+    if not file_path.exists():
+        try:
+            for p in (root / "hardware").rglob(f"{base_name}.txt"):
+                file_path = p
+                break
+        except: pass
+
     parser = NextionLayoutParser(file_path)
     layout = parser.parse()
-    _layout_cache[base_name] = layout
+    if layout:
+        _layout_cache[base_name] = layout
     return layout
+
+if __name__ == "__main__":
+    layout = get_layout("take_main.txt")
+    print(f"File: {__file__}")
+    print(f"Resolved: {Path(__file__).resolve()}")
+    print(f"Root: {Path(__file__).resolve().parents[2]}")
+    print(f"Layout components: {len(layout)}")
+    for i, comp in enumerate(layout[:5]):
+        print(f" {i}. {comp['type']}: {comp['name']}")

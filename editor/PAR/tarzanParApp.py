@@ -3,7 +3,13 @@ from __future__ import annotations
 import json
 import time
 import tkinter as tk
+import sys
 from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 from tkinter import filedialog, messagebox, ttk
 
 from core.tarzanSignalBus import get_signal_bus
@@ -70,7 +76,6 @@ DEFAULT_VISIBLE = {
     "sok": True,
     "cnc_signals": True,
     "automatyka": True,
-    "nextion_5_preview": True,
     "nextion_7_preview": True,
 
 }
@@ -106,7 +111,6 @@ DEFAULT_PANEL_ZONES = {
     "sok": "middle_top",
     "cnc_signals": "middle_bottom",
     "automatyka": "middle_top",
-    "nextion_5_preview": "right",
     "nextion_7_preview": "right",
 
 }
@@ -142,7 +146,6 @@ DEFAULT_PANEL_LAYOUT = {
     "automatyka": {"zone": "middle_top", "order": 55, "colspan": 2, "rowspan": 2},
     "sok": {"zone": "middle_top", "order": 120, "colspan": 3, "rowspan": 6},
     "cnc_signals": {"zone": "middle_bottom", "order": 5, "colspan": 4, "rowspan": 3},
-    "nextion_5_preview": {"zone": "right", "order": 120, "colspan": 4, "rowspan": 3},
     "nextion_7_preview": {"zone": "right", "order": 130, "colspan": 4, "rowspan": 4},
 
 }
@@ -636,7 +639,6 @@ class TarzanParApp(tk.Tk):
             "automatyka": p.automatyka_panel,
             "sok": p.sok_panel,
             "cnc_signals": p.cnc_signals_panel,
-            "nextion_5_preview": p.nextion_5_preview,
             "nextion_7_preview": p.nextion_7_preview,
         }
 
@@ -1868,6 +1870,12 @@ class TarzanParApp(tk.Tk):
 
     def set_mode(self, mode):
         self.bridge.set_mode(mode)
+        if hasattr(self, "bus"):
+            self.bus.mode = mode
+            # Dodatkowo ustawiamy par_mode dla pełnej kompatybilności wstecznej TFD
+            m_val = 0 if mode == "TEST" else (1 if mode == "LIVE" else 2)
+            self.bus.force_signal("par_mode", m_val, source="PAR_UI")
+
         color = "#b38316" if mode == "TEST" else ("#08620e" if mode == "LIVE" else "#18528c")
         self.mode_label.configure(text=f"TRYB: {mode}", bg=color)
 
@@ -1920,7 +1928,7 @@ class TarzanParApp(tk.Tk):
     def tick(self):
         self.clock.configure(text=f"CZAS SYSTEMU: {time.strftime('%H:%M:%S')}    TAKE: {self.bus.take_time_ms} ms    FPS: 60")
         self.panels.update_log()
-        self.panels.refresh_axis_cards()
+        pass
         # Timeline aktualizuje się zbiorczo po zmianach sygnałów.
         self.update_take_label()
         self.after(200, self.tick)

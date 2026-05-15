@@ -1,9 +1,23 @@
 from __future__ import annotations
 
 try:
+    # 1. Próba importu absolutnego
     from editor.TFD.tfd_state import tfd_state
-except:
-    tfd_state = None
+except (ImportError, ModuleNotFoundError):
+    try:
+        # 2. Próba importu bezpośredniego (jeśli editor jest w sys.path)
+        from TFD.tfd_state import tfd_state
+    except (ImportError, ModuleNotFoundError):
+        try:
+            # 3. Próba wymuszenia ścieżki
+            import sys
+            from pathlib import Path
+            _root = Path(__file__).resolve().parents[2]
+            if str(_root) not in sys.path:
+                sys.path.insert(0, str(_root))
+            from editor.TFD.tfd_state import tfd_state
+        except:
+            tfd_state = None
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -252,6 +266,9 @@ class TarzanParPanels:
         self._timeline_icon_cache = {}
         self._timeline_after_id = None
         self.nextion_preview_widgets = {}
+        self._last_step_states = {}
+        self._last_step_states = {}
+        self._last_step_states = {}
         self._last_log_snapshot = ()
         self._rrp_operator_updaters = []
         self._last_rrp_refresh_rev = None
@@ -394,6 +411,10 @@ class TarzanParPanels:
             card.set_en(self._first_value(en_names) if en_names else 1)
             card.set_end_left(self._first_value(bind.get("left", [])))
             card.set_end_right(self._first_value(bind.get("right", [])))
+
+            # Odczyt licznika z SignalBus (Źródło Prawdy)
+            pulses = int(float(self.bus.get(f"par_{axis.lower()}_pulses", 0)))
+            card.set_counter(pulses)
 
             # Logger silnika (v2/final)
             def _mk_logger(ax_key, c_ref):
@@ -1012,10 +1033,32 @@ class TarzanParPanels:
         led.pack(pady=2)
         return led
 
+    def _increment_axis_counter(self, ax, dir_val, amount=1):
+        """Jedyny mechanizm modyfikujący liczniki osi (Źródło Prawdy)."""
+        p_key = f"par_{ax.lower()}_pulses"
+        pos_key = f"par_{ax.lower()}_pos"
+        try:
+            old_p = int(float(self.bus.get(p_key, 0)))
+            new_p = old_p + amount
+            self.bus.force_signal(p_key, new_p, source="PAR_CENTRAL_COUNTER")
+            
+            old_pos = int(float(self.bus.get(pos_key, 0)))
+            new_pos = old_pos + (amount if dir_val else -amount)
+            self.bus.force_signal(pos_key, new_pos, source="PAR_CENTRAL_COUNTER")
+        except Exception:
+            pass
+
     def _manual_axis_step(self, ax, dir):
         b = AXIS_SIGNAL_BINDINGS.get(ax, {})
-        for n in b.get("dir", []): self.bus.force_signal(n, dir, source="PAR_STEP")
-        self._pulse_many_signals(b.get("step", []), src="PAR_STEP")
+        # Każdy generator produkuje STEP/DIR
+        for n in b.get("dir", []): 
+            self.bus.force_signal(n, dir, source="PAR_MANUAL")
+        
+        # Wygeneruj 10 zboczy narastających na szynie (zostaną zliczone przez on_state_change)
+        # Używamy lekkiego opóźnienia, aby UI i Timeline nadążyły z rysowaniem
+        for i in range(10):
+            self.app.after(i * 15, lambda: [self.bus.force_signal(n, 1, source="PAR_MANUAL") for n in b.get("step", [])])
+            self.app.after(i * 15 + 7, lambda: [self.bus.force_signal(n, 0, source="PAR_MANUAL") for n in b.get("step", [])])
 
     def _pulse_many_signals(self, names, delay_ms=10, src="PAR_PULSE"):
         for n in names:
@@ -1046,6 +1089,16 @@ class TarzanParPanels:
         val = state.value
         self.rows.set_value(name, val)
         
+        # --- CENTRALNE ZLICZANIE Z DEDUPLIKACJĄ ---
+        if val == 1 and state.previous_value == 0: # Wykrywanie zbocza narastającego
+            for ax, bind in AXIS_SIGNAL_BINDINGS.items():
+                if name in bind.get("step", []):
+                    # Licz impuls tylko jeśli żaden inny alias tej osi nie jest już aktywny
+                    if not any(self.bus.get(s, 0) for s in bind.get("step", []) if s != name):
+                        dir_val = self._first_value(bind.get("dir", []))
+                        self._increment_axis_counter(ax, dir_val)
+                    break
+
         # Linki sygnałów
         if name in _LINKED_SIGNAL_GROUPS:
             for extra in _LINKED_SIGNAL_GROUPS[name]:
@@ -1582,13 +1635,6 @@ class TarzanParPanels:
     def take_control(self, p): return self.take(p)
     def dron_panel(self, p): return self.dron(p)
 
-    def nextion_5_preview(self, parent):
-        panel = self.panel("nextion_5_preview", parent, "NEXTION 5")
-        bridge = self.app.bridge.nextion if hasattr(self.app.bridge, "nextion") and self.app.bridge.nextion is not None else self.app.bridge
-        widget = TarzanNextionPreviewPanel(panel.body, bridge, "nextion_5", "NEXTION 5 — PODGLĄD")
-        widget.pack(fill="both", expand=True)
-        self.nextion_preview_widgets["nextion_5"] = widget
-        return panel
 
     def nextion_7_preview(self, parent):
         panel = self.panel("nextion_7_preview", parent, "NEXTION 7")
@@ -1599,9 +1645,6 @@ class TarzanParPanels:
         return panel
 
     def nextion_refresh_previews(self):
-        if tfd_state:
-            tfd_state.update_from_bus(self.bus)
-
         bridge = self.app.bridge.nextion if hasattr(self.app.bridge, "nextion") and self.app.bridge.nextion is not None else self.app.bridge
         snapshot = bridge.snapshot() if hasattr(bridge, "snapshot") else {}
 

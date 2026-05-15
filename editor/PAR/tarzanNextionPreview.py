@@ -11,11 +11,27 @@ except ModuleNotFoundError:
     from tarzanParWidgets import COLORS, Panel
 
 try:
+    # 1. Próba importu absolutnego
     from editor.TFD.tfd_state import tfd_state
     from editor.TFD.nextion_text_layout import get_layout
-except ImportError:
-    tfd_state = None
-    get_layout = lambda x: []
+except (ImportError, ModuleNotFoundError):
+    try:
+        # 2. Próba importu bezpośredniego (jeśli editor jest w sys.path)
+        from TFD.tfd_state import tfd_state
+        from TFD.nextion_text_layout import get_layout
+    except (ImportError, ModuleNotFoundError):
+        try:
+            # 3. Próba wymuszenia ścieżki
+            import sys
+            from pathlib import Path
+            _root = Path(__file__).resolve().parents[2]
+            if str(_root) not in sys.path:
+                sys.path.insert(0, str(_root))
+            from editor.TFD.tfd_state import tfd_state
+            from editor.TFD.nextion_text_layout import get_layout
+        except:
+            tfd_state = None
+            def get_layout(x): return []
 
 try:
     from audio.tarzanAudioPlayer import play as play_audio
@@ -92,6 +108,10 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self._hitboxes: Dict[str, Tuple[int, int, int, int]] = {}
 
         self._rrp_drag_target: Optional[str] = None
+
+        self._edit_entry: Optional[tk.Entry] = None
+        self._edit_target: Optional[str] = None
+        self._edit_window: Optional[int] = None
 
         self.panel = Panel(self, title=title)
         self.panel.pack(fill="both", expand=True)
@@ -205,6 +225,10 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self.refresh()
 
     def refresh(self) -> None:
+        # Nie odświeżamy jeśli trwa edycja pola tekstowego (aby nie zniknął kursor/fokus)
+        if self._edit_entry:
+            return
+
         self.state = self.bridge.snapshot()
 
         connected = self._is_connected()
@@ -340,9 +364,22 @@ class TarzanNextionPreviewPanel(tk.Frame):
         
         layout = get_layout("take_main.txt")
         if not layout:
+            err_msg = "BŁĄD: Brak take_main.txt"
+            if hasattr(get_layout, "__name__") and get_layout.__name__ == "get_layout":
+                 import os
+                 from pathlib import Path
+                 root = Path(__file__).resolve().parents[2]
+                 path = root / "hardware" / "Nextion_structure" / "take_main.txt"
+                 if not path.exists():
+                     err_msg += f"\nNie znaleziono pliku w:\n{path}"
+                 else:
+                     err_msg += "\nBłąd parsowania pliku."
+            else:
+                 err_msg += "\nBłąd importu modułu layoutu."
+                 
             self.screen_canvas.create_text(
                 self.screen_width // 2, self.screen_height // 2,
-                text="BŁĄD: Brak take_main.txt\nSprawdź hardware/Nextion_stucture/",
+                text=err_msg,
                 fill="#f00", font=("Segoe UI", 10, "bold")
             )
             self._draw_nav_arrows(show_home=True)
@@ -355,22 +392,22 @@ class TarzanNextionPreviewPanel(tk.Frame):
         val_map = {
             "t1": packet.get("title", ""),
             "t2": packet.get("director", ""),
-            "t_take": f"TAKE: {packet.get('take', 1)}",
+            "t_take": packet.get('take', '001'),
             "t_clap": "CLAP" if packet.get("clap") else "",
             "t_status": packet.get("status", "LIVE"),
-            "t0": packet.get("tc", "00:00:00:00"),
-            "t_axis0": axes.get("axis0", "00000"),
-            "t_axis1": axes.get("axis1", "00000"),
-            "t_axis2": axes.get("axis2", "00000"),
-            "t_axis3": axes.get("axis3", "00000"),
-            "t_axis4": axes.get("axis4", "00000"),
-            "t_axis5": axes.get("axis5", "00000"),
+            "t0": packet.get("t0", packet.get("tc", "00:00:00:0000")),
+            "t_axis0": axes.get("axis0", {}).get("pos", "+00000") if isinstance(axes.get("axis0"), dict) else "+00000",
+            "t_axis1": axes.get("axis1", {}).get("pos", "+00000") if isinstance(axes.get("axis1"), dict) else "+00000",
+            "t_axis2": axes.get("axis2", {}).get("pos", "+00000") if isinstance(axes.get("axis2"), dict) else "+00000",
+            "t_axis3": axes.get("axis3", {}).get("pos", "+00000") if isinstance(axes.get("axis3"), dict) else "+00000",
+            "t_axis4": axes.get("axis4", {}).get("pos", "+00000") if isinstance(axes.get("axis4"), dict) else "+00000",
+            "t_axis5": axes.get("axis5", {}).get("pos", "+00000") if isinstance(axes.get("axis5"), dict) else "+00000",
             "t_laser": sensors.get("laser", "OFF"),
             "t_limits": sensors.get("limits", "OK"),
             "t_shock": sensors.get("shock", "OK"),
-            "t_light": sensors.get("light", "OFF"),
-            "t_temp": sensors.get("temp", "0"),
-            "t_xyz": sensors.get("xyz", "0/0")
+            "t_light": sensors.get("light", "00000 LX"),
+            "t_temp": sensors.get("temp", "22C"),
+            "t_xyz": sensors.get("xyz", "X+00 Y+00 Z+00")
         }
 
         for comp in layout:
@@ -424,10 +461,14 @@ class TarzanNextionPreviewPanel(tk.Frame):
                     self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, outline="#333", fill="#222")
                     self.screen_canvas.create_text(sx + sw // 2, sy + sh // 2, text=name, fill="#aaa", font=("Segoe UI", 8))
             elif comp["type"] == "Picture":
+                # Dla CLAP (p5) rysujemy czerwone tło jeśli aktywny
+                if name == "p5" and packet and packet.get("clap"):
+                    self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, fill="#f00", outline="#fff")
+                
                 icon = self._get_tfd_icon(name, packet)
                 if icon:
                     self.screen_canvas.create_image(sx + sw // 2, sy + sh // 2, image=icon)
-                else:
+                elif name != "p5" or not (packet and packet.get("clap")):
                     self.screen_canvas.create_rectangle(sx, sy, sx + sw, sy + sh, outline="#444", dash=(2, 2))
 
         self._draw_nav_arrows(show_home=True)
@@ -440,9 +481,15 @@ class TarzanNextionPreviewPanel(tk.Frame):
         
         layout = get_layout("settings_main.txt")
         if not layout:
+            err_msg = "BŁĄD: Brak settings_main.txt"
+            if hasattr(get_layout, "__name__") and get_layout.__name__ == "get_layout":
+                 err_msg += "\nBłąd parsowania lub brak pliku."
+            else:
+                 err_msg += "\nBłąd importu modułu layoutu."
+                 
             self.screen_canvas.create_text(
                 self.screen_width // 2, self.screen_height // 2,
-                text="BŁĄD: Brak settings_main.txt\nSprawdź hardware/Nextion_stucture/",
+                text=err_msg,
                 fill="#f00", font=("Segoe UI", 10, "bold")
             )
             self._draw_nav_arrows(show_home=True)
@@ -979,18 +1026,11 @@ class TarzanNextionPreviewPanel(tk.Frame):
                 return
 
         if current == "settings_main":
-            # Obsługa wpisywania metadanych
+            # Obsługa wpisywania metadanych bez wyskakujących okienek
             for field in ["t_title", "t_director"]:
                 box = self._hitboxes.get(field)
                 if box and box[0] <= x <= box[2] and box[1] <= y <= box[3]:
-                    from tkinter import simpledialog
-                    old_val = tfd_state.title if field == "t_title" else tfd_state.director
-                    prompt = "Podaj tytuł:" if field == "t_title" else "Podaj reżysera:"
-                    new_val = simpledialog.askstring("Nextion Preview", prompt, initialvalue=old_val)
-                    if new_val is not None and tfd_state:
-                        if field == "t_title": tfd_state.update_meta(title=new_val)
-                        else: tfd_state.update_meta(director=new_val)
-                    self.refresh()
+                    self._start_edit(field, box)
                     return
             
             # Obsługa b_save_meta
@@ -1010,3 +1050,52 @@ class TarzanNextionPreviewPanel(tk.Frame):
         if home and home[0] <= x <= home[2] and home[1] <= y <= home[3]:
             self._set_bridge_page("page1")
             self.refresh()
+            return
+
+    def _start_edit(self, field: str, box: Tuple[int, int, int, int]) -> None:
+        """Rozpoczyna edycję pola tekstowego bezpośrednio na canvasie (bez popupów)."""
+        self._cancel_edit()
+        
+        self._edit_target = field
+        sx, sy, ex, ey = box
+        
+        val = tfd_state.title if field == "t_title" else tfd_state.director
+        
+        entry = tk.Entry(self.screen_canvas, bg="#111", fg="#fff", insertbackground="#fff", 
+                         font=("Consolas", max(10, int(20 * self.scale)), "bold"), bd=0, highlightthickness=1, highlightbackground="#555")
+        entry.insert(0, val)
+        entry.select_range(0, tk.END)
+        
+        # Umieszczamy entry na canvasie
+        self._edit_window = self.screen_canvas.create_window(sx, sy, window=entry, anchor="nw", 
+                                                           width=ex-sx, height=ey-sy)
+        self._edit_entry = entry
+        entry.focus_set()
+        
+        entry.bind("<Return>", lambda e: self._finish_edit())
+        entry.bind("<Escape>", lambda e: self._cancel_edit())
+        # FocusOut może być zdradliwy przy przełączaniu okien, ale tu chcemy żeby zatwierdzał
+        entry.bind("<FocusOut>", lambda e: self._finish_edit())
+
+    def _finish_edit(self) -> None:
+        """Kończy edycję i zapisuje wartość."""
+        if not self._edit_entry or not self._edit_target:
+            return
+            
+        new_val = self._edit_entry.get()
+        if tfd_state:
+            if self._edit_target == "t_title": tfd_state.update_meta(title=new_val)
+            else: tfd_state.update_meta(director=new_val)
+        
+        self._cancel_edit()
+        self.refresh()
+
+    def _cancel_edit(self) -> None:
+        """Anuluje edycję bez zapisu."""
+        if self._edit_entry:
+            self._edit_entry.destroy()
+            self._edit_entry = None
+        if hasattr(self, "_edit_window") and self._edit_window:
+            self.screen_canvas.delete(self._edit_window)
+            self._edit_window = None
+        self._edit_target = None

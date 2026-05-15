@@ -82,6 +82,64 @@ class TFDState:
             self._clap_time = time.time()
         return event
 
+    def format_tfd_axis_value(self, pulses, dir_val):
+        """Format: +00000 / -00000 na podstawie licznika impulsów i kierunku DIR."""
+        try:
+            val = abs(int(float(pulses)))
+            sign = "+" if dir_val else "-"
+        except:
+            val = 0
+            sign = "+" if dir_val else "-"
+        return f"{sign}{str(val).zfill(5)}"
+
+    def format_tfd_xyz(self, x, y, z):
+        """Format: X+00 Y+00 Z+00 (zaokrąglone do liczb całkowitych)."""
+        try:
+            ix, iy, iz = int(round(float(x))), int(round(float(y))), int(round(float(z)))
+        except:
+            ix, iy, iz = 0, 0, 0
+        return f"X{ix:+03d} Y{iy:+03d} Z{iz:+03d}"
+
+    def format_tfd_tc(self, bus_tc=None):
+        """Format: HH:MM:SS:mmmm (pełny) i wersja skrócona dla Nextiona (10 znaków)."""
+        if bus_tc and ":" in str(bus_tc) and str(bus_tc) != "00:00:00:00":
+            val = str(bus_tc)
+            # Upewnij się, że ostatni człon ma 4 cyfry, jeśli to HH:MM:SS:FF
+            parts = val.split(":")
+            if len(parts) == 4 and len(parts[3]) == 2:
+                val = f"{parts[0]}:{parts[1]}:{parts[2]}:{parts[3]}00"
+        else:
+            # Fallback do czasu systemowego
+            t = time.time()
+            milli = int((t - int(t)) * 1000)
+            # Format 00:00:00:0000 (wymagane 4 cyfry na końcu)
+            val = time.strftime("%H:%M:%S", time.localtime(t)) + f":{milli*10:04d}"
+        
+        # Zwracamy słownik z obiema wersjami, aby bridge mógł wybrać
+        return {
+            "full": val,
+            "short": val[:10] # Ucinamy do 10 znaków dla Nextiona (limit pola t0)
+        }
+
+    def format_tfd_take_number(self, take_num):
+        """Format: 001, 002... (zawsze zwraca same cyfry)"""
+        try:
+            return str(int(float(take_num))).zfill(3)
+        except:
+            import re
+            match = re.search(r'(\d+)', str(take_num))
+            if match:
+                return str(int(match.group(1))).zfill(3)
+            return "001"
+
+    def format_tfd_sensor_value(self, sensor_type, value):
+        """Formaty dla czujników: OK/SHOCK, OFF/ON itp."""
+        if sensor_type == "shock":
+            return "SHOCK" if value else "OK"
+        if sensor_type == "laser":
+            return "ON" if value else "OFF"
+        return "OK" if not value else "ERR"
+
     def update_from_bus(self, bus):
         """Aktualizuje stan TFD na podstawie danych systemowych."""
         now = time.time()
@@ -95,87 +153,108 @@ class TFDState:
             
         self._last_update_time = now
         
-        self.status = str(bus.get("par_status", "LIVE")).upper()
+        # Status PAR: TEST / LIVE / MIX
+        # SignalBus mode
+        mode = "LIVE"
+        if hasattr(bus, "mode"):
+            mode = str(bus.mode).upper()
+        
+        # Fallback na par_mode jeśli istnieje w bus.get
+        par_mode = bus.get("par_mode")
+        if par_mode == 0: mode = "TEST"
+        elif par_mode == 1: mode = "LIVE"
+        elif par_mode == 2: mode = "MIX"
+        
+        self.status = "MIZ" if mode == "MIX" else mode # Użytkownik preferuje MIZ
+        
+        # TC i Czas bieżący
         self.tc = str(bus.get("take_tc", "00:00:00:00"))
-        try:
-            self.take_number = int(bus.get("take_num", 1))
-        except:
-            self.take_number = 1
+        tc_data = self.format_tfd_tc(self.tc)
+        self.t0 = tc_data["full"]
+        self.tc_short = tc_data["short"]
+        
+        # Numer ujęcia z ścieżki TAKE lub numeru
+        take_path = getattr(bus, "loaded_take_path", None)
+        raw_take = 1
+        if take_path:
+            import re
+            filename = os.path.basename(take_path)
+            # Szukamy cyfr po TAKE_ lub na końcu nazwy
+            match = re.search(r'(?:TAKE_)?(\d+)', filename, re.IGNORECASE)
+            if match:
+                raw_take = match.group(1)
+        else:
+            raw_take = bus.get("take_num") or bus.get("par_take_num", 1)
+        
+        self.take_number = self.format_tfd_take_number(raw_take)
 
         # Pełne dane osi - Mapowanie zgodne z AXIS_SIGNAL_BINDINGS
         axes = {}
-        axis_map = {
-            "axis0": {"name": "CAM_H", "steps": ["TAKE_CAM_H_STEP", "rec_p01_copy_ctr_cam_h", "cnc_x_cam_h_ctr"], "dirs": ["TAKE_CAM_H_DIR", "rec_p03_copy_dir_cam_h", "cnc_x_cam_h_dir"], "ens": []},
-            "axis1": {"name": "CAM_V", "steps": ["TAKE_CAM_V_STEP", "rec_p02_copy_ctr_cam_v", "cnc_y_cam_v_ctr"], "dirs": ["TAKE_CAM_V_DIR", "rec_p04_copy_dir_cam_v", "cnc_y_cam_v_dir"], "ens": []},
-            "axis2": {"name": "CAM_T", "steps": ["TAKE_CAM_T_STEP", "rec_p06_copy_ctr_tilt", "cnc_a_arm_tilt_ctr"], "dirs": ["TAKE_CAM_T_DIR", "rec_p08_copy_dir_tilt", "cnc_a_arm_tilt_dir"], "ens": []},
-            "axis3": {"name": "CAM_F", "steps": ["TAKE_CAM_F_STEP", "rec_p05_copy_ctr_focus", "cnc_z_focus_ctr"], "dirs": ["TAKE_CAM_F_DIR", "rec_p07_copy_dir_focus", "cnc_z_focus_dir"], "ens": []},
-            "axis4": {"name": "ARM_H", "steps": ["TAKE_ARM_H_STEP", "play_p46_step_ctr_arm_h", "cnc_b_arm_h_ctr"], "dirs": ["TAKE_ARM_H_DIR", "play_p38_step_dir_arm_h", "cnc_b_arm_h_dir"], "ens": ["play_p50_step_en_arm_h"]},
-            "axis5": {"name": "ARM_V", "steps": ["TAKE_ARM_V_STEP", "play_p48_step_ctr_arm_v", "cnc_c_arm_v_ctr"], "dirs": ["TAKE_ARM_V_DIR", "play_p39_step_dir_arm_v", "cnc_c_arm_v_dir"], "ens": ["play_p51_step_en_arm_v"]}
-        }
+        axis_names = ["CAM_H", "CAM_V", "CAM_T", "CAM_F", "ARM_H", "ARM_V"]
         
-        for key, info in axis_map.items():
-            name = info["name"]
+        for i, name in enumerate(axis_names):
+            key = f"axis{i}"
             
-            # Pobieramy pierwszą niezerową wartość z listy sygnałów
-            step = 0
-            for sig in info["steps"]:
-                v = bus.get(sig, 0)
-                if v: 
-                    step = v
-                    break
-            
+            # Pobieramy DIR dla formatowania znaku
+            # Szukamy w SignalBus sygnału DIR powiązanego z tą osią
             dir_val = 0
-            for sig in info["dirs"]:
-                v = bus.get(sig, 0)
-                if v:
-                    dir_val = v
+            dir_keys = [f"par_{name.lower()}_dir", f"TAKE_{name}_DIR"]
+            for dk in dir_keys:
+                if bus.exists(dk):
+                    dir_val = 1 if bus.get(dk) else 0
                     break
             
-            en = 1
-            if info["ens"]:
-                for sig in info["ens"]:
-                    v = bus.get(sig, 1)
-                    if v == 0:
-                        en = 0
-                        break
+            # LICZNIK KROKÓW - kluczowy parametr dla TFD
+            # Pobieramy z par_{axis}_pulses, który jest aktualizowany przez TarzanParPanels z AxisCard.counter
+            pulses = bus.get(f"par_{name.lower()}_pulses", 0)
             
-            pos = bus.get(f"par_{name.lower()}_pos", "00000")
+            # Formatujemy wartość osi dla TFD: +00000 / -00000
+            formatted_pos = self.format_tfd_axis_value(pulses, dir_val)
             
             axes[key] = {
                 "name": name,
-                "pos": str(pos).zfill(5),
-                "step": step,
+                "pos": formatted_pos,
                 "dir": dir_val,
-                "en": en,
-                "pulses": bus.get(f"par_{name.lower()}_pulses", 0)
+                "pulses": pulses
             }
 
         # Czujniki
-        laser_state = "OK" if not bus.get("par_laser_error", 0) else "ERR"
+        laser_active = bus.get("par_laser_set", 0) or bus.get("par_laser_active", 0)
+        laser_error = bus.get("par_laser_error", 0)
+        if laser_error:
+            laser_state = "ERR"
+        else:
+            laser_state = "ON" if laser_active else "OFF"
+        
         limits_aktywne = any(bus.get(sig, 0) for sig in [
             "play_p03_arm_h_limit_left", "play_p01_arm_h_auto_limit", 
             "play_p04_arm_v_limit_up", "play_p09_arm_v_auto_limit",
             "cam_h_limit_left", "cam_h_limit_right", "cam_v_limit_up", "cam_v_limit_down"
         ])
         limits_state = "LIMIT!" if limits_aktywne else "OK"
-        shock = "SHOCK!!" if bus.get("par_shock_sensor_state", 0) else "OK"
-        light_val = bus.get("par_light_val", 0)
-        light = f'{str(light_val).zfill(5)} LX'
-        temp_val = bus.get("par_temperature_val", "22")
+        
+        shock_val = bus.get("par_shock_sensor_state", 0) or bus.get("par_shock_active", 0)
+        shock = "SHOCK" if shock_val else "OK"
+        
+        light_val = bus.get("par_bh1750_lux", 0)
+        light = f'{str(int(light_val)).zfill(5)} LX'
+        
+        temp_val = bus.get("par_temperature_c", "22")
         temp = f"{temp_val}C"
         
-        x = bus.get('par_level_x', 0)
-        y = bus.get('par_level_y', 0)
-        z = bus.get('par_level_z', 0)
-        xyz = f'X{x:+} Y{y:+} Z{z:+}'
+        lx = bus.get('par_level_x', 0)
+        ly = bus.get('par_level_y', 0)
+        lz = bus.get('par_level_z', 0)
+        xyz_formatted = self.format_tfd_xyz(lx, ly, lz)
 
         packet = {
             "system": "TARZAN_FRAME_DATA",
             "short": "TFD",
             "packet_id": self.packet_id,
             "timestamp": time.time(),
-            "take": self.take_number,
+            "take": self.format_tfd_take_number(self.take_number),
             "tc": self.tc,
+            "tc_short": getattr(self, "tc_short", self.tc[:10]),
             "t0": self.t0,
             "title": self.title,
             "director": self.director,
@@ -185,7 +264,7 @@ class TFDState:
             "sensors": {
                 "laser": laser_state, "limits": limits_state,
                 "shock": shock, "light": light,
-                "temp": temp, "xyz": xyz,
+                "temp": temp, "xyz": xyz_formatted,
                 "status": "OK"
             },
             "last_event": self.events[-1] if self.events else None

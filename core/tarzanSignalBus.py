@@ -266,6 +266,20 @@ class TarzanSignalBus:
             ("par_rrp_p2_dir", "PAR", "LH", "IN", "0", "RRP P2 — kierunek", "RRP"),
             ("par_rrp_p2_sens", "PAR", "ANALOG", "IN", "50", "RRP P2 — czułość", "RRP"),
             ("par_rrp_p2_val", "PAR", "TEXT", "IN", "0", "RRP P2 — wartość/gęstość STEP", "RRP"),
+            ("par_cam_h_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów CAM H", "PAR_COUNTERS"),
+            ("par_cam_v_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów CAM V", "PAR_COUNTERS"),
+            ("par_cam_t_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów CAM T", "PAR_COUNTERS"),
+            ("par_cam_f_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów CAM F", "PAR_COUNTERS"),
+            ("par_arm_h_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów ARM H", "PAR_COUNTERS"),
+            ("par_arm_v_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów ARM V", "PAR_COUNTERS"),
+            ("par_dron_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów DRON", "PAR_COUNTERS"),
+            ("par_cam_h_pos", "PAR", "ANALOG", "IN", "0", "Pozycja CAM H", "PAR_POSITIONS"),
+            ("par_cam_v_pos", "PAR", "ANALOG", "IN", "0", "Pozycja CAM V", "PAR_POSITIONS"),
+            ("par_cam_t_pos", "PAR", "ANALOG", "IN", "0", "Pozycja CAM T", "PAR_POSITIONS"),
+            ("par_cam_f_pos", "PAR", "ANALOG", "IN", "0", "Pozycja CAM F", "PAR_POSITIONS"),
+            ("par_arm_h_pos", "PAR", "ANALOG", "IN", "0", "Pozycja ARM H", "PAR_POSITIONS"),
+            ("par_arm_v_pos", "PAR", "ANALOG", "IN", "0", "Pozycja ARM V", "PAR_POSITIONS"),
+            ("par_dron_pos", "PAR", "ANALOG", "IN", "0", "Pozycja DRON", "PAR_POSITIONS"),
         ]
         for name, board, typ, direction, default, opis, group in virtuals:
             if name in self.meta:

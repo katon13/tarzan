@@ -72,7 +72,7 @@ LIMIT_LABELS = {
     "cart_limit_end": "CART END",
     "mass_reg_limit_add": "MASS MAX",
     "mass_reg_limit_remove": "MASS MIN",
-    "copy_cam_v_limit_up": "COPY TILT MAX",
+    "copy_cam_v_limit_up": "TILT MAX",
 }
 
 SENSOR_LABELS = {

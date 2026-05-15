@@ -4,6 +4,7 @@ import json
 import threading
 import os
 import functools
+import time
 from pathlib import Path
 
 # Próba importu tfd_state, jeśli nie ma (np. start jako samodzielny skrypt), tworzymy atrapę
@@ -19,12 +20,40 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 
 class TFDHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
-        # Wyciszamy logowanie dla bardzo częstych zapytań o dane telemetrii (20Hz)
-        if self.path.startswith('/tfd_data'):
+        # Wyciszamy logowanie dla bardzo częstych zapytań o dane (telemetria i stream)
+        if self.path.startswith('/tfd_data') or self.path.startswith('/tfd_stream'):
             return
         super().log_message(format, *args)
 
     def do_GET(self):
+        if self.path.startswith('/tfd_stream'):
+            if not tfd_state:
+                self.send_error(503, "TFD State not initialized")
+                return
+            
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Cache-Control', 'no-cache')
+            self.send_header('Connection', 'keep-alive')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            
+            last_id = -1
+            try:
+                while True:
+                    full_data = tfd_state.to_dict()
+                    curr_id = full_data.get("packet_id", 0)
+                    
+                    if curr_id != last_id:
+                        # Przesyłamy pełny JSON, aby zasilić wszystkie pola overlay (tytuły, osie, czujniki)
+                        self.wfile.write(f"data: {json.dumps(full_data)}\n\n".encode('utf-8'))
+                        self.wfile.flush()
+                        last_id = curr_id
+                    time.sleep(0.01)  # Sprawdzanie co 10ms (100Hz)
+            except (ConnectionResetError, BrokenPipeError):
+                pass # Klient się rozłączył
+            return
+
         if self.path.startswith('/tfd_data'):
             if not tfd_state:
                 self.send_error(503, "TFD State not initialized")

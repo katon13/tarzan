@@ -22,7 +22,7 @@ class TFDState:
         self.sent_cache = {}
         
         self._last_update_time = 0.0
-        self._update_interval = 0.04  # 40ms
+        self._update_interval = 0.01  # 10ms (100Hz)
         self._clap_time = 0
         
         self.load_metadata()
@@ -141,12 +141,24 @@ class TFDState:
             return "001"
 
     def format_tfd_sensor_value(self, sensor_type, value):
-        """Formaty dla czujników: OK/SHOCK, OFF/ON itp."""
+        """Formaty dla czujników: OK/SHOCK, OFF/ON itp. Obsługuje bool i str."""
+        # Normalizacja wartości do bool
+        b_val = bool(value)
+        if isinstance(value, str):
+            if value.lower() in ("0", "false", "off", "ok", "none", ""):
+                b_val = False
+            else:
+                b_val = True
+
         if sensor_type == "shock":
-            return "SHOCK" if value else "OK"
+            return "SHOCK" if b_val else "OK"
         if sensor_type == "laser":
-            return "ON" if value else "OFF"
-        return "OK" if not value else "ERR"
+            return "ON" if b_val else "OFF"
+        if sensor_type == "limits":
+            # Dla krańcówek: jeśli b_val jest True (mamy aktywne krańcówki np. "01"), to "LIMIT" albo "ERR"
+            return value if (isinstance(value, str) and value != "0") else ("OK" if not b_val else "LIMIT")
+        
+        return "OK" if not b_val else "ERR"
 
     def update_from_bus(self, bus):
         """Aktualizuje stan TFD na podstawie danych systemowych."""
@@ -235,16 +247,17 @@ class TFDState:
         # Czujniki
         laser_active = bus.get("par_laser_set", 0) or bus.get("par_laser_active", 0)
         laser_error = bus.get("par_laser_error", 0)
-        # Czujnik laserowy - dwa stany 0 i 1
+        # Czujnik laserowy - formatujemy na ON/OFF/ERR
         if laser_error:
-            laser_state = "0"
+            laser_state = "ERR"
         else:
-            laser_state = "1" if laser_active else "0"
+            laser_state = self.format_tfd_sensor_value("laser", laser_active)
         
-        limits_state = bus.get("par_limits_status", "0")
+        raw_limits = bus.get("par_limits_status", "0")
+        limits_state = self.format_tfd_sensor_value("limits", raw_limits)
         
         shock_val = bus.get("par_shock_sensor_state", 0) or bus.get("par_shock_active", 0)
-        shock = "1" if shock_val else "0"
+        shock = self.format_tfd_sensor_value("shock", shock_val)
         
         light_val = bus.get("par_bh1750_lux", 0)
         light = f'{str(int(light_val)).zfill(5)}'
@@ -298,11 +311,22 @@ class TFDState:
         return False
 
     def to_dict(self):
+        """Zwraca słownik z danymi. Jeśli last_packet nie istnieje, tworzy pakiet startowy."""
         if not self.last_packet:
             return {
-                "title": self.title, "director": self.director,
-                "take": self.take_number, "clap": self.clap,
-                "status": self.status, "tc": self.tc
+                "packet_id": self.packet_id,
+                "title": self.title,
+                "director": self.director,
+                "take": self.format_tfd_take_number(self.take_number),
+                "clap": self.clap,
+                "status": self.status,
+                "tc": self.tc,
+                "t0": self.t0,
+                "axes": {},
+                "sensors": {
+                    "laser": "OFF", "limits": "OK", "shock": "OK",
+                    "light": "00000", "temp": "22.0", "xyz": "+00 +00 +00"
+                }
             }
         return self.last_packet
 

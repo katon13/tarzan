@@ -11,14 +11,14 @@
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParWidgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParWidgets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/tfd_metadata.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/tfd_metadata.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/TFD/tarzanTfdOverlayServer.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzanTfdOverlayServer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.css" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.html" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.js" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/TFD/tfd_state.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tfd_state.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanPAR.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/tarzanPAR.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/nextion/page/tlo_t.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/tlo_t.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_128_active.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/page/tfd_temp.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/tfd_temp.png" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

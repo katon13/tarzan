@@ -23,6 +23,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Dict, List, Optional, Any, Callable
 import math
+import re
 import time
 
 from core.tarzanSignalBus import TarzanSignalBus, TarzanSignalState
@@ -276,6 +277,7 @@ class TarzanParPanels:
         
         # Centralny system RRP
         self._rrp_start_ts = time.time()
+        self._update_limits_status()
 
     def panel(self, key: str, parent, title: str) -> Panel:
         return Panel(parent, title=title, on_hide=lambda: self.app.hide_panel(key))
@@ -778,7 +780,7 @@ class TarzanParPanels:
             led.grid(row=0, column=0, sticky="w", padx=(0, 4))
             led.set(self.bus.get(n))
             
-            l = tk.Label(cell, text=self.limit_label(n), bg=COLORS["panel"], fg=COLORS["muted"] if bl else COLORS["text"], font=("Segoe UI", 8), anchor="w")
+            l = tk.Label(cell, text=f"{i+1:02d} {self.limit_label(n)}", bg=COLORS["panel"], fg=COLORS["muted"] if bl else COLORS["text"], font=("Segoe UI", 8, "bold"), anchor="w")
             l.grid(row=0, column=1, sticky="ew")
             
             self.rows[n] = _ParValueProxy(led.set)
@@ -1077,7 +1079,24 @@ class TarzanParPanels:
             if (m and m.grupa == group) or any(k in name.lower() for k in needles): res.append(name)
         return sorted(list(set(res)))
 
-    def limit_label(self, name: str): return LIMIT_LABELS.get(name, name.upper().replace("_", " "))
+    def _update_limits_status(self):
+        raw = self._group_or_search("KRA\u0143C\u00d3WKI", ["limit"])
+        names, seen = [], set()
+        for n in raw:
+            lbl = self.limit_label(n)
+            if any(k in f"{n} {lbl}".upper() for k in ("WOLNY", "FREE")): continue
+            if lbl.upper() in seen: continue
+            seen.add(lbl.upper()); names.append(n)
+        active = [f"{i+1:02d}" for i, n in enumerate(names) if self.bus.get(n)]
+        res = "0" if not active else ",".join(active)
+        self.bus.force_signal("par_limits_status", res, source="PAR_LIMIT_MONITOR")
+
+    def limit_label(self, name: str):
+        clean = name
+        if clean.startswith("play_p") or clean.startswith("rec_p"): 
+            parts = clean.split("_", 3)
+            if len(parts) >= 3: clean = "_".join(parts[2:])
+        return LIMIT_LABELS.get(clean, clean.upper().replace("_", " "))
     def sensor_label(self, name: str): return SENSOR_LABELS.get(name, name.upper().replace("_", " "))
 
     def _signal_blocked(self, n): m = self.bus.get_meta(n); return bool(m and getattr(m, "is_forbidden", False))
@@ -1086,6 +1105,7 @@ class TarzanParPanels:
     # --- SYNCHRONIZACJA I TIMELINE ---
 
     def on_state_change(self, name, state):
+        if "limit" in name.lower() or (self.bus.get_meta(name) and self.bus.get_meta(name).grupa == "KRAŃCÓWKI"): self._update_limits_status()
         val = state.value
         self.rows.set_value(name, val)
         
@@ -1674,3 +1694,4 @@ class TarzanParPanels:
                 widget.refresh()
             except Exception:
                 pass
+

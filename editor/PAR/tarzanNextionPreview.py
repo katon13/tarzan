@@ -457,7 +457,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
         sensor_cell(20, 365, "XYZ", sensors.get("xyz", "---"), 300)
         sensor_cell(335, 365, "LIGHT", sensors.get("light", "---"), 220)
         sensor_cell(570, 365, "TEMP", sensors.get("temp", "---"), 220)
-        sensor_cell(20, 415, "LIMITS", sensors.get("limits", "OK"), 210)
+        sensor_cell(20, 415, "", sensors.get("limits", "0"), 210)
         sensor_cell(245, 415, "LASER", sensors.get("laser", "OFF"), 180)
         sensor_cell(440, 415, "SHOCK", sensors.get("shock", "OK"), 180)
 

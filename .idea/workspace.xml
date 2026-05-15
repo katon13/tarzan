@@ -11,7 +11,10 @@
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio/tarzanAudioPlayer.py" beforeDir="false" afterPath="$PROJECT_DIR$/audio/tarzanAudioPlayer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanSignalBus.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanSignalBus.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/TFD/tfd_state.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tfd_state.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

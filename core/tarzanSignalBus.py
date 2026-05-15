@@ -280,6 +280,7 @@ class TarzanSignalBus:
             ("par_arm_h_pos", "PAR", "ANALOG", "IN", "0", "Pozycja ARM H", "PAR_POSITIONS"),
             ("par_arm_v_pos", "PAR", "ANALOG", "IN", "0", "Pozycja ARM V", "PAR_POSITIONS"),
             ("par_dron_pos", "PAR", "ANALOG", "IN", "0", "Pozycja DRON", "PAR_POSITIONS"),
+            ("par_limits_status", "PAR", "TEXT", "IN", "0", "Status krańcówek (0 / 01,02)", "PAR_LIMITS"),
         ]
         for name, board, typ, direction, default, opis, group in virtuals:
             if name in self.meta:

@@ -241,12 +241,7 @@ class TFDState:
         else:
             laser_state = "1" if laser_active else "0"
         
-        limits_aktywne = any(bus.get(sig, 0) for sig in [
-            "play_p03_arm_h_limit_left", "play_p01_arm_h_auto_limit", 
-            "play_p04_arm_v_limit_up", "play_p09_arm_v_auto_limit",
-            "cam_h_limit_left", "cam_h_limit_right", "cam_v_limit_up", "cam_v_limit_down"
-        ])
-        limits_state = "LIMIT!" if limits_aktywne else "OK"
+        limits_state = bus.get("par_limits_status", "0")
         
         shock_val = bus.get("par_shock_sensor_state", 0) or bus.get("par_shock_active", 0)
         shock = "1" if shock_val else "0"

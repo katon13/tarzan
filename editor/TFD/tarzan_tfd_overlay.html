@@ -4,21 +4,47 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0">
     <title>TARZAN TFD OVERLAY</title>
-    <link rel="stylesheet" href="tarzan_tfd_overlay.css?v=20260515-v14-axis-value-bg">
+    <link rel="icon" href="/img/logo/favicon/favicon.ico" sizes="any">
+    <link rel="shortcut icon" href="/img/logo/favicon/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/img/logo/favicon/favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/logo/favicon/favicon-180x180.png">
+    <link rel="preload" as="image" href="/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_256.png">
+    <link rel="stylesheet" href="tarzan_tfd_overlay.css?v=20260516-v19-fixed-bottom-take">
 </head>
 <body class="font-text">
     <div id="tfd-container">
+        <!-- CLAP FLASH OVER CAMERA AREA -->
+        <div id="clap-flash" aria-hidden="true">
+            <div class="clap-flash-text">CLAP</div>
+        </div>
+
         <!-- TOP PANEL -->
         <div class="panel top-panel font-text">
+            <div class="brand-item">
+                <img
+                    src="/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_256.png"
+                    onerror="this.onerror=function(){this.onerror=null;this.src='/img/logo/favicon/favicon-180x180.png';};this.src='/img/logo/logo_emblem_only/tarzan_logo_emblem_256.png';"
+                    class="tfd-logo tfd-logo-wordmark"
+                    alt="TARZAN"
+                    decoding="async"
+                    fetchpriority="high">
+            </div>
+
             <div class="item status-item">
                 <span id="t_status" class="value font-text text-value">LIVE</span>
             </div>
+
             <div class="item tc-live-item">
                 <span class="label font-text">TC</span>
                 <span id="t0" class="value font-digital digital-value main-tc-value">00:00:00:000</span>
             </div>
+
             <div class="item take-item">
-                <span class="label font-text">TAKE</span>
+                <img
+                    src="/img/take/take_open_128.png"
+                    onerror="this.onerror=null;this.src='/img/take/take_closed_128.png';"
+                    class="take-icon"
+                    alt="TAKE">
                 <span id="t_take" class="value font-digital digital-value">001</span>
             </div>
         </div>
@@ -58,32 +84,6 @@
                 </div>
             </div>
 
-            <div class="sensor-group">
-                <div class="sensor-item">
-                    <img src="/img/nextion/page/tfd_laser.png" class="sensor-icon" alt="laser">
-                    <span id="t_laser" class="sensor-value value font-text text-value">OK</span>
-                </div>
-                <div class="sensor-item">
-                    <img src="/img/nextion/page/tfd_limit.png" class="sensor-icon" alt="limits">
-                    <span id="t_limits" class="sensor-value value font-text text-value">OK</span>
-                </div>
-                <div class="sensor-item">
-                    <img src="/img/nextion/page/tfd_shock.png" class="sensor-icon" alt="shock">
-                    <span id="t_shock" class="sensor-value value font-text text-value">OFF</span>
-                </div>
-                <div class="sensor-item">
-                    <img src="/img/nextion/page/tfd_litht.png" class="sensor-icon" alt="light">
-                    <span id="t_light" class="sensor-value value font-digital digital-value">00000</span>
-                </div>
-                <div class="sensor-item">
-                    <img src="/img/nextion/page/tfd_temp.png" class="sensor-icon" alt="temp">
-                    <span id="t_temp" class="sensor-value value font-digital digital-value">22C</span>
-                </div>
-                <div class="sensor-item">
-                    <img src="/img/nextion/page/tfd_xyz.png" class="sensor-icon" alt="xyz">
-                    <span id="t_xyz" class="sensor-value value font-digital digital-value">+0 +0 +0</span>
-                </div>
-            </div>
         </div>
 
         <!-- BOTTOM PANEL -->
@@ -98,10 +98,36 @@
                     <span id="t2" class="value font-text text-value">REŻYSER</span>
                 </div>
             </div>
-            <div id="clap-indicator" class="clap-off font-text text-value">CLAP</div>
+
+            <div class="sensor-strip">
+                <div class="sensor-item sensor-laser">
+                    <img src="/img/nextion/page/tfd_laser.png" class="sensor-icon" alt="laser">
+                    <span id="t_laser" class="sensor-value value font-text text-value">OK</span>
+                </div>
+                <div class="sensor-item sensor-limits">
+                    <img src="/img/nextion/page/tfd_limit.png" class="sensor-icon" alt="limits">
+                    <span id="t_limits" class="sensor-value value font-text text-value">OK</span>
+                </div>
+                <div class="sensor-item sensor-shock">
+                    <img src="/img/nextion/page/tfd_shock.png" class="sensor-icon" alt="shock">
+                    <span id="t_shock" class="sensor-value value font-text text-value">OFF</span>
+                </div>
+                <div class="sensor-item sensor-light">
+                    <img src="/img/nextion/page/tfd_litht.png" class="sensor-icon" alt="light">
+                    <span id="t_light" class="sensor-value value font-digital digital-value">00000</span>
+                </div>
+                <div class="sensor-item sensor-temp">
+                    <img src="/img/nextion/page/tfd_temp.png" class="sensor-icon" alt="temp">
+                    <span id="t_temp" class="sensor-value value font-digital digital-value">22C</span>
+                </div>
+                <div class="sensor-item sensor-item-wide sensor-xyz">
+                    <img src="/img/nextion/page/tfd_xyz.png" class="sensor-icon" alt="xyz">
+                    <span id="t_xyz" class="sensor-value value font-digital digital-value">+0 +0 +0</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script src="tarzan_tfd_overlay.js?v=20260515-v14-axis-value-bg"></script>
+    <script src="tarzan_tfd_overlay.js?v=20260516-v19-fixed-bottom-take"></script>
 </body>
 </html>

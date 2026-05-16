@@ -11,14 +11,87 @@
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/tfd_metadata.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/tfd_metadata.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/TFD/tarzanTfdOverlayServer.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzanTfdOverlayServer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanAssets.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanAssets.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.css" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.html" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.js" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/TFD/tfd_state.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tfd_state.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_128_active.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/nextion/page/tfd_temp.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/tfd_temp.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanPAR.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/tarzanPAR.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_structure/Program.s.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_structure/boot.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_structure/face_rec.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_structure/keybdA.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_structure/level_xyz.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_structure/nextion7_Stats.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_structure/page1.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_structure/rrp_main.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_structure/sensors_main.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_structure/settings_main.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_structure/take_main.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_128_active.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_128_inactive.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_128_inactive.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_320_active.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_320_active.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_320_inactive.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_320_inactive.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_64_active.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_64_active.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_64_inactive.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_64_inactive.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_96_active.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_96_active.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_96_inactive.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/axes/ta_os_ostrości_kamery_ico_96_inactive.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/favicon/favicon-16x16.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/favicon/favicon-16x16.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/favicon/favicon-180x180.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/favicon/favicon-180x180.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/favicon/favicon-192x192.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/favicon/favicon-192x192.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/favicon/favicon-32x32.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/favicon/favicon-32x32.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/favicon/favicon-48x48.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/favicon/favicon-48x48.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/favicon/favicon-512x512.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/favicon/favicon-512x512.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/favicon/favicon-64x64.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/favicon/favicon-64x64.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/favicon/favicon-96x96.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/favicon/favicon-96x96.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/favicon/favicon.ico" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/favicon/favicon.ico" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_1024.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_128.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_128.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_1536.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_16.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_16.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_180.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_180.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_192.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_192.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_2048.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_256.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_256.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_3072.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_32.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_32.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_320.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_320.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_4096.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_48.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_48.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_512.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_512.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_64.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_64.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_96.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_96.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_header_1200x400.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_header_1600x600.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_header_2400x900.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_header_800x300.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_master.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_emblem_only/tarzan_logo_emblem_master.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_1024.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_1024.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_128.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_128.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_1536.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_2048.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_256.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_256.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_3072.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_320.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_320.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_4096.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_512.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_512.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_header_1200x400.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_header_1600x600.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_header_2400x900.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_header_800x300.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_master.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/logo_with_wordmark/tarzan_logo_with_wordmark_master.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/wordmark/tarzan_wordmark_1024.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/wordmark/tarzan_wordmark_1024.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/wordmark/tarzan_wordmark_2048.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/wordmark/tarzan_wordmark_3072.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/wordmark/tarzan_wordmark_4096.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/wordmark/tarzan_wordmark_512.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/wordmark/tarzan_wordmark_512.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/logo/wordmark/tarzan_wordmark_master.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/logo/wordmark/tarzan_wordmark_master.png" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -115,10 +188,16 @@
     "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
     "git-widget-placeholder": "main",
     "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "C:/Users/STACJA-PL/Downloads",
     "settings.editor.selected.configurable": "ml.llm.LLMConfigurable",
     "to.speed.mode.migration.done": "true"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\STACJA-PL\Downloads" />
+    </key>
+  </component>
   <component name="RunManager" selected="Python.tarzanPAR">
     <configuration name="bridge" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />

@@ -1,0 +1,46 @@
+Program.s
+	0    Component(s)
+	9    Line(s) of event code
+	9    Unique line(s) of event code
+sensors_main
+	3    Component(s)
+	5    Line(s) of event code
+	4    Unique line(s) of event code
+boot
+	4    Component(s)
+	36   Line(s) of event code
+	28   Unique line(s) of event code
+face_rec
+	3    Component(s)
+	5    Line(s) of event code
+	4    Unique line(s) of event code
+level_xyz
+	8    Component(s)
+	51   Line(s) of event code
+	31   Unique line(s) of event code
+settings_main
+	5    Component(s)
+	11   Line(s) of event code
+	9    Unique line(s) of event code
+rrp_main
+	30   Component(s)
+	452  Line(s) of event code
+	129  Unique line(s) of event code
+take_main
+	33   Component(s)
+	7    Line(s) of event code
+	6    Unique line(s) of event code
+page1
+	7    Component(s)
+	13   Line(s) of event code
+	7    Unique line(s) of event code
+keybdA
+	51   Component(s)
+	416  Line(s) of event code
+	193  Unique line(s) of event code
+
+Total
+	9    Page(s)
+	144  Component(s)
+	1005 Line(s) of event code
+	388  Unique line(s) of event code

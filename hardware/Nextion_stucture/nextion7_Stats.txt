@@ -18,14 +18,14 @@ level_xyz
 	8    Component(s)
 	51   Line(s) of event code
 	31   Unique line(s) of event code
-settings_main
-	5    Component(s)
-	11   Line(s) of event code
-	9    Unique line(s) of event code
 rrp_main
 	30   Component(s)
 	452  Line(s) of event code
 	129  Unique line(s) of event code
+settings_main
+	6    Component(s)
+	21   Line(s) of event code
+	13   Unique line(s) of event code
 take_main
 	33   Component(s)
 	7    Line(s) of event code
@@ -41,6 +41,6 @@ keybdA
 
 Total
 	9    Page(s)
-	144  Component(s)
-	1005 Line(s) of event code
-	388  Unique line(s) of event code
+	145  Component(s)
+	1015 Line(s) of event code
+	392  Unique line(s) of event code

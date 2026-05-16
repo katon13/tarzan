@@ -56,6 +56,10 @@ class TarzanNextionBridge:
         self.last_commands: List[str] = []
         self._snapshot_cache = {}
         self._snapshot_time = 0.0
+        self.last_version = -1
+        self._sent_cache = {}
+        self._tfd_save_status_until = 0.0
+        self._tfd_save_status_visible = False
         
         # Stan RRP (Physical Source of Truth)
         self.rrp_state = {
@@ -193,9 +197,9 @@ class TarzanNextionBridge:
             else:
                 value = comp.get("text", "")
             if prop == "val":
-                commands.append(cmd_value(component, value))
+                if self._should_update(screen_key, f"{component}.val", value): commands.append(cmd_value(component, value))
             else:
-                commands.append(cmd_text(component, value))
+                if self._should_update(screen_key, f"{component}.txt", value): commands.append(cmd_text(component, value))
         return commands
 
     def _level_xyz_commands(self, screen_key: str, state: Dict[str, Any]) -> List[bytes]:
@@ -217,10 +221,10 @@ class TarzanNextionBridge:
         x = max(-30, min(30, x))
         y = max(-30, min(30, y))
 
-        return [
-            command_bytes(f"va0.val={x}"),
-            command_bytes(f"va1.val={y}"),
-        ]
+        cmds = []
+        if self._should_update(screen_key, "va0.val", x): cmds.append(command_bytes(f"va0.val={x}"))
+        if self._should_update(screen_key, "va1.val", y): cmds.append(command_bytes(f"va1.val={y}"))
+        return cmds
 
     def _rrp_main_commands(self, screen_key: str, state: Dict[str, Any]) -> List[bytes]:
         if screen_key != "nextion_7":
@@ -234,10 +238,18 @@ class TarzanNextionBridge:
         p2_val = self.bus.get("par_rrp_p2_val", "0")
         
         # Wysylamy do pol tekstowych na fizycznym ekranie
-        cmds.append(cmd_text("t_p1_val", str(p1_val)))
-        cmds.append(cmd_text("t_p2_val", str(p2_val)))
+        if self._should_update(screen_key, "t_p1_val", str(p1_val)): cmds.append(cmd_text("t_p1_val", str(p1_val)))
+        if self._should_update(screen_key, "t_p2_val", str(p2_val)): cmds.append(cmd_text("t_p2_val", str(p2_val)))
         
         return cmds
+
+    def _should_update(self, screen_key: str, component: str, value: Any) -> bool:
+        page_id = self.active_pages.get(screen_key, "unknown")
+        cache_key = f"{screen_key}.{page_id}.{component}"
+        if self._sent_cache.get(cache_key) == value:
+            return False
+        self._sent_cache[cache_key] = value
+        return True
 
     def sync(self, force: bool = False) -> None:
         # AKTUALIZACJA TFD (Telemetria) przed snapshotem
@@ -248,10 +260,11 @@ class TarzanNextionBridge:
         now = time.time()
         
         interval = max(0.05, float(self.ports_cfg.get("sync_interval_ms", 50)) / 1000.0)
-        if not force and snapshot == self.last_sent_snapshot and (now - self.last_sync) < interval:
-            # Nawet jeśli snapshot busa się nie zmienił, metadane TFD mogły się zmienić (np. title)
-            # ale obsłużymy to w pętli urządzeń poniżej jeśli potrzeba.
+        new_version = snapshot.get("version", 0)
+        if not force and new_version == self.last_version and (now - self.last_sync) < interval:
             return
+        self.last_version = new_version
+
             
         self.last_sync = now
         self.last_commands = []
@@ -349,7 +362,27 @@ class TarzanNextionBridge:
             cmds.append(cmd_text("t_title", tfd_state.title))
         if tfd_state.should_update("nextion_7.settings.director", tfd_state.director):
             cmds.append(cmd_text("t_director", tfd_state.director))
-            
+
+        # Potwierdzenie zapisu metadanych: wysyłane tym samym kanałem co t_title/t_director.
+        # Nie wysyłamy tego z poll() ani z osobnego wątku.
+        now = time.time()
+        if self._tfd_save_status_until > now:
+            # Wymuszamy wysyłkę tekstu i koloru przez cały czas trwania statusu, 
+            # aby nadpisać ewentualne lokalne zmiany na ekranie (np. "WAIT").
+            # Używamy bezpośrednio command_bytes/cmd_text/cmd_visible bez _should_update.
+            # Zmieniamy kolejność: najpierw tekst, potem kolor, na końcu widoczność.
+            # DODANE: pco i bco (kolor tekstu i tła), aby wymusić kontrast i odświeżenie.
+            cmds.append(cmd_text("t_save_status", "SAVED"))
+            cmds.append(command_bytes("t_save_status.bco=2016")) # Tło zielone
+            cmds.append(command_bytes("t_save_status.pco=65535")) # Tekst biały
+            cmds.append(cmd_visible("t_save_status", True))
+            self._tfd_save_status_visible = True
+        elif self._tfd_save_status_visible:
+            # Opis sugeruje: "Nie ukrywać jeszcze statusu". 
+            # Usuwamy wysyłkę vis 0, zostawiamy tylko reset flagi wewnętrznej.
+            self._tfd_save_status_visible = False
+            self._tfd_save_status_until = 0.0
+                        
         return cmds
 
     def poll(self) -> List[str]:
@@ -361,44 +394,43 @@ class TarzanNextionBridge:
 
                 # Obsługa zdarzeń tekstowych (np. rrp:, set:, take:)
                 try:
-                    # Oczyszczamy z terminatorów 0xFF i dekodujemy z cp1250 dla obsługi polskich znaków
-                    msg = raw.replace(b'\xff', b'').decode("cp1250", errors="replace").strip("\x00\x1a\r\n ")
-                    
-                    # 1. RRP EVENTS
-                    if msg.startswith("rrp:"):
-                        self._handle_rrp_event(msg)
-                        logs.append(f"{key} RRP EVENT: {msg}")
-                        continue
-                        
-                    # 2. TFD METADATA EVENTS (set:title=..., set:director=...)
-                    if "set:" in msg and tfd_state:
-                        import re
-                        # Rozdzielamy potencjalnie sklejone komunikaty
-                        # Szukamy title=... i director=... bardziej precyzyjnie
-                        t_match = re.search(r'title=([^set:]*)', msg)
-                        if t_match:
-                            val = t_match.group(1).split("director=")[0].strip()
-                            if val:
-                                tfd_state.update_meta(title=val)
-                                logs.append(f"{key} TFD SET TITLE: {val}")
-                        
-                        d_match = re.search(r'director=([^set:]*)', msg)
-                        if d_match:
-                            val = d_match.group(1).split("title=")[0].strip()
-                            if val:
-                                tfd_state.update_meta(director=val)
-                                logs.append(f"{key} TFD SET DIRECTOR: {val}")
-                        
-                        # Wymuszamy synchronizację, aby fizyczny Nextion odświeżył pola t1, t2, t_title, t_director
-                        self.last_sync = 0  # Force sync in next update()
-                        continue
-                        
-                    # 3. TFD CLAP EVENT (take:clap=1)
-                    if msg.startswith("take:clap=1") and tfd_state:
-                        # Dodajemy pełne zdarzenie TFD
-                        tfd_state.add_event("CLAP", "NEXTION_TAKE_MAIN")
-                        play_audio("clap")
-                        logs.append(f"{key} TFD CLAP EVENT!")
+                    # Nextion kończy tekst przez FF FF FF. Nie wolno usuwać FF i potem
+                    # łapać regexem, bo sklejone set:title=...set:director=... ucina tekst.
+                    messages = []
+                    for part in raw.split(b'\xff\xff\xff'):
+                        msg = part.decode("cp1250", errors="replace").strip("\x00\x1a\r\n ")
+                        if msg:
+                            messages.append(msg)
+
+                    if not messages:
+                        msg = raw.replace(b'\xff', b'').decode("cp1250", errors="replace").strip("\x00\x1a\r\n ")
+                        if msg:
+                            messages.append(msg)
+
+                    handled_text = False
+                    for msg in messages:
+                        # 1. RRP EVENTS
+                        if msg.startswith("rrp:"):
+                            self._handle_rrp_event(msg)
+                            logs.append(f"{key} RRP EVENT: {msg}")
+                            handled_text = True
+                            continue
+
+                        # 2. TFD METADATA EVENTS (set:title=..., set:director=...)
+                        if tfd_state and self._handle_tfd_meta_event(msg, logs, key):
+                            handled_text = True
+                            continue
+
+                        # 3. TFD CLAP EVENT (take:clap=1)
+                        if msg.startswith("take:clap=1") and tfd_state:
+                            # Dodajemy pełne zdarzenie TFD
+                            tfd_state.add_event("CLAP", "NEXTION_TAKE_MAIN")
+                            play_audio("clap")
+                            logs.append(f"{key} TFD CLAP EVENT!")
+                            handled_text = True
+                            continue
+
+                    if handled_text:
                         continue
                         
                 except Exception as e:
@@ -414,6 +446,38 @@ class TarzanNextionBridge:
                     self._request_current_page(device)
                     logs.append(f"{key} TOUCH page={int(raw[1])} comp={int(raw[2])} event={int(raw[3])}")
         return logs
+
+    def _handle_tfd_meta_event(self, msg: str, logs: List[str], key: str) -> bool:
+        """Przetwarza tekst z settings_main: set:title=... albo set:director=..."""
+        if not msg.startswith("set:") or not tfd_state:
+            return False
+
+        payload = msg[4:]
+        if payload.startswith("title="):
+            val = payload[len("title="):].strip()
+            tfd_state.update_meta(title=val)
+            logs.append(f"{key} TFD SET TITLE: {val}")
+            
+            # Wymuszenie odesłania statusu SAVED na ekran Nextion
+            self._tfd_save_status_until = time.time() + 2.0
+            self._tfd_save_status_visible = False
+            self.last_sync = 0
+            self._sent_cache.clear()
+            return True
+
+        if payload.startswith("director="):
+            val = payload[len("director="):].strip()
+            tfd_state.update_meta(director=val)
+            logs.append(f"{key} TFD SET DIRECTOR: {val}")
+            
+            # Wymuszenie odesłania statusu SAVED na ekran Nextion
+            self._tfd_save_status_until = time.time() + 2.0
+            self._tfd_save_status_visible = False
+            self.last_sync = 0
+            self._sent_cache.clear()
+            return True
+
+        return False
 
     def _handle_rrp_event(self, msg: str) -> None:
         """Przetwarza komunikaty tekstowe rrp: z fizycznego ekranu Nextion."""

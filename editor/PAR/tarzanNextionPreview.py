@@ -405,7 +405,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
         status = fit(packet.get("status", "LIVE"), 6).upper()
         status_color = COLORS["green"] if status == "LIVE" else COLORS["red"]
 
-        text(18, 14, f"TITLE: {title}", size=36, weight="bold", width=620)
+        text(18, 14, f"TITLE: {title}", size=26, weight="bold", width=620)
         text(18, 58, f"DIRECTOR: {director}", size=26, weight="bold", width=620)
         self._hitboxes["t1"] = (px(18), px(14), px(630), px(52))
         self._hitboxes["t2"] = (px(18), px(58), px(630), px(90))

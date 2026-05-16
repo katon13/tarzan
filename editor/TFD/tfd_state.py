@@ -151,9 +151,9 @@ class TFDState:
                 b_val = True
 
         if sensor_type == "shock":
-            return "SHOCK" if b_val else "OK"
+            return "1" if b_val else "0"
         if sensor_type == "laser":
-            return "ON" if b_val else "OFF"
+            return "1" if b_val else "0"
         if sensor_type == "limits":
             # Dla krańcówek: jeśli b_val jest True (mamy aktywne krańcówki np. "01"), to "LIMIT" albo "ERR"
             return value if (isinstance(value, str) and value != "0") else ("OK" if not b_val else "LIMIT")

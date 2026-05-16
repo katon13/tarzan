@@ -8,6 +8,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 IMG_AXES_DIR = os.path.join(BASE_DIR, "img", "axes")
 IMG_TAKE_DIR = os.path.join(BASE_DIR, "img", "take")
+IMG_LOGO_DIR = os.path.join(BASE_DIR, "img", "logo")
 
 
 # =========================================================
@@ -71,3 +72,121 @@ def take_icon(size: int = 64, state: str = "closed", ext: str = "png") -> str:
 
     filename = f"take_{state}_{size}.{ext}"
     return os.path.join(IMG_TAKE_DIR, filename)
+
+
+# =========================================================
+# TARZAN LOGO
+# =========================================================
+
+LOGO_KIND_DIR = {
+    "with_wordmark": "logo_with_wordmark",
+    "full": "logo_with_wordmark",
+    "emblem": "logo_emblem_only",
+    "logo": "logo_emblem_only",
+    "wordmark": "wordmark",
+}
+
+LOGO_KIND_PREFIX = {
+    "with_wordmark": "tarzan_logo_with_wordmark",
+    "full": "tarzan_logo_with_wordmark",
+    "emblem": "tarzan_logo_emblem",
+    "logo": "tarzan_logo_emblem",
+    "wordmark": "tarzan_wordmark",
+}
+
+
+def _logo_candidate(subdir: str, filename: str) -> str:
+    """
+    Najpierw używa struktury:
+        img/logo/<subdir>/<filename>
+
+    Jeśli pliki zostaną wrzucone płasko do img/logo,
+    zwraca też poprawny fallback:
+        img/logo/<filename>
+    """
+
+    nested = os.path.join(IMG_LOGO_DIR, subdir, filename)
+    if os.path.exists(nested):
+        return nested
+
+    return os.path.join(IMG_LOGO_DIR, filename)
+
+
+def tarzan_logo(kind: str = "with_wordmark", size: int = 512, ext: str = "png") -> str:
+    """
+    kind:
+        'with_wordmark' / 'full' -> znak + napis TARZAN
+        'emblem' / 'logo'        -> sam znak T w okręgu
+        'wordmark'               -> sam napis TARZAN
+
+    size:
+        np. 128 / 256 / 320 / 512 / 1024 / 2048 / 3072 / 4096
+
+    Przykład:
+        tarzan_logo("with_wordmark", 1024)
+        tarzan_logo("emblem", 512)
+        tarzan_logo("wordmark", 2048)
+    """
+
+    if kind not in LOGO_KIND_DIR:
+        raise ValueError(f"Nieznany typ logo: {kind}")
+
+    filename = f"{LOGO_KIND_PREFIX[kind]}_{size}.{ext}"
+    return _logo_candidate(LOGO_KIND_DIR[kind], filename)
+
+
+def tarzan_logo_master(kind: str = "with_wordmark", ext: str = "png") -> str:
+    """
+    Zwraca plik master dla danego wariantu logo.
+    """
+
+    if kind not in LOGO_KIND_DIR:
+        raise ValueError(f"Nieznany typ logo: {kind}")
+
+    filename = f"{LOGO_KIND_PREFIX[kind]}_master.{ext}"
+    return _logo_candidate(LOGO_KIND_DIR[kind], filename)
+
+
+def tarzan_logo_header(
+    kind: str = "with_wordmark",
+    width: int = 1600,
+    height: int = 600,
+    ext: str = "png",
+) -> str:
+    """
+    Wersje szerokie / header.
+
+    kind:
+        'with_wordmark' / 'full'
+        'emblem' / 'logo'
+
+    Przykład:
+        tarzan_logo_header("with_wordmark", 1600, 600)
+        tarzan_logo_header("emblem", 2400, 900)
+    """
+
+    if kind not in LOGO_KIND_DIR:
+        raise ValueError(f"Nieznany typ logo: {kind}")
+
+    if kind == "wordmark":
+        raise ValueError("wordmark nie ma wersji header w tej funkcji")
+
+    filename = f"{LOGO_KIND_PREFIX[kind]}_header_{width}x{height}.{ext}"
+    return _logo_candidate(LOGO_KIND_DIR[kind], filename)
+
+
+def tarzan_favicon(size: int = 32, ext: str = "png") -> str:
+    """
+    Ikony przeglądarkowe.
+
+    size:
+        16 / 32 / 48 / 64 / 96 / 180 / 192 / 512
+
+    Dla ext='ico' zwraca favicon.ico.
+    """
+
+    if ext == "ico":
+        return _logo_candidate("favicon", "favicon.ico")
+
+    filename = f"favicon-{size}x{size}.{ext}"
+    return _logo_candidate("favicon", filename)

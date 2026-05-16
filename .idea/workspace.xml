@@ -11,10 +11,7 @@
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/tfd_metadata.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/tfd_metadata.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/nextion7_Stats.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/nextion7_Stats.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/settings_main.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/settings_main.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.html" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

@@ -1,23 +1,9 @@
 from __future__ import annotations
 
 try:
-    # 1. Próba importu absolutnego
     from editor.TFD.tfd_state import tfd_state
 except (ImportError, ModuleNotFoundError):
-    try:
-        # 2. Próba importu bezpośredniego (jeśli editor jest w sys.path)
-        from TFD.tfd_state import tfd_state
-    except (ImportError, ModuleNotFoundError):
-        try:
-            # 3. Próba wymuszenia ścieżki
-            import sys
-            from pathlib import Path
-            _root = Path(__file__).resolve().parents[2]
-            if str(_root) not in sys.path:
-                sys.path.insert(0, str(_root))
-            from editor.TFD.tfd_state import tfd_state
-        except:
-            tfd_state = None
+    tfd_state = None
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -86,48 +72,40 @@ SENSOR_LABELS = {
     "sw_f2": "PRZYCISK F2",
     "sw_f3": "PRZYCISK F3",
     "sw_f4": "PRZYCISK F4",
+    "temp_c": "CZUJNIK TEMPERATURY",
 }
 
 AXIS_SIGNAL_BINDINGS = {
-    "CAM_H": {"step": ["TAKE_CAM_H_STEP", "rec_p01_copy_ctr_cam_h", "cnc_x_cam_h_ctr"], "dir": ["TAKE_CAM_H_DIR", "rec_p03_copy_dir_cam_h", "cnc_x_cam_h_dir"], "en": [], "left": ["cam_h_limit_left", "play_p06_cam_h_limit_left"], "right": ["cam_h_limit_right", "play_p05_cam_h_limit_right"]},
-    "CAM_V": {"step": ["TAKE_CAM_V_STEP", "rec_p02_copy_ctr_cam_v", "cnc_y_cam_v_ctr"], "dir": ["TAKE_CAM_V_DIR", "rec_p04_copy_dir_cam_v", "cnc_y_cam_v_dir"], "en": [], "left": ["cam_v_limit_down", "play_p08_cam_v_limit_down"], "right": ["cam_v_limit_up", "play_p07_cam_v_limit_up"]},
-    "CAM_T": {"step": ["TAKE_CAM_T_STEP", "rec_p06_copy_ctr_tilt", "cnc_a_arm_tilt_ctr", "play_p49_step_ctr_arm_tilt"], "dir": ["TAKE_CAM_T_DIR", "rec_p08_copy_dir_tilt", "cnc_a_arm_tilt_dir", "play_p40_step_dir_arm_tilt"], "en": [], "left": ["cam_tilt_limit", "play_p10_cam_tilt_limit"], "right": ["cam_tilt_limit", "play_p10_cam_tilt_limit"]},
-    "CAM_F": {"step": ["TAKE_CAM_F_STEP", "rec_p05_copy_ctr_focus", "cnc_z_focus_ctr"], "dir": ["TAKE_CAM_F_DIR", "rec_p07_copy_dir_focus", "cnc_z_focus_dir"], "en": [], "left": [], "right": []},
-    "ARM_H": {"step": ["TAKE_ARM_H_STEP", "play_p46_step_ctr_arm_h", "rec_p15_rec_ctr_arm_h", "cnc_b_arm_h_ctr"], "dir": ["TAKE_ARM_H_DIR", "play_p38_step_dir_arm_h", "rec_p12_rec_dir_arm_h", "cnc_b_arm_h_dir"], "en": ["play_p50_step_en_arm_h"], "left": ["arm_h_limit_left", "play_p03_arm_h_limit_left"], "right": ["arm_h_limit_right", "play_p01_arm_h_auto_limit", "play_p02_arm_h_limit_right"]},
-    "ARM_V": {"step": ["TAKE_ARM_V_STEP", "play_p48_step_ctr_arm_v", "rec_p16_rec_ctr_arm_v", "cnc_c_arm_v_ctr"], "dir": ["TAKE_ARM_V_DIR", "play_p39_step_dir_arm_v", "rec_p13_rec_dir_arm_v", "cnc_c_arm_v_dir"], "en": ["play_p51_step_en_arm_v"], "left": ["arm_v_limit_down", "play_p04_arm_v_limit_up"], "right": ["arm_v_limit_up", "play_p09_arm_v_auto_limit"]},
-    "DRON": {"step": ["TAKE_DRON_STEP"], "dir": ["TAKE_DRON_DIR"], "en": [], "left": [], "right": []},
+    "CAM_H": {"step": ["axis_cam_h_step", "axis_cam_h_auto_step", "axis_cam_h_rec_step"], "dir": ["axis_cam_h_dir", "axis_cam_h_auto_dir", "axis_cam_h_rec_dir"], "en": ["axis_cam_h_en"], "pulses": ["axis_cam_h_pulses"], "pos": ["axis_cam_h_pos"], "left": ["sensor_cam_h_limit_left"], "right": ["sensor_cam_h_limit_right"]},
+    "CAM_V": {"step": ["axis_cam_v_step", "axis_cam_v_auto_step", "axis_cam_v_rec_step"], "dir": ["axis_cam_v_dir", "axis_cam_v_auto_dir", "axis_cam_v_rec_dir"], "en": ["axis_cam_v_en"], "pulses": ["axis_cam_v_pulses"], "pos": ["axis_cam_v_pos"], "left": ["sensor_cam_v_limit_down"], "right": ["sensor_cam_v_limit_up"]},
+    "ARM_T": {"step": ["axis_arm_t_step", "axis_arm_t_auto_step", "axis_arm_t_rec_step"], "dir": ["axis_arm_t_dir", "axis_arm_t_auto_dir", "axis_arm_t_rec_dir"], "en": ["axis_arm_t_en"], "pulses": ["axis_arm_t_pulses"], "pos": ["axis_arm_t_pos"], "left": ["sensor_cam_t_limit"], "right": ["sensor_cam_t_limit"]},
+    "CAM_F": {"step": ["axis_cam_f_step", "axis_cam_f_auto_step", "axis_cam_f_rec_step"], "dir": ["axis_cam_f_dir", "axis_cam_f_auto_dir", "axis_cam_f_rec_dir"], "en": ["axis_cam_f_en"], "pulses": ["axis_cam_f_pulses"], "pos": ["axis_cam_f_pos"], "left": [], "right": []},
+    "ARM_H": {"step": ["axis_arm_h_step", "axis_arm_h_auto_step", "axis_arm_h_rec_step"], "dir": ["axis_arm_h_dir", "axis_arm_h_auto_dir", "axis_arm_h_rec_dir"], "en": ["axis_arm_h_en"], "pulses": ["axis_arm_h_pulses"], "pos": ["axis_arm_h_pos"], "left": ["sensor_arm_h_limit_left"], "right": ["sensor_arm_h_limit_right"]},
+    "ARM_V": {"step": ["axis_arm_v_step", "axis_arm_v_auto_step", "axis_arm_v_rec_step"], "dir": ["axis_arm_v_dir", "axis_arm_v_auto_dir", "axis_arm_v_rec_dir"], "en": ["axis_arm_v_en"], "pulses": ["axis_arm_v_pulses"], "pos": ["axis_arm_v_pos"], "left": ["sensor_arm_v_limit_down"], "right": ["sensor_arm_v_limit_up"]},
+    "DRON": {"step": ["axis_dron_step"], "dir": ["axis_dron_dir"], "en": ["axis_dron_en"], "pulses": ["axis_dron_pulses"], "pos": ["axis_dron_pos"], "left": [], "right": []},
 }
 
 _AXIS_TIMELINE_ROWS = [
-    ("ARM_H", "STEP", ["TAKE_ARM_H_STEP", "play_p46_step_ctr_arm_h", "cnc_b_arm_h_ctr"], COLORS["green"]),
-    ("ARM_H", "DIR",  ["TAKE_ARM_H_DIR",  "play_p38_step_dir_arm_h", "cnc_b_arm_h_dir"], COLORS["blue"]),
-    ("ARM_V", "STEP", ["TAKE_ARM_V_STEP", "play_p48_step_ctr_arm_v", "cnc_c_arm_v_ctr"], COLORS["green"]),
-    ("ARM_V", "DIR",  ["TAKE_ARM_V_DIR",  "play_p39_step_dir_arm_v", "cnc_c_arm_v_dir"], COLORS["blue"]),
-    ("CAM_H", "STEP", ["TAKE_CAM_H_STEP", "cnc_x_cam_h_ctr", "rec_p01_copy_ctr_cam_h"], COLORS["green"]),
-    ("CAM_H", "DIR",  ["TAKE_CAM_H_DIR",  "cnc_x_cam_h_dir", "rec_p03_copy_dir_cam_h"], COLORS["blue"]),
-    ("CAM_V", "STEP", ["TAKE_CAM_V_STEP", "cnc_y_cam_v_ctr", "rec_p02_copy_ctr_cam_v"], COLORS["green"]),
-    ("CAM_V", "DIR",  ["TAKE_CAM_V_DIR",  "cnc_y_cam_v_dir", "rec_p04_copy_dir_cam_v"], COLORS["blue"]),
-    ("CAM_T", "STEP", ["TAKE_CAM_T_STEP", "cnc_a_arm_tilt_ctr", "rec_p06_copy_ctr_tilt"], COLORS["green"]),
-    ("CAM_T", "DIR",  ["TAKE_CAM_T_DIR",  "cnc_a_arm_tilt_dir", "rec_p08_copy_dir_tilt"], COLORS["blue"]),
-    ("CAM_F", "STEP", ["TAKE_CAM_F_STEP", "cnc_z_focus_ctr", "rec_p05_copy_ctr_focus"], COLORS["green"]),
-    ("CAM_F", "DIR",  ["TAKE_CAM_F_DIR",  "cnc_z_focus_dir", "rec_p07_copy_dir_focus"], COLORS["blue"]),
+    ("ARM_H", "STEP", ["axis_arm_h_step", "axis_arm_h_auto_step", "axis_arm_h_rec_step"], COLORS["green"]),
+    ("ARM_H", "DIR",  ["axis_arm_h_dir", "axis_arm_h_auto_dir", "axis_arm_h_rec_dir"],  COLORS["blue"]),
+    ("ARM_V", "STEP", ["axis_arm_v_step", "axis_arm_v_auto_step", "axis_arm_v_rec_step"], COLORS["green"]),
+    ("ARM_V", "DIR",  ["axis_arm_v_dir", "axis_arm_v_auto_dir", "axis_arm_v_rec_dir"],  COLORS["blue"]),
+    ("CAM_H", "STEP", ["axis_cam_h_step", "axis_cam_h_auto_step", "axis_cam_h_rec_step"], COLORS["green"]),
+    ("CAM_H", "DIR",  ["axis_cam_h_dir", "axis_cam_h_auto_dir", "axis_cam_h_rec_dir"],  COLORS["blue"]),
+    ("CAM_V", "STEP", ["axis_cam_v_step", "axis_cam_v_auto_step", "axis_cam_v_rec_step"], COLORS["green"]),
+    ("CAM_V", "DIR",  ["axis_cam_v_dir", "axis_cam_v_auto_dir", "axis_cam_v_rec_dir"],  COLORS["blue"]),
+    ("ARM_T", "STEP", ["axis_arm_t_step", "axis_arm_t_auto_step", "axis_arm_t_rec_step"], COLORS["green"]),
+    ("ARM_T", "DIR",  ["axis_arm_t_dir", "axis_arm_t_auto_dir", "axis_arm_t_rec_dir"],  COLORS["blue"]),
+    ("CAM_F", "STEP", ["axis_cam_f_step", "axis_cam_f_auto_step", "axis_cam_f_rec_step"], COLORS["green"]),
+    ("CAM_F", "DIR",  ["axis_cam_f_dir", "axis_cam_f_auto_dir", "axis_cam_f_rec_dir"],  COLORS["blue"]),
 ]
 
 _LINKED_SIGNAL_GROUPS = {
-    "play_p13_mass_reg_limit_add": ["play_p13_mass_reg_limit_add", "par_mass_reg_limit_add"],
-    "par_mass_reg_limit_add": ["play_p13_mass_reg_limit_add", "par_mass_reg_limit_add"],
-    "play_p23_mass_reg_limit_remove": ["play_p23_mass_reg_limit_remove", "par_mass_reg_limit_remove"],
-    "par_mass_reg_limit_remove": ["play_p23_mass_reg_limit_remove", "par_mass_reg_limit_remove"],
-    "play_p41_mass_reg_enable": ["play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"],
-    "rec_p36_mass_reg_enable": ["play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"],
-    "par_mass_reg_enable": ["play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"],
-    "play_p16_action_led": ["play_p16_action_led", "par_lamp_auto_active"],
-    "par_lamp_auto_active": ["play_p16_action_led", "par_lamp_auto_active"],
-    "rec_p39_shock_sensor": ["rec_p39_shock_sensor", "par_shock_sensor_state"],
-    "par_shock_sensor_state": ["rec_p39_shock_sensor", "par_shock_sensor_state"],
-    "play_p14_drone_release": ["play_p14_drone_release"],
-    "rec_p38_auto_enable": ["rec_p38_auto_enable"],
-    "rec_p53_copy_cam_v_limit_up": ["rec_p53_copy_cam_v_limit_up", "play_p07_cam_v_limit_up"],
+    "limit_mass_reg_add": ["limit_mass_reg_add", "par_mass_reg_limit_add"],
+    "limit_mass_reg_remove": ["limit_mass_reg_remove", "par_mass_reg_limit_remove"],
+    "axis_arm_h_en": ["axis_arm_h_en", "rec_p36_mass_reg_enable", "par_mass_reg_enable"],
+    "ui_action_led": ["ui_action_led", "par_lamp_auto_active"],
+    "sensor_shock_state": ["sensor_shock_state", "par_shock_sensor_state"],
 }
 
 _SIGNAL_LABEL_OVERRIDES = {
@@ -143,7 +121,7 @@ _SIGNAL_LABEL_OVERRIDES = {
     "rec_p41_free_aux_pot": "REC P41  rec_p41_free_aux_pot  REZERWA",
     "rec_p42_free_keyboard_old": "REC P42  rec_p42_free_keyboard_old  REZERWA",
     "rec_p43_free_keyboard_old": "REC P43  rec_p43_free_keyboard_old  REZERWA",
-    "rec_p44_free_keyboard_old": "REC P44  rec_p44_free_keyboard_old  REZERWA",
+    "rec_p44_free_keyboard_old": "REC P44  CZUJNIK TEMPERATURY",
     "rec_p55_free_cart_spare": "REC P55  rec_p55_free_cart_spare  REZERWA / ZAPAS",
 }
 
@@ -155,7 +133,7 @@ _AXIS_ICON_DESCRIPTIONS = {
     "ARM_V": "oś pionowa ramienia",
     "CAM_H": "oś pozioma kamery",
     "CAM_V": "oś pionowa kamery",
-    "CAM_T": "oś pochyłu kamery",
+    "ARM_T": "oś pochyłu ramienia",
     "CAM_F": "oś ostrości kamery",
 }
 
@@ -164,8 +142,9 @@ _AXIS_ICON_NAMES = {
     "ARM_V": "oś pionowa ramienia",
     "CAM_H": "oś pozioma kamery",
     "CAM_V": "oś pionowa kamery",
-    "CAM_T": "oś pochyłu kamery",
+    "ARM_T": "oś pochyłu ramienia",
     "CAM_F": "oś ostrości kamery",
+    "DRON": "DRON",
 }
 
 _TIMELINE_HISTORY_LIMIT = 600
@@ -282,6 +261,13 @@ class TarzanParPanels:
         # Centralny system RRP
         self._rrp_start_ts = time.time()
         self._update_limits_status()
+        
+        # Subskrypcja sygnałów z SignalBus do aktualizacji widgetów w rows
+        self.bus.subscribe(self._on_bus_signal_change)
+
+    def _on_bus_signal_change(self, name: str, state: TarzanSignalState):
+        """Przekazuje zmiany z SignalBus do rejestru rows paneli PAR."""
+        self.rows.set_value(name, state.value)
 
     def panel(self, key: str, parent, title: str) -> Panel:
         return Panel(parent, title=title, on_hide=lambda: self.app.hide_panel(key))
@@ -343,7 +329,7 @@ class TarzanParPanels:
             ("ARM_V", "2. OŚ PIONOWA RAMIENIA", "↕"),
             ("CAM_H", "3. OŚ POZIOMA KAMERY", "⟳"),
             ("CAM_V", "4. OŚ PIONOWA KAMERY", "↕"),
-            ("CAM_T", "5. OŚ POCHYŁU KAMERY", "↧"),
+            ("ARM_T", "5. OŚ POCHYŁU RAMIENIA", "↧"),
             ("CAM_F", "6. OŚ OSTROŚCI KAMERY", "◎"),
         ]
 
@@ -365,6 +351,12 @@ class TarzanParPanels:
             )
             card.grid(row=0, column=col, sticky="nsew", padx=5, pady=4)
             cards_frame.grid_columnconfigure(col, weight=1)
+            # Rejestracja proxy dla wszystkich nazw w bindowaniu, aby karta odświeżała się w czasie rzeczywistym
+            bind = AXIS_SIGNAL_BINDINGS.get(key, {})
+            for group_name, signals in bind.items():
+                for sig in signals:
+                    self._register_signal_proxy(sig, lambda v, k=key: self.refresh_axis_card(k))
+
             self.axis_cards[key] = card
 
         # FIX: Tytuł CAM_H
@@ -374,8 +366,8 @@ class TarzanParPanels:
                 if isinstance(child, tk.Label) and "OŚ POZIOMA KAMERY" in str(child.cget("text")):
                     child.configure(text="3. OŚ POZIOMA KAMERY")
 
-        # FIX: CAM_T STOP label
-        card_t = self.axis_cards.get("CAM_T")
+        # FIX: ARM_T STOP label
+        card_t = self.axis_cards.get("ARM_T")
         if card_t:
             try:
                 left_p = getattr(card_t.end_left, 'master', None)
@@ -396,12 +388,16 @@ class TarzanParPanels:
                 add_led = self._add_mass_led_box(led_row, "+MASA", COLORS["amber"])
                 rem_led = self._add_mass_led_box(led_row, "−MASA", COLORS["blue"])
                 def update_mass_leds(_v=None):
-                    add = bool(self.bus.get("par_mass_reg_limit_add") or self.bus.get("play_p13_mass_reg_limit_add"))
-                    rem = bool(self.bus.get("par_mass_reg_limit_remove") or self.bus.get("play_p23_mass_reg_limit_remove"))
+                    add = bool(self.bus.get("sensor_mass_reg_limit_add") or self.bus.get("par_mass_reg_limit_add") or self.bus.get("play_p13_mass_reg_limit_add"))
+                    rem = bool(self.bus.get("sensor_mass_reg_limit_remove") or self.bus.get("par_mass_reg_limit_remove") or self.bus.get("play_p23_mass_reg_limit_remove"))
                     add_led.set(add)
                     rem_led.set(rem)
-                for s in ["par_mass_reg_limit_add", "play_p13_mass_reg_limit_add", "par_mass_reg_limit_remove", "play_p23_mass_reg_limit_remove"]:
+                
+                # Register proxies for both canonical and hardware names
+                for s in ["sensor_mass_reg_limit_add", "par_mass_reg_limit_add", "play_p13_mass_reg_limit_add", 
+                          "sensor_mass_reg_limit_remove", "par_mass_reg_limit_remove", "play_p23_mass_reg_limit_remove"]:
                     self.rows[s] = _ParValueProxy(update_mass_leds)
+                
                 update_mass_leds()
             except Exception: pass
 
@@ -409,42 +405,43 @@ class TarzanParPanels:
         return panel
 
     def refresh_axis_cards(self):
-        for axis, card in self.axis_cards.items():
-            bind = AXIS_SIGNAL_BINDINGS.get(axis, {})
-            card.set_step(self._first_value(bind.get("step", [])))
-            card.set_dir(self._first_value(bind.get("dir", [])))
-            en_names = bind.get("en", [])
-            card.set_en(self._first_value(en_names) if en_names else 1)
-            card.set_end_left(self._first_value(bind.get("left", [])))
-            card.set_end_right(self._first_value(bind.get("right", [])))
+        for axis in self.axis_cards:
+            self.refresh_axis_card(axis)
 
-            # Odczyt licznika z SignalBus (Źródło Prawdy)
-            pulses = int(float(self.bus.get(f"par_{axis.lower()}_pulses", 0)))
-            card.set_counter(pulses)
+    def refresh_axis_card(self, axis: str):
+        card = self.axis_cards.get(axis)
+        if not card: return
+        
+        bind = AXIS_SIGNAL_BINDINGS.get(axis, {})
+        card.set_step(self._first_value(bind.get("step", [])))
+        card.set_dir(self._first_value(bind.get("dir", [])))
+        en_names = bind.get("en", [])
+        card.set_en(self._first_value(en_names) if en_names else 1)
+        card.set_end_left(self._first_value(bind.get("left", [])))
+        card.set_end_right(self._first_value(bind.get("right", [])))
 
-            # Logger silnika (v2/final)
+        # Odczyt licznika z SignalBus (Źródło Prawdy)
+        pulses = self.bus.get(f"axis_{axis.lower()}_pulses")
+        if pulses is None or pulses == 0:
+            pulses = self.bus.get(f"par_{axis.lower()}_pulses", 0)
+        
+        card.set_counter(int(float(pulses)))
+
+        # Logger silnika
+        if not hasattr(card, "_has_logger"):
             def _mk_logger(ax_key, c_ref):
                 def _logger():
                     try: self.bus.log("PAR_MOTOR", f"{ax_key}: DIR={1 if c_ref.dir.state else 0} STEP=01")
                     except Exception: pass
                 return _logger
             card.on_motor_step_log = _mk_logger(axis, card)
+            card._has_logger = True
 
-            # Specjalna obsługa CAM_T Home Limit
-            if axis == "CAM_T":
-                try:
-                    left_p = getattr(card.end_left, "master", None)
-                    right_p = getattr(card.end_right, "master", None)
-                    if left_p:
-                        for ch in left_p.winfo_children():
-                            if isinstance(ch, tk.Label): ch.configure(text="STOP")
-                    if right_p:
-                        for ch in right_p.winfo_children():
-                            if isinstance(ch, tk.Label): ch.configure(text="")
-                except Exception: pass
-                val = 1 if (self.bus.get("cam_tilt_limit") or self.bus.get("play_p10_cam_tilt_limit")) else 0
-                card.set_end_left(val)
-                card.set_end_right(0)
+        # Specjalna obsługa ARM_T Home Limit
+        if axis == "ARM_T":
+            val = 1 if (self.bus.get("sensor_cam_t_limit") or self.bus.get("cam_tilt_limit") or self.bus.get("play_p10_cam_tilt_limit")) else 0
+            card.set_end_left(val)
+            card.set_end_right(0)
 
     # --- SEKCA: OPERATOR (RRP) ---
 
@@ -456,23 +453,27 @@ class TarzanParPanels:
         root.grid_columnconfigure(1, weight=1)
         self._rrp_operator_updaters = []
 
-        axis_map = {
-            "CAM_V": {"step": ["TAKE_CAM_V_STEP", "rec_p02_copy_ctr_cam_v", "cnc_y_cam_v_ctr"], "dir": ["TAKE_CAM_V_DIR", "rec_p04_copy_dir_cam_v", "cnc_y_cam_v_dir"]},
-            "CAM_T": {"step": ["TAKE_CAM_T_STEP", "rec_p06_copy_ctr_tilt", "cnc_a_arm_tilt_ctr", "play_p49_step_ctr_arm_tilt"], "dir": ["TAKE_CAM_T_DIR", "rec_p08_copy_dir_tilt", "cnc_a_arm_tilt_dir", "play_p40_step_dir_arm_tilt"]},
-            "CAM_F": {"step": ["TAKE_CAM_F_STEP", "rec_p05_copy_ctr_focus", "cnc_z_focus_ctr"], "dir": ["TAKE_CAM_F_DIR", "rec_p07_copy_dir_focus", "cnc_z_focus_dir"]},
-            "CAM_H": {"step": ["TAKE_CAM_H_STEP", "rec_p01_copy_ctr_cam_h", "cnc_x_cam_h_ctr"], "dir": ["TAKE_CAM_H_DIR", "rec_p03_copy_dir_cam_h", "cnc_x_cam_h_dir"]},
-            "ARM_H": {"step": ["TAKE_ARM_H_STEP", "play_p46_step_ctr_arm_h", "rec_p15_rec_ctr_arm_h", "cnc_b_arm_h_ctr"], "dir": ["TAKE_ARM_H_DIR", "play_p38_step_dir_arm_h", "rec_p12_rec_dir_arm_h", "cnc_b_arm_h_dir"]},
-            "ARM_V": {"step": ["TAKE_ARM_V_STEP", "play_p48_step_ctr_arm_v", "rec_p16_rec_ctr_arm_v", "cnc_c_arm_v_ctr"], "dir": ["TAKE_ARM_V_DIR", "play_p39_step_dir_arm_v", "rec_p13_rec_dir_arm_v", "cnc_c_arm_v_dir"]},
-        }
-        axis_idx_to_name = {0: "CAM_V", 1: "CAM_T", 2: "CAM_F", 3: "CAM_H", 4: "ARM_H", 5: "ARM_V"}
+        def _rrp_selected_axis(player: str) -> str:
+            return str(self.bus.get(f"par_rrp_{player}_selected_axis", "") or "").upper()
+
+        def _rrp_step_signal(player: str) -> str:
+            return str(self.bus.get(f"par_rrp_{player}_step_signal", "") or "")
+
+        def _rrp_dir_signal(player: str) -> str:
+            return str(self.bus.get(f"par_rrp_{player}_dir_signal", "") or "")
+
+        def _rrp_pot_signal(player: str) -> str:
+            fallback = "sensor_rrp_pot_h" if player == "p1" else "sensor_rrp_pot_v"
+            return str(self.bus.get(f"par_rrp_{player}_pot_signal", fallback) or fallback)
 
         def knob(cell, title, signal, player):
             box = tk.Frame(cell, bg=COLORS["panel3"], highlightbackground=COLORS["border"], highlightthickness=1)
             box.pack(fill="both", expand=True, padx=4, pady=4)
             tk.Label(box, text=title, bg=COLORS["panel3"], fg=COLORS["text"], font=("Segoe UI", 9, "bold")).pack(fill="x")
 
-            # Potencjometr RRP startuje od 0 (zgodnie z oryginałem)
-            state = {"value": float(self.bus.get(signal, 0)), "after_id": None, "last_step_val": -1}
+            # P1/P2 to kanały operatora. Potencjometr nie jest osią; oś jest wybierana osobno z Nextiona.
+            knob_signal = _rrp_pot_signal(player)
+            state = {"value": float(self.bus.get(knob_signal, self.bus.get(signal, 0))), "after_id": None, "last_step_val": -1}
 
             val_lbl = tk.Label(box, text="0", bg="#0f171d", fg=COLORS["green"], font=("Consolas", 18, "bold"), pady=4)
             val_lbl.pack(fill="x", padx=6)
@@ -501,16 +502,15 @@ class TarzanParPanels:
                 x = cx + math.cos(angle) * (r - 5)
                 y = cy - math.sin(angle) * (r - 5)
                 
-                bridge_axis = int(self.bus.get(f"par_rrp_{player}_axis", -1))
-                is_active = (bridge_axis != -1)
-                
+                axis_name = _rrp_selected_axis(player)
+                is_active = bool(axis_name)
+
                 knob_color = COLORS["red"] if is_active else "#5f6b72"
                 can.create_oval(cx-26, cy-26, cx+26, cy+26, fill="#101820", outline=COLORS["border"], width=2)
                 can.create_line(cx, cy, x, y, fill=knob_color, width=4, capstyle=tk.ROUND)
                 can.create_oval(cx-5, cy-5, cx+5, cy+5, fill="#dfe6e9", outline="#111")
-                
-                axis_name = axis_idx_to_name.get(bridge_axis, "STOP")
-                axis_lbl.configure(text=axis_name, fg=COLORS["red"] if is_active else "#5f6b72")
+
+                axis_lbl.configure(text=axis_name if axis_name else "STOP", fg=COLORS["red"] if is_active else "#5f6b72")
                 val_lbl.configure(text=str(int(state["value"])))
                 
                 # Zespolenie ikon osi
@@ -528,29 +528,29 @@ class TarzanParPanels:
 
             def gen_tick():
                 try:
-                    pot_val = float(self.bus.get(signal, 0))
+                    pot_signal = _rrp_pot_signal(player)
+                    pot_val = float(self.bus.get(pot_signal, self.bus.get(signal, 0)))
                     sens = float(self.bus.get(f"par_rrp_{player}_sens", 50))
                     intensity = (pot_val / 4095.0) * (sens / 100.0)
-                    
-                    if intensity > 0.01:
+
+                    if intensity > 0.001:
                         delay = max(20, int(40 / intensity)) # Skalowanie dla większej płynności (20-400ms)
-                        bridge_axis = int(self.bus.get(f"par_rrp_{player}_axis", -1))
-                        axis_name = axis_idx_to_name.get(bridge_axis)
-                        
-                        if axis_name in axis_map:
-                            cfg = axis_map[axis_name]
+                        if intensity < 0.01: delay = 400 # Bardzo wolno przy minimalnym wychyleniu
+
+                        step_signal = _rrp_step_signal(player)
+                        dir_signal = _rrp_dir_signal(player)
+
+                        if step_signal and dir_signal:
                             direction = int(self.bus.get(f"par_rrp_{player}_dir", 0))
-                            
-                            for d_sig in cfg["dir"]:
-                                self.bus.force_signal(d_sig, direction, source="PAR_GEN")
-                            
-                            self._pulse_many_signals(cfg["step"], delay_ms=int(delay * 0.4), src="PAR_GEN")
-                            
+                            self.bus.force_signal(dir_signal, direction, source="PAR_GEN")
+                            self._pulse_many_signals([step_signal], delay_ms=int(delay * 0.4), src="PAR_GEN")
+
                             step_val = int(intensity * 100)
                             if abs(step_val - state["last_step_val"]) >= 2: # Debouncing aktualizacji Nextiona
                                 state["last_step_val"] = step_val
                                 self.bus.set_input(f"par_rrp_{player}_val", step_val, source="PAR_GEN")
-                            
+                                self.bus.set_input(f"rrp_{player}_val", step_val, source="PAR_GEN")
+
                             state["after_id"] = self.app.after(delay, gen_tick)
                             return
                             
@@ -569,7 +569,7 @@ class TarzanParPanels:
                 if delta:
                     nv = max(0, min(4095, int(state["value"] + delta * 128)))
                     state["value"] = nv
-                    self.bus.force_signal(signal, nv, source="PAR_RRP_POT")
+                    self.bus.force_signal(knob_signal, nv, source="PAR_RRP_POT")
                     drw()
                 return "break"
 
@@ -581,7 +581,10 @@ class TarzanParPanels:
             
             box.bind("<Destroy>", lambda e: self.app.after_cancel(state["after_id"]) if state.get("after_id") else None)
 
-            self._register_signal_proxy(f"par_rrp_{player}_axis", lambda v: drw())
+            self._register_signal_proxy(f"par_rrp_{player}_selected_axis", lambda v: drw())
+            self._register_signal_proxy(f"par_rrp_{player}_step_signal", lambda v: drw())
+            self._register_signal_proxy(f"par_rrp_{player}_dir_signal", lambda v: drw())
+            self._register_signal_proxy(knob_signal, lambda v: drw(v))
             self._register_signal_proxy(signal, lambda v: drw(v))
             self._rrp_operator_updaters.append(drw)
             
@@ -590,8 +593,8 @@ class TarzanParPanels:
 
         l_f = tk.Frame(root, bg=COLORS["panel"]); l_f.grid(row=0, column=0, sticky="nsew")
         r_f = tk.Frame(root, bg=COLORS["panel"]); r_f.grid(row=0, column=1, sticky="nsew")
-        knob(l_f, "POTENCJOMETR RRP X (P1)", "play_p45_rrp_pot_h", "p1")
-        knob(r_f, "POTENCJOMETR RRP Y (P2)", "play_p47_rrp_pot_v", "p2")
+        knob(l_f, "POTENCJOMETR RRP X (P1)", "sensor_rrp_pot_h", "p1")
+        knob(r_f, "POTENCJOMETR RRP Y (P2)", "sensor_rrp_pot_v", "p2")
         return panel
 
     # --- SEKCA: SOK (STEROWNIK OBROTOWY) ---
@@ -665,12 +668,12 @@ class TarzanParPanels:
                 st["a"] = (st["a"] + (30 if d else -30)) % 360; dr(st["a"])
                 m = mode_var.get()
                 sig_map = {
-                    'PAN':   (['rec_p03_copy_dir_cam_h', 'cnc_x_cam_h_dir'], ['rec_p01_copy_ctr_cam_h', 'cnc_x_cam_h_ctr']),
-                    'TILT':  (['rec_p04_copy_dir_cam_v', 'cnc_y_cam_v_dir'], ['rec_p02_copy_ctr_cam_v', 'cnc_y_cam_v_ctr']),
-                    'FOKUS': (['rec_p07_copy_dir_focus', 'cnc_z_focus_dir'], ['rec_p05_copy_ctr_focus', 'cnc_z_focus_ctr']),
-                    'POCHYŁ':(['rec_p08_copy_dir_tilt', 'cnc_a_arm_tilt_dir'], ['rec_p06_copy_ctr_tilt', 'cnc_a_arm_tilt_ctr']),
-                    'POZIOM':(['rec_p03_copy_dir_cam_h'], ['rec_p01_copy_ctr_cam_h']),
-                    'PION':  (['rec_p04_copy_dir_cam_v'], ['rec_p02_copy_ctr_cam_v']),
+                    'PAN':   (['axis_cam_h_dir'], ['axis_cam_h_step']),
+                    'TILT':  (['axis_cam_v_dir'], ['axis_cam_v_step']),
+                    'FOKUS': (['axis_cam_f_dir'], ['axis_cam_f_step']),
+                    'POCHYŁ':(['axis_arm_t_dir'], ['axis_arm_t_step']),
+                    'POZIOM':(['axis_arm_h_dir'], ['axis_arm_h_step']),
+                    'PION':  (['axis_arm_v_dir'], ['axis_arm_v_step']),
                 }
                 dirs, ctrs = sig_map.get(m, ([ds], [cs]))
                 for n in dirs: self.bus.force_signal(n, d, source="PAR_SOK")
@@ -809,7 +812,8 @@ class TarzanParPanels:
         canvas = tk.Canvas(body, width=w, height=h, bg="#070b0e", highlightthickness=1, highlightbackground=COLORS["border"])
         canvas.pack(side="left", padx=(0, 9), pady=1)
         v_f = tk.Frame(body, bg=COLORS["panel"]); v_f.pack(side="left", fill="both", expand=True)
-        st = {"x": float(self.bus.get("par_level_x") or 0), "y": float(self.bus.get("par_level_y") or 0), "z": float(self.bus.get("par_level_z") or 100)}
+        # Use canonical names sensor_level_*
+        st = {"x": float(self.bus.get("sensor_level_x") or 0), "y": float(self.bus.get("sensor_level_y") or 0), "z": float(self.bus.get("sensor_level_z") or 100)}
         vrs = {a: tk.StringVar(value=f"{a} +0") for a in ("X", "Y", "Z")}
 
         def clamp(v): return max(-100.0, min(100.0, float(v)))
@@ -828,8 +832,12 @@ class TarzanParPanels:
 
         def set_a(a, v):
             st[a] = clamp(v)
-            if a in ("x", "y"): st["z"] = calc_z(st["x"], st["y"]); self.bus.set_input("par_level_z", st["z"])
-            self.bus.set_input(f"par_level_{a}", st[a], source="PAR_XYZ"); draw()
+            sig = f"sensor_level_{a}"
+            if a in ("x", "y"): 
+                st["z"] = calc_z(st["x"], st["y"])
+                self.bus.set_input("sensor_level_z", st["z"])
+            self.bus.set_input(sig, st[a], source="PAR_XYZ")
+            draw()
 
         cx, cy = w//2, h//2
         for a in ("X", "Y", "Z"):
@@ -848,7 +856,18 @@ class TarzanParPanels:
                 ).pack(side="right", padx=1)
 
         def drag(e): set_a("x", (e.x-cx)/44*100); set_a("y", -(e.y-cy)/31*100)
-        canvas.bind("<B1-Motion>", drag); draw(); return panel
+        canvas.bind("<B1-Motion>", drag)
+        
+        # Register in rows for external updates
+        for a in ("x", "y", "z"):
+            self.rows[f"sensor_level_{a}"] = _ParValueProxy(lambda v, aa=a: set_a_from_bus(aa, v))
+        
+        def set_a_from_bus(a, v):
+            st[a] = clamp(v)
+            if a in ("x", "y"): st["z"] = calc_z(st["x"], st["y"])
+            draw()
+
+        draw(); return panel
 
     def _par_click_sensor_panel(self, parent, *, key, title, signal, on_text, off_text, led_size=72):
         panel = self.panel(key, parent, title)
@@ -871,7 +890,9 @@ class TarzanParPanels:
         can.pack(side="left", padx=(0, 7))
         v_l = tk.Label(w, text="", bg=COLORS["panel"], fg=COLORS["green"], font=("Segoe UI", 15, "bold"))
         v_l.pack(side="left", fill="both", expand=True)
-        def clamp(v): return max(float(start), min(float(end), float(v)))
+        def clamp(v):
+            try: return max(float(start), min(float(end), float(v or start)))
+            except: return float(start)
         def fmt(v): fv = clamp(v); return f"{fv:.{decimals}f} {unit}" if decimals else f"{int(round(fv))} {unit}"
         def dr(v=None):
             curr = clamp(v if v is not None else self.bus.get(signal, start))
@@ -882,10 +903,10 @@ class TarzanParPanels:
         def dg(e): nv = float(end) - ((max(7, min(h-7, e.y))-7)/(h-14))*(max(1.0, float(end)-float(start))); self.bus.set_input(signal, nv); dr(nv)
         can.bind("<B1-Motion>", dg); self.rows[signal] = _ParValueProxy(dr); dr(); return panel
 
-    def temperature_panel(self, p): return self._par_canvas_sensor_slider_panel(p, key="temp", title="TEMPERATURA (\u00b0C)", signal="par_temperature_c", unit="\u00b0C", start=-20, end=50, decimals=1)
-    def light_bh1750_panel(self, p): return self._par_canvas_sensor_slider_panel(p, key="light", title="ŚWIATŁO (BH1750)", signal="par_bh1750_lux", unit="lx", start=0, end=120000)
-    def shock_sensor_panel(self, p): return self._par_click_sensor_panel(p, key="shock", title="SHOK", signal="par_shock_sensor_state", on_text="WSTRZĄS WYKRYTY", off_text="BRAK WSTRZĄSÓW")
-    def laser_panel(self, p): return self._par_click_sensor_panel(p, key="laser", title="LASER", signal="par_laser_set", on_text="LASER ON", off_text="LASER OFF")
+    def temperature_panel(self, p): return self._par_canvas_sensor_slider_panel(p, key="temp", title="TEMPERATURA (\u00b0C)", signal="sensor_temp_c", unit="\u00b0C", start=-20, end=50, decimals=1)
+    def light_bh1750_panel(self, p): return self._par_canvas_sensor_slider_panel(p, key="light", title="ŚWIATŁO (BH1750)", signal="sensor_light_lux", unit="lx", start=0, end=120000)
+    def shock_sensor_panel(self, p): return self._par_click_sensor_panel(p, key="shock", title="SHOK", signal="sensor_shock_state", on_text="WSTRZĄS WYKRYTY", off_text="BRAK WSTRZĄSÓW")
+    def laser_panel(self, p): return self._par_click_sensor_panel(p, key="laser", title="LASER", signal="sensor_laser_set", on_text="LASER ON", off_text="LASER OFF")
 
     def automatyka_panel(self, parent):
         panel = self.panel("automatyka", parent, "AUTOMATYKA")
@@ -1034,19 +1055,8 @@ class TarzanParPanels:
         return led
 
     def _increment_axis_counter(self, ax, dir_val, amount=1):
-        """Jedyny mechanizm modyfikujący liczniki osi (Źródło Prawdy)."""
-        p_key = f"par_{ax.lower()}_pulses"
-        pos_key = f"par_{ax.lower()}_pos"
-        try:
-            old_p = int(float(self.bus.get(p_key, 0)))
-            new_p = old_p + amount
-            self.bus.force_signal(p_key, new_p, source="PAR_CENTRAL_COUNTER")
-            
-            old_pos = int(float(self.bus.get(pos_key, 0)))
-            new_pos = old_pos + (amount if dir_val else -amount)
-            self.bus.force_signal(pos_key, new_pos, source="PAR_CENTRAL_COUNTER")
-        except Exception:
-            pass
+        """Mechanizm pomocniczy - liczniki są teraz w SignalBus."""
+        pass
 
     def _manual_axis_step(self, ax, dir):
         b = AXIS_SIGNAL_BINDINGS.get(ax, {})
@@ -1091,7 +1101,7 @@ class TarzanParPanels:
         names = self._get_clean_limit_names()
         active = [str(i+1) for i, n in enumerate(names) if self.bus.get(n)]
         res = "0" if not active else ",".join(active)
-        self.bus.force_signal("par_limits_status", res, source="PAR_LIMIT_MONITOR")
+        self.bus.force_signal("sensor_limits_status", res, source="PAR_LIMIT_MONITOR")
 
     def limit_label(self, name: str):
         clean = name
@@ -1101,7 +1111,10 @@ class TarzanParPanels:
         elif clean.startswith("par_"):
             clean = clean[4:]
         return LIMIT_LABELS.get(clean, clean.upper().replace("_", " "))
-    def sensor_label(self, name: str): return SENSOR_LABELS.get(name, name.upper().replace("_", " "))
+    def sensor_label(self, name: str):
+        clean = name
+        if clean.startswith("sensor_"): clean = clean[7:]
+        return SENSOR_LABELS.get(clean, clean.upper().replace("_", " "))
 
     def _signal_blocked(self, n): m = self.bus.get_meta(n); return bool(m and getattr(m, "is_forbidden", False))
     def _signal_clickable_input(self, n): m = self.bus.get_meta(n); return bool(m and m.is_input)
@@ -1112,12 +1125,12 @@ class TarzanParPanels:
         is_limit = "limit" in name.lower() or (self.bus.get_meta(name) and self.bus.get_meta(name).grupa == "KRAŃCÓWKI")
         if is_limit: 
             self._update_limits_status()
-
+        
         val = state.value
         self.rows.set_value(name, val)
 
         # Logowanie krańcówek
-        if is_limit and name != "par_limits_status" and val != state.previous_value:
+        if is_limit and name != "sensor_limits_status" and val != state.previous_value:
             limit_names = self._get_clean_limit_names()
             if name in limit_names:
                 idx = limit_names.index(name)
@@ -1128,27 +1141,27 @@ class TarzanParPanels:
         
                 # --- ROZSZERZONE LOGOWANIE (Zgodnie z wytycznymi) ---
         if val != state.previous_value:
-            if name == "par_laser_set":
+            if name == "sensor_laser_set":
                 self.bus.log("LASER", ("ON" if val else "OFF") + f" SRC={state.source}")
-            elif name == "par_shock_sensor_state":
+            elif name == "sensor_shock_state":
                 self.bus.log("SHOCK", ("AKTYWACJA" if val else "OK") + f" SRC={state.source}")
-            elif name == "par_lamp_auto_active":
+            elif name == "ui_action_led":
                 self.bus.log("PRACA", ("START" if val else "STOP") + f" SRC={state.source}")
-            elif name in {"rec_p45_sw_f1", "rec_p47_sw_f2", "rec_p49_sw_f3", "rec_p51_sw_f4"} and val == 1:
+            elif name in {"ui_f1_sw", "ui_f2_sw", "ui_f3_sw", "ui_f4_sw"} and val == 1:
                 f_name = name.split("_")[-1].upper()
                 self.bus.log("PRZYCISK", f"{f_name} AKTYWACJA SRC={state.source}")
-            elif name == "par_temperature_c":
+            elif name == "sensor_temp_c":
                 last = self._last_log_values.get(name, -999)
                 if abs(val - last) >= 0.5:
                     self._last_log_values[name] = val
                     self.bus.log("SENSOR", f"TEMPERATURA {val:.1f}C SRC={state.source}")
-            elif name == "par_bh1750_lux":
+            elif name == "sensor_light_lux":
                 last = self._last_log_values.get(name, -999)
                 diff = abs(val - last)
                 if diff >= 500 or (last > 0 and diff >= 0.2 * last):
                     self._last_log_values[name] = val
                     self.bus.log("SENSOR", f"ŚWIATŁO {int(val)}lx SRC={state.source}")
-            elif name in {"par_level_x", "par_level_y", "par_level_z"}:
+            elif name in {"sensor_level_x", "sensor_level_y", "sensor_level_z"}:
                 last = self._last_log_values.get(name, -999)
                 if abs(val - last) >= 10:
                     self._last_log_values[name] = val
@@ -1156,7 +1169,15 @@ class TarzanParPanels:
                     self.bus.log("SENSOR", f"POZIOM {axis}: {int(val)} SRC={state.source}")
 
         if val == 1 and state.previous_value == 0:
-            sok_map = {"rec_p01": ("PAN", "rec_p03"), "rec_p02": ("TILT", "rec_p04"), "rec_p05": ("FOKUS", "rec_p07"), "rec_p06": ("POCHYŁ", "rec_p08")}
+            # SOK: System Odczytu Kierunku przez nazwy kanoniczne
+            sok_map = {
+                "axis_cam_h_step": ("PAN", "axis_cam_h_dir"),
+                "axis_cam_v_step": ("TILT", "axis_cam_v_dir"),
+                "axis_cam_f_step": ("FOKUS", "axis_cam_f_dir"),
+                "axis_arm_t_step": ("POCHYŁ", "axis_arm_t_dir"),
+                "axis_arm_h_step": ("RAMIĘ H", "axis_arm_h_dir"),
+                "axis_arm_v_step": ("RAMIĘ V", "axis_arm_v_dir")
+            }
             if name in sok_map:
                 sec, d_sig = sok_map[name]
                 now = time.time()
@@ -1167,14 +1188,7 @@ class TarzanParPanels:
                     self.bus.log("SOK", f"{sec} RUCH {kier} SRC={state.source}")
 
         # --- CENTRALNE ZLICZANIE Z DEDUPLIKACJĄ ---
-        if val == 1 and state.previous_value == 0: # Wykrywanie zbocza narastającego
-            for ax, bind in AXIS_SIGNAL_BINDINGS.items():
-                if name in bind.get("step", []):
-                    # Licz impuls tylko jeśli żaden inny alias tej osi nie jest już aktywny
-                    if not any(self.bus.get(s, 0) for s in bind.get("step", []) if s != name):
-                        dir_val = self._first_value(bind.get("dir", []))
-                        self._increment_axis_counter(ax, dir_val)
-                    break
+        # Pominięto: liczniki impulsów są teraz obsługiwane przez SignalBus natywnie.
 
         # Linki sygnałów
         if name in _LINKED_SIGNAL_GROUPS:
@@ -1691,10 +1705,33 @@ class TarzanParPanels:
 
     def update_log(self):
         if not self.log_text: return
-        self.log_text.delete("1.0", tk.END)
-        for line in self.bus.log_lines[-50:]:
+        
+        # Inicjalizacja indeksu przy pierwszym wywołaniu
+        if not hasattr(self, "_last_log_idx"):
+            self._last_log_idx = 0
+            self.log_text.configure(state="normal")
+            self.log_text.delete("1.0", tk.END)
+            self.log_text.configure(state="disabled")
+
+        # Pobieramy tylko nowe linie
+        new_lines = self.bus.log_lines[self._last_log_idx:]
+        if not new_lines: return
+        
+        self.log_text.configure(state="normal")
+        for line in new_lines:
             self.log_text.insert(tk.END, line + "\n")
+        
+        # Ograniczamy liczbę linii w widżecie do 100
+        try:
+            total_lines = int(self.log_text.index('end-1c').split('.')[0])
+            if total_lines > 100:
+                self.log_text.delete("1.0", f"{total_lines - 100}.0")
+        except Exception:
+            pass
+            
         self.log_text.see(tk.END)
+        self.log_text.configure(state="disabled")
+        self._last_log_idx = len(self.bus.log_lines)
 
     def log_panel(self, p):
         panel = self.panel("log", p, "LOGI")
@@ -1742,7 +1779,7 @@ class TarzanParPanels:
                 snapshot.get(f"{screen_key}.log_last"),
                 snapshot.get("par_level_x"),
                 snapshot.get("par_level_y"),
-                tfd_state.packet_id if tfd_state else 0,
+                tfd_state.packet_id if tfd_state is not None else 0,
             )
             if self._last_preview_state.get(screen_key) == state_key:
                 continue

@@ -1,0 +1,30 @@
+STAŁE ZASADY TARZAN:
+
+Pracuj tylko w zakresie wskazanej warstwy. Nie rób refaktoru przy okazji.
+
+SignalBus zostaje źródłem prawdy. Nie twórz równoległych rejestrów stanu.
+
+Nazwy i relacje sygnałów mają wynikać z core/tarzanZmienneSygnalowe.py oraz pola kanoniczna_nazwa. Nie naprawiaj relacji przez ręczne stare aliasy, jeśli można użyć nazwy kanonicznej.
+
+Zachowaj architekturę:
+mechanika osi → linia/krzywa → protokół 10 ms → SignalBus → kopie podglądowe PAR/Nextion/TFD/OBS.
+
+Nie mieszaj warstw. Jeśli zmiana wymaga naruszenia więcej niż jednej warstwy, zatrzymaj się i napisz to przed implementacją.
+
+Nie dubluj bridge’a Nextion. hardware/tarzanNextion/bridge.py zostaje warstwą komunikacji z Nextionem.
+
+Przy Nextionie trzymaj się oficjalnej dokumentacji Nextion Instruction Set. Nie zgaduj komend.
+
+Nextion/PAR mają działać jak SNAJPER: aktualizuj tylko komponent, którego wartość się zmieniła. Nie odświeżaj całej strony, panelu, preview, grafik, ikon ani tła.
+
+UI ma używać dirty update / last_value / target refresh, nie global refresh.
+
+Protokół ruchu trzyma CZAS_PROBKOWANIA_MS = 10. UI i fizyczny Nextion mogą odświeżać się wolniej, ale nie mogą zaburzać logiki protokołu.
+
+TFD jest kopią danych do klatki/OBS, nie źródłem prawdy.
+
+TAKE zapisuje i odtwarza protokół, nie przejmuje logiki osi.
+
+Nie psuj działającego edytora pojedynczej osi.
+
+Dostarczaj pełne pliki albo ZIP z zachowaną strukturą katalogów. Przed dostawą sprawdź samodzielnie, czy zmiana jest bezpieczna do implementacji.

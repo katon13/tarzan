@@ -38,6 +38,7 @@ MECHANICS_PRESETS: Dict[str, AxisMechanics] = {
     "oś pozioma kamery": AxisMechanics("oś pozioma kamery", 28800, 180.0, 12000, 24000, 10),
     "oś pionowa kamery": AxisMechanics("oś pionowa kamery", 12800, 120.0, 9000, 18000, 10),
     "oś pochyłu kamery": AxisMechanics("oś pochyłu kamery", 3200, 60.0, 5000, 9000, 10),
+    "oś pochyłu ramienia": AxisMechanics("oś pochyłu ramienia", 3200, 60.0, 5000, 9000, 10),
     "oś ostrości kamery": AxisMechanics("oś ostrości kamery", 30764, 60.0, 3000, 7000, 10),
     "oś pionowa ramienia": AxisMechanics("oś pionowa ramienia", 28485, 600.0, 20000, 40000, 10),
     "oś pozioma ramienia": AxisMechanics("oś pozioma ramienia", 92273, 900.0, 30000, 60000, 10),
@@ -586,11 +587,11 @@ class AxisCurveModel:
 
 
 DEFAULT_AXIS_DEFINITIONS: list[EhrAxisDefinition] = [
-    EhrAxisDefinition("cam_h", "oś pozioma kamery", "#78DCE8"),
     EhrAxisDefinition("cam_v", "oś pionowa kamery", "#FFD866"),
-    EhrAxisDefinition("cam_t", "oś pochyłu kamery", "#FF6188"),
+    EhrAxisDefinition("arm_t", "oś pochyłu ramienia", "#FF6188"),
     EhrAxisDefinition("cam_f", "oś ostrości kamery", "#A9DC76"),
-    EhrAxisDefinition("arm_v", "oś pionowa ramienia", "#AB9DF2"),
+    EhrAxisDefinition("cam_h", "oś pozioma kamery", "#78DCE8"),
     EhrAxisDefinition("arm_h", "oś pozioma ramienia", "#FC9867"),
+    EhrAxisDefinition("arm_v", "oś pionowa ramienia", "#AB9DF2"),
     EhrAxisDefinition("dron", "DRON", "#F472B6"),
 ]

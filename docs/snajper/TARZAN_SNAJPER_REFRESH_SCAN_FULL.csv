@@ -1,0 +1,553 @@
+file,line,kind,action,code
+editor/EHR/tarzanAxisSandbox.py,535,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self._refresh_all()
+editor/EHR/tarzanAxisSandbox.py,596,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""VIEW Y SCALE"", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)"
+editor/EHR/tarzanAxisSandbox.py,597,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""MOUSE PRECISION"", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)"
+editor/EHR/tarzanAxisSandbox.py,598,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""TOP/BOTTOM MARGIN"", self.top_bottom_margin, 8, 60, 1, self._refresh_all)"
+editor/EHR/tarzanAxisSandbox.py,704,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano strojenie STEP."")"
+editor/EHR/tarzanAxisSandbox.py,711,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano parametry mechaniki: {mechanics.axis_name}."")"
+editor/EHR/tarzanAxisSandbox.py,733,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano preset TXT: {path}"")"
+editor/EHR/tarzanAxisSandbox.py,739,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono domyślne parametry STEP."")"
+editor/EHR/tarzanAxisSandbox.py,744,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Sinus test ustawiony."")"
+editor/EHR/tarzanAxisSandbox.py,749,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Negative test ustawiony."")"
+editor/EHR/tarzanAxisSandbox.py,754,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zero cross test ustawiony."")"
+editor/EHR/tarzanAxisSandbox.py,759,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Linia wyzerowana."")"
+editor/EHR/tarzanAxisSandbox.py,764,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono ostatni stan bazowy."")"
+editor/EHR/tarzanAxisSandbox.py,811,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/EHR/tarzanAxisSandbox.py,860,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/EHR/tarzanAxisSandbox.py,905,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, status: str | None = None) -> None:"
+editor/EHR/tarzanAxisSandbox.py,931,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wybrano punkt {idx}."")"
+editor/EHR/tarzanAxisSandbox.py,936,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""PAN linii."")"
+editor/EHR/tarzanAxisSandbox.py,961,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Gotowy."")"
+editor/EHR/tarzanAxisSandbox.py,968,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Dodano punkt."")"
+editor/EHR/tarzanAxisSandbox.py,976,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Usunięto punkt."")"
+editor/EHR/tarzanEhrUi.py,752,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.canvas.delete(""all"")"
+editor/EHR/tarzanEhrUi.py,1299,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+editor/EHR/tarzanEhrUi.py,1473,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(reason=""INIT"")"
+editor/EHR/tarzanEhrUi.py,1718,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self.master_window._refresh_all(light=False)
+editor/EHR/tarzanEhrUi.py,1741,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano strojenie STEP."", reason=""STEP_TUNING_LIVE"")"
+editor/EHR/tarzanEhrUi.py,1753,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano parametry mechaniki: {mechanics.axis_name}."", reason=""MECHANICS_PRESET"")"
+editor/EHR/tarzanEhrUi.py,1847,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano ustawienia osi: {path}"", reason=""LOAD_JSON"")"
+editor/EHR/tarzanEhrUi.py,1884,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano preset TXT: {path}"", reason=""LOAD_TUNING_TXT"")"
+editor/EHR/tarzanEhrUi.py,1896,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono domyślne parametry STEP."", reason=""RESET_STEP_TUNING"")"
+editor/EHR/tarzanEhrUi.py,1907,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Sinus test ustawiony."", reason=""TEST_SINUS"")"
+editor/EHR/tarzanEhrUi.py,1918,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Negative test ustawiony."", reason=""TEST_NEGATIVE"")"
+editor/EHR/tarzanEhrUi.py,1929,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zero cross test ustawiony."", reason=""TEST_ZERO_CROSS"")"
+editor/EHR/tarzanEhrUi.py,1940,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Linia wyzerowana."", reason=""TEST_FLAT_ZERO"")"
+editor/EHR/tarzanEhrUi.py,1950,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono ostatni stan bazowy."", reason=""RESET_NODES"")"
+editor/EHR/tarzanEhrUi.py,1974,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/EHR/tarzanEhrUi.py,2060,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/EHR/tarzanEhrUi.py,2146,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,@profile_method('EHR_AXIS_DIALOG._refresh_all')
+editor/EHR/tarzanEhrUi.py,2147,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, status: str | None = None, reason: str = ""unknown"") -> None:"
+editor/EHR/tarzanEhrUi.py,2370,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self.master_window._refresh_all(light=False)
+editor/EHR/tarzanEhrUi.py,2464,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self.after_idle(self._refresh_all)
+editor/EHR/tarzanEhrUi.py,2464,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.after_idle(self._refresh_all)
+editor/EHR/tarzanEhrUi.py,2732,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=False, status=status)"
+editor/EHR/tarzanEhrUi.py,2762,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,dlg._refresh_all()
+editor/EHR/tarzanEhrUi.py,2763,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=False, status=""Zastosowano ustawienia MAIN TAKE."")"
+editor/EHR/tarzanEhrUi.py,2890,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","self._configure_after_id = self.after(40, self._flush_configure_refresh)"
+editor/EHR/tarzanEhrUi.py,3067,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/EHR/tarzanEhrUi.py,3442,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,@profile_method('EHR_MAIN._refresh_all')
+editor/EHR/tarzanEhrUi.py,3443,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, light: bool = False, status: str | None = None) -> None:"
+editor/EHR/tarzanEhrUi.py,3844,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=False, status=f""Wczytano TAKE TXT: {path.name}"")"
+editor/PAR/tarzanNextionPreview.py,354,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+editor/PAR/tarzanNextionPreview.py,361,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+editor/PAR/tarzanNextionPreview.py,472,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+editor/PAR/tarzanNextionPreview.py,581,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+editor/PAR/tarzanNextionPreview.py,598,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+editor/PAR/tarzanNextionPreview.py,688,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+editor/PAR/tarzanNextionPreview.py,710,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+editor/PAR/tarzanNextionPreview.py,772,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+editor/PAR/tarzanParApp.py,230,self_nextion_tick,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,"self.after(50, self.nextion_tick)"
+editor/PAR/tarzanParApp.py,939,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","fg=COLORS[""text""], insertbackground=COLORS[""text""], command=lambda: draw_preview() if ""draw_preview"" in locals() else None).grid(row=2, column=1, sticky=""w"", padx=8)"
+editor/PAR/tarzanParApp.py,988,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",refresh_zone_buttons()
+editor/PAR/tarzanParApp.py,992,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",refresh_zone_buttons()
+editor/PAR/tarzanParApp.py,993,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,997,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def refresh_zone_buttons():
+editor/PAR/tarzanParApp.py,1046,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1123,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1130,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","command=draw_preview).pack(side=""left"")"
+editor/PAR/tarzanParApp.py,1135,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","opt = tk.OptionMenu(row, data[""zone""], *zone_map.keys(), command=lambda _=None: draw_preview())"
+editor/PAR/tarzanParApp.py,1150,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","command=draw_preview,"
+editor/PAR/tarzanParApp.py,1153,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","col_spin.bind(""<KeyRelease>"", lambda _event: draw_preview())"
+editor/PAR/tarzanParApp.py,1165,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","command=draw_preview,"
+editor/PAR/tarzanParApp.py,1168,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","row_spin.bind(""<KeyRelease>"", lambda _event: draw_preview())"
+editor/PAR/tarzanParApp.py,1189,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1225,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def draw_preview(*_):
+editor/PAR/tarzanParApp.py,1226,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+editor/PAR/tarzanParApp.py,1590,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1601,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1628,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1648,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1698,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1722,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1743,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1754,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1776,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1828,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+editor/PAR/tarzanParApp.py,1848,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",refresh_zone_buttons()
+editor/PAR/tarzanParApp.py,1849,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","win.after(200, draw_preview)"
+editor/PAR/tarzanParApp.py,1850,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","win.after(800, draw_preview)"
+editor/PAR/tarzanParApp.py,1898,def_nextion_tick,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,def nextion_tick(self):
+editor/PAR/tarzanParApp.py,1902,nextion_refresh_previews,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,"if hasattr(self.panels, ""nextion_refresh_previews""):"
+editor/PAR/tarzanParApp.py,1903,nextion_refresh_previews,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,self.panels.nextion_refresh_previews()
+editor/PAR/tarzanParApp.py,1907,self_nextion_tick,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,"self.after(50, self.nextion_tick)"
+editor/PAR/tarzanParPanels.py,182,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.delete(""all"")"
+editor/PAR/tarzanParPanels.py,358,refresh_axis_card,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,"self._register_signal_proxy(sig, lambda v, k=key: self.refresh_axis_card(k))"
+editor/PAR/tarzanParPanels.py,404,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,self.refresh_axis_cards()
+editor/PAR/tarzanParPanels.py,407,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,def refresh_axis_cards(self):
+editor/PAR/tarzanParPanels.py,409,refresh_axis_card,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,self.refresh_axis_card(axis)
+editor/PAR/tarzanParPanels.py,411,refresh_axis_card,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,"def refresh_axis_card(self, axis: str):"
+editor/PAR/tarzanParPanels.py,496,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"can.delete(""all"")"
+editor/PAR/tarzanParPanels.py,655,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"can.delete(""all""); cx, cy, r = 40, 40, 30"
+editor/PAR/tarzanParPanels.py,823,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all""); cx, cy = w//2, h//2"
+editor/PAR/tarzanParPanels.py,899,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"can.delete(""all""); can.create_rectangle(14, 5, 24, h-5, fill=COLORS[""green""], outline=""#063c0a"")"
+editor/PAR/tarzanParPanels.py,917,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"can.delete(""all"")"
+editor/PAR/tarzanParPanels.py,1230,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,self.refresh_axis_cards()
+editor/PAR/tarzanParPanels.py,1237,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._schedule_timeline_redraw()
+editor/PAR/tarzanParPanels.py,1244,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","self.timeline_canvas.bind(""<Configure>"", lambda e: self.draw_timeline())"
+editor/PAR/tarzanParPanels.py,1245,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+editor/PAR/tarzanParPanels.py,1248,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _schedule_timeline_redraw(self):
+editor/PAR/tarzanParPanels.py,1250,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","self._timeline_after_id = self.app.after(_TIMELINE_DEBOUNCE_MS, self._do_draw_timeline)"
+editor/PAR/tarzanParPanels.py,1252,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _do_draw_timeline(self):
+editor/PAR/tarzanParPanels.py,1254,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+editor/PAR/tarzanParPanels.py,1278,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def draw_timeline(self):
+editor/PAR/tarzanParPanels.py,1281,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"can.delete(""all"")"
+editor/PAR/tarzanParPanels.py,1446,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+editor/PAR/tarzanParPanels.py,1574,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+editor/PAR/tarzanParPanels.py,1761,nextion_refresh_previews,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,def nextion_refresh_previews(self):
+editor/PAR/tarzanParPanels.py,1788,widget_refresh,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,widget.refresh()
+editor/PAR/tarzanParPanels_old.py,187,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,self.refresh_axis_cards()
+editor/PAR/tarzanParPanels_old.py,680,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","canvas.bind(""<Configure>"", lambda e: self.draw_timeline())"
+editor/PAR/tarzanParPanels_old.py,681,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+editor/PAR/tarzanParPanels_old.py,735,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,self.refresh_axis_cards()
+editor/PAR/tarzanParPanels_old.py,738,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,def refresh_axis_cards(self):
+editor/PAR/tarzanParPanels_old.py,755,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def draw_timeline(self):
+editor/PAR/tarzanParPanels_old.py,759,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+editor/PAR/tarzanParPanels_old.py,1044,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"led.delete(""all"")"
+editor/PAR/tarzanParPanels_old.py,1111,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+editor/PAR/tarzanParPanels_old.py,1215,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+editor/PAR/tarzanParPanels_old.py,1310,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+editor/PAR/tarzanParPanels_old.py,1343,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.delete(""all"")"
+editor/PAR/tarzanParPanels_old.py,1452,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _schedule_timeline_redraw(self):
+editor/PAR/tarzanParPanels_old.py,1459,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+editor/PAR/tarzanParPanels_old.py,1469,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+editor/PAR/tarzanParPanels_old.py,1497,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","command=lambda: (self.bus.history.clear(), self.draw_timeline()),"
+editor/PAR/tarzanParPanels_old.py,1503,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","canvas.bind(""<Configure>"", lambda _e: self._schedule_timeline_redraw())"
+editor/PAR/tarzanParPanels_old.py,1504,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+editor/PAR/tarzanParPanels_old.py,1512,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+editor/PAR/tarzanParPanels_old.py,1674,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._schedule_timeline_redraw()
+editor/PAR/tarzanParPanels_old.py,1734,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+editor/PAR/tarzanParPanels_old.py,1780,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+editor/PAR/tarzanParPanels_old.py,1964,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/PAR/tarzanParPanels_old.py,2209,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/PAR/tarzanParPanels_old.py,2470,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+editor/PAR/tarzanParPanels_old.py,3107,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,c.delete('all')
+editor/PAR/tarzanParPanels_old.py,3184,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,TarzanParPanels.refresh_axis_cards = _tarzan_refresh_axis_cards_final_v2
+editor/PAR/tarzanParPanels_old.py,3186,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",TarzanParPanels._schedule_timeline_redraw = _schedule_timeline_redraw
+editor/PAR/tarzanParPanels_old.py,3188,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",TarzanParPanels.draw_timeline = _par_draw_timeline_final
+editor/PAR/tarzanParWidgets.py,54,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.delete(""all"")"
+editor/PAR/tarzanParWidgets.py,83,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.delete(""all"")"
+editor/PAR/tarzanParWidgets.py,287,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/TarzanEhrTakeSandbox.py,545,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.canvas.delete(""all"")"
+editor/TarzanTakeProtocolLight.py,35,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,# - nie używa _refresh_all.
+editor/TarzanTakeProtocolLight.py,852,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.canvas.delete(""all"")"
+editor/editor/EHR/tarzanAxisSandbox.py,534,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self._refresh_all()
+editor/editor/EHR/tarzanAxisSandbox.py,595,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""VIEW Y SCALE"", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)"
+editor/editor/EHR/tarzanAxisSandbox.py,596,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""MOUSE PRECISION"", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)"
+editor/editor/EHR/tarzanAxisSandbox.py,597,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""TOP/BOTTOM MARGIN"", self.top_bottom_margin, 8, 60, 1, self._refresh_all)"
+editor/editor/EHR/tarzanAxisSandbox.py,703,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano strojenie STEP."")"
+editor/editor/EHR/tarzanAxisSandbox.py,710,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano parametry mechaniki: {mechanics.axis_name}."")"
+editor/editor/EHR/tarzanAxisSandbox.py,732,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano preset TXT: {path}"")"
+editor/editor/EHR/tarzanAxisSandbox.py,738,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono domyślne parametry STEP."")"
+editor/editor/EHR/tarzanAxisSandbox.py,743,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Sinus test ustawiony."")"
+editor/editor/EHR/tarzanAxisSandbox.py,748,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Negative test ustawiony."")"
+editor/editor/EHR/tarzanAxisSandbox.py,753,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zero cross test ustawiony."")"
+editor/editor/EHR/tarzanAxisSandbox.py,758,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Linia wyzerowana."")"
+editor/editor/EHR/tarzanAxisSandbox.py,763,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono ostatni stan bazowy."")"
+editor/editor/EHR/tarzanAxisSandbox.py,810,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/editor/EHR/tarzanAxisSandbox.py,859,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/editor/EHR/tarzanAxisSandbox.py,904,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, status: str | None = None) -> None:"
+editor/editor/EHR/tarzanAxisSandbox.py,930,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wybrano punkt {idx}."")"
+editor/editor/EHR/tarzanAxisSandbox.py,935,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""PAN linii."")"
+editor/editor/EHR/tarzanAxisSandbox.py,960,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Gotowy."")"
+editor/editor/EHR/tarzanAxisSandbox.py,967,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Dodano punkt."")"
+editor/editor/EHR/tarzanAxisSandbox.py,975,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Usunięto punkt."")"
+editor/editor/EHR/tarzanEhrUi.py,704,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.canvas.delete(""all"")"
+editor/editor/EHR/tarzanEhrUi.py,1243,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+editor/editor/EHR/tarzanEhrUi.py,1411,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self.after_idle(self._refresh_all)
+editor/editor/EHR/tarzanEhrUi.py,1411,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.after_idle(self._refresh_all)
+editor/editor/EHR/tarzanEhrUi.py,1657,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano ustawienia osi."")"
+editor/editor/EHR/tarzanEhrUi.py,1666,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano strojenie STEP."")"
+editor/editor/EHR/tarzanEhrUi.py,1677,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano parametry mechaniki: {mechanics.axis_name}."")"
+editor/editor/EHR/tarzanEhrUi.py,1770,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano ustawienia osi: {path}"")"
+editor/editor/EHR/tarzanEhrUi.py,1807,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano preset TXT: {path}"")"
+editor/editor/EHR/tarzanEhrUi.py,1818,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono domyślne parametry STEP."")"
+editor/editor/EHR/tarzanEhrUi.py,1828,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Sinus test ustawiony."")"
+editor/editor/EHR/tarzanEhrUi.py,1838,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Negative test ustawiony."")"
+editor/editor/EHR/tarzanEhrUi.py,1848,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zero cross test ustawiony."")"
+editor/editor/EHR/tarzanEhrUi.py,1858,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Linia wyzerowana."")"
+editor/editor/EHR/tarzanEhrUi.py,1867,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono ostatni stan bazowy."")"
+editor/editor/EHR/tarzanEhrUi.py,1891,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/editor/EHR/tarzanEhrUi.py,1958,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/editor/EHR/tarzanEhrUi.py,2017,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,@profile_method('EHR_AXIS_DIALOG._refresh_all')
+editor/editor/EHR/tarzanEhrUi.py,2018,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, status: str | None = None) -> None:"
+editor/editor/EHR/tarzanEhrUi.py,2095,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Gotowy."")"
+editor/editor/EHR/tarzanEhrUi.py,2107,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Dodano punkt."")"
+editor/editor/EHR/tarzanEhrUi.py,2120,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Usunięto punkt."")"
+editor/editor/EHR/tarzanEhrUi.py,2211,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self.after_idle(self._refresh_all)
+editor/editor/EHR/tarzanEhrUi.py,2211,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.after_idle(self._refresh_all)
+editor/editor/EHR/tarzanEhrUi.py,2366,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=True, status=status)"
+editor/editor/EHR/tarzanEhrUi.py,2395,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,dlg._refresh_all()
+editor/editor/EHR/tarzanEhrUi.py,2396,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=False, status=""Zastosowano ustawienia MAIN TAKE."")"
+editor/editor/EHR/tarzanEhrUi.py,2509,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self._refresh_all(
+editor/editor/EHR/tarzanEhrUi.py,2520,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","self._configure_after_id = self.after(40, self._flush_configure_refresh)"
+editor/editor/EHR/tarzanEhrUi.py,2683,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/editor/EHR/tarzanEhrUi.py,2960,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,@profile_method('EHR_MAIN._refresh_all')
+editor/editor/EHR/tarzanEhrUi.py,2961,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, light: bool = False, status: str | None = None) -> None:"
+editor/editor/EHR/tarzanEhrUi.py,3029,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=True, status=None)"
+editor/editor/EHR/tarzanEhrUi.py,3232,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=False, status=f""Wczytano TAKE TXT: {path.name}"")"
+editor/editor/TarzanEhrTakeSandbox.py,545,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.canvas.delete(""all"")"
+editor/editor/TarzanTakeProtocolLight.py,35,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,# - nie używa _refresh_all.
+editor/editor/TarzanTakeProtocolLight.py,852,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.canvas.delete(""all"")"
+editor/editor/tarzanAxisSandbox.py,534,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self._refresh_all()
+editor/editor/tarzanAxisSandbox.py,595,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""VIEW Y SCALE"", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)"
+editor/editor/tarzanAxisSandbox.py,596,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""MOUSE PRECISION"", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)"
+editor/editor/tarzanAxisSandbox.py,597,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""TOP/BOTTOM MARGIN"", self.top_bottom_margin, 8, 60, 1, self._refresh_all)"
+editor/editor/tarzanAxisSandbox.py,703,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano strojenie STEP."")"
+editor/editor/tarzanAxisSandbox.py,710,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano parametry mechaniki: {mechanics.axis_name}."")"
+editor/editor/tarzanAxisSandbox.py,732,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano preset TXT: {path}"")"
+editor/editor/tarzanAxisSandbox.py,738,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono domyślne parametry STEP."")"
+editor/editor/tarzanAxisSandbox.py,743,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Sinus test ustawiony."")"
+editor/editor/tarzanAxisSandbox.py,748,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Negative test ustawiony."")"
+editor/editor/tarzanAxisSandbox.py,753,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zero cross test ustawiony."")"
+editor/editor/tarzanAxisSandbox.py,758,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Linia wyzerowana."")"
+editor/editor/tarzanAxisSandbox.py,763,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono ostatni stan bazowy."")"
+editor/editor/tarzanAxisSandbox.py,810,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/editor/tarzanAxisSandbox.py,878,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/editor/tarzanAxisSandbox.py,923,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, status: str | None = None) -> None:"
+editor/editor/tarzanAxisSandbox.py,949,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wybrano punkt {idx}."")"
+editor/editor/tarzanAxisSandbox.py,954,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""PAN linii."")"
+editor/editor/tarzanAxisSandbox.py,979,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Gotowy."")"
+editor/editor/tarzanAxisSandbox.py,986,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Dodano punkt."")"
+editor/editor/tarzanAxisSandbox.py,994,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Usunięto punkt."")"
+editor/tarzanAxisSandbox.py,534,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self._refresh_all()
+editor/tarzanAxisSandbox.py,595,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""VIEW Y SCALE"", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)"
+editor/tarzanAxisSandbox.py,596,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""MOUSE PRECISION"", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)"
+editor/tarzanAxisSandbox.py,597,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""TOP/BOTTOM MARGIN"", self.top_bottom_margin, 8, 60, 1, self._refresh_all)"
+editor/tarzanAxisSandbox.py,703,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano strojenie STEP."")"
+editor/tarzanAxisSandbox.py,710,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano parametry mechaniki: {mechanics.axis_name}."")"
+editor/tarzanAxisSandbox.py,732,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano preset TXT: {path}"")"
+editor/tarzanAxisSandbox.py,738,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono domyślne parametry STEP."")"
+editor/tarzanAxisSandbox.py,743,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Sinus test ustawiony."")"
+editor/tarzanAxisSandbox.py,748,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Negative test ustawiony."")"
+editor/tarzanAxisSandbox.py,753,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zero cross test ustawiony."")"
+editor/tarzanAxisSandbox.py,758,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Linia wyzerowana."")"
+editor/tarzanAxisSandbox.py,763,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono ostatni stan bazowy."")"
+editor/tarzanAxisSandbox.py,810,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/tarzanAxisSandbox.py,878,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/tarzanAxisSandbox.py,923,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, status: str | None = None) -> None:"
+editor/tarzanAxisSandbox.py,949,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wybrano punkt {idx}."")"
+editor/tarzanAxisSandbox.py,954,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""PAN linii."")"
+editor/tarzanAxisSandbox.py,979,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Gotowy."")"
+editor/tarzanAxisSandbox.py,986,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Dodano punkt."")"
+editor/tarzanAxisSandbox.py,994,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Usunięto punkt."")"
+editor/tarzanKHR.py,611,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/tarzanKHR.py,950,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_input()
+editor/tarzanKHR.py,991,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_input()
+editor/tarzanKHR.py,1094,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_input()
+editor/tarzanKHR.py,1158,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_input()
+editor/tarzanKHR.py,1161,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","self.after(self._camera_preview_refresh_ms, self._camera_preview_loop)"
+editor/tarzanKHR.py,1372,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","self.after(self._ui_refresh_ms, self._ui_loop)"
+editor/tarzanKHR.py,1434,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_input()
+editor/tarzanKHR.py,1435,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_khr()
+editor/tarzanKHR.py,1436,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_output()
+editor/tarzanKHR.py,1438,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","@khr_profiled(""KHR_UI._draw_input"")"
+editor/tarzanKHR.py,1439,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _draw_input(self) -> None:
+editor/tarzanKHR.py,1441,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/tarzanKHR.py,1444,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_camera_input()
+editor/tarzanKHR.py,1476,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","@khr_profiled(""KHR_UI._draw_camera_input"")"
+editor/tarzanKHR.py,1477,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _draw_camera_input(self) -> None:
+editor/tarzanKHR.py,1558,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","@khr_profiled(""KHR_UI._draw_khr"")"
+editor/tarzanKHR.py,1559,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _draw_khr(self) -> None:
+editor/tarzanKHR.py,1561,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+editor/tarzanKHR.py,1582,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","@khr_profiled(""KHR_UI._draw_output"")"
+editor/tarzanKHR.py,1583,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _draw_output(self) -> None:
+editor/tarzanKHR.py,1585,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+mechanics/tarzanEdytorChoreografiiRuchu.py,302,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+mechanics/tarzanWykresOsi.py,721,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+mechanics/tarzanWykresOsi.py,739,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+mechanics/tarzanWykresOsi.py,1008,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/EHR/tarzanAxisSandbox.py,535,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self._refresh_all()
+modes/editor/EHR/tarzanAxisSandbox.py,596,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""VIEW Y SCALE"", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)"
+modes/editor/EHR/tarzanAxisSandbox.py,597,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""MOUSE PRECISION"", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)"
+modes/editor/EHR/tarzanAxisSandbox.py,598,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""TOP/BOTTOM MARGIN"", self.top_bottom_margin, 8, 60, 1, self._refresh_all)"
+modes/editor/EHR/tarzanAxisSandbox.py,704,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano strojenie STEP."")"
+modes/editor/EHR/tarzanAxisSandbox.py,711,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano parametry mechaniki: {mechanics.axis_name}."")"
+modes/editor/EHR/tarzanAxisSandbox.py,733,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano preset TXT: {path}"")"
+modes/editor/EHR/tarzanAxisSandbox.py,739,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono domyślne parametry STEP."")"
+modes/editor/EHR/tarzanAxisSandbox.py,744,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Sinus test ustawiony."")"
+modes/editor/EHR/tarzanAxisSandbox.py,749,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Negative test ustawiony."")"
+modes/editor/EHR/tarzanAxisSandbox.py,754,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zero cross test ustawiony."")"
+modes/editor/EHR/tarzanAxisSandbox.py,759,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Linia wyzerowana."")"
+modes/editor/EHR/tarzanAxisSandbox.py,764,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono ostatni stan bazowy."")"
+modes/editor/EHR/tarzanAxisSandbox.py,811,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/EHR/tarzanAxisSandbox.py,860,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/EHR/tarzanAxisSandbox.py,905,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, status: str | None = None) -> None:"
+modes/editor/EHR/tarzanAxisSandbox.py,931,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wybrano punkt {idx}."")"
+modes/editor/EHR/tarzanAxisSandbox.py,936,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""PAN linii."")"
+modes/editor/EHR/tarzanAxisSandbox.py,961,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Gotowy."")"
+modes/editor/EHR/tarzanAxisSandbox.py,968,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Dodano punkt."")"
+modes/editor/EHR/tarzanAxisSandbox.py,976,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Usunięto punkt."")"
+modes/editor/EHR/tarzanEhrUi.py,752,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.canvas.delete(""all"")"
+modes/editor/EHR/tarzanEhrUi.py,1299,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+modes/editor/EHR/tarzanEhrUi.py,1473,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(reason=""INIT"")"
+modes/editor/EHR/tarzanEhrUi.py,1718,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self.master_window._refresh_all(light=False)
+modes/editor/EHR/tarzanEhrUi.py,1741,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano strojenie STEP."", reason=""STEP_TUNING_LIVE"")"
+modes/editor/EHR/tarzanEhrUi.py,1753,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano parametry mechaniki: {mechanics.axis_name}."", reason=""MECHANICS_PRESET"")"
+modes/editor/EHR/tarzanEhrUi.py,1847,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano ustawienia osi: {path}"", reason=""LOAD_JSON"")"
+modes/editor/EHR/tarzanEhrUi.py,1884,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano preset TXT: {path}"", reason=""LOAD_TUNING_TXT"")"
+modes/editor/EHR/tarzanEhrUi.py,1896,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono domyślne parametry STEP."", reason=""RESET_STEP_TUNING"")"
+modes/editor/EHR/tarzanEhrUi.py,1907,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Sinus test ustawiony."", reason=""TEST_SINUS"")"
+modes/editor/EHR/tarzanEhrUi.py,1918,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Negative test ustawiony."", reason=""TEST_NEGATIVE"")"
+modes/editor/EHR/tarzanEhrUi.py,1929,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zero cross test ustawiony."", reason=""TEST_ZERO_CROSS"")"
+modes/editor/EHR/tarzanEhrUi.py,1940,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Linia wyzerowana."", reason=""TEST_FLAT_ZERO"")"
+modes/editor/EHR/tarzanEhrUi.py,1950,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono ostatni stan bazowy."", reason=""RESET_NODES"")"
+modes/editor/EHR/tarzanEhrUi.py,1974,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/EHR/tarzanEhrUi.py,2060,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/EHR/tarzanEhrUi.py,2146,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,@profile_method('EHR_AXIS_DIALOG._refresh_all')
+modes/editor/EHR/tarzanEhrUi.py,2147,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, status: str | None = None, reason: str = ""unknown"") -> None:"
+modes/editor/EHR/tarzanEhrUi.py,2370,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self.master_window._refresh_all(light=False)
+modes/editor/EHR/tarzanEhrUi.py,2464,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self.after_idle(self._refresh_all)
+modes/editor/EHR/tarzanEhrUi.py,2464,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.after_idle(self._refresh_all)
+modes/editor/EHR/tarzanEhrUi.py,2732,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=False, status=status)"
+modes/editor/EHR/tarzanEhrUi.py,2762,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,dlg._refresh_all()
+modes/editor/EHR/tarzanEhrUi.py,2763,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=False, status=""Zastosowano ustawienia MAIN TAKE."")"
+modes/editor/EHR/tarzanEhrUi.py,2890,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","self._configure_after_id = self.after(40, self._flush_configure_refresh)"
+modes/editor/EHR/tarzanEhrUi.py,3067,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/EHR/tarzanEhrUi.py,3442,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,@profile_method('EHR_MAIN._refresh_all')
+modes/editor/EHR/tarzanEhrUi.py,3443,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, light: bool = False, status: str | None = None) -> None:"
+modes/editor/EHR/tarzanEhrUi.py,3844,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=False, status=f""Wczytano TAKE TXT: {path.name}"")"
+modes/editor/PAR/tarzanNextionPreview.py,354,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+modes/editor/PAR/tarzanNextionPreview.py,361,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+modes/editor/PAR/tarzanNextionPreview.py,472,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+modes/editor/PAR/tarzanNextionPreview.py,581,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+modes/editor/PAR/tarzanNextionPreview.py,598,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+modes/editor/PAR/tarzanNextionPreview.py,688,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+modes/editor/PAR/tarzanNextionPreview.py,710,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+modes/editor/PAR/tarzanNextionPreview.py,772,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.screen_canvas.delete(""all"")"
+modes/editor/PAR/tarzanParApp.py,230,self_nextion_tick,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,"self.after(50, self.nextion_tick)"
+modes/editor/PAR/tarzanParApp.py,939,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","fg=COLORS[""text""], insertbackground=COLORS[""text""], command=lambda: draw_preview() if ""draw_preview"" in locals() else None).grid(row=2, column=1, sticky=""w"", padx=8)"
+modes/editor/PAR/tarzanParApp.py,988,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",refresh_zone_buttons()
+modes/editor/PAR/tarzanParApp.py,992,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",refresh_zone_buttons()
+modes/editor/PAR/tarzanParApp.py,993,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,997,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def refresh_zone_buttons():
+modes/editor/PAR/tarzanParApp.py,1046,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1123,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1130,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","command=draw_preview).pack(side=""left"")"
+modes/editor/PAR/tarzanParApp.py,1135,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","opt = tk.OptionMenu(row, data[""zone""], *zone_map.keys(), command=lambda _=None: draw_preview())"
+modes/editor/PAR/tarzanParApp.py,1150,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","command=draw_preview,"
+modes/editor/PAR/tarzanParApp.py,1153,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","col_spin.bind(""<KeyRelease>"", lambda _event: draw_preview())"
+modes/editor/PAR/tarzanParApp.py,1165,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","command=draw_preview,"
+modes/editor/PAR/tarzanParApp.py,1168,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","row_spin.bind(""<KeyRelease>"", lambda _event: draw_preview())"
+modes/editor/PAR/tarzanParApp.py,1189,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1225,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def draw_preview(*_):
+modes/editor/PAR/tarzanParApp.py,1226,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+modes/editor/PAR/tarzanParApp.py,1590,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1601,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1628,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1648,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1698,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1722,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1743,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1754,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1776,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1828,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",draw_preview()
+modes/editor/PAR/tarzanParApp.py,1848,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",refresh_zone_buttons()
+modes/editor/PAR/tarzanParApp.py,1849,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","win.after(200, draw_preview)"
+modes/editor/PAR/tarzanParApp.py,1850,draw_preview,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","win.after(800, draw_preview)"
+modes/editor/PAR/tarzanParApp.py,1898,def_nextion_tick,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,def nextion_tick(self):
+modes/editor/PAR/tarzanParApp.py,1902,nextion_refresh_previews,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,"if hasattr(self.panels, ""nextion_refresh_previews""):"
+modes/editor/PAR/tarzanParApp.py,1903,nextion_refresh_previews,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,self.panels.nextion_refresh_previews()
+modes/editor/PAR/tarzanParApp.py,1907,self_nextion_tick,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,"self.after(50, self.nextion_tick)"
+modes/editor/PAR/tarzanParPanels.py,182,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.delete(""all"")"
+modes/editor/PAR/tarzanParPanels.py,358,refresh_axis_card,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,"self._register_signal_proxy(sig, lambda v, k=key: self.refresh_axis_card(k))"
+modes/editor/PAR/tarzanParPanels.py,404,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,self.refresh_axis_cards()
+modes/editor/PAR/tarzanParPanels.py,407,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,def refresh_axis_cards(self):
+modes/editor/PAR/tarzanParPanels.py,409,refresh_axis_card,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,self.refresh_axis_card(axis)
+modes/editor/PAR/tarzanParPanels.py,411,refresh_axis_card,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,"def refresh_axis_card(self, axis: str):"
+modes/editor/PAR/tarzanParPanels.py,496,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"can.delete(""all"")"
+modes/editor/PAR/tarzanParPanels.py,655,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"can.delete(""all""); cx, cy, r = 40, 40, 30"
+modes/editor/PAR/tarzanParPanels.py,823,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all""); cx, cy = w//2, h//2"
+modes/editor/PAR/tarzanParPanels.py,899,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"can.delete(""all""); can.create_rectangle(14, 5, 24, h-5, fill=COLORS[""green""], outline=""#063c0a"")"
+modes/editor/PAR/tarzanParPanels.py,917,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"can.delete(""all"")"
+modes/editor/PAR/tarzanParPanels.py,1230,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,self.refresh_axis_cards()
+modes/editor/PAR/tarzanParPanels.py,1237,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._schedule_timeline_redraw()
+modes/editor/PAR/tarzanParPanels.py,1244,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","self.timeline_canvas.bind(""<Configure>"", lambda e: self.draw_timeline())"
+modes/editor/PAR/tarzanParPanels.py,1245,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+modes/editor/PAR/tarzanParPanels.py,1248,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _schedule_timeline_redraw(self):
+modes/editor/PAR/tarzanParPanels.py,1250,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","self._timeline_after_id = self.app.after(_TIMELINE_DEBOUNCE_MS, self._do_draw_timeline)"
+modes/editor/PAR/tarzanParPanels.py,1252,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _do_draw_timeline(self):
+modes/editor/PAR/tarzanParPanels.py,1254,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+modes/editor/PAR/tarzanParPanels.py,1278,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def draw_timeline(self):
+modes/editor/PAR/tarzanParPanels.py,1281,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"can.delete(""all"")"
+modes/editor/PAR/tarzanParPanels.py,1446,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+modes/editor/PAR/tarzanParPanels.py,1574,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+modes/editor/PAR/tarzanParPanels.py,1761,nextion_refresh_previews,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,def nextion_refresh_previews(self):
+modes/editor/PAR/tarzanParPanels.py,1788,widget_refresh,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,widget.refresh()
+modes/editor/PAR/tarzanParPanels_old.py,187,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,self.refresh_axis_cards()
+modes/editor/PAR/tarzanParPanels_old.py,680,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","canvas.bind(""<Configure>"", lambda e: self.draw_timeline())"
+modes/editor/PAR/tarzanParPanels_old.py,681,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+modes/editor/PAR/tarzanParPanels_old.py,735,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,self.refresh_axis_cards()
+modes/editor/PAR/tarzanParPanels_old.py,738,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,def refresh_axis_cards(self):
+modes/editor/PAR/tarzanParPanels_old.py,755,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def draw_timeline(self):
+modes/editor/PAR/tarzanParPanels_old.py,759,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+modes/editor/PAR/tarzanParPanels_old.py,1044,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"led.delete(""all"")"
+modes/editor/PAR/tarzanParPanels_old.py,1111,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+modes/editor/PAR/tarzanParPanels_old.py,1215,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+modes/editor/PAR/tarzanParPanels_old.py,1310,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+modes/editor/PAR/tarzanParPanels_old.py,1343,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.delete(""all"")"
+modes/editor/PAR/tarzanParPanels_old.py,1452,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _schedule_timeline_redraw(self):
+modes/editor/PAR/tarzanParPanels_old.py,1459,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+modes/editor/PAR/tarzanParPanels_old.py,1469,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+modes/editor/PAR/tarzanParPanels_old.py,1497,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","command=lambda: (self.bus.history.clear(), self.draw_timeline()),"
+modes/editor/PAR/tarzanParPanels_old.py,1503,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","canvas.bind(""<Configure>"", lambda _e: self._schedule_timeline_redraw())"
+modes/editor/PAR/tarzanParPanels_old.py,1504,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+modes/editor/PAR/tarzanParPanels_old.py,1512,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+modes/editor/PAR/tarzanParPanels_old.py,1674,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._schedule_timeline_redraw()
+modes/editor/PAR/tarzanParPanels_old.py,1734,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.draw_timeline()
+modes/editor/PAR/tarzanParPanels_old.py,1780,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+modes/editor/PAR/tarzanParPanels_old.py,1964,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/PAR/tarzanParPanels_old.py,2209,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/PAR/tarzanParPanels_old.py,2470,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+modes/editor/PAR/tarzanParPanels_old.py,3107,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,c.delete('all')
+modes/editor/PAR/tarzanParPanels_old.py,3184,refresh_axis_cards,WYCIĄĆ Z TORU DYNAMICZNEGO I ZASTĄPIĆ TARZAN_SNAJPER,TarzanParPanels.refresh_axis_cards = _tarzan_refresh_axis_cards_final_v2
+modes/editor/PAR/tarzanParPanels_old.py,3186,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",TarzanParPanels._schedule_timeline_redraw = _schedule_timeline_redraw
+modes/editor/PAR/tarzanParPanels_old.py,3188,draw_timeline,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",TarzanParPanels.draw_timeline = _par_draw_timeline_final
+modes/editor/PAR/tarzanParWidgets.py,54,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.delete(""all"")"
+modes/editor/PAR/tarzanParWidgets.py,83,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.delete(""all"")"
+modes/editor/PAR/tarzanParWidgets.py,287,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/TarzanEhrTakeSandbox.py,545,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.canvas.delete(""all"")"
+modes/editor/TarzanTakeProtocolLight.py,35,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,# - nie używa _refresh_all.
+modes/editor/TarzanTakeProtocolLight.py,852,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.canvas.delete(""all"")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,534,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self._refresh_all()
+modes/editor/editor/EHR/tarzanAxisSandbox.py,595,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""VIEW Y SCALE"", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,596,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""MOUSE PRECISION"", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,597,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""TOP/BOTTOM MARGIN"", self.top_bottom_margin, 8, 60, 1, self._refresh_all)"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,703,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano strojenie STEP."")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,710,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano parametry mechaniki: {mechanics.axis_name}."")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,732,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano preset TXT: {path}"")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,738,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono domyślne parametry STEP."")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,743,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Sinus test ustawiony."")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,748,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Negative test ustawiony."")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,753,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zero cross test ustawiony."")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,758,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Linia wyzerowana."")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,763,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono ostatni stan bazowy."")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,810,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,859,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,904,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, status: str | None = None) -> None:"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,930,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wybrano punkt {idx}."")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,935,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""PAN linii."")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,960,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Gotowy."")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,967,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Dodano punkt."")"
+modes/editor/editor/EHR/tarzanAxisSandbox.py,975,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Usunięto punkt."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,704,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.canvas.delete(""all"")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1243,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"canvas.delete(""all"")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1411,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self.after_idle(self._refresh_all)
+modes/editor/editor/EHR/tarzanEhrUi.py,1411,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.after_idle(self._refresh_all)
+modes/editor/editor/EHR/tarzanEhrUi.py,1657,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano ustawienia osi."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1666,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano strojenie STEP."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1677,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano parametry mechaniki: {mechanics.axis_name}."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1770,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano ustawienia osi: {path}"")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1807,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano preset TXT: {path}"")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1818,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono domyślne parametry STEP."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1828,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Sinus test ustawiony."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1838,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Negative test ustawiony."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1848,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zero cross test ustawiony."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1858,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Linia wyzerowana."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1867,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono ostatni stan bazowy."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1891,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/editor/EHR/tarzanEhrUi.py,1958,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/editor/EHR/tarzanEhrUi.py,2017,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,@profile_method('EHR_AXIS_DIALOG._refresh_all')
+modes/editor/editor/EHR/tarzanEhrUi.py,2018,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, status: str | None = None) -> None:"
+modes/editor/editor/EHR/tarzanEhrUi.py,2095,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Gotowy."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,2107,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Dodano punkt."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,2120,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Usunięto punkt."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,2211,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self.after_idle(self._refresh_all)
+modes/editor/editor/EHR/tarzanEhrUi.py,2211,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self.after_idle(self._refresh_all)
+modes/editor/editor/EHR/tarzanEhrUi.py,2366,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=True, status=status)"
+modes/editor/editor/EHR/tarzanEhrUi.py,2395,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,dlg._refresh_all()
+modes/editor/editor/EHR/tarzanEhrUi.py,2396,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=False, status=""Zastosowano ustawienia MAIN TAKE."")"
+modes/editor/editor/EHR/tarzanEhrUi.py,2509,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self._refresh_all(
+modes/editor/editor/EHR/tarzanEhrUi.py,2520,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","self._configure_after_id = self.after(40, self._flush_configure_refresh)"
+modes/editor/editor/EHR/tarzanEhrUi.py,2683,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/editor/EHR/tarzanEhrUi.py,2960,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,@profile_method('EHR_MAIN._refresh_all')
+modes/editor/editor/EHR/tarzanEhrUi.py,2961,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, light: bool = False, status: str | None = None) -> None:"
+modes/editor/editor/EHR/tarzanEhrUi.py,3029,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=True, status=None)"
+modes/editor/editor/EHR/tarzanEhrUi.py,3232,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(light=False, status=f""Wczytano TAKE TXT: {path.name}"")"
+modes/editor/editor/TarzanEhrTakeSandbox.py,545,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.canvas.delete(""all"")"
+modes/editor/editor/TarzanTakeProtocolLight.py,35,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,# - nie używa _refresh_all.
+modes/editor/editor/TarzanTakeProtocolLight.py,852,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self.canvas.delete(""all"")"
+modes/editor/editor/tarzanAxisSandbox.py,534,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self._refresh_all()
+modes/editor/editor/tarzanAxisSandbox.py,595,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""VIEW Y SCALE"", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)"
+modes/editor/editor/tarzanAxisSandbox.py,596,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""MOUSE PRECISION"", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)"
+modes/editor/editor/tarzanAxisSandbox.py,597,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""TOP/BOTTOM MARGIN"", self.top_bottom_margin, 8, 60, 1, self._refresh_all)"
+modes/editor/editor/tarzanAxisSandbox.py,703,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano strojenie STEP."")"
+modes/editor/editor/tarzanAxisSandbox.py,710,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano parametry mechaniki: {mechanics.axis_name}."")"
+modes/editor/editor/tarzanAxisSandbox.py,732,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano preset TXT: {path}"")"
+modes/editor/editor/tarzanAxisSandbox.py,738,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono domyślne parametry STEP."")"
+modes/editor/editor/tarzanAxisSandbox.py,743,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Sinus test ustawiony."")"
+modes/editor/editor/tarzanAxisSandbox.py,748,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Negative test ustawiony."")"
+modes/editor/editor/tarzanAxisSandbox.py,753,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zero cross test ustawiony."")"
+modes/editor/editor/tarzanAxisSandbox.py,758,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Linia wyzerowana."")"
+modes/editor/editor/tarzanAxisSandbox.py,763,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono ostatni stan bazowy."")"
+modes/editor/editor/tarzanAxisSandbox.py,810,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/editor/tarzanAxisSandbox.py,878,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/editor/tarzanAxisSandbox.py,923,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, status: str | None = None) -> None:"
+modes/editor/editor/tarzanAxisSandbox.py,949,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wybrano punkt {idx}."")"
+modes/editor/editor/tarzanAxisSandbox.py,954,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""PAN linii."")"
+modes/editor/editor/tarzanAxisSandbox.py,979,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Gotowy."")"
+modes/editor/editor/tarzanAxisSandbox.py,986,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Dodano punkt."")"
+modes/editor/editor/tarzanAxisSandbox.py,994,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Usunięto punkt."")"
+modes/editor/tarzanAxisSandbox.py,534,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,self._refresh_all()
+modes/editor/tarzanAxisSandbox.py,595,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""VIEW Y SCALE"", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)"
+modes/editor/tarzanAxisSandbox.py,596,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""MOUSE PRECISION"", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)"
+modes/editor/tarzanAxisSandbox.py,597,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._scale_row(box, ""TOP/BOTTOM MARGIN"", self.top_bottom_margin, 8, 60, 1, self._refresh_all)"
+modes/editor/tarzanAxisSandbox.py,703,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zastosowano strojenie STEP."")"
+modes/editor/tarzanAxisSandbox.py,710,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano parametry mechaniki: {mechanics.axis_name}."")"
+modes/editor/tarzanAxisSandbox.py,732,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wczytano preset TXT: {path}"")"
+modes/editor/tarzanAxisSandbox.py,738,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono domyślne parametry STEP."")"
+modes/editor/tarzanAxisSandbox.py,743,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Sinus test ustawiony."")"
+modes/editor/tarzanAxisSandbox.py,748,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Negative test ustawiony."")"
+modes/editor/tarzanAxisSandbox.py,753,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Zero cross test ustawiony."")"
+modes/editor/tarzanAxisSandbox.py,758,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Linia wyzerowana."")"
+modes/editor/tarzanAxisSandbox.py,763,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Przywrócono ostatni stan bazowy."")"
+modes/editor/tarzanAxisSandbox.py,810,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/tarzanAxisSandbox.py,878,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/tarzanAxisSandbox.py,923,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"def _refresh_all(self, status: str | None = None) -> None:"
+modes/editor/tarzanAxisSandbox.py,949,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(f""Wybrano punkt {idx}."")"
+modes/editor/tarzanAxisSandbox.py,954,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""PAN linii."")"
+modes/editor/tarzanAxisSandbox.py,979,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Gotowy."")"
+modes/editor/tarzanAxisSandbox.py,986,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Dodano punkt."")"
+modes/editor/tarzanAxisSandbox.py,994,refresh_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"self._refresh_all(""Usunięto punkt."")"
+modes/editor/tarzanKHR.py,611,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/tarzanKHR.py,950,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_input()
+modes/editor/tarzanKHR.py,991,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_input()
+modes/editor/tarzanKHR.py,1094,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_input()
+modes/editor/tarzanKHR.py,1158,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_input()
+modes/editor/tarzanKHR.py,1161,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","self.after(self._camera_preview_refresh_ms, self._camera_preview_loop)"
+modes/editor/tarzanKHR.py,1372,after_refresh,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","self.after(self._ui_refresh_ms, self._ui_loop)"
+modes/editor/tarzanKHR.py,1434,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_input()
+modes/editor/tarzanKHR.py,1435,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_khr()
+modes/editor/tarzanKHR.py,1436,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_output()
+modes/editor/tarzanKHR.py,1438,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","@khr_profiled(""KHR_UI._draw_input"")"
+modes/editor/tarzanKHR.py,1439,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _draw_input(self) -> None:
+modes/editor/tarzanKHR.py,1441,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/tarzanKHR.py,1444,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",self._draw_camera_input()
+modes/editor/tarzanKHR.py,1476,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","@khr_profiled(""KHR_UI._draw_camera_input"")"
+modes/editor/tarzanKHR.py,1477,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _draw_camera_input(self) -> None:
+modes/editor/tarzanKHR.py,1558,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","@khr_profiled(""KHR_UI._draw_khr"")"
+modes/editor/tarzanKHR.py,1559,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _draw_khr(self) -> None:
+modes/editor/tarzanKHR.py,1561,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"
+modes/editor/tarzanKHR.py,1582,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER","@khr_profiled(""KHR_UI._draw_output"")"
+modes/editor/tarzanKHR.py,1583,draw_khr,"ROZDZIELIĆ: STRUKTURA = RENDER, WARTOŚĆ/STATUS = TARZAN_SNAJPER",def _draw_output(self) -> None:
+modes/editor/tarzanKHR.py,1585,canvas_delete_all,ZOSTAWIĆ TYLKO DLA STRUKTURY; WARTOŚCI/POZYCJE ZASTĄPIĆ TARZAN_SNAJPER,"c.delete(""all"")"

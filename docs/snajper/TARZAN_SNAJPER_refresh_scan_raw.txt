@@ -1,0 +1,1328 @@
+editor/editor/EHR/tarzanAxisSandbox.py:534:        self._refresh_all()    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:595:        self._scale_row(box, "VIEW Y SCALE", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:596:        self._scale_row(box, "MOUSE PRECISION", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:597:        self._scale_row(box, "TOP/BOTTOM MARGIN", self.top_bottom_margin, 8, 60, 1, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:703:        self._refresh_all("Zastosowano strojenie STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:710:        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:732:        self._refresh_all(f"Wczytano preset TXT: {path}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:738:        self._refresh_all("Przywrócono domyślne parametry STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:743:        self._refresh_all("Sinus test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:748:        self._refresh_all("Negative test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:753:        self._refresh_all("Zero cross test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:758:        self._refresh_all("Linia wyzerowana.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:763:        self._refresh_all("Przywrócono ostatni stan bazowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:808:    def _draw_curve(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanAxisSandbox.py:810:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/editor/EHR/tarzanAxisSandbox.py:857:    def _draw_step(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanAxisSandbox.py:859:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/editor/EHR/tarzanAxisSandbox.py:885:    def _refresh_metrics(self) -> None:    # DO OCENY
+editor/editor/EHR/tarzanAxisSandbox.py:904:    def _refresh_all(self, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:906:        self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanAxisSandbox.py:907:        self._refresh_metrics()    # DO OCENY
+editor/editor/EHR/tarzanAxisSandbox.py:908:        self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanAxisSandbox.py:930:            self._refresh_all(f"Wybrano punkt {idx}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:935:        self._refresh_all("PAN linii.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:947:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanAxisSandbox.py:954:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanAxisSandbox.py:960:        self._refresh_all("Gotowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:967:        self._refresh_all("Dodano punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanAxisSandbox.py:975:        self._refresh_all("Usunięto punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:704:        self.canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/editor/EHR/tarzanEhrUi.py:719:            self._draw_save_button(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:721:            self._draw_action(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:723:    def _draw_action(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:737:    def _draw_save_button(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:945:    def _refresh_slot(self, index: int) -> None:    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:950:    def _refresh_slots(self, indices: list[int]) -> None:    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:953:            self._refresh_slot(index)    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:996:        self._refresh_slot(index)    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:1031:                self._refresh_slots(changed)    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:1035:        self._refresh_slots(changed)    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:1057:        self._refresh_slot(index)    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:1066:                self._refresh_slot(index)    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:1243:            canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/editor/EHR/tarzanEhrUi.py:1406:        self._curve_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:1411:        self.after_idle(self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:1657:        self._refresh_all("Zastosowano ustawienia osi.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:1666:        self._refresh_all("Zastosowano strojenie STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:1677:        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:1770:        self._refresh_all(f"Wczytano ustawienia osi: {path}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:1807:        self._refresh_all(f"Wczytano preset TXT: {path}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:1818:        self._refresh_all("Przywrócono domyślne parametry STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:1828:        self._refresh_all("Sinus test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:1838:        self._refresh_all("Negative test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:1848:        self._refresh_all("Zero cross test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:1858:        self._refresh_all("Linia wyzerowana.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:1867:        self._refresh_all("Przywrócono ostatni stan bazowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:1870:    def _refresh_metrics(self) -> None:    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:1889:    def _draw_curve(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:1891:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/editor/EHR/tarzanEhrUi.py:1956:    def _draw_step(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:1958:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/editor/EHR/tarzanEhrUi.py:1989:        if self._curve_redraw_after_id is not None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:1991:        self._curve_redraw_after_id = self.after(16, self._flush_curve_redraw)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:1994:        self._curve_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:1996:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2017:    @profile_method('EHR_AXIS_DIALOG._refresh_all')    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:2018:    def _refresh_all(self, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:2023:            self._refresh_metrics()    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2025:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2028:            self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2095:        self._refresh_all("Gotowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:2107:        self._refresh_all("Dodano punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:2120:        self._refresh_all("Usunięto punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:2192:        self._main_canvas_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2211:        self.after_idle(self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:2366:        self._refresh_all(light=True, status=status)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:2395:                dlg._refresh_all()    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:2396:        self._refresh_all(light=False, status="Zastosowano ustawienia MAIN TAKE.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:2403:    def _refresh_axis_context(    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2407:        refresh_axis_info: bool = False,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2408:        refresh_protocol: bool = False,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2411:        redraw_canvas: bool = True,    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2413:        if redraw_canvas:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2415:        if refresh_axis_info and (force_axis_info or self._axis_info_dirty):    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2416:            self._refresh_axis_info(force=force_axis_info)    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2417:        if refresh_protocol and (force_protocol or self._protocol_dirty or self.protocol_cache_key is None):    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2418:            self._refresh_protocol_preview(force=force_protocol)    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2509:        self._refresh_all(    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:2514:    def _schedule_configure_refresh(self) -> None:    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2520:        self._configure_after_id = self.after(40, self._flush_configure_refresh)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/editor/EHR/tarzanEhrUi.py:2522:    def _flush_configure_refresh(self) -> None:    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2657:    @profile_method('EHR_MAIN._draw_main_canvas')    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2658:    def _draw_main_canvas(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2659:        if not hasattr(self, "_last_canvas_draw_key"):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2660:            self._last_canvas_draw_key = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2663:        current_draw_key = (    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2678:        if current_draw_key == self._last_canvas_draw_key and not self._main_canvas_needs_redraw:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2681:        self._last_canvas_draw_key = current_draw_key    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2683:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/editor/EHR/tarzanEhrUi.py:2819:        self._schedule_configure_refresh()    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2821:    @profile_method('EHR_MAIN._refresh_axis_info')    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2822:    def _refresh_axis_info(self, force: bool = False) -> None:    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2850:    @profile_method('EHR_MAIN._refresh_protocol_preview')    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2851:    def _refresh_protocol_preview(self, force: bool = False) -> None:    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2923:        if self._main_canvas_redraw_after_id is not None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2925:        self._main_canvas_redraw_after_id = self.after(16, self._flush_main_canvas_redraw)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2928:        self._main_canvas_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2930:            self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2951:    def _refresh_light_ui(self, status: str | None = None, refresh_axis_info: bool = False, refresh_protocol: bool = False) -> None:    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2952:        self._refresh_axis_context(    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2954:            refresh_axis_info=refresh_axis_info,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2955:            refresh_protocol=refresh_protocol,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2956:            force_axis_info=refresh_axis_info,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2957:            force_protocol=refresh_protocol,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2960:    @profile_method('EHR_MAIN._refresh_all')    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:2961:    def _refresh_all(self, light: bool = False, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:2963:            self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/EHR/tarzanEhrUi.py:2968:                self._refresh_axis_info(force=False)    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2978:            self._refresh_axis_info(force=False)    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2981:            self._refresh_protocol_preview(force=False)    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2990:            self._refresh_light_ui(    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2992:                refresh_axis_info=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:2993:                refresh_protocol=axis_changed,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3000:            self._refresh_light_ui(    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3002:                refresh_axis_info=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3003:                refresh_protocol=axis_changed,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3007:        self._refresh_light_ui(    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3009:            refresh_axis_info=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3010:            refresh_protocol=axis_changed,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3029:            self._refresh_all(light=True, status=None)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/EHR/tarzanEhrUi.py:3110:            self._refresh_axis_context(    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3112:                refresh_axis_info=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3113:                refresh_protocol=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3135:                self._refresh_axis_context(    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3137:                    refresh_axis_info=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3138:                    refresh_protocol=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3151:        self._refresh_axis_context(    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3153:            refresh_axis_info=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3154:            refresh_protocol=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3173:        self._refresh_axis_context(    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3175:            refresh_axis_info=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3176:            refresh_protocol=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3189:        self._refresh_axis_context(    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3191:            refresh_axis_info=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3192:            refresh_protocol=True,    # DO OCENY
+editor/editor/EHR/tarzanEhrUi.py:3232:        self._refresh_all(light=False, status=f"Wczytano TAKE TXT: {path.name}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:534:        self._refresh_all()    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:595:        self._scale_row(box, "VIEW Y SCALE", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:596:        self._scale_row(box, "MOUSE PRECISION", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:597:        self._scale_row(box, "TOP/BOTTOM MARGIN", self.top_bottom_margin, 8, 60, 1, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:703:        self._refresh_all("Zastosowano strojenie STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:710:        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:732:        self._refresh_all(f"Wczytano preset TXT: {path}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:738:        self._refresh_all("Przywrócono domyślne parametry STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:743:        self._refresh_all("Sinus test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:748:        self._refresh_all("Negative test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:753:        self._refresh_all("Zero cross test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:758:        self._refresh_all("Linia wyzerowana.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:763:        self._refresh_all("Przywrócono ostatni stan bazowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:808:    def _draw_curve(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/tarzanAxisSandbox.py:810:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/editor/tarzanAxisSandbox.py:876:    def _draw_step(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/tarzanAxisSandbox.py:878:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/editor/tarzanAxisSandbox.py:904:    def _refresh_metrics(self) -> None:    # DO OCENY
+editor/editor/tarzanAxisSandbox.py:923:    def _refresh_all(self, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:925:        self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/tarzanAxisSandbox.py:926:        self._refresh_metrics()    # DO OCENY
+editor/editor/tarzanAxisSandbox.py:927:        self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/tarzanAxisSandbox.py:949:            self._refresh_all(f"Wybrano punkt {idx}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:954:        self._refresh_all("PAN linii.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:966:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/tarzanAxisSandbox.py:973:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/tarzanAxisSandbox.py:979:        self._refresh_all("Gotowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:986:        self._refresh_all("Dodano punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/tarzanAxisSandbox.py:994:        self._refresh_all("Usunięto punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/TarzanEhrTakeSandbox.py:545:        self.canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/editor/TarzanEhrTakeSandbox.py:560:            self._draw_save_button(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/TarzanEhrTakeSandbox.py:563:            self._draw_action(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/TarzanEhrTakeSandbox.py:565:    def _draw_action(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/TarzanEhrTakeSandbox.py:578:    def _draw_save_button(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/TarzanEhrTakeSandbox.py:977:        self._refresh_slot(idx)    # DO OCENY
+editor/editor/TarzanEhrTakeSandbox.py:1000:            self._refresh_slot(old_active)    # DO OCENY
+editor/editor/TarzanEhrTakeSandbox.py:1001:        self._refresh_slot(idx)    # DO OCENY
+editor/editor/TarzanEhrTakeSandbox.py:1009:        self._refresh_slot(idx)    # DO OCENY
+editor/editor/TarzanEhrTakeSandbox.py:1024:                self._refresh_slot(idx)    # DO OCENY
+editor/editor/TarzanEhrTakeSandbox.py:1046:    def _refresh_slot(self, idx: int) -> None:    # DO OCENY
+editor/editor/TarzanTakeProtocolLight.py:35:# - nie używa _refresh_all.    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/editor/TarzanTakeProtocolLight.py:852:        self.canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/editor/TarzanTakeProtocolLight.py:867:            self._draw_save_button(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/TarzanTakeProtocolLight.py:869:            self._draw_action(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/TarzanTakeProtocolLight.py:871:    def _draw_action(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/TarzanTakeProtocolLight.py:893:    def _draw_save_button(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/editor/TarzanTakeProtocolLight.py:1157:        Później działamy już tylko przez _refresh_slot(...).    # DO OCENY
+editor/editor/TarzanTakeProtocolLight.py:1185:    def _refresh_slot(self, index: int) -> None:    # DO OCENY
+editor/editor/TarzanTakeProtocolLight.py:1194:    def _refresh_slots(self, indices: list[int]) -> None:    # DO OCENY
+editor/editor/TarzanTakeProtocolLight.py:1201:            self._refresh_slot(index)    # DO OCENY
+editor/editor/TarzanTakeProtocolLight.py:1262:        self._refresh_slot(index)    # DO OCENY
+editor/editor/TarzanTakeProtocolLight.py:1298:        self._refresh_slots(changed)    # DO OCENY
+editor/editor/TarzanTakeProtocolLight.py:1317:        self._refresh_slot(index)    # DO OCENY
+editor/editor/TarzanTakeProtocolLight.py:1336:                self._refresh_slot(index)    # DO OCENY
+editor/EHR/tarzanAxisSandbox.py:535:        self._refresh_all()    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:596:        self._scale_row(box, "VIEW Y SCALE", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:597:        self._scale_row(box, "MOUSE PRECISION", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:598:        self._scale_row(box, "TOP/BOTTOM MARGIN", self.top_bottom_margin, 8, 60, 1, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:704:        self._refresh_all("Zastosowano strojenie STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:711:        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:733:        self._refresh_all(f"Wczytano preset TXT: {path}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:739:        self._refresh_all("Przywrócono domyślne parametry STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:744:        self._refresh_all("Sinus test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:749:        self._refresh_all("Negative test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:754:        self._refresh_all("Zero cross test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:759:        self._refresh_all("Linia wyzerowana.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:764:        self._refresh_all("Przywrócono ostatni stan bazowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:809:    def _draw_curve(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanAxisSandbox.py:811:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/EHR/tarzanAxisSandbox.py:858:    def _draw_step(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanAxisSandbox.py:860:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/EHR/tarzanAxisSandbox.py:886:    def _refresh_metrics(self) -> None:    # DO OCENY
+editor/EHR/tarzanAxisSandbox.py:905:    def _refresh_all(self, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:907:        self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanAxisSandbox.py:908:        self._refresh_metrics()    # DO OCENY
+editor/EHR/tarzanAxisSandbox.py:909:        self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanAxisSandbox.py:931:            self._refresh_all(f"Wybrano punkt {idx}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:936:        self._refresh_all("PAN linii.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:948:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanAxisSandbox.py:955:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanAxisSandbox.py:961:        self._refresh_all("Gotowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:968:        self._refresh_all("Dodano punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanAxisSandbox.py:976:        self._refresh_all("Usunięto punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:752:        self.canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/EHR/tarzanEhrUi.py:767:            self._draw_save_button(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:769:            self._draw_action(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:771:    def _draw_action(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:785:    def _draw_save_button(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:993:    def _refresh_slot(self, index: int) -> None:    # DO OCENY
+editor/EHR/tarzanEhrUi.py:998:    def _refresh_slots(self, indices: list[int]) -> None:    # DO OCENY
+editor/EHR/tarzanEhrUi.py:1001:            self._refresh_slot(index)    # DO OCENY
+editor/EHR/tarzanEhrUi.py:1048:        self._refresh_slot(index)    # DO OCENY
+editor/EHR/tarzanEhrUi.py:1083:                self._refresh_slots(changed)    # DO OCENY
+editor/EHR/tarzanEhrUi.py:1087:        self._refresh_slots(changed)    # DO OCENY
+editor/EHR/tarzanEhrUi.py:1109:        self._refresh_slot(index)    # DO OCENY
+editor/EHR/tarzanEhrUi.py:1118:                self._refresh_slot(index)    # DO OCENY
+editor/EHR/tarzanEhrUi.py:1299:            canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/EHR/tarzanEhrUi.py:1467:        self._curve_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:1473:        self._refresh_all(reason="INIT")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:1718:        self.master_window._refresh_all(light=False)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:1725:        self._refresh_curve_only("Zastosowano ustawienia wizualne (tylko krzywa).")    # DO OCENY
+editor/EHR/tarzanEhrUi.py:1731:        self._step_tuning_after_id = self.after(100, self._flush_step_tuning_live)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/EHR/tarzanEhrUi.py:1741:        self._refresh_all("Zastosowano strojenie STEP.", reason="STEP_TUNING_LIVE")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:1753:        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.", reason="MECHANICS_PRESET")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:1847:        self._refresh_all(f"Wczytano ustawienia osi: {path}", reason="LOAD_JSON")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:1884:        self._refresh_all(f"Wczytano preset TXT: {path}", reason="LOAD_TUNING_TXT")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:1896:        self._refresh_all("Przywrócono domyślne parametry STEP.", reason="RESET_STEP_TUNING")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:1907:        self._refresh_all("Sinus test ustawiony.", reason="TEST_SINUS")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:1918:        self._refresh_all("Negative test ustawiony.", reason="TEST_NEGATIVE")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:1929:        self._refresh_all("Zero cross test ustawiony.", reason="TEST_ZERO_CROSS")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:1940:        self._refresh_all("Linia wyzerowana.", reason="TEST_FLAT_ZERO")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:1950:        self._refresh_all("Przywrócono ostatni stan bazowy.", reason="RESET_NODES")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:1953:    def _refresh_metrics(self) -> None:    # DO OCENY
+editor/EHR/tarzanEhrUi.py:1972:    def _draw_curve(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:1974:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/EHR/tarzanEhrUi.py:2053:    def _draw_step(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2060:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/EHR/tarzanEhrUi.py:2091:        if self._curve_redraw_after_id is not None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2093:        self._curve_redraw_after_id = self.after(16, self._flush_curve_redraw)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2096:        self._curve_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2098:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2119:    def _refresh_metrics_only(self) -> None:    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2120:        self._refresh_metrics()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2122:    def _refresh_curve_only(self, status: str | None = None) -> None:    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2127:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2132:    def _refresh_step_only(self, status: str | None = None) -> None:    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2134:            self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2144:        self._step_tuning_after_id = self.after(100, self._flush_step_tuning_live)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/EHR/tarzanEhrUi.py:2146:    @profile_method('EHR_AXIS_DIALOG._refresh_all')    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:2147:    def _refresh_all(self, status: str | None = None, reason: str = "unknown") -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:2154:            self._refresh_metrics()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2157:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2161:            self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2333:        self._draw_step() # Wymuszamy natychmiastowe odświeżenie przy release    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2334:        self._refresh_metrics_only()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2348:        self._refresh_metrics_only()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2363:        self._refresh_metrics_only()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2370:        self.master_window._refresh_all(light=False)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:2442:        self._main_canvas_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2464:        self.after_idle(self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:2490:                self.take_widget._refresh_slot(active_idx)    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2732:        self._refresh_all(light=False, status=status)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:2762:                dlg._refresh_all()    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:2763:        self._refresh_all(light=False, status="Zastosowano ustawienia MAIN TAKE.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:2770:    def _refresh_axis_context(    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2774:        refresh_axis_info: bool = False,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2775:        refresh_protocol: bool = False,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2778:        redraw_canvas: bool = True,    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2780:        if redraw_canvas:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2782:        if refresh_axis_info and (force_axis_info or self._axis_info_dirty):    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2783:            self._refresh_axis_info(force=force_axis_info)    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2784:        if refresh_protocol and (force_protocol or self._protocol_dirty or self.protocol_cache_key is None):    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2785:            self._refresh_protocol_preview(force=force_protocol)    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2879:        self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:2880:        self._refresh_protocol_preview()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2881:        self._refresh_axis_info()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2884:    def _schedule_configure_refresh(self) -> None:    # DO OCENY
+editor/EHR/tarzanEhrUi.py:2890:        self._configure_after_id = self.after(40, self._flush_configure_refresh)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/EHR/tarzanEhrUi.py:2892:    def _flush_configure_refresh(self) -> None:    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3037:    @profile_method('EHR_MAIN._draw_main_canvas')    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3038:    def _draw_main_canvas(self, only_axis_index: int | None = None) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3039:        if not hasattr(self, "_last_canvas_draw_key"):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3040:            self._last_canvas_draw_key = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3043:        current_draw_key = (    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3059:            if current_draw_key == self._last_canvas_draw_key and not self._main_canvas_needs_redraw:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3063:            self._last_canvas_draw_key = current_draw_key    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3067:            c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/EHR/tarzanEhrUi.py:3242:        self._schedule_configure_refresh()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3244:    @profile_method('EHR_MAIN._refresh_axis_info')    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3300:    def _refresh_axis_info(self, force: bool = False) -> None:    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3328:    @profile_method('EHR_MAIN._refresh_protocol_preview')    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3329:    def _refresh_protocol_preview(self, force: bool = False) -> None:    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3401:            self._draw_main_canvas(only_axis_index=only_axis_index)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3405:        if self._main_canvas_redraw_after_id is not None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3407:        self._main_canvas_redraw_after_id = self.after(16, self._flush_main_canvas_redraw)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3410:        self._main_canvas_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3412:            self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3433:    def _refresh_light_ui(self, status: str | None = None, refresh_axis_info: bool = False, refresh_protocol: bool = False) -> None:    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3434:        self._refresh_axis_context(    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3436:            refresh_axis_info=refresh_axis_info,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3437:            refresh_protocol=refresh_protocol,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3438:            force_axis_info=refresh_axis_info,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3439:            force_protocol=refresh_protocol,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3442:    @profile_method('EHR_MAIN._refresh_all')    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:3443:    def _refresh_all(self, light: bool = False, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/EHR/tarzanEhrUi.py:3445:            self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3450:                self._refresh_axis_info(force=False)    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3460:            self._refresh_axis_info(force=False)    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3463:            self._refresh_protocol_preview(force=False)    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3472:            self._refresh_light_ui(    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3474:                refresh_axis_info=True,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3475:                refresh_protocol=axis_changed,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3482:            self._refresh_light_ui(    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3484:                refresh_axis_info=True,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3485:                refresh_protocol=axis_changed,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3489:        self._refresh_light_ui(    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3491:            refresh_axis_info=True,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3492:            refresh_protocol=axis_changed,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3526:            self._refresh_axis_context(    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3528:                refresh_axis_info=True,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3529:                refresh_protocol=True,    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3633:                # sort_and_fix_nodes() w _draw_main_canvas zadba o spójność rysowania.    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3704:            self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3705:            self._refresh_protocol_preview()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3706:            self._refresh_axis_info()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3730:                self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3731:                self._refresh_protocol_preview()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3732:                self._refresh_axis_info()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3745:        self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3746:        self._refresh_protocol_preview()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3747:        self._refresh_axis_info()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3769:        self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3770:        self._refresh_protocol_preview()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3771:        self._refresh_axis_info()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3782:        self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3783:        self._refresh_protocol_preview()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3784:        self._refresh_axis_info()    # DO OCENY
+editor/EHR/tarzanEhrUi.py:3823:        self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/EHR/tarzanEhrUi.py:3844:        self._refresh_all(light=False, status=f"Wczytano TAKE TXT: {path.name}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/PAR/tarzanNextionPreview.py:227:    def refresh(self) -> None:    # DO OCENY
+editor/PAR/tarzanNextionPreview.py:354:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanNextionPreview.py:361:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanNextionPreview.py:434:        def draw_axis(x: int, y: int, label: str, key: str) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:438:        draw_axis(350, 132, "CAM H", "axis0")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:439:        draw_axis(350, 184, "CAM V", "axis1")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:440:        draw_axis(350, 236, "ARM H", "axis4")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:441:        draw_axis(575, 132, "FOCUS", "axis3")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:442:        draw_axis(575, 184, "CAM T", "axis2")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:443:        draw_axis(575, 236, "ARM V", "axis5")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:472:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanNextionPreview.py:488:            self._draw_nav_arrows(show_home=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:531:        self._draw_nav_arrows(show_home=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:581:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanNextionPreview.py:598:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanNextionPreview.py:601:        self._draw_home_only()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:611:    def _draw_nav_arrows(self, show_home: bool) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:629:    def _draw_home_only(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:688:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanNextionPreview.py:710:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanNextionPreview.py:720:        self._draw_nav_arrows(show_home=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:772:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanNextionPreview.py:781:        def draw_slider(x: int, y: int, label: str, value: int, hit_key: str) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:794:        def draw_display(x: int, y: int, value: int, label: str) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:803:        def draw_button(x: int, y: int, w: int, h: int, text: str, active: bool, key: str) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:821:        draw_slider(20, 140, "P1", int(state.get("h_p1_sens", 50)), "slider_p1")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:822:        draw_slider(20, 380, "P2", int(state.get("h_p2_sens", 50)), "slider_p2")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:823:        draw_display(420, 140, int(state.get("va_p1_val", 0)), "t_p1_val")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:824:        draw_display(420, 380, int(state.get("va_p2_val", 0)), "t_p2_val")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:826:        draw_button(680, 20, 100, 100, "DIR", bool(state.get("va_p1_dir", 0)), "p1_dir")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:827:        draw_button(680, 260, 100, 100, "DIR", bool(state.get("va_p2_dir", 0)), "p2_dir")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:828:        draw_button(680, 138, 100, 100, "STOP", False, "stop")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:848:            draw_button(x, y, 100, 100, label, active_map.get(key, False), key)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:850:        self._draw_nav_arrows(show_home=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanNextionPreview.py:895:        self._intro_after_id = self.after(max(10, self.intro_frame_ms), _step)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanNextionPreview.py:923:    def _refresh_current_page_view(self) -> None:    # DO OCENY
+editor/PAR/tarzanNextionPreview.py:939:        # refresh() zostanie wywołany przez TarzanParApp.nextion_tick()     # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParApp.py:230:        self.after(50, self.nextion_tick)    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParApp.py:231:        self.after(200, self.tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParApp.py:549:    def refresh(self):    # DO OCENY
+editor/PAR/tarzanParApp.py:939:                   fg=COLORS["text"], insertbackground=COLORS["text"], command=lambda: draw_preview() if "draw_preview" in locals() else None).grid(row=2, column=1, sticky="w", padx=8)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:988:                refresh_zone_buttons()    # DO OCENY
+editor/PAR/tarzanParApp.py:992:            refresh_zone_buttons()    # DO OCENY
+editor/PAR/tarzanParApp.py:993:            draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:997:        def refresh_zone_buttons():    # DO OCENY
+editor/PAR/tarzanParApp.py:1046:            draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1123:                    draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1130:                               command=draw_preview).pack(side="left")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1135:                opt = tk.OptionMenu(row, data["zone"], *zone_map.keys(), command=lambda _=None: draw_preview())    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1150:                    command=draw_preview,    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1153:                col_spin.bind("<KeyRelease>", lambda _event: draw_preview())    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1165:                    command=draw_preview,    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1168:                row_spin.bind("<KeyRelease>", lambda _event: draw_preview())    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1189:                        draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1225:        def draw_preview(*_):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1226:            canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParApp.py:1590:                draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1601:                draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1628:                draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1648:                draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1698:                draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1722:            draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1743:            draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1754:            draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1776:            draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1828:                draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1848:        refresh_zone_buttons()    # DO OCENY
+editor/PAR/tarzanParApp.py:1849:        win.after(200, draw_preview)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1850:        win.after(800, draw_preview)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParApp.py:1897:    @profile_method("PAR_APP.nextion_tick")    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParApp.py:1898:    def nextion_tick(self):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParApp.py:1902:            if hasattr(self.panels, "nextion_refresh_previews"):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParApp.py:1903:                self.panels.nextion_refresh_previews()    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParApp.py:1907:        self.after(50, self.nextion_tick)    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParApp.py:1925:        self.after(200, self.tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParPanels.py:182:        self.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels.py:254:        self._last_rrp_refresh_rev = None    # DO OCENY
+editor/PAR/tarzanParPanels.py:358:                    self._register_signal_proxy(sig, lambda v, k=key: self.refresh_axis_card(k))    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels.py:404:        self.refresh_axis_cards()    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels.py:407:    def refresh_axis_cards(self):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels.py:409:            self.refresh_axis_card(axis)    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels.py:411:    def refresh_axis_card(self, axis: str):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels.py:496:                can.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels.py:554:                            state["after_id"] = self.app.after(delay, gen_tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParPanels.py:557:                    state["after_id"] = self.app.after(50, gen_tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParPanels.py:559:                    state["after_id"] = self.app.after(200, gen_tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParPanels.py:617:        def draw_section(p_grid, title, ds, cs, extras, opts):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:655:                can.delete("all"); cx, cy, r = 40, 40, 30    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels.py:705:            b = draw_section(grid, t, ds, cs, ex, op)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:823:            canvas.delete("all"); cx, cy = w//2, h//2    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels.py:899:            can.delete("all"); can.create_rectangle(14, 5, 24, h-5, fill=COLORS["green"], outline="#063c0a")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels.py:916:        def draw_bolt(v):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:917:            can.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels.py:925:        draw_bolt(self.bus.get(sig, 0))    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:930:            draw_bolt(nv)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:933:        self._register_signal_proxy(sig, draw_bolt)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:1070:            self.app.after(i * 15, lambda: [self.bus.force_signal(n, 1, source="PAR_MANUAL") for n in b.get("step", [])])    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParPanels.py:1071:            self.app.after(i * 15 + 7, lambda: [self.bus.force_signal(n, 0, source="PAR_MANUAL") for n in b.get("step", [])])    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParPanels.py:1076:            self.app.after(delay_ms, lambda name=n: self.bus.force_signal(name, 0, source=src))    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParPanels.py:1228:                if now - getattr(self, "_last_axis_card_refresh", 0) > 0.1: # max 10 FPS dla kart osi (oszczędność CPU)    # DO OCENY
+editor/PAR/tarzanParPanels.py:1229:                    self._last_axis_card_refresh = now    # DO OCENY
+editor/PAR/tarzanParPanels.py:1230:                    self.refresh_axis_cards()    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels.py:1244:        self.timeline_canvas.bind("<Configure>", lambda e: self.draw_timeline())    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:1245:        self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:1250:            self._timeline_after_id = self.app.after(_TIMELINE_DEBOUNCE_MS, self._do_draw_timeline)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:1252:    def _do_draw_timeline(self):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:1254:        self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:1278:    def draw_timeline(self):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:1281:        can.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels.py:1446:            canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels.py:1572:        def draw_cell(r, c):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:1574:            canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels.py:1579:            draw_cell(r, c)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:1593:                draw_cell(r, c)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels.py:1761:    def nextion_refresh_previews(self):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels.py:1766:        if rrp_rev != self._last_rrp_refresh_rev:    # DO OCENY
+editor/PAR/tarzanParPanels.py:1767:            self._last_rrp_refresh_rev = rrp_rev    # DO OCENY
+editor/PAR/tarzanParPanels_old.py:187:        self.refresh_axis_cards()    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels_old.py:680:        canvas.bind("<Configure>", lambda e: self.draw_timeline())    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels_old.py:681:        self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels_old.py:727:                    self.app.after(70, lambda n=name: self.bus.force_signal(n, 0, source="PAR_AXIS_STEP"))    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParPanels_old.py:735:        self.refresh_axis_cards()    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels_old.py:738:    def refresh_axis_cards(self):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels_old.py:755:    def draw_timeline(self):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels_old.py:759:        canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels_old.py:1044:        led.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels_old.py:1111:        canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels_old.py:1213:    def draw_cell(r, c):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels_old.py:1215:        canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels_old.py:1220:        draw_cell(r, c)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels_old.py:1234:            draw_cell(r, c)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels_old.py:1310:        canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels_old.py:1343:        self.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels_old.py:1459:            self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels_old.py:1469:            self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels_old.py:1474:        self._timeline_after_id = app.after(_TIMELINE_DEBOUNCE_MS, _do_redraw)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParPanels_old.py:1497:        command=lambda: (self.bus.history.clear(), self.draw_timeline()),    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels_old.py:1504:    self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels_old.py:1508:def _par_draw_timeline_final(self):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels_old.py:1512:    canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels_old.py:1649:def _par_refresh_axis_cards_final(self):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels_old.py:1730:                self.app.after(70, lambda n=name: self.bus.force_signal(n, 0, source="PAR_AXIS_STEP"))    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParPanels_old.py:1734:        self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParPanels_old.py:1780:        canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels_old.py:1964:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels_old.py:2158:            self.app.after(delay_ms, lambda n=name, s=source: self.bus.force_signal(n, 0, source=s))    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParPanels_old.py:2209:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels_old.py:2385:def _tarzan_refresh_axis_cards_final_v2(self):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels_old.py:2386:    _par_refresh_axis_cards_final(self)    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels_old.py:2470:            canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParPanels_old.py:2507:            state["after_id"] = self.app.after(delay_ms, generator_tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParPanels_old.py:3184:TarzanParPanels.refresh_axis_cards = _tarzan_refresh_axis_cards_final_v2    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+editor/PAR/tarzanParPanels_old.py:3188:TarzanParPanels.draw_timeline = _par_draw_timeline_final    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParTakePlayer.py:5:- PLAY działa przez Tkinter app.after(CZAS_PROBKOWANIA_MS),    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParTakePlayer.py:145:            self.bus.log("TAKE", "PLAY zablokowany: brak app.after()")    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParTakePlayer.py:155:        self._cancel_after()    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParTakePlayer.py:160:        self._cancel_after()    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParTakePlayer.py:171:        self._after_id = self._after(delay, self._tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParTakePlayer.py:173:    def _cancel_after(self) -> None:    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParWidgets.py:54:        self.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParWidgets.py:83:        self.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParWidgets.py:227:        self._draw_motor(active=False)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParWidgets.py:278:        self._hold_after_id = self.after(140, self._do_manual_step)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParWidgets.py:284:    def _draw_motor(self, active: bool = False):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParWidgets.py:287:            c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/PAR/tarzanParWidgets.py:311:        self._draw_motor(active=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParWidgets.py:332:        self._motor_idle_after = self.after(180, self._motor_idle)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/PAR/tarzanParWidgets.py:337:            self._draw_motor(active=False)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/PAR/tarzanParWidgets.py:353:            self._draw_motor(active=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanAxisSandbox.py:534:        self._refresh_all()    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:595:        self._scale_row(box, "VIEW Y SCALE", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:596:        self._scale_row(box, "MOUSE PRECISION", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:597:        self._scale_row(box, "TOP/BOTTOM MARGIN", self.top_bottom_margin, 8, 60, 1, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:703:        self._refresh_all("Zastosowano strojenie STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:710:        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:732:        self._refresh_all(f"Wczytano preset TXT: {path}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:738:        self._refresh_all("Przywrócono domyślne parametry STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:743:        self._refresh_all("Sinus test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:748:        self._refresh_all("Negative test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:753:        self._refresh_all("Zero cross test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:758:        self._refresh_all("Linia wyzerowana.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:763:        self._refresh_all("Przywrócono ostatni stan bazowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:808:    def _draw_curve(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanAxisSandbox.py:810:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/tarzanAxisSandbox.py:876:    def _draw_step(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanAxisSandbox.py:878:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/tarzanAxisSandbox.py:904:    def _refresh_metrics(self) -> None:    # DO OCENY
+editor/tarzanAxisSandbox.py:923:    def _refresh_all(self, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:925:        self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanAxisSandbox.py:926:        self._refresh_metrics()    # DO OCENY
+editor/tarzanAxisSandbox.py:927:        self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanAxisSandbox.py:949:            self._refresh_all(f"Wybrano punkt {idx}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:954:        self._refresh_all("PAN linii.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:966:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanAxisSandbox.py:973:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanAxisSandbox.py:979:        self._refresh_all("Gotowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:986:        self._refresh_all("Dodano punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/tarzanAxisSandbox.py:994:        self._refresh_all("Usunięto punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/TarzanEhrTakeSandbox.py:545:        self.canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/TarzanEhrTakeSandbox.py:560:            self._draw_save_button(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/TarzanEhrTakeSandbox.py:563:            self._draw_action(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/TarzanEhrTakeSandbox.py:565:    def _draw_action(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/TarzanEhrTakeSandbox.py:578:    def _draw_save_button(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/TarzanEhrTakeSandbox.py:977:        self._refresh_slot(idx)    # DO OCENY
+editor/TarzanEhrTakeSandbox.py:1000:            self._refresh_slot(old_active)    # DO OCENY
+editor/TarzanEhrTakeSandbox.py:1001:        self._refresh_slot(idx)    # DO OCENY
+editor/TarzanEhrTakeSandbox.py:1009:        self._refresh_slot(idx)    # DO OCENY
+editor/TarzanEhrTakeSandbox.py:1024:                self._refresh_slot(idx)    # DO OCENY
+editor/TarzanEhrTakeSandbox.py:1046:    def _refresh_slot(self, idx: int) -> None:    # DO OCENY
+editor/tarzanKHR.py:320:            self._live_apply_after_ids[key] = self.after(120, lambda k=key: self._apply_camera_param_live(k))    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/tarzanKHR.py:530:        self.after(50, self._poll_apply_result)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/tarzanKHR.py:538:            self.after(50, self._poll_apply_result)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/tarzanKHR.py:606:        self._draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:607:        self.after(33, self._preview_loop)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/tarzanKHR.py:609:    def _draw_preview(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:611:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/tarzanKHR.py:704:        self._ui_refresh_ms = 33    # DO OCENY
+editor/tarzanKHR.py:705:        self._camera_preview_refresh_ms = int(self.vision_settings.get("tracking", {}).get("preview", {}).get("ui_refresh_ms", 100))    # DO OCENY
+editor/tarzanKHR.py:745:        self._draw_all()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:748:            self.after(250, self._open_last_camera)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/tarzanKHR.py:950:            self._draw_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:991:            self._draw_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1020:    def _refresh_camera_config_status(self) -> None:    # DO OCENY
+editor/tarzanKHR.py:1067:            self._refresh_camera_config_status()    # DO OCENY
+editor/tarzanKHR.py:1091:            self._refresh_camera_config_status()    # DO OCENY
+editor/tarzanKHR.py:1094:            self._draw_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1158:                self._draw_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1161:        self.after(self._camera_preview_refresh_ms, self._camera_preview_loop)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/tarzanKHR.py:1358:        self.after(self.sample_time_ms, self._loop)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/tarzanKHR.py:1370:        self._draw_all()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1372:        self.after(self._ui_refresh_ms, self._ui_loop)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+editor/tarzanKHR.py:1432:    @khr_profiled("KHR_UI._draw_all")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1433:    def _draw_all(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1434:        self._draw_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1435:        self._draw_khr()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1436:        self._draw_output()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1438:    @khr_profiled("KHR_UI._draw_input")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1439:    def _draw_input(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1441:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/tarzanKHR.py:1444:            self._draw_camera_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1446:            self._draw_manual_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1448:            self._draw_sensor_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1450:            self._draw_test_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1452:    def _draw_test_input(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1458:        self._draw_deadzone_scene(c, cx, cy, w, h, self.object_x, self.object_y, True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1460:    def _draw_sensor_input(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1466:        self._draw_deadzone_scene(c, cx, cy, w, h, self.error_x, 0, True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1468:    def _draw_manual_input(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1476:    @khr_profiled("KHR_UI._draw_camera_input")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1477:    def _draw_camera_input(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1544:    def _draw_deadzone_scene(self, c, cx, cy, w, h, object_x, object_y, visible):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1558:    @khr_profiled("KHR_UI._draw_khr")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1559:    def _draw_khr(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1561:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/tarzanKHR.py:1582:    @khr_profiled("KHR_UI._draw_output")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1583:    def _draw_output(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/tarzanKHR.py:1585:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/TarzanTakeProtocolLight.py:35:# - nie używa _refresh_all.    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+editor/TarzanTakeProtocolLight.py:852:        self.canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+editor/TarzanTakeProtocolLight.py:867:            self._draw_save_button(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/TarzanTakeProtocolLight.py:869:            self._draw_action(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/TarzanTakeProtocolLight.py:871:    def _draw_action(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/TarzanTakeProtocolLight.py:893:    def _draw_save_button(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+editor/TarzanTakeProtocolLight.py:1157:        Później działamy już tylko przez _refresh_slot(...).    # DO OCENY
+editor/TarzanTakeProtocolLight.py:1185:    def _refresh_slot(self, index: int) -> None:    # DO OCENY
+editor/TarzanTakeProtocolLight.py:1194:    def _refresh_slots(self, indices: list[int]) -> None:    # DO OCENY
+editor/TarzanTakeProtocolLight.py:1201:            self._refresh_slot(index)    # DO OCENY
+editor/TarzanTakeProtocolLight.py:1262:        self._refresh_slot(index)    # DO OCENY
+editor/TarzanTakeProtocolLight.py:1298:        self._refresh_slots(changed)    # DO OCENY
+editor/TarzanTakeProtocolLight.py:1317:        self._refresh_slot(index)    # DO OCENY
+editor/TarzanTakeProtocolLight.py:1336:                self._refresh_slot(index)    # DO OCENY
+hardware/tarzanNextion/tarzanNextionSandbox.py:71:        self.after(50, self._tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+hardware/tarzanNextion/tarzanNextionSandbox.py:251:        self.after(50, self._tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+mechanics/tarzanEdytorChoreografiiRuchu.py:97:        self.global_canvas.bind("<Configure>", lambda _e: self._draw_global_timeline())    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+mechanics/tarzanEdytorChoreografiiRuchu.py:224:        self._refresh_tracks()    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:226:        self._refresh_preview_window()    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:285:    def _refresh_tracks(self) -> None:    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:297:        self._draw_global_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+mechanics/tarzanEdytorChoreografiiRuchu.py:298:        self._refresh_preview_window()    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:300:    def _draw_global_timeline(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+mechanics/tarzanEdytorChoreografiiRuchu.py:302:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+mechanics/tarzanEdytorChoreografiiRuchu.py:330:        self._refresh_tracks()    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:345:        self._refresh_tracks()    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:352:        self._refresh_tracks()    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:368:        self._refresh_tracks()    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:372:        self._refresh_tracks()    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:373:        self._refresh_preview_window()    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:393:        self._refresh_tracks()    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:394:        self._refresh_preview_window()    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:465:            self._refresh_preview_window()    # DO OCENY
+mechanics/tarzanEdytorChoreografiiRuchu.py:467:    def _refresh_preview_window(self) -> None:    # DO OCENY
+mechanics/tarzanTakePreviewWindow.py:93:    def refresh(    # DO OCENY
+mechanics/tarzanWykresOsi.py:719:    def _draw_limit_panel(self, result: AxisValidationResult) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+mechanics/tarzanWykresOsi.py:721:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+mechanics/tarzanWykresOsi.py:739:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+mechanics/tarzanWykresOsi.py:745:        self._draw_limit_panel(result)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+mechanics/tarzanWykresOsi.py:1008:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/editor/EHR/tarzanAxisSandbox.py:534:        self._refresh_all()    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:595:        self._scale_row(box, "VIEW Y SCALE", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:596:        self._scale_row(box, "MOUSE PRECISION", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:597:        self._scale_row(box, "TOP/BOTTOM MARGIN", self.top_bottom_margin, 8, 60, 1, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:703:        self._refresh_all("Zastosowano strojenie STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:710:        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:732:        self._refresh_all(f"Wczytano preset TXT: {path}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:738:        self._refresh_all("Przywrócono domyślne parametry STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:743:        self._refresh_all("Sinus test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:748:        self._refresh_all("Negative test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:753:        self._refresh_all("Zero cross test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:758:        self._refresh_all("Linia wyzerowana.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:763:        self._refresh_all("Przywrócono ostatni stan bazowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:808:    def _draw_curve(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanAxisSandbox.py:810:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/editor/EHR/tarzanAxisSandbox.py:857:    def _draw_step(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanAxisSandbox.py:859:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/editor/EHR/tarzanAxisSandbox.py:885:    def _refresh_metrics(self) -> None:    # DO OCENY
+modes/editor/editor/EHR/tarzanAxisSandbox.py:904:    def _refresh_all(self, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:906:        self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanAxisSandbox.py:907:        self._refresh_metrics()    # DO OCENY
+modes/editor/editor/EHR/tarzanAxisSandbox.py:908:        self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanAxisSandbox.py:930:            self._refresh_all(f"Wybrano punkt {idx}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:935:        self._refresh_all("PAN linii.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:947:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanAxisSandbox.py:954:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanAxisSandbox.py:960:        self._refresh_all("Gotowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:967:        self._refresh_all("Dodano punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanAxisSandbox.py:975:        self._refresh_all("Usunięto punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:704:        self.canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/editor/EHR/tarzanEhrUi.py:719:            self._draw_save_button(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:721:            self._draw_action(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:723:    def _draw_action(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:737:    def _draw_save_button(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:945:    def _refresh_slot(self, index: int) -> None:    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:950:    def _refresh_slots(self, indices: list[int]) -> None:    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:953:            self._refresh_slot(index)    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:996:        self._refresh_slot(index)    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:1031:                self._refresh_slots(changed)    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:1035:        self._refresh_slots(changed)    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:1057:        self._refresh_slot(index)    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:1066:                self._refresh_slot(index)    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:1243:            canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/editor/EHR/tarzanEhrUi.py:1406:        self._curve_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:1411:        self.after_idle(self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:1657:        self._refresh_all("Zastosowano ustawienia osi.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:1666:        self._refresh_all("Zastosowano strojenie STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:1677:        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:1770:        self._refresh_all(f"Wczytano ustawienia osi: {path}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:1807:        self._refresh_all(f"Wczytano preset TXT: {path}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:1818:        self._refresh_all("Przywrócono domyślne parametry STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:1828:        self._refresh_all("Sinus test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:1838:        self._refresh_all("Negative test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:1848:        self._refresh_all("Zero cross test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:1858:        self._refresh_all("Linia wyzerowana.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:1867:        self._refresh_all("Przywrócono ostatni stan bazowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:1870:    def _refresh_metrics(self) -> None:    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:1889:    def _draw_curve(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:1891:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/editor/EHR/tarzanEhrUi.py:1956:    def _draw_step(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:1958:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/editor/EHR/tarzanEhrUi.py:1989:        if self._curve_redraw_after_id is not None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:1991:        self._curve_redraw_after_id = self.after(16, self._flush_curve_redraw)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:1994:        self._curve_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:1996:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2017:    @profile_method('EHR_AXIS_DIALOG._refresh_all')    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:2018:    def _refresh_all(self, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:2023:            self._refresh_metrics()    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2025:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2028:            self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2095:        self._refresh_all("Gotowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:2107:        self._refresh_all("Dodano punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:2120:        self._refresh_all("Usunięto punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:2192:        self._main_canvas_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2211:        self.after_idle(self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:2366:        self._refresh_all(light=True, status=status)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:2395:                dlg._refresh_all()    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:2396:        self._refresh_all(light=False, status="Zastosowano ustawienia MAIN TAKE.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:2403:    def _refresh_axis_context(    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2407:        refresh_axis_info: bool = False,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2408:        refresh_protocol: bool = False,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2411:        redraw_canvas: bool = True,    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2413:        if redraw_canvas:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2415:        if refresh_axis_info and (force_axis_info or self._axis_info_dirty):    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2416:            self._refresh_axis_info(force=force_axis_info)    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2417:        if refresh_protocol and (force_protocol or self._protocol_dirty or self.protocol_cache_key is None):    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2418:            self._refresh_protocol_preview(force=force_protocol)    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2509:        self._refresh_all(    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:2514:    def _schedule_configure_refresh(self) -> None:    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2520:        self._configure_after_id = self.after(40, self._flush_configure_refresh)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/editor/EHR/tarzanEhrUi.py:2522:    def _flush_configure_refresh(self) -> None:    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2657:    @profile_method('EHR_MAIN._draw_main_canvas')    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2658:    def _draw_main_canvas(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2659:        if not hasattr(self, "_last_canvas_draw_key"):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2660:            self._last_canvas_draw_key = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2663:        current_draw_key = (    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2678:        if current_draw_key == self._last_canvas_draw_key and not self._main_canvas_needs_redraw:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2681:        self._last_canvas_draw_key = current_draw_key    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2683:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/editor/EHR/tarzanEhrUi.py:2819:        self._schedule_configure_refresh()    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2821:    @profile_method('EHR_MAIN._refresh_axis_info')    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2822:    def _refresh_axis_info(self, force: bool = False) -> None:    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2850:    @profile_method('EHR_MAIN._refresh_protocol_preview')    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2851:    def _refresh_protocol_preview(self, force: bool = False) -> None:    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2923:        if self._main_canvas_redraw_after_id is not None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2925:        self._main_canvas_redraw_after_id = self.after(16, self._flush_main_canvas_redraw)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2928:        self._main_canvas_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2930:            self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2951:    def _refresh_light_ui(self, status: str | None = None, refresh_axis_info: bool = False, refresh_protocol: bool = False) -> None:    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2952:        self._refresh_axis_context(    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2954:            refresh_axis_info=refresh_axis_info,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2955:            refresh_protocol=refresh_protocol,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2956:            force_axis_info=refresh_axis_info,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2957:            force_protocol=refresh_protocol,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2960:    @profile_method('EHR_MAIN._refresh_all')    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:2961:    def _refresh_all(self, light: bool = False, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:2963:            self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/EHR/tarzanEhrUi.py:2968:                self._refresh_axis_info(force=False)    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2978:            self._refresh_axis_info(force=False)    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2981:            self._refresh_protocol_preview(force=False)    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2990:            self._refresh_light_ui(    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2992:                refresh_axis_info=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:2993:                refresh_protocol=axis_changed,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3000:            self._refresh_light_ui(    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3002:                refresh_axis_info=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3003:                refresh_protocol=axis_changed,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3007:        self._refresh_light_ui(    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3009:            refresh_axis_info=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3010:            refresh_protocol=axis_changed,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3029:            self._refresh_all(light=True, status=None)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/EHR/tarzanEhrUi.py:3110:            self._refresh_axis_context(    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3112:                refresh_axis_info=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3113:                refresh_protocol=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3135:                self._refresh_axis_context(    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3137:                    refresh_axis_info=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3138:                    refresh_protocol=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3151:        self._refresh_axis_context(    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3153:            refresh_axis_info=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3154:            refresh_protocol=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3173:        self._refresh_axis_context(    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3175:            refresh_axis_info=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3176:            refresh_protocol=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3189:        self._refresh_axis_context(    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3191:            refresh_axis_info=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3192:            refresh_protocol=True,    # DO OCENY
+modes/editor/editor/EHR/tarzanEhrUi.py:3232:        self._refresh_all(light=False, status=f"Wczytano TAKE TXT: {path.name}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:534:        self._refresh_all()    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:595:        self._scale_row(box, "VIEW Y SCALE", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:596:        self._scale_row(box, "MOUSE PRECISION", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:597:        self._scale_row(box, "TOP/BOTTOM MARGIN", self.top_bottom_margin, 8, 60, 1, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:703:        self._refresh_all("Zastosowano strojenie STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:710:        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:732:        self._refresh_all(f"Wczytano preset TXT: {path}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:738:        self._refresh_all("Przywrócono domyślne parametry STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:743:        self._refresh_all("Sinus test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:748:        self._refresh_all("Negative test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:753:        self._refresh_all("Zero cross test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:758:        self._refresh_all("Linia wyzerowana.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:763:        self._refresh_all("Przywrócono ostatni stan bazowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:808:    def _draw_curve(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/tarzanAxisSandbox.py:810:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/editor/tarzanAxisSandbox.py:876:    def _draw_step(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/tarzanAxisSandbox.py:878:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/editor/tarzanAxisSandbox.py:904:    def _refresh_metrics(self) -> None:    # DO OCENY
+modes/editor/editor/tarzanAxisSandbox.py:923:    def _refresh_all(self, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:925:        self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/tarzanAxisSandbox.py:926:        self._refresh_metrics()    # DO OCENY
+modes/editor/editor/tarzanAxisSandbox.py:927:        self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/tarzanAxisSandbox.py:949:            self._refresh_all(f"Wybrano punkt {idx}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:954:        self._refresh_all("PAN linii.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:966:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/tarzanAxisSandbox.py:973:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/tarzanAxisSandbox.py:979:        self._refresh_all("Gotowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:986:        self._refresh_all("Dodano punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/tarzanAxisSandbox.py:994:        self._refresh_all("Usunięto punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/TarzanEhrTakeSandbox.py:545:        self.canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/editor/TarzanEhrTakeSandbox.py:560:            self._draw_save_button(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/TarzanEhrTakeSandbox.py:563:            self._draw_action(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/TarzanEhrTakeSandbox.py:565:    def _draw_action(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/TarzanEhrTakeSandbox.py:578:    def _draw_save_button(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/TarzanEhrTakeSandbox.py:977:        self._refresh_slot(idx)    # DO OCENY
+modes/editor/editor/TarzanEhrTakeSandbox.py:1000:            self._refresh_slot(old_active)    # DO OCENY
+modes/editor/editor/TarzanEhrTakeSandbox.py:1001:        self._refresh_slot(idx)    # DO OCENY
+modes/editor/editor/TarzanEhrTakeSandbox.py:1009:        self._refresh_slot(idx)    # DO OCENY
+modes/editor/editor/TarzanEhrTakeSandbox.py:1024:                self._refresh_slot(idx)    # DO OCENY
+modes/editor/editor/TarzanEhrTakeSandbox.py:1046:    def _refresh_slot(self, idx: int) -> None:    # DO OCENY
+modes/editor/editor/TarzanTakeProtocolLight.py:35:# - nie używa _refresh_all.    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/editor/TarzanTakeProtocolLight.py:852:        self.canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/editor/TarzanTakeProtocolLight.py:867:            self._draw_save_button(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/TarzanTakeProtocolLight.py:869:            self._draw_action(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/TarzanTakeProtocolLight.py:871:    def _draw_action(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/TarzanTakeProtocolLight.py:893:    def _draw_save_button(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/editor/TarzanTakeProtocolLight.py:1157:        Później działamy już tylko przez _refresh_slot(...).    # DO OCENY
+modes/editor/editor/TarzanTakeProtocolLight.py:1185:    def _refresh_slot(self, index: int) -> None:    # DO OCENY
+modes/editor/editor/TarzanTakeProtocolLight.py:1194:    def _refresh_slots(self, indices: list[int]) -> None:    # DO OCENY
+modes/editor/editor/TarzanTakeProtocolLight.py:1201:            self._refresh_slot(index)    # DO OCENY
+modes/editor/editor/TarzanTakeProtocolLight.py:1262:        self._refresh_slot(index)    # DO OCENY
+modes/editor/editor/TarzanTakeProtocolLight.py:1298:        self._refresh_slots(changed)    # DO OCENY
+modes/editor/editor/TarzanTakeProtocolLight.py:1317:        self._refresh_slot(index)    # DO OCENY
+modes/editor/editor/TarzanTakeProtocolLight.py:1336:                self._refresh_slot(index)    # DO OCENY
+modes/editor/EHR/tarzanAxisSandbox.py:535:        self._refresh_all()    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:596:        self._scale_row(box, "VIEW Y SCALE", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:597:        self._scale_row(box, "MOUSE PRECISION", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:598:        self._scale_row(box, "TOP/BOTTOM MARGIN", self.top_bottom_margin, 8, 60, 1, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:704:        self._refresh_all("Zastosowano strojenie STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:711:        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:733:        self._refresh_all(f"Wczytano preset TXT: {path}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:739:        self._refresh_all("Przywrócono domyślne parametry STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:744:        self._refresh_all("Sinus test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:749:        self._refresh_all("Negative test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:754:        self._refresh_all("Zero cross test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:759:        self._refresh_all("Linia wyzerowana.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:764:        self._refresh_all("Przywrócono ostatni stan bazowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:809:    def _draw_curve(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanAxisSandbox.py:811:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/EHR/tarzanAxisSandbox.py:858:    def _draw_step(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanAxisSandbox.py:860:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/EHR/tarzanAxisSandbox.py:886:    def _refresh_metrics(self) -> None:    # DO OCENY
+modes/editor/EHR/tarzanAxisSandbox.py:905:    def _refresh_all(self, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:907:        self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanAxisSandbox.py:908:        self._refresh_metrics()    # DO OCENY
+modes/editor/EHR/tarzanAxisSandbox.py:909:        self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanAxisSandbox.py:931:            self._refresh_all(f"Wybrano punkt {idx}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:936:        self._refresh_all("PAN linii.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:948:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanAxisSandbox.py:955:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanAxisSandbox.py:961:        self._refresh_all("Gotowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:968:        self._refresh_all("Dodano punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanAxisSandbox.py:976:        self._refresh_all("Usunięto punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:752:        self.canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/EHR/tarzanEhrUi.py:767:            self._draw_save_button(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:769:            self._draw_action(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:771:    def _draw_action(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:785:    def _draw_save_button(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:993:    def _refresh_slot(self, index: int) -> None:    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:998:    def _refresh_slots(self, indices: list[int]) -> None:    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:1001:            self._refresh_slot(index)    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:1048:        self._refresh_slot(index)    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:1083:                self._refresh_slots(changed)    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:1087:        self._refresh_slots(changed)    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:1109:        self._refresh_slot(index)    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:1118:                self._refresh_slot(index)    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:1299:            canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/EHR/tarzanEhrUi.py:1467:        self._curve_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:1473:        self._refresh_all(reason="INIT")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:1718:        self.master_window._refresh_all(light=False)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:1725:        self._refresh_curve_only("Zastosowano ustawienia wizualne (tylko krzywa).")    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:1731:        self._step_tuning_after_id = self.after(100, self._flush_step_tuning_live)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/EHR/tarzanEhrUi.py:1741:        self._refresh_all("Zastosowano strojenie STEP.", reason="STEP_TUNING_LIVE")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:1753:        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.", reason="MECHANICS_PRESET")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:1847:        self._refresh_all(f"Wczytano ustawienia osi: {path}", reason="LOAD_JSON")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:1884:        self._refresh_all(f"Wczytano preset TXT: {path}", reason="LOAD_TUNING_TXT")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:1896:        self._refresh_all("Przywrócono domyślne parametry STEP.", reason="RESET_STEP_TUNING")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:1907:        self._refresh_all("Sinus test ustawiony.", reason="TEST_SINUS")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:1918:        self._refresh_all("Negative test ustawiony.", reason="TEST_NEGATIVE")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:1929:        self._refresh_all("Zero cross test ustawiony.", reason="TEST_ZERO_CROSS")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:1940:        self._refresh_all("Linia wyzerowana.", reason="TEST_FLAT_ZERO")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:1950:        self._refresh_all("Przywrócono ostatni stan bazowy.", reason="RESET_NODES")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:1953:    def _refresh_metrics(self) -> None:    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:1972:    def _draw_curve(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:1974:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/EHR/tarzanEhrUi.py:2053:    def _draw_step(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2060:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/EHR/tarzanEhrUi.py:2091:        if self._curve_redraw_after_id is not None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2093:        self._curve_redraw_after_id = self.after(16, self._flush_curve_redraw)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2096:        self._curve_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2098:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2119:    def _refresh_metrics_only(self) -> None:    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2120:        self._refresh_metrics()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2122:    def _refresh_curve_only(self, status: str | None = None) -> None:    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2127:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2132:    def _refresh_step_only(self, status: str | None = None) -> None:    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2134:            self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2144:        self._step_tuning_after_id = self.after(100, self._flush_step_tuning_live)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/EHR/tarzanEhrUi.py:2146:    @profile_method('EHR_AXIS_DIALOG._refresh_all')    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:2147:    def _refresh_all(self, status: str | None = None, reason: str = "unknown") -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:2154:            self._refresh_metrics()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2157:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2161:            self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2333:        self._draw_step() # Wymuszamy natychmiastowe odświeżenie przy release    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2334:        self._refresh_metrics_only()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2348:        self._refresh_metrics_only()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2363:        self._refresh_metrics_only()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2370:        self.master_window._refresh_all(light=False)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:2442:        self._main_canvas_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2464:        self.after_idle(self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:2490:                self.take_widget._refresh_slot(active_idx)    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2732:        self._refresh_all(light=False, status=status)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:2762:                dlg._refresh_all()    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:2763:        self._refresh_all(light=False, status="Zastosowano ustawienia MAIN TAKE.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:2770:    def _refresh_axis_context(    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2774:        refresh_axis_info: bool = False,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2775:        refresh_protocol: bool = False,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2778:        redraw_canvas: bool = True,    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2780:        if redraw_canvas:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2782:        if refresh_axis_info and (force_axis_info or self._axis_info_dirty):    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2783:            self._refresh_axis_info(force=force_axis_info)    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2784:        if refresh_protocol and (force_protocol or self._protocol_dirty or self.protocol_cache_key is None):    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2785:            self._refresh_protocol_preview(force=force_protocol)    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2879:        self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:2880:        self._refresh_protocol_preview()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2881:        self._refresh_axis_info()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2884:    def _schedule_configure_refresh(self) -> None:    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:2890:        self._configure_after_id = self.after(40, self._flush_configure_refresh)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/EHR/tarzanEhrUi.py:2892:    def _flush_configure_refresh(self) -> None:    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3037:    @profile_method('EHR_MAIN._draw_main_canvas')    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3038:    def _draw_main_canvas(self, only_axis_index: int | None = None) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3039:        if not hasattr(self, "_last_canvas_draw_key"):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3040:            self._last_canvas_draw_key = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3043:        current_draw_key = (    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3059:            if current_draw_key == self._last_canvas_draw_key and not self._main_canvas_needs_redraw:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3063:            self._last_canvas_draw_key = current_draw_key    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3067:            c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/EHR/tarzanEhrUi.py:3242:        self._schedule_configure_refresh()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3244:    @profile_method('EHR_MAIN._refresh_axis_info')    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3300:    def _refresh_axis_info(self, force: bool = False) -> None:    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3328:    @profile_method('EHR_MAIN._refresh_protocol_preview')    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3329:    def _refresh_protocol_preview(self, force: bool = False) -> None:    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3401:            self._draw_main_canvas(only_axis_index=only_axis_index)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3405:        if self._main_canvas_redraw_after_id is not None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3407:        self._main_canvas_redraw_after_id = self.after(16, self._flush_main_canvas_redraw)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3410:        self._main_canvas_redraw_after_id = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3412:            self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3433:    def _refresh_light_ui(self, status: str | None = None, refresh_axis_info: bool = False, refresh_protocol: bool = False) -> None:    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3434:        self._refresh_axis_context(    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3436:            refresh_axis_info=refresh_axis_info,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3437:            refresh_protocol=refresh_protocol,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3438:            force_axis_info=refresh_axis_info,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3439:            force_protocol=refresh_protocol,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3442:    @profile_method('EHR_MAIN._refresh_all')    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:3443:    def _refresh_all(self, light: bool = False, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/EHR/tarzanEhrUi.py:3445:            self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3450:                self._refresh_axis_info(force=False)    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3460:            self._refresh_axis_info(force=False)    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3463:            self._refresh_protocol_preview(force=False)    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3472:            self._refresh_light_ui(    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3474:                refresh_axis_info=True,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3475:                refresh_protocol=axis_changed,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3482:            self._refresh_light_ui(    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3484:                refresh_axis_info=True,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3485:                refresh_protocol=axis_changed,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3489:        self._refresh_light_ui(    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3491:            refresh_axis_info=True,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3492:            refresh_protocol=axis_changed,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3526:            self._refresh_axis_context(    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3528:                refresh_axis_info=True,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3529:                refresh_protocol=True,    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3633:                # sort_and_fix_nodes() w _draw_main_canvas zadba o spójność rysowania.    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3704:            self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3705:            self._refresh_protocol_preview()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3706:            self._refresh_axis_info()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3730:                self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3731:                self._refresh_protocol_preview()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3732:                self._refresh_axis_info()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3745:        self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3746:        self._refresh_protocol_preview()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3747:        self._refresh_axis_info()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3769:        self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3770:        self._refresh_protocol_preview()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3771:        self._refresh_axis_info()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3782:        self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3783:        self._refresh_protocol_preview()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3784:        self._refresh_axis_info()    # DO OCENY
+modes/editor/EHR/tarzanEhrUi.py:3823:        self._draw_main_canvas()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/EHR/tarzanEhrUi.py:3844:        self._refresh_all(light=False, status=f"Wczytano TAKE TXT: {path.name}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/PAR/tarzanNextionPreview.py:227:    def refresh(self) -> None:    # DO OCENY
+modes/editor/PAR/tarzanNextionPreview.py:354:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanNextionPreview.py:361:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanNextionPreview.py:434:        def draw_axis(x: int, y: int, label: str, key: str) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:438:        draw_axis(350, 132, "CAM H", "axis0")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:439:        draw_axis(350, 184, "CAM V", "axis1")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:440:        draw_axis(350, 236, "ARM H", "axis4")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:441:        draw_axis(575, 132, "FOCUS", "axis3")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:442:        draw_axis(575, 184, "CAM T", "axis2")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:443:        draw_axis(575, 236, "ARM V", "axis5")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:472:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanNextionPreview.py:488:            self._draw_nav_arrows(show_home=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:531:        self._draw_nav_arrows(show_home=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:581:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanNextionPreview.py:598:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanNextionPreview.py:601:        self._draw_home_only()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:611:    def _draw_nav_arrows(self, show_home: bool) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:629:    def _draw_home_only(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:688:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanNextionPreview.py:710:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanNextionPreview.py:720:        self._draw_nav_arrows(show_home=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:772:        self.screen_canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanNextionPreview.py:781:        def draw_slider(x: int, y: int, label: str, value: int, hit_key: str) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:794:        def draw_display(x: int, y: int, value: int, label: str) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:803:        def draw_button(x: int, y: int, w: int, h: int, text: str, active: bool, key: str) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:821:        draw_slider(20, 140, "P1", int(state.get("h_p1_sens", 50)), "slider_p1")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:822:        draw_slider(20, 380, "P2", int(state.get("h_p2_sens", 50)), "slider_p2")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:823:        draw_display(420, 140, int(state.get("va_p1_val", 0)), "t_p1_val")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:824:        draw_display(420, 380, int(state.get("va_p2_val", 0)), "t_p2_val")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:826:        draw_button(680, 20, 100, 100, "DIR", bool(state.get("va_p1_dir", 0)), "p1_dir")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:827:        draw_button(680, 260, 100, 100, "DIR", bool(state.get("va_p2_dir", 0)), "p2_dir")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:828:        draw_button(680, 138, 100, 100, "STOP", False, "stop")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:848:            draw_button(x, y, 100, 100, label, active_map.get(key, False), key)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:850:        self._draw_nav_arrows(show_home=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanNextionPreview.py:895:        self._intro_after_id = self.after(max(10, self.intro_frame_ms), _step)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanNextionPreview.py:923:    def _refresh_current_page_view(self) -> None:    # DO OCENY
+modes/editor/PAR/tarzanNextionPreview.py:939:        # refresh() zostanie wywołany przez TarzanParApp.nextion_tick()     # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParApp.py:230:        self.after(50, self.nextion_tick)    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParApp.py:231:        self.after(200, self.tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParApp.py:549:    def refresh(self):    # DO OCENY
+modes/editor/PAR/tarzanParApp.py:939:                   fg=COLORS["text"], insertbackground=COLORS["text"], command=lambda: draw_preview() if "draw_preview" in locals() else None).grid(row=2, column=1, sticky="w", padx=8)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:988:                refresh_zone_buttons()    # DO OCENY
+modes/editor/PAR/tarzanParApp.py:992:            refresh_zone_buttons()    # DO OCENY
+modes/editor/PAR/tarzanParApp.py:993:            draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:997:        def refresh_zone_buttons():    # DO OCENY
+modes/editor/PAR/tarzanParApp.py:1046:            draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1123:                    draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1130:                               command=draw_preview).pack(side="left")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1135:                opt = tk.OptionMenu(row, data["zone"], *zone_map.keys(), command=lambda _=None: draw_preview())    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1150:                    command=draw_preview,    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1153:                col_spin.bind("<KeyRelease>", lambda _event: draw_preview())    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1165:                    command=draw_preview,    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1168:                row_spin.bind("<KeyRelease>", lambda _event: draw_preview())    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1189:                        draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1225:        def draw_preview(*_):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1226:            canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParApp.py:1590:                draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1601:                draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1628:                draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1648:                draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1698:                draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1722:            draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1743:            draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1754:            draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1776:            draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1828:                draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1848:        refresh_zone_buttons()    # DO OCENY
+modes/editor/PAR/tarzanParApp.py:1849:        win.after(200, draw_preview)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1850:        win.after(800, draw_preview)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParApp.py:1897:    @profile_method("PAR_APP.nextion_tick")    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParApp.py:1898:    def nextion_tick(self):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParApp.py:1902:            if hasattr(self.panels, "nextion_refresh_previews"):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParApp.py:1903:                self.panels.nextion_refresh_previews()    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParApp.py:1907:        self.after(50, self.nextion_tick)    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParApp.py:1925:        self.after(200, self.tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParPanels.py:182:        self.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels.py:254:        self._last_rrp_refresh_rev = None    # DO OCENY
+modes/editor/PAR/tarzanParPanels.py:358:                    self._register_signal_proxy(sig, lambda v, k=key: self.refresh_axis_card(k))    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels.py:404:        self.refresh_axis_cards()    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels.py:407:    def refresh_axis_cards(self):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels.py:409:            self.refresh_axis_card(axis)    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels.py:411:    def refresh_axis_card(self, axis: str):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels.py:496:                can.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels.py:554:                            state["after_id"] = self.app.after(delay, gen_tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParPanels.py:557:                    state["after_id"] = self.app.after(50, gen_tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParPanels.py:559:                    state["after_id"] = self.app.after(200, gen_tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParPanels.py:617:        def draw_section(p_grid, title, ds, cs, extras, opts):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:655:                can.delete("all"); cx, cy, r = 40, 40, 30    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels.py:705:            b = draw_section(grid, t, ds, cs, ex, op)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:823:            canvas.delete("all"); cx, cy = w//2, h//2    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels.py:899:            can.delete("all"); can.create_rectangle(14, 5, 24, h-5, fill=COLORS["green"], outline="#063c0a")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels.py:916:        def draw_bolt(v):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:917:            can.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels.py:925:        draw_bolt(self.bus.get(sig, 0))    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:930:            draw_bolt(nv)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:933:        self._register_signal_proxy(sig, draw_bolt)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:1070:            self.app.after(i * 15, lambda: [self.bus.force_signal(n, 1, source="PAR_MANUAL") for n in b.get("step", [])])    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParPanels.py:1071:            self.app.after(i * 15 + 7, lambda: [self.bus.force_signal(n, 0, source="PAR_MANUAL") for n in b.get("step", [])])    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParPanels.py:1076:            self.app.after(delay_ms, lambda name=n: self.bus.force_signal(name, 0, source=src))    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParPanels.py:1228:                if now - getattr(self, "_last_axis_card_refresh", 0) > 0.1: # max 10 FPS dla kart osi (oszczędność CPU)    # DO OCENY
+modes/editor/PAR/tarzanParPanels.py:1229:                    self._last_axis_card_refresh = now    # DO OCENY
+modes/editor/PAR/tarzanParPanels.py:1230:                    self.refresh_axis_cards()    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels.py:1244:        self.timeline_canvas.bind("<Configure>", lambda e: self.draw_timeline())    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:1245:        self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:1250:            self._timeline_after_id = self.app.after(_TIMELINE_DEBOUNCE_MS, self._do_draw_timeline)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:1252:    def _do_draw_timeline(self):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:1254:        self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:1278:    def draw_timeline(self):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:1281:        can.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels.py:1446:            canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels.py:1572:        def draw_cell(r, c):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:1574:            canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels.py:1579:            draw_cell(r, c)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:1593:                draw_cell(r, c)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels.py:1761:    def nextion_refresh_previews(self):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels.py:1766:        if rrp_rev != self._last_rrp_refresh_rev:    # DO OCENY
+modes/editor/PAR/tarzanParPanels.py:1767:            self._last_rrp_refresh_rev = rrp_rev    # DO OCENY
+modes/editor/PAR/tarzanParPanels_old.py:187:        self.refresh_axis_cards()    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels_old.py:680:        canvas.bind("<Configure>", lambda e: self.draw_timeline())    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels_old.py:681:        self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels_old.py:727:                    self.app.after(70, lambda n=name: self.bus.force_signal(n, 0, source="PAR_AXIS_STEP"))    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParPanels_old.py:735:        self.refresh_axis_cards()    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels_old.py:738:    def refresh_axis_cards(self):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels_old.py:755:    def draw_timeline(self):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels_old.py:759:        canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels_old.py:1044:        led.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels_old.py:1111:        canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels_old.py:1213:    def draw_cell(r, c):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels_old.py:1215:        canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels_old.py:1220:        draw_cell(r, c)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels_old.py:1234:            draw_cell(r, c)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels_old.py:1310:        canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels_old.py:1343:        self.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels_old.py:1459:            self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels_old.py:1469:            self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels_old.py:1474:        self._timeline_after_id = app.after(_TIMELINE_DEBOUNCE_MS, _do_redraw)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParPanels_old.py:1497:        command=lambda: (self.bus.history.clear(), self.draw_timeline()),    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels_old.py:1504:    self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels_old.py:1508:def _par_draw_timeline_final(self):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels_old.py:1512:    canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels_old.py:1649:def _par_refresh_axis_cards_final(self):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels_old.py:1730:                self.app.after(70, lambda n=name: self.bus.force_signal(n, 0, source="PAR_AXIS_STEP"))    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParPanels_old.py:1734:        self.draw_timeline()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParPanels_old.py:1780:        canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels_old.py:1964:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels_old.py:2158:            self.app.after(delay_ms, lambda n=name, s=source: self.bus.force_signal(n, 0, source=s))    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParPanels_old.py:2209:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels_old.py:2385:def _tarzan_refresh_axis_cards_final_v2(self):    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels_old.py:2386:    _par_refresh_axis_cards_final(self)    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels_old.py:2470:            canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParPanels_old.py:2507:            state["after_id"] = self.app.after(delay_ms, generator_tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParPanels_old.py:3184:TarzanParPanels.refresh_axis_cards = _tarzan_refresh_axis_cards_final_v2    # USUNĄĆ Z TORU DYNAMICZNEGO / ZASTĄPIĆ SNAJPEREM
+modes/editor/PAR/tarzanParPanels_old.py:3188:TarzanParPanels.draw_timeline = _par_draw_timeline_final    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParTakePlayer.py:5:- PLAY działa przez Tkinter app.after(CZAS_PROBKOWANIA_MS),    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParTakePlayer.py:145:            self.bus.log("TAKE", "PLAY zablokowany: brak app.after()")    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParTakePlayer.py:155:        self._cancel_after()    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParTakePlayer.py:160:        self._cancel_after()    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParTakePlayer.py:171:        self._after_id = self._after(delay, self._tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParTakePlayer.py:173:    def _cancel_after(self) -> None:    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParWidgets.py:54:        self.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParWidgets.py:83:        self.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParWidgets.py:227:        self._draw_motor(active=False)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParWidgets.py:278:        self._hold_after_id = self.after(140, self._do_manual_step)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParWidgets.py:284:    def _draw_motor(self, active: bool = False):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParWidgets.py:287:            c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/PAR/tarzanParWidgets.py:311:        self._draw_motor(active=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParWidgets.py:332:        self._motor_idle_after = self.after(180, self._motor_idle)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/PAR/tarzanParWidgets.py:337:            self._draw_motor(active=False)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/PAR/tarzanParWidgets.py:353:            self._draw_motor(active=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanAxisSandbox.py:534:        self._refresh_all()    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:595:        self._scale_row(box, "VIEW Y SCALE", self.display_y_scale, 200.0, 800.0, 10.0, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:596:        self._scale_row(box, "MOUSE PRECISION", self.mouse_y_precision, 0.10, 1.00, 0.05, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:597:        self._scale_row(box, "TOP/BOTTOM MARGIN", self.top_bottom_margin, 8, 60, 1, self._refresh_all)    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:703:        self._refresh_all("Zastosowano strojenie STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:710:        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:732:        self._refresh_all(f"Wczytano preset TXT: {path}")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:738:        self._refresh_all("Przywrócono domyślne parametry STEP.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:743:        self._refresh_all("Sinus test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:748:        self._refresh_all("Negative test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:753:        self._refresh_all("Zero cross test ustawiony.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:758:        self._refresh_all("Linia wyzerowana.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:763:        self._refresh_all("Przywrócono ostatni stan bazowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:808:    def _draw_curve(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanAxisSandbox.py:810:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/tarzanAxisSandbox.py:876:    def _draw_step(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanAxisSandbox.py:878:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/tarzanAxisSandbox.py:904:    def _refresh_metrics(self) -> None:    # DO OCENY
+modes/editor/tarzanAxisSandbox.py:923:    def _refresh_all(self, status: str | None = None) -> None:    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:925:        self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanAxisSandbox.py:926:        self._refresh_metrics()    # DO OCENY
+modes/editor/tarzanAxisSandbox.py:927:        self._draw_step()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanAxisSandbox.py:949:            self._refresh_all(f"Wybrano punkt {idx}.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:954:        self._refresh_all("PAN linii.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:966:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanAxisSandbox.py:973:            self._draw_curve()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanAxisSandbox.py:979:        self._refresh_all("Gotowy.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:986:        self._refresh_all("Dodano punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/tarzanAxisSandbox.py:994:        self._refresh_all("Usunięto punkt.")    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/TarzanEhrTakeSandbox.py:545:        self.canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/TarzanEhrTakeSandbox.py:560:            self._draw_save_button(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/TarzanEhrTakeSandbox.py:563:            self._draw_action(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/TarzanEhrTakeSandbox.py:565:    def _draw_action(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/TarzanEhrTakeSandbox.py:578:    def _draw_save_button(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/TarzanEhrTakeSandbox.py:977:        self._refresh_slot(idx)    # DO OCENY
+modes/editor/TarzanEhrTakeSandbox.py:1000:            self._refresh_slot(old_active)    # DO OCENY
+modes/editor/TarzanEhrTakeSandbox.py:1001:        self._refresh_slot(idx)    # DO OCENY
+modes/editor/TarzanEhrTakeSandbox.py:1009:        self._refresh_slot(idx)    # DO OCENY
+modes/editor/TarzanEhrTakeSandbox.py:1024:                self._refresh_slot(idx)    # DO OCENY
+modes/editor/TarzanEhrTakeSandbox.py:1046:    def _refresh_slot(self, idx: int) -> None:    # DO OCENY
+modes/editor/tarzanKHR.py:320:            self._live_apply_after_ids[key] = self.after(120, lambda k=key: self._apply_camera_param_live(k))    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/tarzanKHR.py:530:        self.after(50, self._poll_apply_result)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/tarzanKHR.py:538:            self.after(50, self._poll_apply_result)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/tarzanKHR.py:606:        self._draw_preview()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:607:        self.after(33, self._preview_loop)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/tarzanKHR.py:609:    def _draw_preview(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:611:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/tarzanKHR.py:704:        self._ui_refresh_ms = 33    # DO OCENY
+modes/editor/tarzanKHR.py:705:        self._camera_preview_refresh_ms = int(self.vision_settings.get("tracking", {}).get("preview", {}).get("ui_refresh_ms", 100))    # DO OCENY
+modes/editor/tarzanKHR.py:745:        self._draw_all()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:748:            self.after(250, self._open_last_camera)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/tarzanKHR.py:950:            self._draw_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:991:            self._draw_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1020:    def _refresh_camera_config_status(self) -> None:    # DO OCENY
+modes/editor/tarzanKHR.py:1067:            self._refresh_camera_config_status()    # DO OCENY
+modes/editor/tarzanKHR.py:1091:            self._refresh_camera_config_status()    # DO OCENY
+modes/editor/tarzanKHR.py:1094:            self._draw_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1158:                self._draw_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1161:        self.after(self._camera_preview_refresh_ms, self._camera_preview_loop)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/tarzanKHR.py:1358:        self.after(self.sample_time_ms, self._loop)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/tarzanKHR.py:1370:        self._draw_all()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1372:        self.after(self._ui_refresh_ms, self._ui_loop)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/editor/tarzanKHR.py:1432:    @khr_profiled("KHR_UI._draw_all")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1433:    def _draw_all(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1434:        self._draw_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1435:        self._draw_khr()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1436:        self._draw_output()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1438:    @khr_profiled("KHR_UI._draw_input")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1439:    def _draw_input(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1441:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/tarzanKHR.py:1444:            self._draw_camera_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1446:            self._draw_manual_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1448:            self._draw_sensor_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1450:            self._draw_test_input()    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1452:    def _draw_test_input(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1458:        self._draw_deadzone_scene(c, cx, cy, w, h, self.object_x, self.object_y, True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1460:    def _draw_sensor_input(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1466:        self._draw_deadzone_scene(c, cx, cy, w, h, self.error_x, 0, True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1468:    def _draw_manual_input(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1476:    @khr_profiled("KHR_UI._draw_camera_input")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1477:    def _draw_camera_input(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1544:    def _draw_deadzone_scene(self, c, cx, cy, w, h, object_x, object_y, visible):    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1558:    @khr_profiled("KHR_UI._draw_khr")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1559:    def _draw_khr(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1561:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/tarzanKHR.py:1582:    @khr_profiled("KHR_UI._draw_output")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1583:    def _draw_output(self) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/tarzanKHR.py:1585:        c.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/TarzanTakeProtocolLight.py:35:# - nie używa _refresh_all.    # OGRANICZYĆ DO STRUKTURY; WARTOŚCI DO SNAJPERA
+modes/editor/TarzanTakeProtocolLight.py:852:        self.canvas.delete("all")    # ZOSTAWIĆ TYLKO DLA STRUKTURY, NIE DLA WARTOŚCI
+modes/editor/TarzanTakeProtocolLight.py:867:            self._draw_save_button(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/TarzanTakeProtocolLight.py:869:            self._draw_action(top_y)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/TarzanTakeProtocolLight.py:871:    def _draw_action(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/TarzanTakeProtocolLight.py:893:    def _draw_save_button(self, top_y: int) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+modes/editor/TarzanTakeProtocolLight.py:1157:        Później działamy już tylko przez _refresh_slot(...).    # DO OCENY
+modes/editor/TarzanTakeProtocolLight.py:1185:    def _refresh_slot(self, index: int) -> None:    # DO OCENY
+modes/editor/TarzanTakeProtocolLight.py:1194:    def _refresh_slots(self, indices: list[int]) -> None:    # DO OCENY
+modes/editor/TarzanTakeProtocolLight.py:1201:            self._refresh_slot(index)    # DO OCENY
+modes/editor/TarzanTakeProtocolLight.py:1262:        self._refresh_slot(index)    # DO OCENY
+modes/editor/TarzanTakeProtocolLight.py:1298:        self._refresh_slots(changed)    # DO OCENY
+modes/editor/TarzanTakeProtocolLight.py:1317:        self._refresh_slot(index)    # DO OCENY
+modes/editor/TarzanTakeProtocolLight.py:1336:                self._refresh_slot(index)    # DO OCENY
+modes/hardware/tarzanNextion/tarzanNextionSandbox.py:71:        self.after(50, self._tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+modes/hardware/tarzanNextion/tarzanNextionSandbox.py:251:        self.after(50, self._tick)    # ZEGAR TYLKO DLA PROCESU; NIE REFRESH_ALL
+vision/tarzanCameraTracker.py:394:        draw_box = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanCameraTracker.py:410:                draw_box = (x1, y1, x2, y2)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanCameraTracker.py:420:        if draw_box is not None and visible:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanCameraTracker.py:421:            x1, y1, x2, y2 = draw_box    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanFaceTracker.py:27:    draw_debug: bool = True    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanFaceTracker.py:93:            draw_debug=bool(common.get("draw_debug", face.get("draw_debug", True))),    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanFaceTracker.py:383:        if self.config.draw_debug:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanFaceTracker.py:394:        draw_box = None    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanFaceTracker.py:403:            draw_box = (x1, y1, x2, y2)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanFaceTracker.py:410:        if self.config.draw_debug:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanFaceTracker.py:411:            if draw_box is not None and visible:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanFaceTracker.py:412:                x1, y1, x2, y2 = draw_box    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanTargetLock.py:37:    draw_overlay: bool = True    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanTargetLock.py:87:            draw_overlay=bool(cfg.get("draw_overlay", True)),    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanTargetLock.py:145:        if cfg.draw_overlay and out.frame_rgb is not None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanTargetLock.py:146:            self._draw_overlay(out)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanTargetLock.py:183:    def _draw_overlay(self, result: CameraTrackingResult) -> None:    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanVisionSetup.py:176:        self.face_draw_debug = tk.BooleanVar(value=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanVisionSetup.py:219:        self.target_lock_draw_overlay = tk.BooleanVar(value=True)    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanVisionSetup.py:461:        self._check_row(g, "Draw debug", self.face_draw_debug, "box, środek, tekst")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanVisionSetup.py:523:        self._check_row(g, "Rysuj status na podglądzie", self.target_lock_draw_overlay, "prosta ramka + tekst LOCK/HOLD")    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanVisionSetup.py:605:        self.face_draw_debug.set(bool(common.get("draw_debug", face.get("draw_debug", True))))    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanVisionSetup.py:645:        self.target_lock_draw_overlay.set(bool(target_lock.get("draw_overlay", True)))    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanVisionSetup.py:686:        face["draw_debug"] = bool(self.face_draw_debug.get())    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanVisionSetup.py:691:            "draw_debug": bool(self.face_draw_debug.get()),    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+vision/tarzanVisionSetup.py:746:            "draw_overlay": bool(self.target_lock_draw_overlay.get()),    # RENDER STRUKTURY LUB WARSTWY; DYNAMICZNE ITEMY REJESTROWAĆ JAKO CELE
+core/tarzanProfiler.py:29:    with profile_block("EHR.refresh_protocol_preview"):    # DO OCENY
+core/tarzanProfiler.py:30:        self._refresh_protocol_preview()    # DO OCENY

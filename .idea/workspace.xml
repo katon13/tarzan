@@ -5,29 +5,48 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text" beforeDir="false" afterPath="$PROJECT_DIR$/Nextion2Text" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitattributes" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/USB to UART/CP210x_Universal_Windows_Driver_ReleaseNotes.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/USB to UART/SLAB_License_Agreement_VCP_Windows.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/USB to UART/UpdateParam.bat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/USB to UART/UpdateParameters.reg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/USB to UART/arm/silabser.sys" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/USB to UART/arm64/silabser.sys" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/USB to UART/silabser.cat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/USB to UART/silabser.inf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/USB to UART/x64/silabser.sys" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/USB to UART/x86/silabser.sys" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/WinSCP-6.5.6-Setup.exe" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/nextion-setup-v1-68-1.exe" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/install/rufus-4.14.exe" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanAssets.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanAssets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanSignalBus.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanSignalBus.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanZmienneSygnalowe.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanZmienneSygnalowe.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/ehr/take_protocol_ui_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/take_protocol_ui_settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/tfd_metadata.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/tfd_metadata.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrMultiAxisModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrMultiAxisModel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrUi.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrUi.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanTakeTxtCore.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanTakeTxtCore.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.css" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels_old.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels_original.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParProtocolMapper.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParProtocolMapper.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParSignalsAdapter.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParSignalsAdapter.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/TFD/tfd_state.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tfd_state.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/nextion/page/tlo_t.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/tlo_t.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanPAR.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/tarzanPAR.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/Program.s.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/boot.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/face_rec.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/keybdA.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/level_xyz.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/nextion7_Stats.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/page1.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/rrp_main.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/sensors_main.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/settings_main.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/take_main.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/NextionHMI/Segoe UI Bold.ttf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/NextionHMI/main-font-24.zi" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/NextionHMI/main-font.zi" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/NextionHMI/nextion7.HMI" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/NextionHMI/segoe-ui-bold.zip" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/state_mapper.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/state_mapper.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/take/take_save_320png.png" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -64,78 +83,79 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python.Nextion2Text.executor": "Run",
-    "Python.TarzanEhrTakeSandbox.executor": "Run",
-    "Python.TarzanEhrTakeSandbox_impl.executor": "Run",
-    "Python.TarzanTakeProtocolLight (1).executor": "Run",
-    "Python.TarzanTakeProtocolLight.executor": "Run",
-    "Python.TarzanTakeProtocolLight_test.executor": "Run",
-    "Python.analyze_file.executor": "Run",
-    "Python.arte.executor": "Run",
-    "Python.axisSandboxEngine (1).executor": "Run",
-    "Python.axisSandboxEngine.executor": "Run",
-    "Python.bridge.executor": "Run",
-    "Python.bridge_rrp_sandbox.executor": "Run",
-    "Python.ehrMultiAxisSandbox (1).executor": "Run",
-    "Python.ehrMultiAxisSandbox.executor": "Run",
-    "Python.ehrMultiAxisSandbox_ehrShell.executor": "Run",
-    "Python.ehrMultiAxisSandbox_ehrShell_v1.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.tarzanAxisSandbox (1).executor": "Run",
-    "Python.tarzanAxisSandbox.executor": "Run",
-    "Python.tarzanCameraTracker.executor": "Run",
-    "Python.tarzanEHR.executor": "Debug",
-    "Python.tarzanEdytorChoreografiiRuchu.executor": "Run",
-    "Python.tarzanEdytorChoreografiiRuchuNowy.executor": "Run",
-    "Python.tarzanEdytorChoreografiiRuchu_v2.executor": "Run",
-    "Python.tarzanEhrMultiAxisModel.executor": "Run",
-    "Python.tarzanKHR.executor": "Run",
-    "Python.tarzanKHRTest.executor": "Run",
-    "Python.tarzanKrzyweRuchu.executor": "Run",
-    "Python.tarzanNextionPreview.executor": "Run",
-    "Python.tarzanNextionSandbox.executor": "Run",
-    "Python.tarzanPAR.executor": "Run",
-    "Python.tarzanParPanels.executor": "Run",
-    "Python.tarzanProfiler.executor": "Run",
-    "Python.tarzanProtokolRuchu.executor": "Run",
-    "Python.tarzanStepGenerator.executor": "Run",
-    "Python.tarzanTakeModel.executor": "Run",
-    "Python.tarzanTakeTXT.executor": "Run",
-    "Python.tarzanTest.executor": "Run",
-    "Python.tarzanZmienneSygnalowe.executor": "Run",
-    "Python.tmp.executor": "Run",
-    "RunOnceActivity.ChatTagsLlmMigration": "true",
-    "RunOnceActivity.ClientConfigCleanupMigration": "true",
-    "RunOnceActivity.CodyAccountHistoryMigration": "true",
-    "RunOnceActivity.CodyAccountsIdsRefresh": "true",
-    "RunOnceActivity.CodyAssignOrphanedChatsToActiveAccount": "true",
-    "RunOnceActivity.CodyConvertUrlToCodebaseName": "true",
-    "RunOnceActivity.CodyHistoryLlmMigration": "true",
-    "RunOnceActivity.CodyMigrateChatHistory-v2": "true",
-    "RunOnceActivity.CodyProjectSettingsMigration": "true",
-    "RunOnceActivity.DeprecatedChatLlmMigration": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.ToggleCodyToolWindowAfterMigration": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "main",
-    "junie.onboarding.icon.badge.shown": "true",
-    "last_opened_file_path": "C:/Users/STACJA-PL/Downloads",
-    "settings.editor.selected.configurable": "ml.llm.LLMConfigurable",
-    "to.speed.mode.migration.done": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.Nextion2Text.executor&quot;: &quot;Run&quot;,
+    &quot;Python.TarzanEhrTakeSandbox.executor&quot;: &quot;Run&quot;,
+    &quot;Python.TarzanEhrTakeSandbox_impl.executor&quot;: &quot;Run&quot;,
+    &quot;Python.TarzanTakeProtocolLight (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.TarzanTakeProtocolLight.executor&quot;: &quot;Run&quot;,
+    &quot;Python.TarzanTakeProtocolLight_test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.analyze_file.executor&quot;: &quot;Run&quot;,
+    &quot;Python.apply_rrp_canonical_fix.executor&quot;: &quot;Run&quot;,
+    &quot;Python.arte.executor&quot;: &quot;Run&quot;,
+    &quot;Python.axisSandboxEngine (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.axisSandboxEngine.executor&quot;: &quot;Run&quot;,
+    &quot;Python.bridge.executor&quot;: &quot;Run&quot;,
+    &quot;Python.bridge_rrp_sandbox.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ehrMultiAxisSandbox (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.ehrMultiAxisSandbox.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ehrMultiAxisSandbox_ehrShell.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ehrMultiAxisSandbox_ehrShell_v1.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanAxisSandbox (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanAxisSandbox.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanCameraTracker.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanEHR.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanEdytorChoreografiiRuchu.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanEdytorChoreografiiRuchuNowy.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanEdytorChoreografiiRuchu_v2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanEhrMultiAxisModel.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanKHR.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanKHRTest.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanKrzyweRuchu.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanNextionPreview.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanNextionSandbox.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanPAR.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanParPanels.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanProfiler.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanProtokolRuchu.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanStepGenerator.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanTakeModel.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanTakeTXT.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanTest.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tarzanZmienneSygnalowe.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tmp.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ChatTagsLlmMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ClientConfigCleanupMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyAccountHistoryMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyAccountsIdsRefresh&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyAssignOrphanedChatsToActiveAccount&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyConvertUrlToCodebaseName&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyHistoryLlmMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyMigrateChatHistory-v2&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.CodyProjectSettingsMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.DeprecatedChatLlmMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ToggleCodyToolWindowAfterMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/STACJA-PL/Downloads&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;ml.llm.LLMConfigurable&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\STACJA-PL\Downloads" />
     </key>
   </component>
   <component name="RunManager" selected="Python.tarzanPAR">
-    <configuration name="bridge" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="apply_rrp_canonical_fix" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -144,11 +164,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardware/tarzanNextion" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="WORKING_DIRECTORY" value="$USER_HOME$/AppData/Local/Temp/7zO4EFAC579" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" />
+      <option name="SCRIPT_NAME" value="$USER_HOME$/AppData/Local/Temp/7zO4EFAC579/apply_rrp_canonical_fix.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -157,7 +177,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="bridge_rrp_sandbox" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="tarzanEHR" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -166,11 +186,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardware/tarzanNextion" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/hardware/tarzanNextion/bridge_rrp_sandbox.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/tarzanEHR.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -179,7 +199,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="tarzanNextionPreview" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="tarzanKHR" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -188,11 +208,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor/PAR" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/tarzanKHR.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -248,10 +268,10 @@
     <recent_temporary>
       <list>
         <item itemvalue="Python.tarzanPAR" />
+        <item itemvalue="Python.apply_rrp_canonical_fix" />
+        <item itemvalue="Python.tarzanEHR" />
+        <item itemvalue="Python.tarzanKHR" />
         <item itemvalue="Python.tarzanParPanels" />
-        <item itemvalue="Python.tarzanNextionPreview" />
-        <item itemvalue="Python.bridge_rrp_sandbox" />
-        <item itemvalue="Python.bridge" />
       </list>
     </recent_temporary>
   </component>

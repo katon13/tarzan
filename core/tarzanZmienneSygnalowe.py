@@ -106,6 +106,7 @@ class TarzanSygnal:
     klasa_wykonawcza: str
     status: str
 
+    kanoniczna_nazwa: str = ""
     logika_trybow: str = LOGIKA_DOZWOLONY
     rola_logiki: str = ROLA_INPUT
     uwaga_logiki: str = ""
@@ -218,6 +219,7 @@ def _sygnal(
     grupa: str,
     klasa_wykonawcza: str,
     status: str = "AKTYWNY",
+    kanoniczna_nazwa: str = "",
     logika_trybow: Optional[str] = None,
     rola_logiki: Optional[str] = None,
     uwaga_logiki: Optional[str] = None,
@@ -250,6 +252,7 @@ def _sygnal(
         grupa=grupa,
         klasa_wykonawcza=klasa_wykonawcza,
         status=status,
+        kanoniczna_nazwa=kanoniczna_nazwa,
         logika_trybow=logika_trybow or auto_logika,
         rola_logiki=rola_logiki or auto_rola,
         uwaga_logiki=uwaga_logiki or auto_uwaga,
@@ -333,6 +336,7 @@ play_p01_arm_h_auto_limit = _sygnal(
     panel_port=2,
     grupa="KRAŃCÓWKI",
     klasa_wykonawcza="tarzanArmHorizontal.py",
+    kanoniczna_nazwa="sensor_arm_h_auto_limit",
 )
 
 play_p02_arm_h_limit_right = _sygnal(
@@ -353,6 +357,7 @@ play_p02_arm_h_limit_right = _sygnal(
     panel_port=2,
     grupa="KRAŃCÓWKI",
     klasa_wykonawcza="tarzanArmHorizontal.py",
+    kanoniczna_nazwa="sensor_arm_h_limit_right",
 )
 
 play_p03_arm_h_limit_left = _sygnal(
@@ -373,6 +378,7 @@ play_p03_arm_h_limit_left = _sygnal(
     panel_port=2,
     grupa="KRAŃCÓWKI",
     klasa_wykonawcza="tarzanArmHorizontal.py",
+    kanoniczna_nazwa="sensor_arm_h_limit_left",
 )
 
 play_p04_arm_v_limit_up = _sygnal(
@@ -393,6 +399,7 @@ play_p04_arm_v_limit_up = _sygnal(
     panel_port=3,
     grupa="KRAŃCÓWKI",
     klasa_wykonawcza="tarzanArmVertical.py",
+    kanoniczna_nazwa="sensor_arm_v_limit_up",
 )
 
 play_p05_cam_h_limit_right = _sygnal(
@@ -413,6 +420,7 @@ play_p05_cam_h_limit_right = _sygnal(
     panel_port=6,
     grupa="KRAŃCÓWKI",
     klasa_wykonawcza="tarzanCameraHorizontal.py",
+    kanoniczna_nazwa="sensor_cam_h_limit_right",
 )
 
 play_p06_cam_h_limit_left = _sygnal(
@@ -433,6 +441,7 @@ play_p06_cam_h_limit_left = _sygnal(
     panel_port=6,
     grupa="KRAŃCÓWKI",
     klasa_wykonawcza="tarzanCameraHorizontal.py",
+    kanoniczna_nazwa="sensor_cam_h_limit_left",
 )
 
 play_p07_cam_v_limit_up = _sygnal(
@@ -453,6 +462,7 @@ play_p07_cam_v_limit_up = _sygnal(
     panel_port=7,
     grupa="KRAŃCÓWKI",
     klasa_wykonawcza="tarzanCameraVertical.py",
+    kanoniczna_nazwa="sensor_cam_v_limit_up",
 )
 
 play_p08_cam_v_limit_down = _sygnal(
@@ -473,6 +483,7 @@ play_p08_cam_v_limit_down = _sygnal(
     panel_port=7,
     grupa="KRAŃCÓWKI",
     klasa_wykonawcza="tarzanCameraVertical.py",
+    kanoniczna_nazwa="sensor_cam_v_limit_down",
 )
 
 play_p09_arm_v_auto_limit = _sygnal(
@@ -493,6 +504,7 @@ play_p09_arm_v_auto_limit = _sygnal(
     panel_port=3,
     grupa="KRAŃCÓWKI",
     klasa_wykonawcza="tarzanArmVertical.py",
+    kanoniczna_nazwa="sensor_arm_v_auto_limit",
 )
 
 play_p10_cam_tilt_limit = _sygnal(
@@ -513,6 +525,7 @@ play_p10_cam_tilt_limit = _sygnal(
     panel_port=7,
     grupa="KRAŃCÓWKI",
     klasa_wykonawcza="tarzanCameraTilt.py",
+    kanoniczna_nazwa="sensor_cam_t_limit",
 )
 
 play_p11_cart_limit_end = _sygnal(
@@ -533,6 +546,7 @@ play_p11_cart_limit_end = _sygnal(
     panel_port=None,
     grupa="KRAŃCÓWKI",
     klasa_wykonawcza="tarzanWozek.py",
+    kanoniczna_nazwa="sensor_cart_limit_end",
 )
 
 play_p12_arm_v_limit_down = _sygnal(
@@ -553,6 +567,7 @@ play_p12_arm_v_limit_down = _sygnal(
     panel_port=3,
     grupa="KRAŃCÓWKI",
     klasa_wykonawcza="tarzanArmVertical.py",
+    kanoniczna_nazwa="sensor_arm_v_limit_down",
 )
 
 play_p13_mass_reg_limit_add = _sygnal(
@@ -573,6 +588,7 @@ play_p13_mass_reg_limit_add = _sygnal(
     panel_port=8,
     grupa="REGULATOR_MASY",
     klasa_wykonawcza="tarzanRegulatorMasy.py",
+    kanoniczna_nazwa="sensor_mass_reg_limit_add",
 )
 
 play_p14_drone_release = _sygnal(
@@ -634,6 +650,7 @@ play_p16_action_led = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanMatrixLED8x8.py",
+    kanoniczna_nazwa="ui_action_led",
 )
 
 play_p17_bridge_rec_dir_x = _sygnal(
@@ -774,6 +791,7 @@ play_p23_mass_reg_limit_remove = _sygnal(
     panel_port=8,
     grupa="REGULATOR_MASY",
     klasa_wykonawcza="tarzanRegulatorMasy.py",
+    kanoniczna_nazwa="sensor_mass_reg_limit_remove",
 )
 
 play_p24_kb4 = _sygnal(
@@ -794,6 +812,7 @@ play_p24_kb4 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanKlawiatura4x3.py",
+    kanoniczna_nazwa="ui_kb4",
 )
 
 play_p25_kb3 = _sygnal(
@@ -814,6 +833,7 @@ play_p25_kb3 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanKlawiatura4x3.py",
+    kanoniczna_nazwa="ui_kb3",
 )
 
 play_p26_kb2 = _sygnal(
@@ -834,6 +854,7 @@ play_p26_kb2 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanKlawiatura4x3.py",
+    kanoniczna_nazwa="ui_kb2",
 )
 
 play_p27_kb1 = _sygnal(
@@ -854,6 +875,7 @@ play_p27_kb1 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanKlawiatura4x3.py",
+    kanoniczna_nazwa="ui_kb1",
 )
 
 play_p28_lcd_rw = _sygnal(
@@ -894,6 +916,7 @@ play_p29_lcd_rs = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanLCD1602.py",
+    kanoniczna_nazwa="ui_lcd_rs",
 )
 
 play_p30_lcd_e = _sygnal(
@@ -914,6 +937,7 @@ play_p30_lcd_e = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanLCD1602.py",
+    kanoniczna_nazwa="ui_lcd_e",
 )
 
 play_p31_lcd_db7 = _sygnal(
@@ -934,6 +958,7 @@ play_p31_lcd_db7 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanLCD1602.py",
+    kanoniczna_nazwa="ui_lcd_db7",
 )
 
 play_p32_lcd_db6 = _sygnal(
@@ -954,6 +979,7 @@ play_p32_lcd_db6 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanLCD1602.py",
+    kanoniczna_nazwa="ui_lcd_db6",
 )
 
 play_p33_lcd_db5 = _sygnal(
@@ -974,6 +1000,7 @@ play_p33_lcd_db5 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanLCD1602.py",
+    kanoniczna_nazwa="ui_lcd_db5",
 )
 
 play_p34_lcd_db4 = _sygnal(
@@ -994,6 +1021,7 @@ play_p34_lcd_db4 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanLCD1602.py",
+    kanoniczna_nazwa="ui_lcd_db4",
 )
 
 play_p35_i2c_scl = _sygnal(
@@ -1021,10 +1049,10 @@ play_p36_i2c_sda = _sygnal(
     plytka="PLAY",
     pin=36,
     kanal=None,
-    typ="F",
-    kierunek="F",
-    default="brak",
-    opis="Magistrala I2C, linia SDA.",
+    typ="ANALOG",
+    kierunek="IN",
+    default="0",
+    opis="Magistrala I2C, linia SDA / Sensor światła BH1750.",
     zrodlo="trPoPlayI2cSda",
     hardware_function=HW_I2C,
     hardware_label="I2C SDA / PoExtBus Data",
@@ -1034,6 +1062,7 @@ play_p36_i2c_sda = _sygnal(
     panel_port=7,
     grupa="CZUJNIKI",
     klasa_wykonawcza="tarzanPoSensors.py",
+    kanoniczna_nazwa="sensor_light_lux",
 )
 
 play_p37_step_disconnect_manual = _sygnal(
@@ -1074,6 +1103,7 @@ play_p38_step_dir_arm_h = _sygnal(
     panel_port=2,
     grupa="STEP_DIR",
     klasa_wykonawcza="tarzanPoStep25.py",
+    kanoniczna_nazwa="axis_arm_h_dir",
 )
 
 play_p39_step_dir_arm_v = _sygnal(
@@ -1094,6 +1124,7 @@ play_p39_step_dir_arm_v = _sygnal(
     panel_port=3,
     grupa="STEP_DIR",
     klasa_wykonawcza="tarzanPoStep25.py",
+    kanoniczna_nazwa="axis_arm_v_dir",
 )
 
 play_p40_step_dir_arm_tilt = _sygnal(
@@ -1114,6 +1145,7 @@ play_p40_step_dir_arm_tilt = _sygnal(
     panel_port=6,
     grupa="STEP_DIR",
     klasa_wykonawcza="tarzanPoStep25.py",
+    kanoniczna_nazwa="axis_arm_t_dir",
 )
 
 play_p41_mass_reg_enable = _sygnal(
@@ -1217,6 +1249,7 @@ play_p45_rrp_pot_h = _sygnal(
     panel_port=2,
     grupa="RRP",
     klasa_wykonawcza="tarzanRRP.py",
+    kanoniczna_nazwa="sensor_rrp_pot_h",
 )
 
 play_p46_step_ctr_arm_h = _sygnal(
@@ -1237,6 +1270,7 @@ play_p46_step_ctr_arm_h = _sygnal(
     panel_port=2,
     grupa="STEP_CTR",
     klasa_wykonawcza="tarzanPoStep25.py",
+    kanoniczna_nazwa="axis_arm_h_step",
 )
 
 play_p47_rrp_pot_v = _sygnal(
@@ -1257,6 +1291,7 @@ play_p47_rrp_pot_v = _sygnal(
     panel_port=3,
     grupa="RRP",
     klasa_wykonawcza="tarzanRRP.py",
+    kanoniczna_nazwa="sensor_rrp_pot_v",
 )
 
 play_p48_step_ctr_arm_v = _sygnal(
@@ -1277,6 +1312,7 @@ play_p48_step_ctr_arm_v = _sygnal(
     panel_port=3,
     grupa="STEP_CTR",
     klasa_wykonawcza="tarzanPoStep25.py",
+    kanoniczna_nazwa="axis_arm_v_step",
 )
 
 play_p49_step_ctr_arm_tilt = _sygnal(
@@ -1297,6 +1333,7 @@ play_p49_step_ctr_arm_tilt = _sygnal(
     panel_port=6,
     grupa="STEP_CTR",
     klasa_wykonawcza="tarzanPoStep25.py",
+    kanoniczna_nazwa="axis_arm_t_step",
 )
 
 play_p50_step_en_arm_h = _sygnal(
@@ -1317,6 +1354,7 @@ play_p50_step_en_arm_h = _sygnal(
     panel_port=2,
     grupa="STEP_ENABLE",
     klasa_wykonawcza="tarzanPoStep25.py",
+    kanoniczna_nazwa="axis_arm_h_en",
 )
 
 play_p51_step_en_arm_v = _sygnal(
@@ -1337,6 +1375,7 @@ play_p51_step_en_arm_v = _sygnal(
     panel_port=3,
     grupa="STEP_ENABLE",
     klasa_wykonawcza="tarzanPoStep25.py",
+    kanoniczna_nazwa="axis_arm_v_en",
 )
 
 play_p52_step_en_arm_tilt = _sygnal(
@@ -1357,6 +1396,7 @@ play_p52_step_en_arm_tilt = _sygnal(
     panel_port=6,
     grupa="STEP_ENABLE",
     klasa_wykonawcza="tarzanPoStep25.py",
+    kanoniczna_nazwa="axis_arm_t_en",
 )
 
 play_p53_rrp_en_res = _sygnal(
@@ -1444,6 +1484,7 @@ rec_p01_copy_ctr_cam_h = _sygnal(
     panel_port=6,
     grupa="COPY_CAMERA",
     klasa_wykonawcza="tarzanPoKeysRec.py",
+    kanoniczna_nazwa="axis_cam_h_rec_step",
 )
 
 rec_p02_copy_ctr_cam_v = _sygnal(
@@ -1464,6 +1505,7 @@ rec_p02_copy_ctr_cam_v = _sygnal(
     panel_port=6,
     grupa="COPY_CAMERA",
     klasa_wykonawcza="tarzanPoKeysRec.py",
+    kanoniczna_nazwa="axis_cam_v_rec_step",
 )
 
 rec_p03_copy_dir_cam_h = _sygnal(
@@ -1484,6 +1526,7 @@ rec_p03_copy_dir_cam_h = _sygnal(
     panel_port=6,
     grupa="COPY_CAMERA",
     klasa_wykonawcza="tarzanPoKeysRec.py",
+    kanoniczna_nazwa="axis_cam_h_rec_dir",
 )
 
 rec_p04_copy_dir_cam_v = _sygnal(
@@ -1504,6 +1547,7 @@ rec_p04_copy_dir_cam_v = _sygnal(
     panel_port=6,
     grupa="COPY_CAMERA",
     klasa_wykonawcza="tarzanPoKeysRec.py",
+    kanoniczna_nazwa="axis_cam_v_rec_dir",
 )
 
 rec_p05_copy_ctr_focus = _sygnal(
@@ -1524,6 +1568,7 @@ rec_p05_copy_ctr_focus = _sygnal(
     panel_port=5,
     grupa="COPY_CAMERA",
     klasa_wykonawcza="tarzanPoKeysRec.py",
+    kanoniczna_nazwa="axis_cam_f_rec_step",
 )
 
 rec_p06_copy_ctr_tilt = _sygnal(
@@ -1544,6 +1589,7 @@ rec_p06_copy_ctr_tilt = _sygnal(
     panel_port=6,
     grupa="COPY_CAMERA",
     klasa_wykonawcza="tarzanPoKeysRec.py",
+    kanoniczna_nazwa="axis_cam_t_rec_step",
 )
 
 rec_p07_copy_dir_focus = _sygnal(
@@ -1564,6 +1610,7 @@ rec_p07_copy_dir_focus = _sygnal(
     panel_port=5,
     grupa="COPY_CAMERA",
     klasa_wykonawcza="tarzanPoKeysRec.py",
+    kanoniczna_nazwa="axis_cam_f_rec_dir",
 )
 
 rec_p08_copy_dir_tilt = _sygnal(
@@ -1584,6 +1631,7 @@ rec_p08_copy_dir_tilt = _sygnal(
     panel_port=6,
     grupa="COPY_CAMERA",
     klasa_wykonawcza="tarzanPoKeysRec.py",
+    kanoniczna_nazwa="axis_cam_t_rec_dir",
 )
 
 rec_p09_led_data = _sygnal(
@@ -1664,6 +1712,7 @@ rec_p12_rec_dir_arm_h = _sygnal(
     panel_port=2,
     grupa="RECORD",
     klasa_wykonawcza="tarzanTrybRecordMotion.py",
+    kanoniczna_nazwa="axis_arm_h_rec_dir",
 )
 
 rec_p13_rec_dir_arm_v = _sygnal(
@@ -1684,6 +1733,7 @@ rec_p13_rec_dir_arm_v = _sygnal(
     panel_port=3,
     grupa="RECORD",
     klasa_wykonawcza="tarzanTrybRecordMotion.py",
+    kanoniczna_nazwa="axis_arm_v_rec_dir",
 )
 
 rec_p14_poextbus_motor_en = _sygnal(
@@ -1711,9 +1761,9 @@ rec_p15_rec_ctr_arm_h = _sygnal(
     plytka="REC",
     pin=15,
     kanal=None,
-    typ="LH",
+    typ="CTR",
     kierunek="IN",
-    default="0",
+    default="1010...",
     opis="Sygnał CTR z ręcznego sterownika obrotowego osi poziomej ramienia do rejestracji.",
     zrodlo="tarzan_PoKeys57U_Rec_SygIn_RamSok_Ctr_RamPoziom",
     hardware_function=HW_GPIO,
@@ -1724,6 +1774,7 @@ rec_p15_rec_ctr_arm_h = _sygnal(
     panel_port=2,
     grupa="RECORD",
     klasa_wykonawcza="tarzanTrybRecordMotion.py",
+    kanoniczna_nazwa="axis_arm_h_rec_step",
 )
 
 rec_p16_rec_ctr_arm_v = _sygnal(
@@ -1731,9 +1782,9 @@ rec_p16_rec_ctr_arm_v = _sygnal(
     plytka="REC",
     pin=16,
     kanal=None,
-    typ="LH",
+    typ="CTR",
     kierunek="IN",
-    default="0",
+    default="1010...",
     opis="Sygnał CTR z ręcznego sterownika obrotowego osi pionowej ramienia do rejestracji.",
     zrodlo="tarzan_PoKeys57U_Rec_SygIn_RamSok_Ctr_RamPion",
     hardware_function=HW_GPIO,
@@ -1744,6 +1795,7 @@ rec_p16_rec_ctr_arm_v = _sygnal(
     panel_port=3,
     grupa="RECORD",
     klasa_wykonawcza="tarzanTrybRecordMotion.py",
+    kanoniczna_nazwa="axis_arm_v_rec_step",
 )
 
 rec_p17_bridge_play_dir_x = _sygnal(
@@ -1955,7 +2007,7 @@ rec_p27_free_limit_res = _sygnal(
     typ="LH",
     kierunek="IN",
     default="0",
-    opis="Pin wolny, możliwe kopie sygnałów z krańcówek.",
+    opis="Pin wolny, sterowanie laserem (virtual).",
     zrodlo="brak",
     hardware_function=HW_KEYBOARD,
     hardware_label="Keyboard / GPIO pin 27",
@@ -1963,9 +2015,9 @@ rec_p27_free_limit_res = _sygnal(
     is_shared_pin=True,
     conflict_group="REC_P27_KEYBOARD",
     panel_port=None,
-    grupa="REZERWA",
+    grupa="CZUJNIKI",
     klasa_wykonawcza="tarzanPoKeysRec.py",
-    status="REZERWOWY",
+    kanoniczna_nazwa="sensor_laser_set",
 )
 
 rec_p28_lcd_rw = _sygnal(
@@ -2187,6 +2239,7 @@ rec_p38_auto_enable = _sygnal(
     panel_port=1,
     grupa="AUTO",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="ui_rec_auto_enable",
 )
 
 rec_p39_shock_sensor = _sygnal(
@@ -2207,6 +2260,7 @@ rec_p39_shock_sensor = _sygnal(
     panel_port=7,
     grupa="CZUJNIKI",
     klasa_wykonawcza="tarzanPoSensors.py",
+    kanoniczna_nazwa="sensor_shock_state",
 )
 
 rec_p40_free_limit_res = _sygnal(
@@ -2217,7 +2271,7 @@ rec_p40_free_limit_res = _sygnal(
     typ="LH",
     kierunek="IN",
     default="0",
-    opis="Pin wolny, możliwe kopie sygnałów z krańcówek.",
+    opis="Pin wolny, błąd lasera (virtual).",
     zrodlo="brak",
     hardware_function=HW_PULSE,
     hardware_label="Pulse engine DIR Z / GPIO",
@@ -2225,9 +2279,9 @@ rec_p40_free_limit_res = _sygnal(
     is_shared_pin=True,
     conflict_group="REC_PULSE_ENGINE",
     panel_port=None,
-    grupa="REZERWA",
+    grupa="CZUJNIKI",
     klasa_wykonawcza="tarzanPoKeysRec.py",
-    status="REZERWOWY",
+    kanoniczna_nazwa="sensor_laser_error",
 )
 
 rec_p41_free_aux_pot = _sygnal(
@@ -2235,10 +2289,10 @@ rec_p41_free_aux_pot = _sygnal(
     plytka="REC",
     pin=41,
     kanal=None,
-    typ="RESERVED",
-    kierunek="RESERVED",
-    default="brak",
-    opis="Pin wolny / potencjometr pomocniczy.",
+    typ="ANALOG",
+    kierunek="IN",
+    default="0",
+    opis="Pin wolny / potencjometr pomocniczy / SENSOR XYZ X.",
     zrodlo="trPOReckPotV",
     hardware_function=HW_ANALOG,
     hardware_label="Analog input pin 41",
@@ -2246,9 +2300,10 @@ rec_p41_free_aux_pot = _sygnal(
     is_shared_pin=True,
     conflict_group="REC_P41_ANALOG",
     panel_port=None,
-    grupa="REZERWA",
+    grupa="CZUJNIKI",
     klasa_wykonawcza="tarzanPoKeysRec.py",
-    status="REZERWOWY",
+    status="AKTYWNY",
+    kanoniczna_nazwa="sensor_level_x",
 )
 
 rec_p42_free_keyboard_old = _sygnal(
@@ -2256,10 +2311,10 @@ rec_p42_free_keyboard_old = _sygnal(
     plytka="REC",
     pin=42,
     kanal=None,
-    typ="LH",
+    typ="ANALOG",
     kierunek="IN",
     default="0",
-    opis="Pin wolny, byłe złącze keyboard.",
+    opis="Pin wolny, byłe złącze keyboard / SENSOR XYZ Y.",
     zrodlo="brak",
     hardware_function=HW_ANALOG,
     hardware_label="Analog input pin 42",
@@ -2267,9 +2322,10 @@ rec_p42_free_keyboard_old = _sygnal(
     is_shared_pin=True,
     conflict_group="REC_P42_ANALOG",
     panel_port=None,
-    grupa="REZERWA",
+    grupa="CZUJNIKI",
     klasa_wykonawcza="tarzanPoKeysRec.py",
-    status="REZERWOWY",
+    status="AKTYWNY",
+    kanoniczna_nazwa="sensor_level_y",
 )
 
 rec_p43_free_keyboard_old = _sygnal(
@@ -2277,10 +2333,10 @@ rec_p43_free_keyboard_old = _sygnal(
     plytka="REC",
     pin=43,
     kanal=None,
-    typ="LH",
+    typ="ANALOG",
     kierunek="IN",
     default="0",
-    opis="Pin wolny, byłe złącze keyboard.",
+    opis="Pin wolny, byłe złącze keyboard / SENSOR XYZ Z.",
     zrodlo="brak",
     hardware_function=HW_ANALOG,
     hardware_label="Analog input pin 43",
@@ -2288,9 +2344,10 @@ rec_p43_free_keyboard_old = _sygnal(
     is_shared_pin=True,
     conflict_group="REC_P43_ANALOG",
     panel_port=None,
-    grupa="REZERWA",
+    grupa="CZUJNIKI",
     klasa_wykonawcza="tarzanPoKeysRec.py",
-    status="REZERWOWY",
+    status="AKTYWNY",
+    kanoniczna_nazwa="sensor_level_z",
 )
 
 rec_p44_free_keyboard_old = _sygnal(
@@ -2298,7 +2355,7 @@ rec_p44_free_keyboard_old = _sygnal(
     plytka="REC",
     pin=44,
     kanal=None,
-    typ="LH",
+    typ="ANALOG",
     kierunek="IN",
     default="0",
     opis="Pin wolny, byłe złącze keyboard.",
@@ -2308,10 +2365,11 @@ rec_p44_free_keyboard_old = _sygnal(
     pin_is_fixed=True,
     is_shared_pin=True,
     conflict_group="REC_P44_ANALOG",
-    panel_port=None,
-    grupa="REZERWA",
+    panel_port=7,
+    grupa="CZUJNIKI",
     klasa_wykonawcza="tarzanPoKeysRec.py",
-    status="REZERWOWY",
+    status="AKTYWNY",
+    kanoniczna_nazwa="sensor_temp_c",
 )
 
 rec_p45_sw_f1 = _sygnal(
@@ -2332,6 +2390,7 @@ rec_p45_sw_f1 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanPrzyciskiFunkcyjne.py",
+    kanoniczna_nazwa="ui_f1_sw",
 )
 
 rec_p46_led_f1 = _sygnal(
@@ -2352,6 +2411,7 @@ rec_p46_led_f1 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanPrzyciskiFunkcyjne.py",
+    kanoniczna_nazwa="ui_f1_led",
 )
 
 rec_p47_sw_f2 = _sygnal(
@@ -2372,6 +2432,7 @@ rec_p47_sw_f2 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanPrzyciskiFunkcyjne.py",
+    kanoniczna_nazwa="ui_f2_sw",
 )
 
 rec_p48_led_f2 = _sygnal(
@@ -2392,6 +2453,7 @@ rec_p48_led_f2 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanPrzyciskiFunkcyjne.py",
+    kanoniczna_nazwa="ui_f2_led",
 )
 
 rec_p49_sw_f3 = _sygnal(
@@ -2412,6 +2474,7 @@ rec_p49_sw_f3 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanPrzyciskiFunkcyjne.py",
+    kanoniczna_nazwa="ui_f3_sw",
 )
 
 rec_p50_led_f3 = _sygnal(
@@ -2432,6 +2495,7 @@ rec_p50_led_f3 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanPrzyciskiFunkcyjne.py",
+    kanoniczna_nazwa="ui_f3_led",
 )
 
 rec_p51_sw_f4 = _sygnal(
@@ -2452,6 +2516,7 @@ rec_p51_sw_f4 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanPrzyciskiFunkcyjne.py",
+    kanoniczna_nazwa="ui_f4_sw",
 )
 
 rec_p52_led_f4 = _sygnal(
@@ -2472,6 +2537,7 @@ rec_p52_led_f4 = _sygnal(
     panel_port=1,
     grupa="UI",
     klasa_wykonawcza="tarzanPrzyciskiFunkcyjne.py",
+    kanoniczna_nazwa="ui_f4_led",
 )
 
 rec_p53_copy_cam_v_limit_up = _sygnal(
@@ -2558,6 +2624,7 @@ cnc_x_cam_h_ctr = _sygnal(
     panel_port=6,
     grupa="CNC_CAMERA",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_cam_h_step",
 )
 
 cnc_x_cam_h_dir = _sygnal(
@@ -2578,6 +2645,28 @@ cnc_x_cam_h_dir = _sygnal(
     panel_port=6,
     grupa="CNC_CAMERA",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_cam_h_dir",
+)
+
+cnc_x_cam_h_en = _sygnal(
+    nazwa="cnc_x_cam_h_en",
+    plytka="CNC",
+    pin=None,
+    kanal="X / ID1",
+    typ="LH",
+    kierunek="OUT",
+    default="1",
+    opis="Wirtualne wyjście ENABLE dla osi poziomej kamery.",
+    zrodlo="wirtualny",
+    hardware_function=HW_PULSE,
+    hardware_label="CNC axis X EN / ID1",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=6,
+    grupa="CNC_CAMERA",
+    klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_cam_h_en",
 )
 
 cnc_y_cam_v_ctr = _sygnal(
@@ -2598,6 +2687,7 @@ cnc_y_cam_v_ctr = _sygnal(
     panel_port=6,
     grupa="CNC_CAMERA",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_cam_v_step",
 )
 
 cnc_y_cam_v_dir = _sygnal(
@@ -2618,6 +2708,28 @@ cnc_y_cam_v_dir = _sygnal(
     panel_port=6,
     grupa="CNC_CAMERA",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_cam_v_dir",
+)
+
+cnc_y_cam_v_en = _sygnal(
+    nazwa="cnc_y_cam_v_en",
+    plytka="CNC",
+    pin=None,
+    kanal="Y / ID2",
+    typ="LH",
+    kierunek="OUT",
+    default="1",
+    opis="Wirtualne wyjście ENABLE dla osi pionowej kamery.",
+    zrodlo="wirtualny",
+    hardware_function=HW_PULSE,
+    hardware_label="CNC axis Y EN / ID2",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=6,
+    grupa="CNC_CAMERA",
+    klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_cam_v_en",
 )
 
 cnc_z_focus_ctr = _sygnal(
@@ -2638,6 +2750,7 @@ cnc_z_focus_ctr = _sygnal(
     panel_port=5,
     grupa="CNC_CAMERA",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_cam_f_step",
 )
 
 cnc_z_focus_dir = _sygnal(
@@ -2658,6 +2771,28 @@ cnc_z_focus_dir = _sygnal(
     panel_port=5,
     grupa="CNC_CAMERA",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_cam_f_dir",
+)
+
+cnc_z_focus_en = _sygnal(
+    nazwa="cnc_z_focus_en",
+    plytka="CNC",
+    pin=None,
+    kanal="Z / ID3",
+    typ="LH",
+    kierunek="OUT",
+    default="1",
+    opis="Wirtualne wyjście ENABLE dla osi ostrości kamery.",
+    zrodlo="wirtualny",
+    hardware_function=HW_PULSE,
+    hardware_label="CNC axis Z EN / ID3",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=5,
+    grupa="CNC_CAMERA",
+    klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_cam_f_en",
 )
 
 cnc_a_arm_tilt_ctr = _sygnal(
@@ -2678,6 +2813,7 @@ cnc_a_arm_tilt_ctr = _sygnal(
     panel_port=6,
     grupa="CNC_ARM",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_arm_t_auto_step",
 )
 
 cnc_a_arm_tilt_dir = _sygnal(
@@ -2698,6 +2834,7 @@ cnc_a_arm_tilt_dir = _sygnal(
     panel_port=6,
     grupa="CNC_ARM",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_arm_t_auto_dir",
 )
 
 cnc_b_arm_h_ctr = _sygnal(
@@ -2718,6 +2855,7 @@ cnc_b_arm_h_ctr = _sygnal(
     panel_port=2,
     grupa="CNC_ARM",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_arm_h_auto_step",
 )
 
 cnc_b_arm_h_dir = _sygnal(
@@ -2738,6 +2876,7 @@ cnc_b_arm_h_dir = _sygnal(
     panel_port=2,
     grupa="CNC_ARM",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_arm_h_auto_dir",
 )
 
 cnc_c_arm_v_ctr = _sygnal(
@@ -2758,6 +2897,7 @@ cnc_c_arm_v_ctr = _sygnal(
     panel_port=3,
     grupa="CNC_ARM",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_arm_v_auto_step",
 )
 
 cnc_c_arm_v_dir = _sygnal(
@@ -2778,6 +2918,7 @@ cnc_c_arm_v_dir = _sygnal(
     panel_port=3,
     grupa="CNC_ARM",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_arm_v_auto_dir",
 )
 
 cnc_d_cart_ctr = _sygnal(
@@ -2798,6 +2939,7 @@ cnc_d_cart_ctr = _sygnal(
     panel_port=None,
     grupa="CNC_CART",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_dron_step",
 )
 
 cnc_d_cart_dir = _sygnal(
@@ -2818,6 +2960,7 @@ cnc_d_cart_dir = _sygnal(
     panel_port=None,
     grupa="CNC_CART",
     klasa_wykonawcza="tarzanTrybAllAuto.py",
+    kanoniczna_nazwa="axis_dron_dir",
 )
 
 

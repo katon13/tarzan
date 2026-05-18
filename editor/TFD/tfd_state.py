@@ -214,25 +214,20 @@ class TFDState:
             raw_take = bus.get("take_num") or bus.get("par_take_num", 1)
             self.take_number = self.format_tfd_take_number(raw_take)
 
-        # Pełne dane osi - Mapowanie zgodne z AXIS_SIGNAL_BINDINGS
+        # Pełne dane osi - Mapowanie zgodne z nazwami kanonicznymi
         axes = {}
-        axis_names = ["CAM_H", "CAM_V", "CAM_T", "CAM_F", "ARM_H", "ARM_V"]
+        axis_names = ["CAM_V", "ARM_T", "CAM_F", "CAM_H", "ARM_H", "ARM_V"]
         
         for i, name in enumerate(axis_names):
             key = f"axis{i}"
+            axis_id = name.lower()
             
-            # Pobieramy DIR dla formatowania znaku
-            # Szukamy w SignalBus sygnału DIR powiązanego z tą osią
-            dir_val = 0
-            dir_keys = [f"par_{name.lower()}_dir", f"TAKE_{name}_DIR"]
-            for dk in dir_keys:
-                if bus.exists(dk):
-                    dir_val = 1 if bus.get(dk) else 0
-                    break
+            # Pobieramy DIR dla formatowania znaku - korzystamy z nazwy kanonicznej
+            dir_val = 1 if bus.get(f"axis_{axis_id}_dir") else 0
             
             # LICZNIK KROKÓW - kluczowy parametr dla TFD
-            # Pobieramy z par_{axis}_pulses, który jest aktualizowany przez TarzanParPanels z AxisCard.counter
-            pulses = bus.get(f"par_{name.lower()}_pulses", 0)
+            # Korzystamy z nazwy kanonicznej generowanej przez SignalBus
+            pulses = bus.get(f"axis_{axis_id}_pulses", 0)
             
             # Formatujemy wartość osi dla TFD: +00000 / -00000
             formatted_pos = self.format_tfd_axis_value(pulses, dir_val)
@@ -244,33 +239,38 @@ class TFDState:
                 "pulses": pulses
             }
 
-        # Czujniki
-        laser_active = bus.get("par_laser_set", 0) or bus.get("par_laser_active", 0)
-        laser_error = bus.get("par_laser_error", 0)
+        # Czujniki - korzystamy z nazw kanonicznych
+        laser_active = bus.get("sensor_laser_set", 0)
+        laser_error = bus.get("sensor_laser_error", 0)
         # Czujnik laserowy - formatujemy na ON/OFF/ERR
         if laser_error:
             laser_state = "ERR"
         else:
             laser_state = self.format_tfd_sensor_value("laser", laser_active)
         
-        raw_limits = bus.get("par_limits_status", "0")
+        raw_limits = bus.get("sensor_limits_status", "0")
         limits_state = self.format_tfd_sensor_value("limits", raw_limits)
         
-        shock_val = bus.get("par_shock_sensor_state", 0) or bus.get("par_shock_active", 0)
+        shock_val = bus.get("sensor_shock_state", 0)
         shock = self.format_tfd_sensor_value("shock", shock_val)
         
-        light_val = bus.get("par_bh1750_lux", 0)
+        light_val = bus.get("sensor_light_lux", 0)
         light = f'{str(int(light_val)).zfill(5)}'
         
-        temp_val = bus.get("par_temperature_c", 22.0)
+        temp_val = bus.get("sensor_temp_c", 22.0)
         try:
-            temp = f"{float(temp_val):.1f}"
+            fv = float(temp_val)
+            # Formatujemy tak, aby zajmowało jak najmniej miejsca
+            if abs(fv) >= 100:
+                temp = f"{int(fv)}"
+            else:
+                temp = f"{fv:.1f}"
         except:
-            temp = f"{temp_val}"
+            temp = str(temp_val)
         
-        lx = bus.get('par_level_x', 0)
-        ly = bus.get('par_level_y', 0)
-        lz = bus.get('par_level_z', 0)
+        lx = bus.get('sensor_level_x', 0)
+        ly = bus.get('sensor_level_y', 0)
+        lz = bus.get('sensor_level_z', 0)
         xyz_formatted = self.format_tfd_xyz(lx, ly, lz)
 
         packet = {

@@ -79,6 +79,8 @@ def load_take_txt(axis_models, path: str | Path) -> int:
     text = path.read_text(encoding="utf-8")
     duration_ms: int | None = None
     axis_map = {axis.axis_def.axis_id: axis for axis in axis_models}
+    # Backward compatibility mapping
+    id_aliases = {"cam_t": "arm_t"}
     parsed_nodes: dict[str, list[AxisNode]] = {axis.axis_def.axis_id: [] for axis in axis_models}
     current_axis_id: str | None = None
 
@@ -94,7 +96,8 @@ def load_take_txt(axis_models, path: str | Path) -> int:
             continue
         if line.startswith("[AXIS]"):
             payload = line[6:]
-            current_axis_id = payload.split("|", 1)[0].strip()
+            raw_id = payload.split("|", 1)[0].strip().lower()
+            current_axis_id = id_aliases.get(raw_id, raw_id)
             continue
         if line.startswith("[PROTOCOL]"):
             current_axis_id = None

@@ -67,8 +67,8 @@ except Exception:
 
 WINDOW_BG = "#16181C"
 HEADER_BG = "#0A1020"
-PROTOCOL_OUTER_BG = "#16181C"
-PROTOCOL_INNER_BG = "#16181C"
+PROTOCOL_OUTER_BG = "#1B2028"
+PROTOCOL_INNER_BG = "#1B2028"
 STATUS_BG = "#09101D"
 
 TEXT = "#F3F7FB"
@@ -470,23 +470,31 @@ def _existing(paths: list[Path]) -> Optional[Path]:
 def project_take_icon_path(state: str, size: int) -> Optional[Path]:
     """
     Szuka ikony TAKE dla danego stanu.
-
     Najpierw próbuje skorzystać z helpera projektu, a potem z katalogu img/take.
     """
     candidates: list[Path] = []
+    
+    # 1. Próba z helperem projektu dla dokładnego rozmiaru
     if project_take_icon is not None:
         try:
-            candidates.append(Path(project_take_icon(size=size, state=state)))
+            p = Path(project_take_icon(size=size, state=state))
+            if p.exists(): candidates.append(p)
         except Exception:
             pass
 
-    candidates.extend([
-        IMG_TAKE_DIR / f"take_{state}_{size}.png",
-        IMG_TAKE_DIR / f"take_{state}_320.png",
-        IMG_TAKE_DIR / f"take_{state}_256.png",
-        IMG_TAKE_DIR / f"take_{state}_128.png",
-        IMG_TAKE_DIR / f"take_{state}_64.png",
-    ])
+    # 2. Standardowe rozmiary w projekcie
+    std_sizes = [320, 256, 128, 64]
+    for s in std_sizes:
+        for ext in ["png", "ico"]:
+            candidates.append(IMG_TAKE_DIR / f"take_{state}_{s}.{ext}")
+            # Fallback do 'closed' jeśli inny stan nie istnieje
+            if state != "closed":
+                candidates.append(IMG_TAKE_DIR / f"take_closed_{s}.{ext}")
+        if project_take_icon is not None:
+            try:
+                candidates.append(Path(project_take_icon(size=s, state=state)))
+            except Exception: pass
+
     return _existing(candidates)
 
 
@@ -571,13 +579,33 @@ class IconRenderer:
 
         source_path = project_take_icon_path(state, max(self.ui.icon_width, self.ui.icon_height))
         if source_path and source_path.exists():
-            img = Image.open(source_path).convert("RGBA").resize(
-                (self.ui.icon_width, self.ui.icon_height),
-                Image.LANCZOS,
-            )
+            try:
+                # print(f"DEBUG: Ładowanie ikony TAKE ze ścieżki: {source_path}")
+                img = Image.open(source_path).convert("RGBA").resize(
+                    (self.ui.icon_width, self.ui.icon_height),
+                    Image.LANCZOS,
+                )
+            except Exception as e:
+                print(f"ERROR: Błąd ładowania ikony TAKE {source_path}: {e}")
+                img = None
         else:
-            img = Image.new("RGBA", (self.ui.icon_width, self.ui.icon_height), (0, 0, 0, 255))
+            if source_path:
+                print(f"ERROR: Ikona TAKE nie istnieje pod ścieżką: {source_path}")
+            else:
+                print(f"ERROR: Nie znaleziono żadnej ikony TAKE dla stanu: {state}")
+            img = None
+
+        if img is None:
+            img = Image.new("RGBA", (self.ui.icon_width, self.ui.icon_height), (20, 20, 25, 255))
             draw = ImageDraw.Draw(img)
+            # Rysuj ramkę zastępczą, aby było widać że coś tam jest
+            draw.rectangle((0, 0, self.ui.icon_width-1, self.ui.icon_height-1), outline=(100, 100, 120, 255), width=2)
+            msg = state.upper()
+            try:
+                fnt = fit_font(msg, self.ui.icon_width-10, 30, 20, False)
+                if fnt: draw.text((10, 10), msg, font=fnt, fill=(150, 150, 170, 255))
+            except Exception: pass
+            
             if state == "active":
                 draw.rectangle((0, 0, self.ui.icon_width - 1, 30), fill=(212, 59, 59, 255))
             elif state == "save":
@@ -620,7 +648,7 @@ class IconRenderer:
         if cache_key in self.photo_cache:
             return self.photo_cache[cache_key]
 
-        base_state = "open" if vm.state in (SlotState.EMPTY, SlotState.LINKED) else ("save" if vm.is_saved else "active")
+        base_state = "closed" if vm.state in (SlotState.EMPTY, SlotState.LINKED) else ("save" if vm.is_saved else "active")
         img = self._load_base_icon(base_state)
         draw = ImageDraw.Draw(img)
 
@@ -975,12 +1003,13 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
     def _layout_protocol(self) -> None:
         """Przelicza geometrię pasa TAKE."""
         width = max(900, int(self.protocol_canvas.winfo_width() or 1200))
-        height = max(215, int(self.protocol_canvas.winfo_height() or self.ui.protocol_height))
+        height = max(180, int(self.protocol_canvas.winfo_height() or self.ui.protocol_height))
         inner = self.ui.protocol_inner_pad_x
 
         self.protocol_canvas.delete("band_bg")
         self.protocol_canvas.create_rectangle(0, 0, width, height, fill=PROTOCOL_OUTER_BG, outline="", tags="band_bg")
         self.protocol_canvas.create_rectangle(inner, 0, width - inner, height, fill=PROTOCOL_INNER_BG, outline="", tags="band_bg")
+        self.protocol_canvas.tag_lower("band_bg")
 
         if self.row_window is not None:
             self.protocol_canvas.coords(self.row_window, width / 2, self.ui.row_center_y)
@@ -2344,11 +2373,11 @@ class AxisSettingsDialog(tk.Toplevel):
 
 
 class TarzanEhrMultiAxisWindow(tk.Tk):
-    BG = "#16181C"
+    BG = "#1B2028"
     MAIN_CURVE_SAMPLES_IDLE = 450
     MAIN_CURVE_SAMPLES_DRAG = 120
-    PANEL = "#23272E"
-    PANEL2 = "#2A3038"
+    PANEL = "#1B2028"
+    PANEL2 = "#212730"
     FG = "#F3F6F8"
     MUTED = "#AEB7C2"
     CURVE = "#D9E7F5"
@@ -2421,9 +2450,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             "oś pozioma ramienia": "ta_os_pozioma_ramienia_ico_320_active.png",
             "oś pozioma kamery": "ta_os_pozioma_kamery_ico_320_active.png",
             "oś pochyłu kamery": "ta_os_pochylu_kamery_ico_320_active.png",
+            "oś pochyłu ramienia": "ta_os_pochylu_kamery_ico_320_active.png",
             "oś pionowa ramienia": "ta_os_pionowa_ramienia_ico_320_active.png",
             "oś pionowa kamery": "ta_os_pionowa_kamery_ico_320_active.png",
-            "oś ostrości kamery": "ta_os_ostrości_kamery_ico_320_active.png",
+            "oś ostrości kamery": "ta_os_ostrosci_kamery_ico_320_active.png",
             "DRON": "ta_dron_ico_320_active.png"
         }
 
@@ -2533,7 +2563,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
     def _build_ui(self) -> None:
         outer = tk.Frame(self, bg=self.BG)
-        outer.pack(fill="both", expand=True, padx=2, pady=(10, 2))
+        outer.pack(fill="both", expand=True, padx=0, pady=0)
 
         top = tk.Frame(outer, bg=self.BG)
         top.pack(fill="x", pady=0)
@@ -2568,7 +2598,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         body.pack(fill="both", expand=True)
 
         self.left = tk.Frame(body, bg=self.BG, width=300)
-        self.left.pack(side="left", fill="y", padx=(0, 8))
+        self.left.pack(side="left", fill="y", padx=0)
         self.left.pack_propagate(False)
         right = tk.Frame(body, bg=self.BG)
         right.pack(side="left", fill="both", expand=True)
@@ -2602,19 +2632,18 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             padx=10,
             pady=6
         )
-        self.selected_point_time_label.pack(fill="x", pady=(0, 10))
-
+        self.selected_point_time_label.pack(fill="x", pady=(0, 2))
         self.axis_info_label = tk.Label(parent, textvariable=self.axis_info_var, bg=self.PANEL, fg=self.MUTED,
-                                        justify="left", anchor="w", font=("Consolas", 9), padx=10, pady=10)
-        self.axis_info_label.pack(fill="x", pady=(0, 12))
+                                        justify="left", anchor="w", font=("Consolas", 9), padx=10, pady=4)
+        self.axis_info_label.pack(fill="x", pady=(0, 4))
 
         self.protocol_label_var = tk.StringVar(value=f"PODGLĄD PROTOKOŁU — {self._active_model().axis_def.axis_name}")
         self.protocol_label = tk.Label(parent, textvariable=self.protocol_label_var, bg=self.BG, fg=self.FG,
                                        anchor="w", font=("Segoe UI Semibold", 11))
-        self.protocol_label.pack(fill="x", pady=(0, 6))
+        self.protocol_label.pack(fill="x", pady=(0, 2))
 
         self.protocol_box = tk.Frame(parent, bg=self.PANEL)
-        self.protocol_box.pack(fill="both", expand=True, pady=(0, 10))
+        self.protocol_box.pack(fill="both", expand=True, pady=(0, 4))
         self.protocol_text = tk.Text(self.protocol_box, height=24, bg=self.PANEL, fg=self.FG, relief="flat",
                                      wrap="none", font=("Consolas", 8))
         self.protocol_text.pack(side="left", fill="both", expand=True, padx=(8, 0), pady=8)
@@ -2987,7 +3016,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if not active:
             icon_filename = icon_filename.replace("_active.png", "_inactive.png")
 
-        icon_path = Path("X:/tarzan/img/axes") / icon_filename
+        icon_path = PROJECT_DIR / "img" / "axes" / icon_filename
         if not icon_path.exists():
             return None
 
@@ -3040,7 +3069,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.gear_rects.clear()
             self.wave_rects.clear()
             # left, top, right, bottom już mamy z obliczeń klucza
-            c.create_rectangle(left, top, right, bottom, fill="#1B2028", outline="#303A45", tags="bg")
+            c.create_rectangle(left, top, right, bottom, fill="#1B2028", outline="", tags="bg")
 
             total_minutes = max(1, int(self.global_take_duration_ms // 60000))
             if self.main_take_settings.show_minute_grid:
@@ -3767,10 +3796,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.take_panel.pack_forget()
             self._set_status("Panel TAKE ukryty.")
         else:
-            if self.main_body is not None:
-                self.take_panel.pack(fill="x", pady=(0, 0), before=self.main_body)
-            else:
-                self.take_panel.pack(fill="x", pady=(0, 0))
+            self.take_panel.pack(fill="x", side="bottom", pady=(2, 0))
             self._set_status("Panel TAKE pokazany.")
 
     def _on_toggle_take_btn_click(self) -> None:

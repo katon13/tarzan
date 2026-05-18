@@ -19,10 +19,11 @@ AXIS_ICON_MAP = {
     "oś pozioma kamery": "ta_os_pozioma_kamery_ico",
     "oś pionowa kamery": "ta_os_pionowa_kamery_ico",
     "oś pochyłu kamery": "ta_os_pochylu_kamery_ico",
+    "oś pochyłu ramienia": "ta_os_pochylu_kamery_ico",
     "oś ostrości kamery": "ta_os_ostrosci_kamery_ico",
     "oś pionowa ramienia": "ta_os_pionowa_ramienia_ico",
     "oś pozioma ramienia": "ta_os_pozioma_ramienia_ico",
-    "dron": "ta_dron_ico",
+    "DRON": "ta_dron_ico",
 }
 
 

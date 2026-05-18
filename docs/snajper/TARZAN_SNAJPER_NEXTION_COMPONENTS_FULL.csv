@@ -1,0 +1,140 @@
+page,component,type,props,source,line
+rrp_main,va_p1_axis,Variable (int32),['val'],rrp_main.txt,54
+rrp_main,va_p2_axis,Variable (int32),['val'],rrp_main.txt,60
+rrp_main,va_tmp,Variable (int32),['val'],rrp_main.txt,66
+rrp_main,va_p2_dir,Variable (int32),['val'],rrp_main.txt,72
+rrp_main,va_p1_dir,Variable (int32),['val'],rrp_main.txt,78
+rrp_main,va_p1_val,Variable (int32),['val'],rrp_main.txt,84
+rrp_main,va_p2_val,Variable (int32),['val'],rrp_main.txt,90
+rrp_main,t_p1_val,Text,['txt'],rrp_main.txt,96
+rrp_main,t_p2_val,Text,['txt'],rrp_main.txt,118
+rrp_main,t_buf_p1,Text,['txt'],rrp_main.txt,140
+rrp_main,t_buf_p2,Text,['txt'],rrp_main.txt,164
+rrp_main,h_p1_sens,Slider,['val'],rrp_main.txt,188
+rrp_main,h_p2_sens,Slider,['val'],rrp_main.txt,214
+rrp_main,b_home,Button,"['val', 'pic']",rrp_main.txt,240
+rrp_main,b_stop,Button,"['val', 'pic']",rrp_main.txt,271
+rrp_main,b_p1_cam_v,Dual-state Button,['val'],rrp_main.txt,338
+rrp_main,b_p2_cam_v,Dual-state Button,['val'],rrp_main.txt,391
+rrp_main,b_p1_dir,Dual-state Button,['val'],rrp_main.txt,444
+rrp_main,b_p2_dir,Dual-state Button,['val'],rrp_main.txt,479
+rrp_main,b_p1_cam_t,Dual-state Button,['val'],rrp_main.txt,514
+rrp_main,b_p1_cam_f,Dual-state Button,['val'],rrp_main.txt,567
+rrp_main,b_p1_cam_h,Dual-state Button,['val'],rrp_main.txt,620
+rrp_main,b_p1_arm_h,Dual-state Button,['val'],rrp_main.txt,673
+rrp_main,b_p1_arm_v,Dual-state Button,['val'],rrp_main.txt,726
+rrp_main,b_p2_cam_t,Dual-state Button,['val'],rrp_main.txt,779
+rrp_main,b_p2_cam_f,Dual-state Button,['val'],rrp_main.txt,832
+rrp_main,b_p2_cam_h,Dual-state Button,['val'],rrp_main.txt,885
+rrp_main,b_p2_arm_h,Dual-state Button,['val'],rrp_main.txt,938
+rrp_main,b_p2_arm_v,Dual-state Button,['val'],rrp_main.txt,991
+take_main,t_axis0,Text,['txt'],take_main.txt,15
+take_main,t_axis1,Text,['txt'],take_main.txt,39
+take_main,t_axis3,Text,['txt'],take_main.txt,63
+take_main,t_axis2,Text,['txt'],take_main.txt,87
+take_main,t_axis4,Text,['txt'],take_main.txt,111
+take_main,t_axis5,Text,['txt'],take_main.txt,135
+take_main,t_take,Text,['txt'],take_main.txt,159
+take_main,t_clap,Text,['txt'],take_main.txt,183
+take_main,t_laser,Text,['txt'],take_main.txt,207
+take_main,t_limits,Text,['txt'],take_main.txt,231
+take_main,t_status,Text,['txt'],take_main.txt,255
+take_main,t_shock,Text,['txt'],take_main.txt,279
+take_main,t_light,Text,['txt'],take_main.txt,303
+take_main,t_temp,Text,['txt'],take_main.txt,327
+take_main,t_xyz,Text,['txt'],take_main.txt,351
+take_main,t0,Text,['txt'],take_main.txt,375
+take_main,t1,Text,['txt'],take_main.txt,399
+take_main,t2,Text,['txt'],take_main.txt,423
+take_main,p_axis0,Picture,['pic'],take_main.txt,447
+take_main,p_axis1,Picture,['pic'],take_main.txt,458
+take_main,p_axis5,Picture,['pic'],take_main.txt,469
+take_main,p_axis3,Picture,['pic'],take_main.txt,480
+take_main,p_axis2,Picture,['pic'],take_main.txt,491
+take_main,p_axis4,Picture,['pic'],take_main.txt,502
+take_main,p_laser,Picture,['pic'],take_main.txt,513
+take_main,p_limits,Picture,['pic'],take_main.txt,524
+take_main,p_light,Picture,['pic'],take_main.txt,535
+take_main,p_shock,Picture,['pic'],take_main.txt,546
+take_main,p_temp,Picture,['pic'],take_main.txt,557
+take_main,p_xyz,Picture,['pic'],take_main.txt,568
+take_main,b_home,Button,"['val', 'pic']",take_main.txt,579
+take_main,b_clap,Button,"['val', 'pic']",take_main.txt,610
+settings_main,t_title,Text,['txt'],settings_main.txt,16
+settings_main,t_director,Text,['txt'],settings_main.txt,40
+settings_main,t_save_status,Text,['txt'],settings_main.txt,64
+settings_main,b_home,Button,"['val', 'pic']",settings_main.txt,100
+settings_main,b_save_meta,Button,"['val', 'pic']",settings_main.txt,131
+level_xyz,va0,Variable (int32),['val'],level_xyz.txt,21
+level_xyz,va1,Variable (int32),['val'],level_xyz.txt,27
+level_xyz,va2,Variable (int32),['val'],level_xyz.txt,33
+level_xyz,va3,Variable (int32),['val'],level_xyz.txt,39
+level_xyz,p0,Picture,['pic'],level_xyz.txt,45
+level_xyz,b_home,Button,"['val', 'pic']",level_xyz.txt,56
+level_xyz,tm0,Timer,"['en', 'tim']",level_xyz.txt,87
+level_xyz,Event,Timer,"['en', 'tim']",level_xyz.txt,95
+page1,b_face,Button,"['val', 'pic']",page1.txt,15
+page1,b_level,Button,"['val', 'pic']",page1.txt,42
+page1,b_rrp,Button,"['val', 'pic']",page1.txt,69
+page1,b_sensors,Button,"['val', 'pic']",page1.txt,96
+page1,b_settings,Button,"['val', 'pic']",page1.txt,123
+page1,b_take,Button,"['val', 'pic']",page1.txt,150
+boot,va0,Variable (int32),['val'],boot.txt,22
+boot,p0,Picture,['pic'],boot.txt,28
+boot,tm0,Timer,"['en', 'tim']",boot.txt,46
+boot,Event,Timer,"['en', 'tim']",boot.txt,54
+sensors_main,t0,Text,['txt'],sensors_main.txt,15
+sensors_main,b_home,Button,"['val', 'pic']",sensors_main.txt,39
+face_rec,t0,Text,['txt'],face_rec.txt,15
+face_rec,b_home,Button,"['val', 'pic']",face_rec.txt,39
+keybdA,loadpageid,Variable (int32),['val'],keybdA.txt,58
+keybdA,loadcmpid,Variable (int32),['val'],keybdA.txt,64
+keybdA,input,Variable (string),['txt'],keybdA.txt,70
+keybdA,temp,Variable (int32),['val'],keybdA.txt,77
+keybdA,inputlenth,Variable (int32),['val'],keybdA.txt,83
+keybdA,temp2,Variable (int32),['val'],keybdA.txt,89
+keybdA,tempstr,Variable (string),['txt'],keybdA.txt,95
+keybdA,show,Text,['txt'],keybdA.txt,102
+keybdA,b0,Button,"['val', 'pic']",keybdA.txt,126
+keybdA,b251,Button,"['val', 'pic']",keybdA.txt,163
+keybdA,b210,Button,"['val', 'pic']",keybdA.txt,193
+keybdA,b1,Button,"['val', 'pic']",keybdA.txt,271
+keybdA,b2,Button,"['val', 'pic']",keybdA.txt,308
+keybdA,b3,Button,"['val', 'pic']",keybdA.txt,345
+keybdA,b4,Button,"['val', 'pic']",keybdA.txt,382
+keybdA,b5,Button,"['val', 'pic']",keybdA.txt,419
+keybdA,b6,Button,"['val', 'pic']",keybdA.txt,456
+keybdA,b7,Button,"['val', 'pic']",keybdA.txt,493
+keybdA,b8,Button,"['val', 'pic']",keybdA.txt,530
+keybdA,b200,Button,"['val', 'pic']",keybdA.txt,567
+keybdA,b20,Button,"['val', 'pic']",keybdA.txt,600
+keybdA,b21,Button,"['val', 'pic']",keybdA.txt,637
+keybdA,b22,Button,"['val', 'pic']",keybdA.txt,674
+keybdA,b23,Button,"['val', 'pic']",keybdA.txt,711
+keybdA,b24,Button,"['val', 'pic']",keybdA.txt,748
+keybdA,b25,Button,"['val', 'pic']",keybdA.txt,785
+keybdA,b26,Button,"['val', 'pic']",keybdA.txt,822
+keybdA,b27,Button,"['val', 'pic']",keybdA.txt,859
+keybdA,b28,Button,"['val', 'pic']",keybdA.txt,896
+keybdA,b220,Button,"['val', 'pic']",keybdA.txt,933
+keybdA,b40,Button,"['val', 'pic']",keybdA.txt,979
+keybdA,b41,Button,"['val', 'pic']",keybdA.txt,1016
+keybdA,b42,Button,"['val', 'pic']",keybdA.txt,1053
+keybdA,b43,Button,"['val', 'pic']",keybdA.txt,1090
+keybdA,b44,Button,"['val', 'pic']",keybdA.txt,1127
+keybdA,b45,Button,"['val', 'pic']",keybdA.txt,1164
+keybdA,b46,Button,"['val', 'pic']",keybdA.txt,1201
+keybdA,b230,Button,"['val', 'pic']",keybdA.txt,1238
+keybdA,b240,Button,"['val', 'pic']",keybdA.txt,1275
+keybdA,b242,Button,"['val', 'pic']",keybdA.txt,1316
+keybdA,b241,Button,"['val', 'pic']",keybdA.txt,1353
+keybdA,b243,Button,"['val', 'pic']",keybdA.txt,1390
+keybdA,b231,Button,"['val', 'pic']",keybdA.txt,1427
+keybdA,b244,Button,"['val', 'pic']",keybdA.txt,1464
+keybdA,b249,Button,"['val', 'pic']",keybdA.txt,1501
+keybdA,b201,Button,"['val', 'pic']",keybdA.txt,1537
+keybdA,b9,Button,"['val', 'pic']",keybdA.txt,1574
+keybdA,b232,Button,"['val', 'pic']",keybdA.txt,1611
+keybdA,refshow,Hotspot,['state'],keybdA.txt,1648
+keybdA,tm0,Timer,"['en', 'tim']",keybdA.txt,1742
+keybdA,Event,Timer,"['en', 'tim']",keybdA.txt,1750

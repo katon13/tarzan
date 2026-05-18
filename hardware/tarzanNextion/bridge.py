@@ -10,23 +10,70 @@ from .screen_model import ScreenDefinition, load_screen_definition
 from .state_mapper import TarzanNextionStateMapper
 
 try:
-    # 1. Próba importu absolutnego
     from editor.TFD.tfd_state import tfd_state
 except (ImportError, ModuleNotFoundError):
+    tfd_state = None
+
+
+# RRP: jedyne miejsce dekodowania numeru osi z fizycznego Nextiona.
+# Dalej w SignalBus nie przenosimy indeksu jako źródła prawdy, tylko
+# kanoniczne nazwy sygnałów zgodne z core/tarzanZmienneSygnalowe.py.
+RRP_POT_SIGNAL_BY_PLAYER = {
+    "p1": "sensor_rrp_pot_h",
+    "p2": "sensor_rrp_pot_v",
+}
+
+def _rrp_binding(selected_axis: str, step_signal: str, dir_signal: str, en_signal: str) -> Dict[str, str]:
+    return {
+        "selected_axis": selected_axis,
+        "step_signal": step_signal,
+        "dir_signal": dir_signal,
+        "en_signal": en_signal,
+    }
+
+
+# Korekta według rzeczywistego zachowania FIZYCZNEGO Nextiona.
+# Indeks z Nextiona jest tylko wejściem; dalej do busa idą nazwy kanoniczne.
+# P1 i P2 mają osobne wiersze przycisków, dlatego rozpoznanie indeksu jest osobne dla playera.
+RRP_AXIS_BY_NEXTION_INDEX = {
+    "p1": {
+        0: _rrp_binding("cam_h", "axis_cam_h_step", "axis_cam_h_dir", "axis_cam_h_en"),
+        1: _rrp_binding("cam_v", "axis_cam_v_step", "axis_cam_v_dir", "axis_cam_v_en"),
+        2: _rrp_binding("cam_f", "axis_cam_f_step", "axis_cam_f_dir", "axis_cam_f_en"),
+        3: _rrp_binding("arm_t", "axis_arm_t_step", "axis_arm_t_dir", "axis_arm_t_en"),
+        4: _rrp_binding("arm_h", "axis_arm_h_step", "axis_arm_h_dir", "axis_arm_h_en"),
+        5: _rrp_binding("arm_v", "axis_arm_v_step", "axis_arm_v_dir", "axis_arm_v_en"),
+    },
+    "p2": {
+        0: _rrp_binding("cam_h", "axis_cam_h_step", "axis_cam_h_dir", "axis_cam_h_en"),
+        1: _rrp_binding("cam_v", "axis_cam_v_step", "axis_cam_v_dir", "axis_cam_v_en"),
+        2: _rrp_binding("cam_f", "axis_cam_f_step", "axis_cam_f_dir", "axis_cam_f_en"),
+        3: _rrp_binding("arm_t", "axis_arm_t_step", "axis_arm_t_dir", "axis_arm_t_en"),
+        4: _rrp_binding("arm_h", "axis_arm_h_step", "axis_arm_h_dir", "axis_arm_h_en"),
+        5: _rrp_binding("arm_v", "axis_arm_v_step", "axis_arm_v_dir", "axis_arm_v_en"),
+    },
+}
+
+RRP_ALL_EN_SIGNALS = tuple(
+    sorted({axis["en_signal"] for player_map in RRP_AXIS_BY_NEXTION_INDEX.values() for axis in player_map.values()})
+)
+RRP_REC_AUTO_EN_SIGNALS = {"axis_cam_v_en", "axis_arm_t_en", "axis_cam_f_en", "axis_cam_h_en"}
+
+
+def _rrp_axis_binding(player: str, nextion_axis_index: int) -> Dict[str, str]:
     try:
-        # 2. Próba importu bezpośredniego (jeśli editor jest w sys.path)
-        from TFD.tfd_state import tfd_state
-    except (ImportError, ModuleNotFoundError):
-        try:
-            # 3. Próba wymuszenia ścieżki
-            import sys
-            from pathlib import Path
-            _root = Path(__file__).resolve().parents[2]
-            if str(_root) not in sys.path:
-                sys.path.insert(0, str(_root))
-            from editor.TFD.tfd_state import tfd_state
-        except:
-            tfd_state = None
+        idx = int(nextion_axis_index)
+    except (TypeError, ValueError):
+        idx = -1
+    player_map = RRP_AXIS_BY_NEXTION_INDEX.get(player, {})
+    if idx not in player_map:
+        return {
+            "selected_axis": "",
+            "step_signal": "",
+            "dir_signal": "",
+            "en_signal": "",
+        }
+    return player_map[idx]
 
 try:
     from audio.tarzanAudioPlayer import play as play_audio
@@ -131,9 +178,11 @@ class TarzanNextionBridge:
                 base[f"{key}.rrp_rev"] = self.rrp_state.get("rrp_rev", 0)
                 for k, v in self.rrp_state.items():
                     base[f"{key}.rrp.{k}"] = v
-                # DODANE: Uwzględniamy gęstość STEP w snapshotcie, aby sync() wykrywał zmiany
-                base[f"{key}.rrp.p1_val"] = self.bus.get("par_rrp_p1_val", "0")
-                base[f"{key}.rrp.p2_val"] = self.bus.get("par_rrp_p2_val", "0")
+                # RRP pokazuje licznik impulsów aktualnie wybranej osi.
+                p1_axis = _rrp_axis_binding("p1", self.rrp_state.get("va_p1_axis", -1)).get("selected_axis", "")
+                p2_axis = _rrp_axis_binding("p2", self.rrp_state.get("va_p2_axis", -1)).get("selected_axis", "")
+                base[f"{key}.rrp.p1_val"] = self.bus.get(f"par_{p1_axis}_pulses", 0) if p1_axis else 0
+                base[f"{key}.rrp.p2_val"] = self.bus.get(f"par_{p2_axis}_pulses", 0) if p2_axis else 0
         
         # Kompatybilność wsteczna
         for k, v in self.rrp_state.items():
@@ -209,12 +258,12 @@ class TarzanNextionBridge:
             return []
 
         try:
-            x = int(float(self.bus.get("par_level_x", 0) or 0))
+            x = int(float(self.bus.get("sensor_level_x", 0) or 0))
         except Exception:
             x = 0
 
         try:
-            y = int(float(self.bus.get("par_level_y", 0) or 0))
+            y = int(float(self.bus.get("sensor_level_y", 0) or 0))
         except Exception:
             y = 0
 
@@ -233,14 +282,33 @@ class TarzanNextionBridge:
             return []
         
         cmds = []
-        # Pobieramy wartosc obliczona przez generator w PAR
-        p1_val = self.bus.get("par_rrp_p1_val", "0")
-        p2_val = self.bus.get("par_rrp_p2_val", "0")
+        # Pobieramy ten sam licznik impulsów, który PAR pokazuje pod kartą osi:
+        # self.bus.get(f"par_{axis.lower()}_pulses", 0).
+        # Tutaj axis pochodzi z aktualnego wyboru P1/P2 na RRP.
+        p1_axis = _rrp_axis_binding("p1", self.rrp_state.get("va_p1_axis", -1)).get("selected_axis", "")
+        p2_axis = _rrp_axis_binding("p2", self.rrp_state.get("va_p2_axis", -1)).get("selected_axis", "")
+        p1_val = self.bus.get(f"par_{p1_axis}_pulses", 0) if p1_axis else 0
+        p2_val = self.bus.get(f"par_{p2_axis}_pulses", 0) if p2_axis else 0
+        p1_text = str(int(float(p1_val or 0)))
+        p2_text = str(int(float(p2_val or 0)))
+
+        # Wysyłamy do pól tekstowych oraz do zmiennych pomocniczych na fizycznym ekranie.
+        # ref jest tani i usuwa przypadek, w którym tekst przyjął wartość, ale pole graficzne nie odrysowało się.
+        if self._should_update(screen_key, "t_p1_val", p1_text):
+            cmds.append(cmd_text("t_p1_val", p1_text))
+            cmds.append(command_bytes("ref t_p1_val"))
+        if self._should_update(screen_key, "t_p2_val", p2_text):
+            cmds.append(cmd_text("t_p2_val", p2_text))
+            cmds.append(command_bytes("ref t_p2_val"))
+        if self._should_update(screen_key, "va_p1_val.val", p1_text): cmds.append(command_bytes(f"va_p1_val.val={p1_text}"))
+        if self._should_update(screen_key, "va_p2_val.val", p2_text): cmds.append(command_bytes(f"va_p2_val.val={p2_text}"))
         
-        # Wysylamy do pol tekstowych na fizycznym ekranie
-        if self._should_update(screen_key, "t_p1_val", str(p1_val)): cmds.append(cmd_text("t_p1_val", str(p1_val)))
-        if self._should_update(screen_key, "t_p2_val", str(p2_val)): cmds.append(cmd_text("t_p2_val", str(p2_val)))
-        
+        # DODANE: Synchronizacja stanu wyboru osi (ikon) na Nextionie
+        p1_ax = self.rrp_state.get("va_p1_axis", -1)
+        p2_ax = self.rrp_state.get("va_p2_axis", -1)
+        if self._should_update(screen_key, "va_p1_axis.val", p1_ax): cmds.append(command_bytes(f"va_p1_axis.val={p1_ax}"))
+        if self._should_update(screen_key, "va_p2_axis.val", p2_ax): cmds.append(command_bytes(f"va_p2_axis.val={p2_ax}"))
+
         return cmds
 
     def _should_update(self, screen_key: str, component: str, value: Any) -> bool:
@@ -327,7 +395,13 @@ class TarzanNextionBridge:
         for i in range(6):
             comp = f"t_axis{i}"
             axis_data = axes.get(f"axis{i}", {})
-            val = axis_data.get("pos", "+00000")
+            # Przywracamy formatowanie 000000 dla liczników (wymóg użytkownika)
+            # Używamy pulses (liczba kroków), ale z paddingiem do 6 cyfr
+            try:
+                p = axis_data.get("pulses", 0)
+                val = str(abs(int(float(p)))).zfill(6)
+            except:
+                val = "000000"
             if tfd_state.should_update(f"nextion_7.{comp}", val):
                 cmds.append(cmd_text(comp, val))
                 
@@ -520,42 +594,61 @@ class TarzanNextionBridge:
         self._update_bus_from_rrp()
 
     def _update_bus_from_rrp(self) -> None:
-        """Aktualizuje magistrale sygnalowa na podstawie fizycznego stanu RRP."""
+        """Aktualizuje SignalBus po zdarzeniu RRP z Nextiona.
+
+        Indeks osi z Nextiona jest rozpoznawany wyłącznie tutaj. Do dalszych
+        warstw trafiają już gotowe kanoniczne nazwy osi i sygnałów.
+        """
+        active_en_signals = set()
+
         for player in ("p1", "p2"):
-            axis = self.rrp_state.get(f"va_{player}_axis", -1)
+            axis_index = self.rrp_state.get(f"va_{player}_axis", -1)
             direction = self.rrp_state.get(f"va_{player}_dir", 0)
             sensitivity = self.rrp_state.get(f"h_{player}_sens", 50)
-            
-            # Przekazujemy parametry sterowania do magistrali
-            self.bus.set_input(f"par_rrp_{player}_axis", axis, source="NEXTION_PHYSICAL")
-            self.bus.set_input(f"par_rrp_{player}_dir", direction, source="NEXTION_PHYSICAL")
-            self.bus.set_input(f"par_rrp_{player}_sens", sensitivity, source="NEXTION_PHYSICAL")
-            
-            # Nie nadpisujemy juz sygnalow p45/p47 - one sa zarezerwowane dla fizycznych potencjometrow
-            # ktore w PAR sa reprezentowane przez galki (knobs)
+            binding = _rrp_axis_binding(player, axis_index)
+            pot_signal = RRP_POT_SIGNAL_BY_PLAYER[player]
+            active = 1 if binding["selected_axis"] else 0
 
-        # 2. Sterowanie sygnalami ENABLE osi ramienia
-        active_axes = {self.rrp_state["va_p1_axis"], self.rrp_state["va_p2_axis"]}
-        
-        self.bus.set_input("play_p50_step_en_arm_h", 1 if 4 in active_axes else 0, source="NEXTION_PHYSICAL")
-        self.bus.set_input("play_p51_step_en_arm_v", 1 if 5 in active_axes else 0, source="NEXTION_PHYSICAL")
-        self.bus.set_input("play_p52_step_en_arm_tilt", 1 if 1 in active_axes else 0, source="NEXTION_PHYSICAL")
+            if binding["en_signal"]:
+                active_en_signals.add(binding["en_signal"])
 
-        # 3. Glowna lampa akcji
-        any_active = any(ax != -1 for ax in active_axes)
-        self.bus.set_input("play_p16_action_led", 1 if any_active else 0, source="NEXTION_PHYSICAL")
+            canonical_state = {
+                "active": active,
+                "selected_axis": binding["selected_axis"],
+                "pot_signal": pot_signal,
+                "step_signal": binding["step_signal"],
+                "dir_signal": binding["dir_signal"],
+                "en_signal": binding["en_signal"],
+                "dir": direction,
+                "sens": sensitivity,
+            }
+
+            for key, value in canonical_state.items():
+                self.bus.force_signal(f"rrp_{player}_{key}", value, source="NEXTION_PHYSICAL")
+                self.bus.force_signal(f"par_rrp_{player}_{key}", value, source="NEXTION_PHYSICAL")
+
+            # Kompatybilność dla starego preview: nie jest to już źródło prawdy.
+            self.bus.force_signal(f"par_rrp_{player}_axis", binding["selected_axis"], source="NEXTION_PHYSICAL")
+            self.bus.force_signal(f"par_rrp_{player}_dir", direction, source="NEXTION_PHYSICAL")
+            self.bus.force_signal(f"par_rrp_{player}_sens", sensitivity, source="NEXTION_PHYSICAL")
+
+        rec_auto_active = any(en_sig in RRP_REC_AUTO_EN_SIGNALS for en_sig in active_en_signals)
+        self.bus.write_output("ui_rec_auto_enable", 1 if rec_auto_active else 0, source="NEXTION_PHYSICAL")
+
+        for en_sig in RRP_ALL_EN_SIGNALS:
+            self.bus.write_output(en_sig, 1 if en_sig in active_en_signals else 0, source="NEXTION_PHYSICAL")
+
+        self.bus.write_output("ui_action_led", 1 if active_en_signals else 0, source="NEXTION_PHYSICAL")
 
     def preview_rrp_tap(self, screen_key: str, key: str) -> None:
-        """Przekazuje tapniêcie w Preview do fizycznego ekranu."""
+        """Przekazuje tapnięcie w Preview do fizycznego ekranu oraz aktualizuje stan lokalnie."""
         device = self.devices.get(screen_key)
-        if not device or not device.connected:
-            return
         
         # Mapowanie klucza z Preview na komponent w Nextion
         comp_map = {
-            "p1_cam_v": "b_p1_cam_v", "p1_cam_t": "b_p1_cam_t", "p1_cam_f": "b_p1_cam_f",
+            "p1_cam_v": "b_p1_cam_v", "p1_arm_t": "b_p1_arm_t", "p1_cam_f": "b_p1_cam_f",
             "p1_cam_h": "b_p1_cam_h", "p1_arm_h": "b_p1_arm_h", "p1_arm_v": "b_p1_arm_v",
-            "p2_cam_v": "b_p2_cam_v", "p2_cam_t": "b_p2_cam_t", "p2_cam_f": "b_p2_cam_f",
+            "p2_cam_v": "b_p2_cam_v", "p2_arm_t": "b_p2_arm_t", "p2_cam_f": "b_p2_cam_f",
             "p2_cam_h": "b_p2_cam_h", "p2_arm_h": "b_p2_arm_h", "p2_arm_v": "b_p2_arm_v",
             "p1_dir": "b_p1_dir", "p2_dir": "b_p2_dir",
             "stop": "b_stop", "home": "b_home"
@@ -563,17 +656,53 @@ class TarzanNextionBridge:
         
         comp = comp_map.get(key)
         if comp:
-            # Wysy³amy click do fizycznego ekranu, co wywo³a Touch Release Event na Nextionie
-            # i w efekcie fizyczny ekran wyle do nas rrp:komunikat.
-            device.send_command(f"click {comp},1")
+            # 1. Jeśli urządzenie jest podłączone, wysyłamy click (fizyczny ekran odpowie rrp:)
+            if device and device.connected:
+                device.send_command(f"click {comp},1")
+            
+            # 2. DODANE: Symulujemy zmianę stanu lokalnie dla płynności Preview bez sprzętu
+            self._simulate_rrp_click(key)
+
+    def _simulate_rrp_click(self, key: str) -> None:
+        """Symuluje logikę przycisków RRP dla trybu bez sprzętu."""
+        # Mapowanie kluczy Preview na osie (indeksy 0-5)
+        axis_map = {
+            "p1_cam_v": (1, 0), "p1_arm_t": (1, 1), "p1_cam_f": (1, 2), "p1_cam_h": (1, 3), "p1_arm_h": (1, 4), "p1_arm_v": (1, 5),
+            "p2_cam_v": (2, 0), "p2_arm_t": (2, 1), "p2_cam_f": (2, 2), "p2_cam_h": (2, 3), "p2_arm_h": (2, 4), "p2_arm_v": (2, 5),
+        }
+        
+        if key in axis_map:
+            p_idx, ax_idx = axis_map[key]
+            current = self.rrp_state.get(f"va_p{p_idx}_axis", -1)
+            # Toggle osi
+            self.rrp_state[f"va_p{p_idx}_axis"] = ax_idx if current != ax_idx else -1
+            self.rrp_state["rrp_rev"] += 1
+            self._update_bus_from_rrp()
+        
+        elif key == "stop":
+            self.rrp_state["va_p1_axis"] = -1
+            self.rrp_state["va_p2_axis"] = -1
+            self.rrp_state["rrp_rev"] += 1
+            self._update_bus_from_rrp()
+            
+        elif key in ("p1_dir", "p2_dir"):
+            p_idx = 1 if "p1" in key else 2
+            curr_dir = self.rrp_state.get(f"va_p{p_idx}_dir", 0)
+            self.rrp_state[f"va_p{p_idx}_dir"] = 1 - curr_dir
+            self.rrp_state["rrp_rev"] += 1
+            self._update_bus_from_rrp()
 
     def preview_rrp_set_value(self, screen_key: str, player: str, value: int) -> None:
-        """Przekazuje zmianê suwaka w Preview do fizycznego ekranu."""
+        """Przekazuje zmianę suwaka w Preview do fizycznego ekranu oraz aktualizuje stan lokalnie."""
         device = self.devices.get(screen_key)
-        if not device or not device.connected:
-            return
         
         comp = f"h_{player}_sens"
-        # Ustawiamy wartoæ na fizycznym ekranie i symulujemy puszczenie suwaka
-        device.send_command(f"{comp}.val={value}")
-        device.send_command(f"click {comp},1")
+        # 1. Jeśli urządzenie jest podłączone, aktualizujemy i klikamy
+        if device and device.connected:
+            device.send_command(f"{comp}.val={value}")
+            device.send_command(f"click {comp},1")
+        
+        # 2. DODANE: Aktualizujemy stan lokalny
+        self.rrp_state[comp] = value
+        self.rrp_state["rrp_rev"] += 1
+        self._update_bus_from_rrp()

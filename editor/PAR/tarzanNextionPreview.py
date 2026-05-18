@@ -74,13 +74,13 @@ PAGE1_BUTTONS = [
 
 _RRP_BUTTONS = [
     ("p1_cam_v", "CAM V", 20, 20),
-    ("p1_cam_t", "CAM T", 120, 20),
+    ("p1_arm_t", "ARM T", 120, 20),
     ("p1_cam_f", "FOCUS", 220, 20),
     ("p1_cam_h", "CAM H", 320, 20),
     ("p1_arm_h", "ARM H", 420, 20),
     ("p1_arm_v", "ARM V", 520, 20),
     ("p2_cam_v", "CAM V", 20, 260),
-    ("p2_cam_t", "CAM T", 120, 260),
+    ("p2_arm_t", "ARM T", 120, 260),
     ("p2_cam_f", "FOCUS", 220, 260),
     ("p2_cam_h", "CAM H", 320, 260),
     ("p2_arm_h", "ARM H", 420, 260),
@@ -820,8 +820,8 @@ class TarzanNextionPreviewPanel(tk.Frame):
 
         draw_slider(20, 140, "P1", int(state.get("h_p1_sens", 50)), "slider_p1")
         draw_slider(20, 380, "P2", int(state.get("h_p2_sens", 50)), "slider_p2")
-        draw_display(420, 140, int(state.get("va_p1_val", 0)), "t_p1_val")
-        draw_display(420, 380, int(state.get("va_p2_val", 0)), "t_p2_val")
+        draw_display(420, 140, int(float(self.state.get(f"{self.screen_key}.rrp.p1_val", 0) or 0)), "t_p1_val")
+        draw_display(420, 380, int(float(self.state.get(f"{self.screen_key}.rrp.p2_val", 0) or 0)), "t_p2_val")
 
         draw_button(680, 20, 100, 100, "DIR", bool(state.get("va_p1_dir", 0)), "p1_dir")
         draw_button(680, 260, 100, 100, "DIR", bool(state.get("va_p2_dir", 0)), "p2_dir")
@@ -831,13 +831,13 @@ class TarzanNextionPreviewPanel(tk.Frame):
         p2_axis = int(state.get("va_p2_axis", -1))
         active_map = {
             "p1_cam_v": p1_axis == 0,
-            "p1_cam_t": p1_axis == 1,
+            "p1_arm_t": p1_axis == 1,
             "p1_cam_f": p1_axis == 2,
             "p1_cam_h": p1_axis == 3,
             "p1_arm_h": p1_axis == 4,
             "p1_arm_v": p1_axis == 5,
             "p2_cam_v": p2_axis == 0,
-            "p2_cam_t": p2_axis == 1,
+            "p2_arm_t": p2_axis == 1,
             "p2_cam_f": p2_axis == 2,
             "p2_cam_h": p2_axis == 3,
             "p2_arm_h": p2_axis == 4,
@@ -975,8 +975,8 @@ class TarzanNextionPreviewPanel(tk.Frame):
 
         if current == "rrp_main":
             for key in [
-                "p1_cam_v", "p1_cam_t", "p1_cam_f", "p1_cam_h", "p1_arm_h", "p1_arm_v",
-                "p2_cam_v", "p2_cam_t", "p2_cam_f", "p2_cam_h", "p2_arm_h", "p2_arm_v",
+                "p1_cam_v", "p1_arm_t", "p1_cam_f", "p1_cam_h", "p1_arm_h", "p1_arm_v",
+                "p2_cam_v", "p2_arm_t", "p2_cam_f", "p2_cam_h", "p2_arm_h", "p2_arm_v",
                 "p1_dir", "p2_dir", "stop", "home",
             ]:
                 box = self._hitboxes.get(key)

@@ -48,6 +48,7 @@ class TarzanSignalMeta:
     rola_logiki: str = ""
     klasa_wykonawcza: str = ""
     conflict_group: Optional[str] = None
+    kanoniczna_nazwa: str = ""
 
     @property
     def is_input(self) -> bool:
@@ -118,8 +119,13 @@ class TarzanSignalBus:
         self.loaded_take_path: Optional[str] = None
         self.debug_override_outputs: bool = False
         self.live_adapter: Any = None
+        self.canonical_map: Dict[str, str] = {}
+        self.hardware_to_canonical: Dict[str, str] = {}
+        self.alias_to_canonical: Dict[str, str] = {}  # Mapuje aliasy (np. par_*) na nazwy kanoniczne
+        self.alias_map: Dict[str, str] = {}           # Mapuje aliasy na nazwy sprzętowe (hw_name)
+        self.counters: Dict[str, int] = {}
+        self.positions: Dict[str, float] = {}
         self._load_signal_map()
-        self._ensure_par_sensor_virtual_signals()
         self.log("BUS", f"SignalBus start mode={self.mode} signals={len(self.meta)}")
 
     # ------------------------------------------------------------------
@@ -138,6 +144,15 @@ class TarzanSignalBus:
                     mode=self.mode,
                     source="BOOT",
                 )
+                if getattr(signal, "kanoniczna_nazwa", ""):
+                    c_name = signal.kanoniczna_nazwa
+                    self.canonical_map[c_name] = name
+                    self.hardware_to_canonical[name] = c_name
+                    # Generowanie aliasów legacy dla nazw kanonicznych
+                    for l_name in self._get_legacy_names(c_name):
+                        if l_name not in self.meta: # Nie nadpisuj istniejących sygnałów sprzętowych
+                            self.alias_to_canonical[l_name] = c_name
+                            self.alias_map[l_name] = name
             loaded = True
         except Exception as exc:
             self.log("BUS", f"Nie udało się zaimportować WSZYSTKIE_SYGNALY: {exc}")
@@ -216,6 +231,7 @@ class TarzanSignalBus:
             rola_logiki=getattr(signal, "rola_logiki", ""),
             klasa_wykonawcza=getattr(signal, "klasa_wykonawcza", ""),
             conflict_group=getattr(signal, "conflict_group", None),
+            kanoniczna_nazwa=getattr(signal, "kanoniczna_nazwa", ""),
         )
 
     def _default_value(self, meta: TarzanSignalMeta) -> Any:
@@ -233,80 +249,6 @@ class TarzanSignalBus:
         return 1 if str(meta.default).strip() == "1" else 0
 
 
-    def _ensure_par_sensor_virtual_signals(self) -> None:
-        """Wirtualne sygnały PAR dla nowych okien wskaźnikowych czujników."""
-        virtuals = [
-            ("par_lamp_auto_active", "PAR", "LH", "IN", "0", "Lampka pracy ramienia / automatyka włączona", "PAR_LAMP"),
-            ("par_mass_reg_enable", "PAR", "LH", "IN", "0", "Regulator masy — sygnał włączający", "REGULATOR_MASY"),
-            ("par_mass_reg_limit_add", "PAR", "LH", "IN", "0", "Regulator masy — masa dodana", "REGULATOR_MASY"),
-            ("par_mass_reg_limit_remove", "PAR", "LH", "IN", "0", "Regulator masy — masa odjęta", "REGULATOR_MASY"),
-            ("par_shock_sensor_state", "PAR", "LH", "IN", "0", "Czujnik wstrząsowy — stan wysoki/niski", "CZUJNIK_WSTRZASOWY"),
-            ("par_bh1750_lux", "PAR", "ANALOG", "IN", "0", "BH1750 — odczyt światła lux", "CZUJNIK_SWIATLA"),
-            ("par_level_x", "PAR", "ANALOG", "IN", "0", "Poziom XYZ — X", "CZUJNIK_POZIOMU_XYZ"),
-            ("par_level_y", "PAR", "ANALOG", "IN", "0", "Poziom XYZ — Y", "CZUJNIK_POZIOMU_XYZ"),
-            ("par_level_z", "PAR", "ANALOG", "IN", "0", "Poziom XYZ — Z", "CZUJNIK_POZIOMU_XYZ"),
-            ("par_temperature_c", "PAR", "ANALOG", "IN", "0", "Temperatura — odczyt C", "CZUJNIK_TEMPERATURY"),
-            ("par_laser_set", "PAR", "LH", "IN", "0", "Laser — SET", "CZUJNIK_LASEROWY"),
-            ("par_laser_error", "PAR", "LH", "IN", "0", "Laser — ERROR", "CZUJNIK_LASEROWY"),
-            ("par_laser_state_high", "PAR", "LH", "IN", "0", "Laser — stan wysoki", "CZUJNIK_LASEROWY"),
-            ("par_laser_state_low", "PAR", "LH", "IN", "1", "Laser — stan niski", "CZUJNIK_LASEROWY"),
-            ("par_lcd_line1", "PAR", "TEXT", "IN", "TARZAN PLAY", "LCD 1602 — linia 1", "LCD_1602"),
-            ("par_lcd_line2", "PAR", "TEXT", "IN", "READY", "LCD 1602 — linia 2", "LCD_1602"),
-            ("par_lcd_play_line1", "PAR", "TEXT", "IN", "TARZAN PLAY", "PLAY LCD 1602 — linia 1", "LCD_1602"),
-            ("par_lcd_play_line2", "PAR", "TEXT", "IN", "READY", "PLAY LCD 1602 — linia 2", "LCD_1602"),
-            ("par_lcd_rec_line1", "PAR", "TEXT", "IN", "TARZAN REC", "REC LCD 1602 — linia 1", "LCD_1602"),
-            ("par_lcd_rec_line2", "PAR", "TEXT", "IN", "READY", "REC LCD 1602 — linia 2", "LCD_1602"),
-            ("par_matrix_pattern", "PAR", "TEXT", "IN", "", "Matrix LED 8x8 — wzór", "MATRIX_LED"),
-            ("par_mass_reg_value", "PAR", "ANALOG", "IN", "0", "Regulator masy — pozycja procentowa", "REGULATOR_MASY"),
-            ("par_rrp_p1_axis", "PAR", "ANALOG", "IN", "-1", "RRP P1 — wybrana oś", "RRP"),
-            ("par_rrp_p1_dir", "PAR", "LH", "IN", "0", "RRP P1 — kierunek", "RRP"),
-            ("par_rrp_p1_sens", "PAR", "ANALOG", "IN", "50", "RRP P1 — czułość", "RRP"),
-            ("par_rrp_p1_val", "PAR", "TEXT", "IN", "0", "RRP P1 — wartość/gęstość STEP", "RRP"),
-            ("par_rrp_p2_axis", "PAR", "ANALOG", "IN", "-1", "RRP P2 — wybrana oś", "RRP"),
-            ("par_rrp_p2_dir", "PAR", "LH", "IN", "0", "RRP P2 — kierunek", "RRP"),
-            ("par_rrp_p2_sens", "PAR", "ANALOG", "IN", "50", "RRP P2 — czułość", "RRP"),
-            ("par_rrp_p2_val", "PAR", "TEXT", "IN", "0", "RRP P2 — wartość/gęstość STEP", "RRP"),
-            ("par_cam_h_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów CAM H", "PAR_COUNTERS"),
-            ("par_cam_v_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów CAM V", "PAR_COUNTERS"),
-            ("par_cam_t_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów CAM T", "PAR_COUNTERS"),
-            ("par_cam_f_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów CAM F", "PAR_COUNTERS"),
-            ("par_arm_h_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów ARM H", "PAR_COUNTERS"),
-            ("par_arm_v_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów ARM V", "PAR_COUNTERS"),
-            ("par_dron_pulses", "PAR", "ANALOG", "IN", "0", "Licznik impulsów DRON", "PAR_COUNTERS"),
-            ("par_cam_h_pos", "PAR", "ANALOG", "IN", "0", "Pozycja CAM H", "PAR_POSITIONS"),
-            ("par_cam_v_pos", "PAR", "ANALOG", "IN", "0", "Pozycja CAM V", "PAR_POSITIONS"),
-            ("par_cam_t_pos", "PAR", "ANALOG", "IN", "0", "Pozycja CAM T", "PAR_POSITIONS"),
-            ("par_cam_f_pos", "PAR", "ANALOG", "IN", "0", "Pozycja CAM F", "PAR_POSITIONS"),
-            ("par_arm_h_pos", "PAR", "ANALOG", "IN", "0", "Pozycja ARM H", "PAR_POSITIONS"),
-            ("par_arm_v_pos", "PAR", "ANALOG", "IN", "0", "Pozycja ARM V", "PAR_POSITIONS"),
-            ("par_dron_pos", "PAR", "ANALOG", "IN", "0", "Pozycja DRON", "PAR_POSITIONS"),
-            ("par_limits_status", "PAR", "TEXT", "IN", "0", "Status krańcówek (0 / 01,02)", "PAR_LIMITS"),
-        ]
-        for name, board, typ, direction, default, opis, group in virtuals:
-            if name in self.meta:
-                continue
-            meta = TarzanSignalMeta(
-                nazwa=name,
-                plytka=board,
-                typ=typ,
-                kierunek=direction,
-                default=default,
-                opis=opis,
-                grupa=group,
-                status="AKTYWNY",
-                hardware_function="PAR_SENSOR_INDICATOR",
-                hardware_label=opis,
-                klasa_wykonawcza="core.tarzanSignalBus.py",
-                logika_trybow="TEST/LIVE/MIX",
-                rola_logiki="PAR_SENSOR_INDICATOR",
-            )
-            self.meta[name] = meta
-            self.state[name] = TarzanSignalState(
-                name=name,
-                value=self._default_value(meta),
-                mode=self.mode,
-                source="PAR_VIRTUAL",
-            )
 
 
     # ------------------------------------------------------------------
@@ -323,12 +265,81 @@ class TarzanSignalBus:
                 self.subscribers.remove(callback)
 
     def _notify(self, name: str) -> None:
-        st = self.state[name]
+        hw_name = self._resolve_to_hw_name(name)
+        st = self.state.get(hw_name)
+        if not st:
+            return
+
+        # 1. Notify by the name provided (could be alias, hw, or canonical)
+        self._dispatch_to_subscribers(name, st)
+
+        # 2. Determine canonical name
+        c_name = None
+        if name in self.canonical_map:
+            c_name = name
+        elif name in self.hardware_to_canonical:
+            c_name = self.hardware_to_canonical[name]
+        elif name in self.alias_to_canonical:
+            c_name = self.alias_to_canonical[name]
+
+        if c_name:
+            if c_name != name:
+                self._dispatch_to_subscribers(c_name, st)
+
+            # 3. Notify by legacy 'par_' names (backward compatibility for UI)
+            legacy_names = self._get_legacy_names(c_name)
+            for l_name in legacy_names:
+                if l_name != name:
+                    self._dispatch_to_subscribers(l_name, st)
+
+            # 4. Notify hardware name if name provided was alias or canonical
+            if hw_name != name and hw_name != c_name:
+                self._dispatch_to_subscribers(hw_name, st)
+
+    def _dispatch_to_subscribers(self, name: str, state: TarzanSignalState) -> None:
         for callback in list(self.subscribers):
             try:
-                callback(name, st)
+                callback(name, state)
             except Exception as exc:
-                self.log("BUS", f"subscriber error: {exc}")
+                self.log("BUS", f"subscriber error ({name}): {exc}")
+
+    def _get_legacy_names(self, c_name: str) -> List[str]:
+        legacy_names = []
+        if c_name.startswith("axis_"):
+            axis_base = c_name.replace("axis_", "")
+            # axis_cam_h_dir -> par_cam_h_dir
+            if c_name.endswith("_step"): legacy_names.append(f"par_{axis_base.replace('_step','')}_step")
+            elif c_name.endswith("_dir"): legacy_names.append(f"par_{axis_base.replace('_dir','')}_dir")
+            elif c_name.endswith("_pulses"): legacy_names.append(f"par_{axis_base.replace('_pulses','')}_pulses")
+            elif c_name.endswith("_pos"): legacy_names.append(f"par_{axis_base.replace('_pos','')}_pos")
+            elif c_name.endswith("_en"): legacy_names.append(f"par_{axis_base.replace('_en','')}_en")
+            else: legacy_names.append(f"par_{axis_base}")
+        elif c_name.startswith("sensor_"):
+            # sensor_level_x -> par_level_x
+            legacy_names.append("par_" + c_name[7:])
+        elif c_name.startswith("limit_"):
+            # limit_arm_h_auto -> par_arm_h_auto_limit (matching LIMIT_LABELS keys)
+            name_base = c_name[6:]
+            if not name_base.endswith("_limit"):
+                legacy_names.append("par_" + name_base + "_limit")
+            else:
+                legacy_names.append("par_" + name_base)
+        elif c_name.startswith("ui_"):
+            legacy_names.append("par_" + c_name[3:])
+        
+        # Explicit mapping for specific cases
+        legacy_map = {
+            "sensor_rrp_pot_h": "par_rrp_knob_h",
+            "sensor_rrp_pot_v": "par_rrp_knob_v",
+            "sensor_shock_state": "par_shock_sensor",
+            "sensor_temp_c": "par_temperature_c",
+            "ui_action_led": "par_lamp_auto_active",
+            "sensor_limits_status": "par_limits_status"
+        }
+        if c_name in legacy_map:
+            legacy_names.append(legacy_map[c_name])
+            
+        return list(set(legacy_names))
 
     def log(self, source: str, message: str) -> None:
         stamp = time.strftime("%H:%M:%S")
@@ -358,20 +369,32 @@ class TarzanSignalBus:
     # ------------------------------------------------------------------
     # API GŁÓWNE
     # ------------------------------------------------------------------
+    def _resolve_to_hw_name(self, name: str) -> str:
+        """Rozwiązuje dowolną nazwę (sprzętową, kanoniczną, alias) do nazwy sprzętowej."""
+        if name in self.meta: return name
+        if name in self.canonical_map: return self.canonical_map[name]
+        if name in self.alias_map: return self.alias_map[name]
+        return name
+
     def exists(self, name: str) -> bool:
-        return name in self.state
+        if name in self.state: return True
+        if name in self.canonical_map: return True
+        if name in self.alias_map: return True
+        return False
 
     def get_meta(self, name: str) -> Optional[TarzanSignalMeta]:
-        return self.meta.get(name)
+        hw_name = self._resolve_to_hw_name(name)
+        return self.meta.get(hw_name)
 
     def read(self, name: str, default: Any = 0) -> Any:
         with self._lock:
+            hw_name = self._resolve_to_hw_name(name)
             if self.mode == "LIVE" and self.live_adapter is not None:
                 try:
-                    return self.live_adapter.read(name)
+                    return self.live_adapter.read(hw_name)
                 except Exception as exc:
-                    self.log("LIVE", f"read({name}) error: {exc}")
-            return self.state.get(name, TarzanSignalState(name, default)).value
+                    self.log("LIVE", f"read({hw_name}) error: {exc}")
+            return self.state.get(hw_name, TarzanSignalState(hw_name, default)).value
 
     def read_input(self, name: str, default: Any = 0) -> Any:
         return self.read(name, default)
@@ -380,18 +403,21 @@ class TarzanSignalBus:
         return self.read(name, default)
 
     def set_input(self, name: str, value: Any, *, source: str = "UI", forced: bool = True, time_ms: Optional[int] = None) -> bool:
-        return self._set(name, value, source=source, forced=forced, time_ms=time_ms, allow_output=False, allow_reserved=False)
+        hw_name = self._resolve_to_hw_name(name)
+        return self._set(hw_name, value, source=source, forced=forced, time_ms=time_ms, allow_output=False, allow_reserved=False)
 
     def write_output(self, name: str, value: Any, *, source: str = "API", forced: bool = False, time_ms: Optional[int] = None) -> bool:
+        hw_name = self._resolve_to_hw_name(name)
         if self.mode == "LIVE" and self.live_adapter is not None:
             try:
-                self.live_adapter.write(name, value)
+                self.live_adapter.write(hw_name, value)
             except Exception as exc:
-                self.log("LIVE", f"write({name}) error: {exc}")
-        return self._set(name, value, source=source, forced=forced, time_ms=time_ms, allow_output=True, allow_reserved=False)
+                self.log("LIVE", f"write({hw_name}) error: {exc}")
+        return self._set(hw_name, value, source=source, forced=forced, time_ms=time_ms, allow_output=True, allow_reserved=False)
 
     def force_signal(self, name: str, value: Any, *, source: str = "FORCE", time_ms: Optional[int] = None) -> bool:
-        return self._set(name, value, source=source, forced=True, time_ms=time_ms, allow_output=True, allow_reserved=True)
+        hw_name = self._resolve_to_hw_name(name)
+        return self._set(hw_name, value, source=source, forced=True, time_ms=time_ms, allow_output=True, allow_reserved=True)
 
     def toggle_input(self, name: str, *, source: str = "UI") -> bool:
         return self.set_input(name, 0 if self.read(name) else 1, source=source, forced=True)
@@ -435,8 +461,71 @@ class TarzanSignalBus:
             st.timestamp = time.time()
             st.time_ms = time_ms
             self._append_history(name, st)
+
+            # Centralized Pulse Counting logic
+            if meta.typ == "CTR" or name.endswith("_step") or meta.kanoniczna_nazwa.endswith("_step"):
+                if st.previous_value == 0 and st.value == 1:
+                    # Rising edge
+                    c_name = self.hardware_to_canonical.get(name, name)
+                    if c_name.endswith("_step"):
+                        # Determine axis base and proper DIR signal
+                        if "_auto_step" in c_name:
+                            suffix = "_auto_step"
+                        elif "_rec_step" in c_name:
+                            suffix = "_rec_step"
+                        else:
+                            suffix = "_step"
+
+                        axis_base = c_name.replace(suffix, "")
+                        dir_signal = axis_base + suffix.replace("_step", "_dir")
+                        
+                        # Identify direction
+                        dir_val = self.read(dir_signal)
+                        
+                        # Global target names for pulses and position (one per axis)
+                        pulses_key = axis_base + "_pulses"
+                        pos_key = axis_base + "_pos"
+                        
+                        # Update pulses
+                        try:
+                            current_pulses = int(float(self.read(pulses_key, 0) or 0))
+                        except (ValueError, TypeError):
+                            current_pulses = 0
+                            
+                        new_pulses = current_pulses + 1
+                        self._set_internal_virtual(pulses_key, new_pulses)
+                        
+                        # Update position
+                        try:
+                            current_pos = float(self.read(pos_key, 0.0) or 0.0)
+                        except (ValueError, TypeError):
+                            current_pos = 0.0
+                            
+                        step_inc = 1.0 if dir_val == 1 else -1.0
+                        new_pos = current_pos + step_inc
+                        self._set_internal_virtual(pos_key, new_pos)
+                        
+                        # Legacy names for PAR UI notifications
+                        legacy_names = self._get_legacy_names(pulses_key) + self._get_legacy_names(pos_key)
+                        for l_name in legacy_names:
+                             # We notify legacy names with the same updated value
+                             self._set_internal_virtual(l_name, new_pulses if "_pulses" in l_name else new_pos)
+
             self._notify(name)
             return True
+
+    def _set_internal_virtual(self, name: str, value: Any) -> None:
+        """Sets internal virtual signals like _pulses and _pos without re-triggering complex logic."""
+        if name not in self.state:
+            meta = TarzanSignalMeta(nazwa=name, plytka="BUS", typ="ANALOG", kierunek="IN", opis="Bus internal signal")
+            self.meta[name] = meta
+            self.state[name] = TarzanSignalState(name=name, value=value, mode=self.mode, source="BUS_INTERNAL")
+        else:
+            st = self.state[name]
+            st.previous_value = st.value
+            st.value = value
+            st.timestamp = time.time()
+        self._notify(name)
 
     def _normalize_value(self, meta: TarzanSignalMeta, value: Any) -> Any:
         if meta.typ == "TEXT":
@@ -463,7 +552,10 @@ class TarzanSignalBus:
             return value
 
     def _append_history(self, name: str, st: TarzanSignalState) -> None:
-        self.history.append(st.to_dict())
+        c_name = self.hardware_to_canonical.get(name, name)
+        d = st.to_dict()
+        d["name"] = c_name
+        self.history.append(d)
         if len(self.history) > self.max_history:
             self.history = self.history[-self.max_history:]
 

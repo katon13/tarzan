@@ -35,44 +35,45 @@ class TarzanParProtocolMapper:
         return [name for name in names if name in self.known]
 
     def _build_maps(self) -> Dict[str, AxisProtocolMap]:
-        # Uwaga: CAM_H_STEP zostaje czytelny w protokole, ale w busie trafia też
-        # do realnych nazw sygnałów. Dla osi kamery preferuję CNC, bo to wyjścia automatyki.
+        # TAKE używa czytelnych nazw, które mapujemy na ujednolicone nazwy kanoniczne.
         maps = [
             AxisProtocolMap(
                 prefix="CAM_H", axis_key="cam_h", label="oś pozioma kamery",
-                step_signals=self._pick("cnc_x_cam_h_ctr", "rec_p01_copy_ctr_cam_h"),
-                dir_signals=self._pick("cnc_x_cam_h_dir", "rec_p03_copy_dir_cam_h"),
+                step_signals=["axis_cam_h_step"],
+                dir_signals=["axis_cam_h_dir"],
             ),
             AxisProtocolMap(
                 prefix="CAM_V", axis_key="cam_v", label="oś pionowa kamery",
-                step_signals=self._pick("cnc_y_cam_v_ctr", "rec_p02_copy_ctr_cam_v"),
-                dir_signals=self._pick("cnc_y_cam_v_dir", "rec_p04_copy_dir_cam_v"),
+                step_signals=["axis_cam_v_step"],
+                dir_signals=["axis_cam_v_dir"],
             ),
             AxisProtocolMap(
                 prefix="CAM_T", axis_key="cam_t", label="oś pochyłu kamery",
-                step_signals=self._pick("cnc_a_arm_tilt_ctr", "rec_p06_copy_ctr_tilt"),
-                dir_signals=self._pick("cnc_a_arm_tilt_dir", "rec_p08_copy_dir_tilt"),
+                step_signals=["axis_cam_t_step"],
+                dir_signals=["axis_cam_t_dir"],
             ),
             AxisProtocolMap(
                 prefix="CAM_F", axis_key="cam_f", label="oś ostrości kamery",
-                step_signals=self._pick("cnc_z_focus_ctr", "rec_p05_copy_ctr_focus"),
-                dir_signals=self._pick("cnc_z_focus_dir", "rec_p07_copy_dir_focus"),
+                step_signals=["axis_cam_f_step"],
+                dir_signals=["axis_cam_f_dir"],
             ),
             AxisProtocolMap(
                 prefix="ARM_H", axis_key="arm_h", label="oś pozioma ramienia",
-                step_signals=self._pick("play_p46_step_ctr_arm_h", "cnc_b_arm_h_ctr"),
-                dir_signals=self._pick("play_p38_step_dir_arm_h", "cnc_b_arm_h_dir"),
-                enable_signals=self._pick("play_p50_step_en_arm_h"),
+                step_signals=["axis_arm_h_step"],
+                dir_signals=["axis_arm_h_dir"],
+                enable_signals=["axis_arm_h_en"],
             ),
             AxisProtocolMap(
                 prefix="ARM_V", axis_key="arm_v", label="oś pionowa ramienia",
-                step_signals=self._pick("play_p48_step_ctr_arm_v", "cnc_c_arm_v_ctr"),
-                dir_signals=self._pick("play_p39_step_dir_arm_v", "cnc_c_arm_v_dir"),
-                enable_signals=self._pick("play_p51_step_en_arm_v"),
+                step_signals=["axis_arm_v_step"],
+                dir_signals=["axis_arm_v_dir"],
+                enable_signals=["axis_arm_v_en"],
             ),
             AxisProtocolMap(
                 prefix="DRON", axis_key="dron", label="DRON",
-                step_signals=[], dir_signals=[], event_signals=["TAKE_DRON_RELEASE"],
+                step_signals=["axis_dron_step"], 
+                dir_signals=["axis_dron_dir"],
+                event_signals=["ui_drone_release"],
             ),
         ]
         return {m.prefix: m for m in maps}

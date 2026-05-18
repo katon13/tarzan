@@ -22,6 +22,7 @@ class ParSignal:
     conflict_group: Optional[str]
     logika_trybow: str
     rola_logiki: str
+    kanoniczna_nazwa: str
 
 
 def _from_tarzan_signal(obj: Any) -> ParSignal:
@@ -43,6 +44,7 @@ def _from_tarzan_signal(obj: Any) -> ParSignal:
         conflict_group=getattr(obj, "conflict_group", None),
         logika_trybow=getattr(obj, "logika_trybow", ""),
         rola_logiki=getattr(obj, "rola_logiki", ""),
+        kanoniczna_nazwa=getattr(obj, "kanoniczna_nazwa", ""),
     )
 
 

@@ -5,48 +5,90 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="98fc7be0-822f-4aee-97ec-bb3040b1647e" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text" beforeDir="false" afterPath="$PROJECT_DIR$/Nextion2Text" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitattributes" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/tarzanAssets.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanAssets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/tarzanSignalBus.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanSignalBus.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/tarzanZmienneSygnalowe.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanZmienneSygnalowe.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/ehr/take_protocol_ui_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/take_protocol_ui_settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/tfd_metadata.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/tfd_metadata.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrMultiAxisModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrMultiAxisModel.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrUi.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrUi.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanTakeTxtCore.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanTakeTxtCore.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels_old.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels_original.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParProtocolMapper.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParProtocolMapper.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParSignalsAdapter.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParSignalsAdapter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/TFD/tfd_state.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tfd_state.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/tarzanPAR.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/tarzanPAR.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/Program.s.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/boot.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/face_rec.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/keybdA.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/level_xyz.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/nextion7_Stats.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/page1.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/rrp_main.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/sensors_main.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/settings_main.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/take_main.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/NextionHMI/Segoe UI Bold.ttf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/NextionHMI/main-font-24.zi" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/NextionHMI/main-font.zi" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/NextionHMI/nextion7.HMI" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/NextionHMI/segoe-ui-bold.zip" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/state_mapper.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/state_mapper.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/take/take_save_320png.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/tarzanMotionConfig.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanBledy.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanController.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanLogger.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanMetodyZezwolenie.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanStanyPracy.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanSystem.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/TARZAN_PROTOCOL_TO_TAKE_WITH_FILES.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/TARZAN_SYSTEM_ARCHITECTURE.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/TARZAN_TAKE.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/TFD_NEXTION_SETTINGS_UPDATE.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/windows.cdr" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/TarzanEhrTakeSandbox.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanAxisSandbox.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanKameryUSB.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanKlawiatura4x3.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanLCD1602.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanMatrixLED8x8.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanPoExtBus.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanPoKeysLevels.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanPoKeysPlay.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanPoKeysRec.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanPoKeysStart.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanPoSensors.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanPoStep25.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanPrzyciskiFunkcyjne.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanRRP.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/tarzanTFLuna.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/face_exact_ico_320.psd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/intro_max/800_480/nextionIntro_1.psd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/osie.psd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/page/clamp_acive.psd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/page/setting.psd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/page/tlo take.psd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/suwak.psd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/tmp.psd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/sorce_psd/Ikony sterowania kamerą i dronem.psd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/sorce_psd/Ilustracje klapsów filmowych w stylu wektorowym.psd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/sorce_psd/ikony.psd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/take/take_open_128.psd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanArmHorizontal.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanArmVertical.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanAxis.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanCameraFocus.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanCameraHorizontal.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanCameraTilt.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanCameraVertical.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanDronRelease.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanKontrolkiTransportu.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanOknoTake.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanPlayhead.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanPresetyWygladzania.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanRegulatorMasy.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mechanics/tarzanZoomTimeline.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modes/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modes/tarzanTrybAllAuto.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modes/tarzanTrybAllAuto3D.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modes/tarzanTrybAllAutoDron.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modes/tarzanTrybAllAutoSpecialEffects.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modes/tarzanTrybAutoTracking.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modes/tarzanTrybBazowy.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modes/tarzanTrybManual.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modes/tarzanTrybManualAutoSupport.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modes/tarzanTrybPlayMotion.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modes/tarzanTrybRecordMotion.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/homingManager.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/tarzanGeneratorTAA.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/tarzanTakePlayer.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/motion/tarzanTakeRecorder.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/presets/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/presets/presetManager.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/presets/smoothingProfiles.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/presets/trajectories.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/safety/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/safety/faultManager.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/safety/limitsManager.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/safety/safetyManager.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -199,6 +241,28 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="tarzanEhrMultiAxisModel" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="tarzan" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/tarzanEhrMultiAxisModel.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="tarzanKHR" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
@@ -243,35 +307,13 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="tarzanParPanels" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="tarzan" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor/PAR" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <recent_temporary>
       <list>
         <item itemvalue="Python.tarzanPAR" />
-        <item itemvalue="Python.apply_rrp_canonical_fix" />
-        <item itemvalue="Python.tarzanEHR" />
         <item itemvalue="Python.tarzanKHR" />
-        <item itemvalue="Python.tarzanParPanels" />
+        <item itemvalue="Python.tarzanEHR" />
+        <item itemvalue="Python.tarzanEhrMultiAxisModel" />
+        <item itemvalue="Python.apply_rrp_canonical_fix" />
       </list>
     </recent_temporary>
   </component>

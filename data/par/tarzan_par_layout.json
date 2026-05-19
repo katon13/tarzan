@@ -19,7 +19,7 @@
     "camera": false,
     "autostatus": true,
     "system": false,
-    "settings": true,
+    "settings": false,
     "all_signals": true,
     "lamp": true,
     "mass_regulator": true,

@@ -1310,12 +1310,12 @@ Poniżej ta sama lista w Markdown.
 | nextion_rrp_main_va_p2_val_val | canvas_preview | rrp_main | va_p2_val | val |
 | nextion_rrp_main_va_tmp_val | physical_nextion | rrp_main | va_tmp | val |
 | nextion_rrp_main_va_tmp_val | canvas_preview | rrp_main | va_tmp | val |
-| nextion_sensors_main_b_home_pic | physical_nextion | sensors_main | b_home | pic |
-| nextion_sensors_main_b_home_pic | canvas_preview | sensors_main | b_home | pic |
-| nextion_sensors_main_b_home_val | physical_nextion | sensors_main | b_home | val |
-| nextion_sensors_main_b_home_val | canvas_preview | sensors_main | b_home | val |
-| nextion_sensors_main_t0_txt | physical_nextion | sensors_main | t0 | txt |
-| nextion_sensors_main_t0_txt | canvas_preview | sensors_main | t0 | txt |
+| nextion_mode_main_b_home_pic | physical_nextion | mode_main | b_home | pic |
+| nextion_mode_main_b_home_pic | canvas_preview | mode_main | b_home | pic |
+| nextion_mode_main_b_home_val | physical_nextion | mode_main | b_home | val |
+| nextion_mode_main_b_home_val | canvas_preview | mode_main | b_home | val |
+| nextion_mode_main_t0_txt | physical_nextion | mode_main | t0 | txt |
+| nextion_mode_main_t0_txt | canvas_preview | mode_main | t0 | txt |
 | nextion_settings_main_b_home_pic | physical_nextion | settings_main | b_home | pic |
 | nextion_settings_main_b_home_pic | canvas_preview | settings_main | b_home | pic |
 | nextion_settings_main_b_home_val | physical_nextion | settings_main | b_home | val |
@@ -2783,9 +2783,9 @@ docs/TARZAN_SNAJPER_SIGNALS_FULL.csv
 | nextion_rrp_main_va_p2_dir_val | nextion_rrp_main_va_p2_dir_val |
 | nextion_rrp_main_va_p2_val_val | nextion_rrp_main_va_p2_val_val |
 | nextion_rrp_main_va_tmp_val | nextion_rrp_main_va_tmp_val |
-| nextion_sensors_main_b_home_pic | nextion_sensors_main_b_home_pic |
-| nextion_sensors_main_b_home_val | nextion_sensors_main_b_home_val |
-| nextion_sensors_main_t0_txt | nextion_sensors_main_t0_txt |
+| nextion_mode_main_b_home_pic | nextion_mode_main_b_home_pic |
+| nextion_mode_main_b_home_val | nextion_mode_main_b_home_val |
+| nextion_mode_main_t0_txt | nextion_mode_main_t0_txt |
 | nextion_settings_main_b_home_pic | nextion_settings_main_b_home_pic |
 | nextion_settings_main_b_home_val | nextion_settings_main_b_home_val |
 | nextion_settings_main_b_save_meta_pic | nextion_settings_main_b_save_meta_pic |
@@ -2882,9 +2882,9 @@ docs/TARZAN_SNAJPER_SIGNALS_FULL.csv
 | sandbox_step_preview | sandbox_step_preview |
 | sensor_level_x | level_x |
 | sensor_level_y | level_y |
-| sensors_main.b_home.pic | nextion_sensors_main_b_home_pic |
-| sensors_main.b_home.val | nextion_sensors_main_b_home_val |
-| sensors_main.t0.txt | nextion_sensors_main_t0_txt |
+| mode_main.b_home.pic | nextion_mode_main_b_home_pic |
+| mode_main.b_home.val | nextion_mode_main_b_home_val |
+| mode_main.t0.txt | nextion_mode_main_t0_txt |
 | settings_main.b_home.pic | nextion_settings_main_b_home_pic |
 | settings_main.b_home.val | nextion_settings_main_b_home_val |
 | settings_main.b_save_meta.pic | nextion_settings_main_b_save_meta_pic |
@@ -3227,8 +3227,8 @@ docs/TARZAN_SNAJPER_NEXTION_COMPONENTS_FULL.csv
 | boot | p0 | Picture | ['pic'] | boot.txt | 28 |
 | boot | tm0 | Timer | ['en', 'tim'] | boot.txt | 46 |
 | boot | Event | Timer | ['en', 'tim'] | boot.txt | 54 |
-| sensors_main | t0 | Text | ['txt'] | sensors_main.txt | 15 |
-| sensors_main | b_home | Button | ['val', 'pic'] | sensors_main.txt | 39 |
+| mode_main | t0 | Text | ['txt'] | mode_main.txt | 15 |
+| mode_main | b_home | Button | ['val', 'pic'] | mode_main.txt | 39 |
 | face_rec | t0 | Text | ['txt'] | face_rec.txt | 15 |
 | face_rec | b_home | Button | ['val', 'pic'] | face_rec.txt | 39 |
 | keybdA | loadpageid | Variable (int32) | ['val'] | keybdA.txt | 58 |

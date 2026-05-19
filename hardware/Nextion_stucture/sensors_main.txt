@@ -1,4 +1,4 @@
-Page sensors_main
+Page mode_main
     Attributes
         ID               : 0
         Scope            : local

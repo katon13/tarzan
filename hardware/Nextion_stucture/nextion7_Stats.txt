@@ -10,7 +10,7 @@ boot
 	4    Component(s)
 	36   Line(s) of event code
 	28   Unique line(s) of event code
-sensors_main
+mode_main
 	3    Component(s)
 	5    Line(s) of event code
 	4    Unique line(s) of event code

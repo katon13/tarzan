@@ -1118,7 +1118,7 @@ class TarzanNextionBridge:
                 explicit_value=1 if bool(self._nextion_ui_cut) else 0,
             )
         else:
-            # Dla wszystkich pozostałych stron (take_main, rrp_main, sensors_main, page1, boot, itp.)
+            # Dla wszystkich pozostałych stron (take_main, rrp_main, mode_main, page1, boot, itp.)
             # odtwarzamy wszystkie fizyczne targety strony, dla których aktualna wartość 
             # jest dostępna w TFDState/SignalBus/PAR.
             logicals = []

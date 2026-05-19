@@ -868,6 +868,17 @@ class TarzanParPanels:
         # Subskrypcja sygnałów z SignalBus do aktualizacji widgetów w rows
         self.bus.subscribe(self._on_bus_signal_change)
 
+        # Reset sygnałów jako osobny przycisk w górnym prawym rogu PAR, obok ikony ustawień.
+        # Przycisk jest dokładany po zbudowaniu paska aplikacji, bez przebudowy układu PAR.
+        self._top_reset_button = None
+        try:
+            self.app.after_idle(self._install_top_reset_button)
+        except Exception:
+            try:
+                self.app.after(200, self._install_top_reset_button)
+            except Exception:
+                pass
+
     def _on_bus_signal_change(self, name: str, state: TarzanSignalState):
         self.snajper_fire_log_take_nextion(name, state.value)
         self._ensure_step_dir_multi_snajper()
@@ -877,6 +888,88 @@ class TarzanParPanels:
 
     def panel(self, key: str, parent, title: str) -> Panel:
         return Panel(parent, title=title, on_hide=lambda: self.app.hide_panel(key))
+
+    def reset_signals(self):
+        """Reset sygnałów PAR — wydzielona metoda używana przez panel ustawień i górny przycisk."""
+        try:
+            self.bus.reset_to_defaults()
+        except Exception as exc:
+            try:
+                messagebox.showerror("RESET SYGNAŁÓW", f"Nie udało się zresetować sygnałów:\n{exc}")
+            except Exception:
+                pass
+
+    def _install_top_reset_button(self):
+        """Dodaje jeden przycisk RESET SYGNAŁÓW obok istniejącej ikony ustawień w prawym górnym rogu PAR."""
+        if getattr(self, "_top_reset_button", None) is not None:
+            try:
+                if self._top_reset_button.winfo_exists():
+                    return
+            except Exception:
+                pass
+
+        settings_button = self._find_settings_button(getattr(self, "app", None))
+        if settings_button is None:
+            try:
+                self.app.after(300, self._install_top_reset_button)
+            except Exception:
+                pass
+            return
+
+        parent = settings_button.master
+        btn = tk.Button(
+            parent,
+            text="RESET SYGNAŁÓW",
+            bg="#7a251f",
+            fg="white",
+            activebackground="#9b2f27",
+            activeforeground="white",
+            relief="flat",
+            font=("Segoe UI", 8, "bold"),
+            command=self.reset_signals,
+        )
+
+        try:
+            pack_info = settings_button.pack_info()
+            side = pack_info.get("side", "right")
+            pady = pack_info.get("pady", 0)
+            btn.pack(side=side, padx=(0, 6), pady=pady)
+        except Exception:
+            try:
+                grid_info = settings_button.grid_info()
+                row = int(grid_info.get("row", 0))
+                column = int(grid_info.get("column", 0))
+                btn.grid(row=row, column=max(0, column - 1), padx=(0, 6), pady=grid_info.get("pady", 0), sticky=grid_info.get("sticky", ""))
+            except Exception:
+                try:
+                    btn.place(in_=parent, relx=1.0, rely=0.0, x=-62, y=4, anchor="ne")
+                except Exception:
+                    return
+
+        self._top_reset_button = btn
+
+    def _find_settings_button(self, root):
+        if root is None:
+            return None
+        try:
+            children = root.winfo_children()
+        except Exception:
+            return None
+
+        for child in children:
+            try:
+                if isinstance(child, tk.Button):
+                    text = str(child.cget("text"))
+                    if text.strip() in {"⚙", "⚙️"} or "USTAW" in text.upper():
+                        return child
+            except Exception:
+                pass
+
+            found = self._find_settings_button(child)
+            if found is not None:
+                return found
+
+        return None
 
     def _register_signal_proxy(self, name: str, callback: Callable[[Any], None]):
         self.rows[name] = _ParValueProxy(callback)
@@ -2346,7 +2439,7 @@ class TarzanParPanels:
         debug_var = tk.BooleanVar(value=getattr(self.bus, 'debug_override_outputs', False))
         def tg_db(): self.bus.debug_override_outputs = bool(debug_var.get()); self.bus.log("PAR", f"DEBUG override OUT = {self.bus.debug_override_outputs}")
         tk.Checkbutton(b, text="DEBUG override OUT", variable=debug_var, command=tg_db, bg=COLORS["panel"], fg=COLORS["text"], selectcolor="#101820").pack(anchor="w", pady=3)
-        tk.Button(b, text="RESET SYGNAŁÓW", bg="#7a251f", fg="white", command=self.bus.reset_to_defaults).pack(fill="x", pady=5)
+        tk.Button(b, text="RESET SYGNAŁÓW", bg="#7a251f", fg="white", command=self.reset_signals).pack(fill="x", pady=5)
         tk.Button(b, text="SAVE LAYOUT", bg=COLORS["button"], fg="white", command=self.app.save_layout).pack(fill="x", pady=5)
         return pan
 

@@ -117,7 +117,7 @@ Button b_sensors
     
     Events
         Touch Release Event
-            page sensors_main
+            page mode_main
             sendme
         
 Button b_settings

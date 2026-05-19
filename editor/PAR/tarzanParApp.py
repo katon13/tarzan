@@ -1873,7 +1873,8 @@ class TarzanParApp(tk.Tk):
         buttons.pack(fill="x", padx=12, pady=(0, 10))
 
         tk.Button(buttons, text="ZASTOSUJ", bg="#1f6fb7", fg="#fff", relief="flat",
-                  font=("Segoe UI", 10, "bold"), command=lambda: apply_from_window(False)).pack(side="left", padx=4)
+                  font=("Segoe UI", 10, "bold"),
+                  command=lambda: (apply_from_window(False), self.after_idle(self.refresh))).pack(side="left", padx=4)
         tk.Button(buttons, text="ZAPISZ UKŁAD", bg="#1d842c", fg="#fff", relief="flat",
                   font=("Segoe UI", 10, "bold"), command=lambda: apply_from_window(True)).pack(side="left", padx=4)
         tk.Button(buttons, text="RESET UKŁADU", bg="#7a251f", fg="#fff", relief="flat",

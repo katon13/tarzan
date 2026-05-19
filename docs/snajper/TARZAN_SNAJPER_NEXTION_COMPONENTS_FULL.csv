@@ -83,8 +83,8 @@ boot,va0,Variable (int32),['val'],boot.txt,22
 boot,p0,Picture,['pic'],boot.txt,28
 boot,tm0,Timer,"['en', 'tim']",boot.txt,46
 boot,Event,Timer,"['en', 'tim']",boot.txt,54
-sensors_main,t0,Text,['txt'],sensors_main.txt,15
-sensors_main,b_home,Button,"['val', 'pic']",sensors_main.txt,39
+mode_main,t0,Text,['txt'],mode_main.txt,15
+mode_main,b_home,Button,"['val', 'pic']",mode_main.txt,39
 face_rec,t0,Text,['txt'],face_rec.txt,15
 face_rec,b_home,Button,"['val', 'pic']",face_rec.txt,39
 keybdA,loadpageid,Variable (int32),['val'],keybdA.txt,58

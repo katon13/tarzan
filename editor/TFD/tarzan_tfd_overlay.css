@@ -141,10 +141,10 @@ img {
         height: 88px;
         border-width: 2px 0 0 0;
         display: grid;
-        grid-template-columns: 780px 1fr;
+        grid-template-columns: 925px 1fr;
         align-items: center;
-        column-gap: 120px;
-        padding: 0 34px 0 120px;
+        column-gap: 0;
+        padding: 0 34px 0 33px;
         background: #000000 !important;
     }
 
@@ -390,10 +390,12 @@ img {
         width: 100%;
         min-width: 0;
         display: grid;
-        grid-template-columns: 85px 210px 85px 100px 100px 160px;
+        grid-template-columns: 65px 350px 65px 200px 200px 250px;
         align-items: center;
-        justify-content: stretch;
-        column-gap: 14px;
+        justify-content: start;
+        column-gap: 0;
+        margin-left: -90px;
+        overflow: visible;
     }
 
     .sensor-strip .sensor-item {
@@ -406,7 +408,7 @@ img {
         justify-content: flex-start;
         margin: 0;
         padding: 0;
-        overflow: hidden;
+        overflow: visible;
     }
 
     .sensor-strip .sensor-icon {
@@ -419,7 +421,7 @@ img {
         display: block;
         object-fit: contain;
         object-position: center;
-        margin: 0 8px 0 0;
+        margin: 0 2px 0 0;
         padding: 0;
         flex: 0 0 44px;
     }
@@ -427,7 +429,7 @@ img {
     .sensor-strip .sensor-value {
         font-size: 17px;
         letter-spacing: 0;
-        overflow: hidden;
+        overflow: visible;
         text-overflow: clip;
         display: inline-block;
         white-space: nowrap;
@@ -440,17 +442,20 @@ img {
     }
 
     .sensor-limits .sensor-value {
-        min-width: 190px;
-        max-width: 205px;
+        min-width: 340px;
+        max-width: 350px;
     }
 
-    .sensor-light .sensor-value,
+    .sensor-light .sensor-value {
+        min-width: 190px;
+    }
+
     .sensor-temp .sensor-value {
-        min-width: 72px;
+        min-width: 160px;
     }
 
     .sensor-xyz .sensor-value {
-        min-width: 145px;
+        min-width: 250px;
     }
 
     .sensor-item-wide {
@@ -458,13 +463,13 @@ img {
     }
 
     .meta-group {
-        width: 780px;
-        min-width: 780px;
-        max-width: 780px;
+        width: 925px;
+        min-width: 925px;
+        max-width: 925px;
         display: grid;
-        grid-template-columns: 430px 320px;
+        grid-template-columns: 350px 250px;
         align-items: center;
-        column-gap: 30px;
+        column-gap: 20px;
         overflow: hidden;
     }
 
@@ -485,11 +490,11 @@ img {
     }
 
     #t1 {
-        max-width: 350px;
+        max-width: 425px;
     }
 
     #t2 {
-        max-width: 260px;
+        max-width: 320px;
     }
 
     #clap-indicator {
@@ -591,10 +596,10 @@ img {
         height: 112px;
         border-width: 3px 0 0 0;
         display: grid;
-        grid-template-columns: 900px 1fr;
+        grid-template-columns: 925px 1fr;
         align-items: center;
-        column-gap: 160px;
-        padding: 0 44px 0 260px;
+        column-gap: 0;
+        padding: 0 34px 0 33px;
         background: #000000 !important;
     }
 
@@ -811,7 +816,7 @@ img {
         display: block;
         object-fit: contain;
         object-position: center;
-        margin: 0 10px 0 0;
+        margin: 0 2px 0 0;
         padding: 0;
         flex: 0 0 44px;
     }
@@ -841,10 +846,12 @@ img {
         width: 100%;
         min-width: 0;
         display: grid;
-        grid-template-columns: 100px 250px 100px 125px 125px 180px;
+        grid-template-columns: 85px 350px 85px 200px 200px 250px;
         align-items: center;
-        justify-content: stretch;
-        column-gap: 14px;
+        justify-content: start;
+        column-gap: 0;
+        margin-left: -90px;
+        overflow: visible;
     }
 
     .sensor-strip .sensor-item {
@@ -857,7 +864,7 @@ img {
         justify-content: flex-start;
         margin: 0;
         padding: 0;
-        overflow: hidden;
+        overflow: visible;
     }
 
     /* Czujniki w dolnym pasku też bez powiększania ikon */
@@ -871,7 +878,7 @@ img {
         display: block;
         object-fit: contain;
         object-position: center;
-        margin: 0 10px 0 0;
+        margin: 0 2px 0 0;
         padding: 0;
         flex: 0 0 44px;
     }
@@ -879,7 +886,7 @@ img {
     .sensor-strip .sensor-value {
         font-size: 22px;
         letter-spacing: 0;
-        overflow: hidden;
+        overflow: visible;
         text-overflow: clip;
         display: inline-block;
         white-space: nowrap;
@@ -892,17 +899,20 @@ img {
     }
 
     .sensor-limits .sensor-value {
-        min-width: 230px;
-        max-width: 235px;
+        min-width: 340px;
+        max-width: 350px;
     }
 
-    .sensor-light .sensor-value,
+    .sensor-light .sensor-value {
+        min-width: 190px;
+    }
+
     .sensor-temp .sensor-value {
-        min-width: 92px;
+        min-width: 160px;
     }
 
     .sensor-xyz .sensor-value {
-        min-width: 190px;
+        min-width: 250px;
     }
 
     .sensor-item-wide {
@@ -910,13 +920,13 @@ img {
     }
 
     .meta-group {
-        width: 900px;
-        min-width: 900px;
-        max-width: 900px;
+        width: 925px;
+        min-width: 925px;
+        max-width: 925px;
         display: grid;
-        grid-template-columns: 450px 410px;
+        grid-template-columns: 400px 350px;
         align-items: center;
-        column-gap: 40px;
+        column-gap: 20px;
         overflow: hidden;
     }
 
@@ -937,11 +947,11 @@ img {
     }
 
     #t1 {
-        max-width: 350px;
+        max-width: 425px;
     }
 
     #t2 {
-        max-width: 330px;
+        max-width: 320px;
     }
 
     #clap-indicator {

@@ -64,7 +64,7 @@ TARZAN_SNAJPER_SCOPE_GROUPS: Tuple[str, ...] = (
     "level_xyz",
     "page1",
     "boot",
-    "sensors_main",
+    "mode_main",
     "face_rec",
     "keybdA",
     "par_rrp",
@@ -1266,12 +1266,12 @@ DEFAULT_TARZAN_SNAJPER_SIGNAL_MAP: Dict[str, str] = {
     'page1.b_take.pic': 'nextion_page1_b_take_pic',
     'nextion_page1_b_take_val': 'nextion_page1_b_take_val',
     'page1.b_take.val': 'nextion_page1_b_take_val',
-    'nextion_sensors_main_b_home_pic': 'nextion_sensors_main_b_home_pic',
-    'sensors_main.b_home.pic': 'nextion_sensors_main_b_home_pic',
-    'nextion_sensors_main_b_home_val': 'nextion_sensors_main_b_home_val',
-    'sensors_main.b_home.val': 'nextion_sensors_main_b_home_val',
-    'nextion_sensors_main_t0_txt': 'nextion_sensors_main_t0_txt',
-    'sensors_main.t0.txt': 'nextion_sensors_main_t0_txt',
+    'nextion_mode_main_b_home_pic': 'nextion_mode_main_b_home_pic',
+    'mode_main.b_home.pic': 'nextion_mode_main_b_home_pic',
+    'nextion_mode_main_b_home_val': 'nextion_mode_main_b_home_val',
+    'mode_main.b_home.val': 'nextion_mode_main_b_home_val',
+    'nextion_mode_main_t0_txt': 'nextion_mode_main_t0_txt',
+    'mode_main.t0.txt': 'nextion_mode_main_t0_txt',
 
 }
 
@@ -2153,17 +2153,17 @@ DEFAULT_TARZAN_SNAJPER_TARGETS: Dict[str, List[TarzanSnajperTarget]] = {
         T('physical_nextion', 'rrp_main', 'va_tmp', 'val'),
         T('canvas_preview', 'rrp_main', 'va_tmp', 'val'),
     ],
-    'nextion_sensors_main_b_home_pic': [
-        T('physical_nextion', 'sensors_main', 'b_home', 'pic'),
-        T('canvas_preview', 'sensors_main', 'b_home', 'pic'),
+    'nextion_mode_main_b_home_pic': [
+        T('physical_nextion', 'mode_main', 'b_home', 'pic'),
+        T('canvas_preview', 'mode_main', 'b_home', 'pic'),
     ],
-    'nextion_sensors_main_b_home_val': [
-        T('physical_nextion', 'sensors_main', 'b_home', 'val'),
-        T('canvas_preview', 'sensors_main', 'b_home', 'val'),
+    'nextion_mode_main_b_home_val': [
+        T('physical_nextion', 'mode_main', 'b_home', 'val'),
+        T('canvas_preview', 'mode_main', 'b_home', 'val'),
     ],
-    'nextion_sensors_main_t0_txt': [
-        T('physical_nextion', 'sensors_main', 't0', 'txt'),
-        T('canvas_preview', 'sensors_main', 't0', 'txt'),
+    'nextion_mode_main_t0_txt': [
+        T('physical_nextion', 'mode_main', 't0', 'txt'),
+        T('canvas_preview', 'mode_main', 't0', 'txt'),
     ],
     'nextion_settings_main_b_home_pic': [
         T('physical_nextion', 'settings_main', 'b_home', 'pic'),

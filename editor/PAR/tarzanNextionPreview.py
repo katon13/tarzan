@@ -37,7 +37,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
     Panel zostaje jako diagnostyka łączności i logów.
     """
 
-    LOG_LIMIT = 300
+    LOG_LIMIT = 500
 
     def __init__(self, parent: Any, bridge: Any, screen_key: str, title: str) -> None:
         super().__init__(parent, bg=COLORS["panel"])
@@ -200,7 +200,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
 
         self.page_label = tk.Label(
             toolbar,
-            text="PAGE: -",
+            text="",
             bg=COLORS["panel"],
             fg=COLORS["green"],
             font=("Segoe UI", 10, "bold"),
@@ -222,7 +222,7 @@ class TarzanNextionPreviewPanel(tk.Frame):
         log_header.pack(fill="x")
         tk.Label(
             log_header,
-            text="LOGI FIZYCZNEGO NEXTIONA — TX/RX/PAGE/SET/SYS/ERR",
+            text="NEXTION 7 — TX/RX/PAGE/SET/SYS/ERR",
             bg=COLORS["panel"],
             fg=COLORS["green"],
             font=("Segoe UI", 9, "bold"),

@@ -240,24 +240,18 @@ class TarzanSnajper:
     def fire_nextion_physical_resync(self, bus: Any, fast: bool = False) -> None:
         """
         Wymuszona ponowna wysyłka whitelisted pól trwałych tylko na fizyczny Nextion.
-        fast=True (100ms) -> take_number, take_status, tfd_save_status, operator states
-        fast=False (2000ms) -> tfd_title, tfd_director, permanent self-healing
+        fast=True (100ms) -> bez statycznego samoleczenia TAKE/settings
+        fast=False (2000ms) -> bez TITLE/DIRECTOR; one idą po sendme / PAGE
         """
         # NEXTION_SNAJPER_V8: Cache i czas odświeżania są zarządzane wyłącznie tutaj.
         if fast:
-            # FAST (100ms)
-            whitelist = {
-                "take_number": "take_number",
-                "take_status": "take_status",
-                "tfd_save_status": "tfd_save_status",
-                "tfd_save_status_visible": "tfd_save_status_visible"
-            }
+            # FAST nie wymusza już statycznych pól TAKE/settings.
+            # Pola live (osie, TC, sensory) idą normalnymi strzałami SignalBus/Snajpera.
+            whitelist = {}
         else:
-            # SLOW (2000ms)
-            whitelist = {
-                "tfd_title": "tfd_title",
-                "tfd_director": "tfd_director"
-            }
+            # SLOW (2000ms) nie obsługuje już TITLE/DIRECTOR.
+            # Te pola idą tylko po sendme / PAGE przez fire_nextion_page_loaded_resync().
+            whitelist = {}
         
         # HOT FIELDS (10ms) are handled by normal SignalBus fires or live calls.
         # We don't resync HOT fields here unless specifically requested.
@@ -305,6 +299,114 @@ class TarzanSnajper:
             
             # Odpalamy fire - trafi na physical_nextion bez blokady cache
             self.fire(logical, val)
+
+    def fire_nextion_page_loaded_resync(self, bus: Any, page_id: str) -> int:
+        """Jednorazowo odświeża statyczne metadane po sendme / PAGE Nextiona."""
+        if not self.enabled:
+            return 0
+
+        page_id = str(page_id or "")
+        page_targets = {
+            "take_main": {
+                "tfd_title": ("t1", "txt"),
+                "tfd_director": ("t2", "txt"),
+                "take_number": ("t_take", "txt"),
+                "take_status": ("t_status", "txt"),
+            },
+            "settings_main": {
+                "tfd_title": ("t_title", "txt"),
+                "tfd_director": ("t_director", "txt"),
+                "nextion_ui_cut": ("b_ui_cut", "val"),
+            },
+        }
+        logical_to_component = page_targets.get(page_id)
+        if not logical_to_component:
+            return 0
+
+        values = {
+            "tfd_title": self._read_tfd_meta_value(
+                bus,
+                attr="title",
+                fallback_keys=("par_tfd_title", "tfd_title", "take_title", "movie_title", "title"),
+            ),
+            "tfd_director": self._read_tfd_meta_value(
+                bus,
+                attr="director",
+                fallback_keys=("par_tfd_director", "tfd_director", "take_director", "movie_director", "director"),
+            ),
+            "take_number": self._read_tfd_meta_value(
+                bus,
+                attr="take_number",
+                fallback_keys=("par_take_number", "take_number", "take_label", "loaded_take_path"),
+            ),
+            "take_status": self._read_tfd_meta_value(
+                bus,
+                attr="status",
+                fallback_keys=("par_take_status", "take_status", "par_mode", "system_status"),
+            ),
+            "nextion_ui_cut": self._read_tfd_meta_value(
+                bus,
+                attr="nextion_ui_cut",
+                fallback_keys=("par_nextion_ui_cut", "nextion_ui_cut"),
+            ),
+        }
+
+        adapter = self.adapters.get("physical_nextion")
+        if adapter is None:
+            return 0
+
+        fired = 0
+        for logical, target_spec in logical_to_component.items():
+            component, prop = target_spec
+            value = values.get(logical)
+            if value is None:
+                value = 0 if prop == "val" else ""
+            if prop == "val" and isinstance(value, bool):
+                value = 1 if value else 0
+            normalized = self.normalize_value(value)
+
+            for target in self.targets.get(logical, []):
+                if target.adapter != "physical_nextion":
+                    continue
+                if target.scope != page_id:
+                    continue
+                if target.target != component:
+                    continue
+                if target.prop != prop:
+                    continue
+
+                cache_key = self._cache_key(target)
+                self.last_values.pop(cache_key, None)
+                adapter.update_target(target, value)
+                self.last_values[cache_key] = normalized
+                fired += 1
+
+        return fired
+
+    @staticmethod
+    def _read_tfd_meta_value(bus: Any, attr: str, fallback_keys: Tuple[str, ...]) -> Any:
+        """Czyta TITLE/DIRECTOR najpierw z TFDState, potem awaryjnie z SignalBus."""
+        try:
+            from editor.TFD.tfd_state import tfd_state
+            if tfd_state is not None:
+                value = getattr(tfd_state, attr, None)
+                if value is not None:
+                    return value
+        except Exception:
+            pass
+
+        for key in fallback_keys:
+            try:
+                if hasattr(bus, "get"):
+                    value = bus.get(key)
+                else:
+                    value = getattr(bus, key, None)
+            except Exception:
+                value = None
+            if value is not None:
+                return value
+
+        return None
 
     @staticmethod
     def normalize_value(value: Any) -> str:

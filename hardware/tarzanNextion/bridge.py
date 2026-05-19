@@ -115,6 +115,10 @@ class TarzanNextionBridge:
         self._tfd_save_status_until = 0.0
         self._tfd_save_status_visible = False
         self._settings_main_meta_fired = False
+        # Teksty settings_main są edytowalne na fizycznym Nextionie.
+        # Dlatego odtwarzamy je z JSON/stanu tylko raz po starcie bridge,
+        # a potem nie nadpisujemy ich przy każdym powrocie na stronę.
+        self._settings_main_text_loaded = False
         self.tarzan_snajper = None
 
         # TC sterowany fizycznym b_clap.
@@ -133,6 +137,124 @@ class TarzanNextionBridge:
             "rrp_rev": 0
         }
 
+        # TFD metadata bootstrap: na starcie odtwarzamy stan zapisany w JSON,
+        # żeby settings_main po sendme dostał aktualny TITLE/DIRECTOR/UI CUT.
+        self._bootstrap_tfd_metadata_from_json()
+
+    def _candidate_tfd_metadata_paths(self) -> List[Path]:
+        """Możliwe lokalizacje zapisu metadanych TFD w projekcie."""
+        root = Path(__file__).resolve().parents[2]
+        paths: List[Path] = []
+
+        # Jeśli singleton tfd_state zna własną ścieżkę, traktujemy ją jako pierwszą.
+        if tfd_state is not None:
+            for attr in ("metadata_path", "meta_path", "json_path", "path", "META_PATH"):
+                raw = getattr(tfd_state, attr, None)
+                if raw:
+                    try:
+                        paths.append(Path(raw))
+                    except Exception:
+                        pass
+
+        paths.extend([
+            root / "data" / "tfd_metadata.json",
+            root / "data" / "tfd" / "tfd_metadata.json",
+            root / "data" / "TFD" / "tfd_metadata.json",
+            root / "editor" / "TFD" / "tfd_metadata.json",
+            root / "tfd_metadata.json",
+        ])
+
+        unique: List[Path] = []
+        seen = set()
+        for path in paths:
+            try:
+                resolved = path.resolve()
+            except Exception:
+                resolved = path
+            key = str(resolved)
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(path)
+        return unique
+
+    def _read_tfd_metadata_json(self) -> Dict[str, Any]:
+        """Czyta zapisane TITLE/DIRECTOR/UI CUT z JSON bez tworzenia nowego źródła prawdy."""
+        for path in self._candidate_tfd_metadata_paths():
+            try:
+                if not path.exists():
+                    continue
+                with path.open("r", encoding="utf-8") as fh:
+                    data = json.load(fh)
+                if isinstance(data, dict):
+                    self._append_transport_log(f"EV nextion_7: TFD META JSON LOAD {path}")
+                    return data
+            except Exception as exc:
+                self._append_transport_log(f"EV nextion_7: TFD META JSON READ ERROR {path}: {exc}")
+        return {}
+
+    @staticmethod
+    def _json_bool(value: Any, default: bool = False) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(int(value))
+        text = str(value).strip().lower()
+        if text in {"1", "true", "yes", "on"}:
+            return True
+        if text in {"0", "false", "no", "off", ""}:
+            return False
+        return default
+
+    def _bootstrap_tfd_metadata_from_json(self) -> None:
+        """Na starcie ładuje metadane TFD z JSON do tfd_state/busa/bridge."""
+        data = self._read_tfd_metadata_json()
+        if not data:
+            return
+
+        title = data.get("title")
+        director = data.get("director")
+        has_ui_cut = "nextion_ui_cut" in data
+        ui_cut = self._json_bool(data.get("nextion_ui_cut"), default=self._nextion_ui_cut) if has_ui_cut else self._nextion_ui_cut
+
+        if tfd_state is not None:
+            try:
+                kwargs: Dict[str, Any] = {}
+                if title is not None:
+                    kwargs["title"] = str(title)
+                if director is not None:
+                    kwargs["director"] = str(director)
+                if has_ui_cut:
+                    kwargs["nextion_ui_cut"] = bool(ui_cut)
+                if kwargs and hasattr(tfd_state, "update_meta"):
+                    tfd_state.update_meta(**kwargs)
+                else:
+                    if title is not None:
+                        setattr(tfd_state, "title", str(title))
+                    if director is not None:
+                        setattr(tfd_state, "director", str(director))
+                    if has_ui_cut:
+                        setattr(tfd_state, "nextion_ui_cut", bool(ui_cut))
+            except Exception as exc:
+                self._append_transport_log(f"EV nextion_7: TFD META STATE BOOT ERROR {exc}")
+
+        if title is not None:
+            try:
+                self.bus.force_signal("tfd_title", str(title), source="TFD_JSON_BOOT")
+            except Exception:
+                pass
+        if director is not None:
+            try:
+                self.bus.force_signal("tfd_director", str(director), source="TFD_JSON_BOOT")
+            except Exception:
+                pass
+        if has_ui_cut:
+            self._nextion_ui_cut = bool(ui_cut)
+            try:
+                self.bus.force_signal("nextion_ui_cut", 1 if ui_cut else 0, source="TFD_JSON_BOOT")
+            except Exception:
+                pass
+
     def get_rrp_state(self, screen_key: str = "nextion_7") -> Dict[str, Any]:
         return dict(self.rrp_state)
 
@@ -149,9 +271,9 @@ class TarzanNextionBridge:
             return page_ids[page_index]
         return self.active_pages.get(screen_key, page_ids[0] if page_ids else "main")
 
-    def _request_current_page(self, device: TarzanNextionDevice) -> None:
+    def _request_current_page(self, screen_key: str, device: TarzanNextionDevice) -> None:
         if device.connected:
-            self._append_transport_log(f"TX {device.screen_key}: sendme")
+            self._append_transport_log(f"TX {screen_key}: sendme")
             device.send_raw(command_bytes("sendme"))
 
     def connect_enabled(self) -> None:
@@ -171,7 +293,7 @@ class TarzanNextionBridge:
                 self._append_transport_log(f"TX {screen_key}: page {page_id}")
                 device.send_raw(cmd_page(page_id))
                 self._fire_tfd_meta_for_page(screen_key, page_id)
-            self._request_current_page(device)
+            self._request_current_page(screen_key, device)
         return ok
 
     def disconnect_screen(self, screen_key: str) -> None:
@@ -228,7 +350,7 @@ class TarzanNextionBridge:
             if page_id != "settings_main":
                 self._settings_main_meta_fired = False
             self._fire_tfd_meta_for_page(screen_key, page_id)
-            self._request_current_page(device)
+            self._request_current_page(screen_key, device)
 
     def next_page(self, screen_key: str) -> None:
         screen = self.screen_defs[screen_key]
@@ -313,9 +435,13 @@ class TarzanNextionBridge:
         }
 
     def queue_snajper_command(self, scope: str, component: str, prop: str, value) -> None:
-        # TARZAN_SNAJPER_V8: Bridge jest tylko wykonawcą. 
+        # TARZAN_SNAJPER_V8: Bridge jest tylko wykonawcą.
         # Cache i decyzja o wysyłce leży wyłącznie w core/tarzanSnajper.py.
-        value = str(value)
+        # Nextion .val nie przyjmuje True/False jako wartości; musi dostać 0/1.
+        if isinstance(value, bool):
+            value = "1" if value else "0"
+        else:
+            value = str(value)
         key = f"{scope}.{component}.{prop}"
         self._snajper_pending[key] = (scope, component, prop, value)
 
@@ -404,10 +530,19 @@ class TarzanNextionBridge:
                         if msg.startswith("sys:ui_cut="):
                             self.active_pages[key] = "settings_main"
                             enabled = 1 if msg.split("=", 1)[1].strip() == "1" else 0
+                            # SYS z przycisku b_ui_cut jest zmianą roboczą stanu ekranu.
+                            # Nie zapisuje JSON i nie pokazuje SAVED. Zapis robi dopiero set:ui_cut z b_save_meta.
                             self._nextion_ui_cut = bool(enabled)
-                            self._write_tfd_meta_value("nextion_ui_cut", bool(enabled))
-                            self._fire_snajper_signal("nextion_ui_cut", bool(enabled), source="NEXTION")
-                            self._show_tfd_save_status()
+                            if tfd_state is not None:
+                                try:
+                                    setattr(tfd_state, "nextion_ui_cut", bool(enabled))
+                                except Exception:
+                                    pass
+                            try:
+                                self.bus.force_signal("nextion_ui_cut", enabled, source="NEXTION_SYS")
+                            except Exception:
+                                pass
+                            self._fire_snajper_signal("nextion_ui_cut", enabled, source="NEXTION_SYS", force_physical=True)
                             self.flush_snajper_commands()
                             logs.append(f"{key} TFD SYS UI_CUT: {enabled}")
                             handled_text = True
@@ -416,8 +551,8 @@ class TarzanNextionBridge:
                             self.active_pages[key] = "settings_main"
                             enabled = 1 if msg.split("=", 1)[1].strip() == "1" else 0
                             self._nextion_ui_cut = bool(enabled)
-                            self._write_tfd_meta_value("nextion_ui_cut", bool(enabled))
-                            self._fire_snajper_signal("nextion_ui_cut", bool(enabled), source="NEXTION")
+                            self._write_tfd_meta_value("nextion_ui_cut", enabled)
+                            self._fire_snajper_signal("nextion_ui_cut", enabled, source="NEXTION", force_physical=True)
                             self._show_tfd_save_status()
                             self.flush_snajper_commands()
                             logs.append(f"{key} TFD SET UI_CUT: {enabled}")
@@ -444,7 +579,8 @@ class TarzanNextionBridge:
                     logs.append(f"{key} DECODE ERROR: {e}")
 
                 if len(raw) >= 2 and raw[0] == 0x66:
-                    page_id = self._page_id_from_index(key, int(raw[1]))
+                    page_index = int(raw[1])
+                    page_id = self._page_id_from_index(key, page_index)
                     self.active_pages[key] = page_id
                     if page_id != "settings_main":
                         self._settings_main_meta_fired = False
@@ -453,7 +589,11 @@ class TarzanNextionBridge:
                     continue
 
                 if len(raw) >= 4 and raw[0] == 0x65:
-                    self._request_current_page(device)
+                    # TOUCH 0x65 zawiera już indeks strony w raw[1].
+                    # Nie wolno tu wysyłać sendme, bo na settings_main naciśnięcie SAVE
+                    # generuje touch press przed print set:title/set:director. Dodatkowy sendme
+                    # wywoływał PAGE settings_main i page refresh nadpisywał tekst wpisany
+                    # z fizycznej klawiatury wartością z JSON przed właściwym zapisem.
                     page_index = int(raw[1])
                     component_id = int(raw[2])
                     event_type = int(raw[3])
@@ -681,7 +821,7 @@ class TarzanNextionBridge:
         snajper = getattr(self, "tarzan_snajper", None)
         if snajper is not None:
             try:
-                logical = snajper.signal_map.get(name) if hasattr(snajper, "signal_map") else name
+                logical = snajper.signal_map.get(name, name) if hasattr(snajper, "signal_map") else name
                 if force_physical:
                     # Czyścimy cache Snajpera tylko dla physical_nextion
                     for target in snajper.targets.get(logical, []):
@@ -717,19 +857,23 @@ class TarzanNextionBridge:
                 pass
 
     def _show_tfd_save_status(self) -> None:
-        """Pokazuje SAVED na settings_main przez 1 sekundę przez istniejące cele Snajpera."""
+        """Pokazuje SAVED na settings_main przez 1 sekundę, bez cache Snajpera.
+
+        t_save_status jest lokalnym komunikatem ekranu settings_main. Nextion sam
+        ustawia WAIT w HMI, a PC ma po zapisie zawsze fizycznie nadpisać go na
+        SAVED. Dlatego ten mały komunikat idzie bezpośrednio do kolejki Bridge,
+        a nie przez normalny cache Snajpera.
+        """
         self._tfd_save_status_until = time.time() + 1.0
         self._tfd_save_status_visible = True
-        
-        # Synchronizujemy z tfd_state, aby resync mógł odtworzyć stan na fizycznym ekranie
+
         if tfd_state:
             tfd_state.save_status_visible = True
             tfd_state.save_status_text = "SAVED"
 
-        # TARZAN_SNAJPER_V8: Cache i decyzja o resyncu leży wyłącznie w core/tarzanSnajper.py.
-        self._fire_snajper_signal("tfd_save_status", "SAVED", source="NEXTION_PHYSICAL")
-        self._fire_snajper_signal("tfd_save_sound", 3, source="NEXTION_PHYSICAL") # Dźwięk potwierdzenia (ID 3)
-        self._fire_snajper_signal("tfd_save_status_visible", 1, source="NEXTION_PHYSICAL")
+        self.queue_snajper_command("settings_main", "t_save_status", "txt", "SAVED")
+        self.queue_snajper_command("settings_main", "sound", "play", 1)
+        self.queue_snajper_command("settings_main", "t_save_status", "visible", 1)
 
     def _update_tfd_save_status_for_snajper(self) -> None:
         """Lekko chowa SAVED po 1 sekundzie; bez refresh_all i bez pełnego sync."""
@@ -744,68 +888,64 @@ class TarzanNextionBridge:
             tfd_state.save_status_visible = False
             tfd_state.save_status_text = ""
 
-        # Bridge jest wykonawcą; Snajper w core/tarzanSnajper.py zajmie się resyncem i cache.
-        self._fire_snajper_signal("tfd_save_status_visible", 0, source="NEXTION_SAVE_TIMEOUT")
+        self.queue_snajper_command("settings_main", "t_save_status", "visible", 0)
 
     def _fire_tfd_meta_for_page(self, screen_key: str, page_id: str) -> None:
-        """Jednorazowo przeładowuje metadane aktywnej strony przez Snajpera."""
+        """Po sendme / PAGE przekazuje stronę do Snajpera.
+
+        Bridge nie wybiera pól TITLE/DIRECTOR i nie odświeża settings_main cyklicznie.
+        Snajper wysyła tylko statyczne metadane strony:
+            take_main     -> t1/t2
+            settings_main -> t_title/t_director
+        """
         if screen_key != "nextion_7":
             return
 
-        # Fizyczny Nextion mówi, która strona właśnie weszła.
         self.active_pages[screen_key] = page_id
 
-        if page_id not in {"settings_main", "take_main"}:
-            if page_id != "settings_main":
-                self._settings_main_meta_fired = False
-            return
-
-        # TARZAN_SNAJPER_V8: Logika omijania cache i resyncu leży wyłącznie w core/tarzanSnajper.py.
-        if page_id == "settings_main":
+        if page_id != "settings_main":
+            self._settings_main_meta_fired = False
+        else:
             self._settings_main_meta_fired = True
 
-        # Pobieramy najświeższe dane z tfd_state (singleton)
-        title = ""
-        director = ""
-        take_num = "001"
-        status = "LIVE"
-        tc = "00:00:00:0000"
-        is_clap = False
-        ui_cut = False
+        # JSON jest ładowany na starcie bridge. PAGE/sendme odtwarza aktualny stan pamięci,
+        # żeby robocze przełączenie b_ui_cut nie było nadpisywane ponownym odczytem pliku.
 
-        if tfd_state:
-            title = getattr(tfd_state, "title", "TYTUŁ FILMU")
-            director = getattr(tfd_state, "director", "REŻYSER")
-            take_num = str(getattr(tfd_state, "take_number", "001")).zfill(3)
-            status = getattr(tfd_state, "status", "LIVE")
-            tc = getattr(tfd_state, "tc", "00:00:00:0000")
-            is_clap = bool(getattr(tfd_state, "clap", False))
-            ui_cut = bool(getattr(tfd_state, "nextion_ui_cut", False))
-        else:
-            # Rezerwowy odczyt z busa
-            title = str(self.bus.get("par_tfd_title", "TYTUŁ FILMU"))
-            director = str(self.bus.get("par_tfd_director", "REŻYSER"))
-            ui_cut = bool(self.bus.get("par_nextion_ui_cut", False))
-            take_num = str(self.bus.get("par_take_number", "001"))
-            status = str(self.bus.get("par_take_status", "LIVE"))
-            tc = str(self.bus.get("par_take_timecode", "00:00:00:0000"))
-
-        self._nextion_ui_cut = bool(ui_cut)
-        self._fire_snajper_signal("tfd_title", title, source="NEXTION_PAGE_LOAD", force_physical=True)
-        self._fire_snajper_signal("tfd_director", director, source="NEXTION_PAGE_LOAD", force_physical=True)
-
-        if page_id == "take_main":
-            self._fire_snajper_signal("take_number", take_num, source="NEXTION_PAGE_LOAD", force_physical=True)
-            self._fire_snajper_signal("take_status", status, source="NEXTION_PAGE_LOAD", force_physical=True)
-            self._fire_snajper_signal("take_timecode", tc, source="NEXTION_PAGE_LOAD", force_physical=True)
-            self._fire_snajper_signal("take_clap", 1 if is_clap else 0, source="NEXTION_PAGE_LOAD", force_physical=True)
-
+        # SETTINGS_MAIN jest ekranem ustawień. Po każdym sendme/PAGE fizyczny
+        # Nextion tworzy komponenty od nowa, więc trzeba wysłać wartości bez
+        # przechodzenia przez cache Snajpera. To nie jest cykl, tylko jednorazowy
+        # refresh strony po jej załadowaniu.
         if page_id == "settings_main":
-            self._fire_snajper_signal("nextion_ui_cut", 1 if ui_cut else 0, source="NEXTION_PAGE_LOAD", force_physical=True)
-            self._tfd_save_status_visible = False
-            self._tfd_save_status_until = 0.0
-            self._fire_snajper_signal("tfd_save_status_visible", 0, source="NEXTION_PAGE_LOAD", force_physical=True)
-        
+            title = getattr(tfd_state, "title", None) if tfd_state is not None else None
+            director = getattr(tfd_state, "director", None) if tfd_state is not None else None
+            ui_cut = 1 if bool(self._nextion_ui_cut) else 0
+
+            # t_title/t_director są polami edytowalnymi na fizycznym Nextionie.
+            # Odtwarzamy je z JSON/stanu tylko przy pierwszym wejściu po starcie bridge.
+            # Potem nie nadpisujemy ich przy każdym PAGE settings_main, żeby klawiatura
+            # fizycznego Nextiona mogła zmienić tekst i dopiero SAVE zapisał wynik.
+            if not self._settings_main_text_loaded:
+                if title is not None:
+                    self.queue_snajper_command("settings_main", "t_title", "txt", str(title))
+                if director is not None:
+                    self.queue_snajper_command("settings_main", "t_director", "txt", str(director))
+                self._settings_main_text_loaded = True
+                self._append_transport_log(f"EV {screen_key}: SETTINGS PAGE TEXT INIT")
+            else:
+                self._append_transport_log(f"EV {screen_key}: SETTINGS PAGE TEXT SKIP")
+
+            self.queue_snajper_command("settings_main", "b_ui_cut", "val", ui_cut)
+            self._append_transport_log(f"EV {screen_key}: SETTINGS PAGE REFRESH ui_cut={ui_cut}")
+            self.flush_snajper_commands()
+            return
+
+        snajper = getattr(self, "tarzan_snajper", None)
+        if snajper is not None and hasattr(snajper, "fire_nextion_page_loaded_resync"):
+            try:
+                snajper.fire_nextion_page_loaded_resync(self.bus, page_id)
+            except Exception as exc:
+                self._append_transport_log(f"EV {screen_key}: SNAJPER PAGE RESYNC ERROR {page_id}: {exc}")
+
         self.flush_snajper_commands()
 
     def _handle_tfd_meta_event(self, msg: str, logs: List[str], key: str) -> bool:
@@ -825,7 +965,7 @@ class TarzanNextionBridge:
         if payload.startswith("title="):
             val = payload[len("title="):].strip()
             self._write_tfd_meta_value("title", val)
-            self._fire_snajper_signal("tfd_title", val, source="NEXTION_PHYSICAL")
+            self._fire_snajper_signal("tfd_title", val, source="NEXTION_PHYSICAL", force_physical=True)
             logs.append(f"{key} TFD SET TITLE: {val}")
             
             # Status SAVED idzie celowo przez istniejącą kolejkę Snajpera na 1 sekundę.
@@ -836,7 +976,7 @@ class TarzanNextionBridge:
         if payload.startswith("director="):
             val = payload[len("director="):].strip()
             self._write_tfd_meta_value("director", val)
-            self._fire_snajper_signal("tfd_director", val, source="NEXTION_PHYSICAL")
+            self._fire_snajper_signal("tfd_director", val, source="NEXTION_PHYSICAL", force_physical=True)
             logs.append(f"{key} TFD SET DIRECTOR: {val}")
             
             # Status SAVED idzie celowo przez istniejącą kolejkę Snajpera na 1 sekundę.
@@ -849,7 +989,7 @@ class TarzanNextionBridge:
             enabled = 1 if raw_val == "1" else 0
             self._nextion_ui_cut = bool(enabled)
             self._write_tfd_meta_value("nextion_ui_cut", enabled)
-            self._fire_snajper_signal("nextion_ui_cut", enabled, source="NEXTION_PHYSICAL")
+            self._fire_snajper_signal("nextion_ui_cut", enabled, source="NEXTION_PHYSICAL", force_physical=True)
             logs.append(f"{key} TFD SET UI_CUT: {enabled}")
             self._show_tfd_save_status()
             self.flush_snajper_commands()

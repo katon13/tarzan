@@ -1028,3 +1028,15 @@ img {
     opacity: 1;
     visibility: visible;
 }
+
+
+/* DIR w TFD jak na fizycznym Nextionie: tekst bez +/-; kierunek pokazuje kolor. */
+.axis-value.dir-positive {
+    color: #00ff00 !important;
+    text-shadow: 0 0 10px rgba(0, 255, 0, 0.85) !important;
+}
+
+.axis-value.dir-negative {
+    color: #ff2020 !important;
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.85) !important;
+}

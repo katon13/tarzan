@@ -43,9 +43,9 @@
     "take": "left",
     "sensors": "left",
     "info": "left",
-    "dron": "left",
     "all_signals": "left",
     "settings": "left",
+    "dron": "middle_bottom",
     "ui": "middle_bottom",
     "functions": "middle_bottom",
     "lcd": "middle_bottom",
@@ -107,57 +107,57 @@
       "colspan": 4,
       "rowspan": 2
     },
-    "dron": {
-      "zone": "left",
-      "order": 40,
-      "colspan": 4,
-      "rowspan": 2
-    },
     "all_signals": {
       "zone": "left",
-      "order": 50,
+      "order": 40,
       "colspan": 4,
       "rowspan": 8
     },
     "settings": {
       "zone": "left",
-      "order": 60,
+      "order": 50,
       "colspan": 4,
+      "rowspan": 3
+    },
+    "dron": {
+      "zone": "middle_bottom",
+      "order": 10,
+      "colspan": 2,
       "rowspan": 3
     },
     "ui": {
       "zone": "middle_bottom",
-      "order": 10,
+      "order": 20,
       "colspan": 3,
       "rowspan": 3
     },
     "functions": {
       "zone": "middle_bottom",
-      "order": 20,
+      "order": 30,
       "colspan": 4,
       "rowspan": 3
     },
     "lcd": {
       "zone": "middle_bottom",
-      "order": 30,
+      "order": 40,
       "colspan": 3,
       "rowspan": 3
     },
     "matrix": {
       "zone": "middle_bottom",
-      "order": 40,
+      "order": 50,
       "colspan": 2,
       "rowspan": 3
     },
     "keyboard": {
       "zone": "middle_bottom",
-      "order": 50,
+      "order": 60,
       "colspan": 2,
       "rowspan": 3
     },
     "limits": {
       "zone": "middle_bottom",
-      "order": 60,
+      "order": 70,
       "colspan": 4,
       "rowspan": 3
     },

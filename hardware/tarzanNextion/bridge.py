@@ -82,7 +82,7 @@ def _rrp_axis_binding(player: str, nextion_axis_index: int) -> Dict[str, str]:
 try:
     from audio.tarzanAudioPlayer import play as play_audio
 except ImportError:
-    play_audio = lambda msg: None
+    play_audio = None
 
 
 class TarzanNextionBridge:
@@ -126,6 +126,7 @@ class TarzanNextionBridge:
         # istniejący tor Snajpera dla take_timecode, a flush zostaje w flush_snajper_commands().
         self._clap_tc_running = False
         self._clap_tc_start_monotonic = 0.0
+        self._clap_tc_start_elapsed_ms = 0
         self._clap_tc_elapsed_ms = 0
         self._clap_tc_last_sent_ms = -1
         self._clap_tc_last_toggle_monotonic = 0.0
@@ -489,6 +490,18 @@ class TarzanNextionBridge:
             value = "1" if value else "0"
         else:
             value = str(value)
+        # Ochrona TC: po PAUZA/STOP nie przyjmujemy technicznego 00:00:00:000/001
+        # z opóźnionego toru TFD/bus. T0 ma zostać na ostatnim realnym czasie.
+        if (
+            scope == "take_main"
+            and component == "t0"
+            and prop in {"txt", "text"}
+            and not self._clap_tc_running
+            and int(getattr(self, "_clap_tc_elapsed_ms", 0) or 0) > 100
+            and str(value).strip() in {"00:00:00:000", "00:00:00:001", "0", "1"}
+        ):
+            return
+
         key = f"{scope}.{component}.{prop}"
         self._snajper_pending[key] = (scope, component, prop, value)
 
@@ -560,14 +573,37 @@ class TarzanNextionBridge:
                     # łapać regexem, bo sklejone set:title=...set:director=... ucina tekst.
                     messages = []
                     for part in raw.split(b'\xff\xff\xff'):
+                        if not part:
+                            continue
+
+                        # b_clap w fizycznym HMI wysyła: print "take:clap=" + prints b_clap.val,0.
+                        # Dla wartości 0 payload ma postać b"take:clap=\x00...". Nie wolno robić
+                        # strip("\x00"), bo z explicit STOP robi się pusty payload i bridge traktuje go
+                        # jako TOGGLE. Dlatego stan 1/0 dekodujemy z surowych bajtów przed stripem.
+                        clap_prefix = b"take:clap="
+                        clap_pos = part.find(clap_prefix)
+                        if clap_pos >= 0:
+                            payload = part[clap_pos + len(clap_prefix):]
+                            value = 1 if payload and payload[0] == 1 else 0
+                            messages.append(f"take:clap={value}")
+                            continue
+
                         msg = part.decode("cp1250", errors="replace").strip("\x00\x1a\r\n ")
                         if msg:
                             messages.append(msg)
 
                     if not messages:
-                        msg = raw.replace(b'\xff', b'').decode("cp1250", errors="replace").strip("\x00\x1a\r\n ")
-                        if msg:
-                            messages.append(msg)
+                        clean_raw = raw.replace(b'\xff', b'')
+                        clap_prefix = b"take:clap="
+                        clap_pos = clean_raw.find(clap_prefix)
+                        if clap_pos >= 0:
+                            payload = clean_raw[clap_pos + len(clap_prefix):]
+                            value = 1 if payload and payload[0] == 1 else 0
+                            messages.append(f"take:clap={value}")
+                        else:
+                            msg = clean_raw.decode("cp1250", errors="replace").strip("\x00\x1a\r\n ")
+                            if msg:
+                                messages.append(msg)
 
                     handled_text = False
                     for msg in messages:
@@ -774,53 +810,168 @@ class TarzanNextionBridge:
 
         if running:
             if not self._clap_tc_running:
+                # b_clap jest pauzą/wznowieniem czasu, nie resetem.
+                # Pierwszy START rusza od aktualnej wartości (zwykle 0),
+                # kolejny START po STOP kontynuuje od zatrzymanego TC.
                 self._clap_tc_running = True
+                self._clap_tc_start_elapsed_ms = int(self._clap_tc_elapsed_ms)
                 self._clap_tc_start_monotonic = time.monotonic()
-                self._clap_tc_elapsed_ms = 0
                 self._clap_tc_last_sent_ms = -1
-                self.bus.set_take_time(0)
-                logs.append(f"{screen_key} TAKE CLAP TC START")
-                self._play_clap_audio()
+                self._publish_clap_tc_state(True, elapsed_ms=self._clap_tc_elapsed_ms, source="NEXTION_CLAP_START")
+                self._fire_audio_event("clap_start", logs=logs, screen_key=screen_key)
+                logs.append(f"{screen_key} TAKE CLAP TC START {self._clap_tc_elapsed_ms} ms")
             else:
                 self._update_clap_tc_for_snajper(force=True)
+                self._publish_clap_tc_state(True, elapsed_ms=self._clap_tc_elapsed_ms, source="NEXTION_CLAP_RUN")
                 logs.append(f"{screen_key} TAKE CLAP TC RUN")
 
-            self.bus.force_signal("take_main.t_clap.txt", "TC RUN", source="NEXTION_CLAP")
+            self.queue_snajper_command("take_main", "t_clap", "txt", "TC RUN")
         else:
             if self._clap_tc_running:
                 self._update_clap_tc_for_snajper(force=True)
                 self._clap_tc_running = False
+                self._publish_clap_tc_state(False, elapsed_ms=self._clap_tc_elapsed_ms, source="NEXTION_CLAP_STOP")
+                self._fire_audio_event("clap_stop", logs=logs, screen_key=screen_key)
                 logs.append(f"{screen_key} TAKE CLAP TC STOP {self._clap_tc_elapsed_ms} ms")
-                self._play_clap_audio()
             else:
+                self._publish_clap_tc_state(False, elapsed_ms=self._clap_tc_elapsed_ms, source="NEXTION_CLAP_STOP")
                 logs.append(f"{screen_key} TAKE CLAP TC STOP")
 
             # Nie zmieniamy take_status/t_status. Pole LIVE zostaje od statusu trybu.
-            self.bus.force_signal("take_main.t_clap.txt", "TC STOP", source="NEXTION_CLAP")
-
-        if tfd_state:
-            tfd_state.add_event("CLAP", "NEXTION_TAKE_MAIN")
+            self.queue_snajper_command("take_main", "t_clap", "txt", "TC STOP")
 
         self.flush_snajper_commands()
 
-    def _play_clap_audio(self) -> None:
-        """Odtwarza komunikat audio z audio/voice bez blokowania TC."""
-        for key_name in ("voice/Motion_starting", "Motion_starting", "clap"):
+    def _publish_clap_tc_state(self, running: bool, elapsed_ms: int | None = None, source: str = "NEXTION_CLAP") -> None:
+        """Publikuje stan b_clap do SignalBus, Snajpera i TFD bez tworzenia nowej pętli."""
+        if elapsed_ms is None:
+            elapsed_ms = int(self._clap_tc_elapsed_ms)
+        else:
             try:
-                play_audio(key_name)
-                return
+                elapsed_ms = max(0, int(elapsed_ms))
+            except Exception:
+                elapsed_ms = int(self._clap_tc_elapsed_ms)
+
+        value = 1 if running else 0
+        for name in ("take_tc_running", "par_take_tc_running", "take_clap", "par_take_clap"):
+            try:
+                self.bus.force_signal(name, value, source=source)
+            except Exception:
+                pass
+        tc_text = self._format_tc_from_ms(elapsed_ms)
+        for name in ("take_time_ms", "TAKE_TIME_MS"):
+            try:
+                self.bus.force_signal(name, elapsed_ms, source=source)
+            except Exception:
+                pass
+        for name in ("take_timecode", "par_take_timecode", "take_tc", "tfd_tc"):
+            try:
+                self.bus.force_signal(name, tc_text, source=source)
             except Exception:
                 pass
 
-        # Fallback dla Windows, gdy audio player nie ma jeszcze mapy voice/*.
+        if tfd_state:
+            try:
+                if hasattr(tfd_state, "set_clap_tc_state"):
+                    tfd_state.set_clap_tc_state(running, elapsed_ms=elapsed_ms, source=source)
+                else:
+                    tfd_state.clap = value
+                    tfd_state.add_event("CLAP_START" if running else "CLAP_STOP", source, {"elapsed_ms": elapsed_ms})
+            except Exception:
+                pass
+
+        snajper = getattr(self, "tarzan_snajper", None)
+        if snajper is not None:
+            try:
+                # Nie strzelamy już take_clap jako tekst do t_clap, bo to wpisywało "1/0"
+                # w pole pomocnicze. CLAP jest stanem; tekst RUN/STOP ustawia _set_clap_tc.
+                snajper.fire("take_timecode", tc_text)
+                snajper.fire("take_tc_running", value)
+            except Exception:
+                pass
+
+    @staticmethod
+    def _format_tc_from_ms(ms: int) -> str:
+        try:
+            ms = max(0, int(ms))
+        except Exception:
+            ms = 0
+        h = ms // 3_600_000
+        ms %= 3_600_000
+        m = ms // 60_000
+        ms %= 60_000
+        sec = ms // 1000
+        milli = ms % 1000
+        return f"{h:02d}:{m:02d}:{sec:02d}:{milli:03d}"
+
+    def _fire_audio_event(self, event_name: str, logs: List[str] | None = None, screen_key: str = "nextion_7") -> None:
+        """Jeden tor audio dla fizycznego Nextiona: SignalBus/Snajper + lokalny fallback WAV."""
+        if logs is None:
+            logs = []
+
+        event_name = str(event_name or "").strip().lower()
+        if event_name == "clap_start":
+            logical = "take_clap_start"
+            audio_key = "signals/clap"
+            wav_candidates = ("audio/signals/clap.wav", "audio/signals/cllap.wav", "audio/clap.wav")
+        elif event_name == "clap_stop":
+            logical = "take_clap_stop"
+            audio_key = "voice/motin_coplete"
+            wav_candidates = ("audio/voice/motin_coplete.wav", "audio/voice/motion_complete.wav", "audio/voice/Motion_complete.wav")
+        else:
+            logical = "nextion_audio_event"
+            audio_key = event_name
+            wav_candidates = ()
+
+        try:
+            self.bus.force_signal("nextion_audio_event", logical, source="NEXTION_AUDIO")
+            self.bus.force_signal("nextion_audio_key", audio_key, source="NEXTION_AUDIO")
+            self.bus.force_signal("nextion_audio_rev", int(time.time() * 1000), source="NEXTION_AUDIO")
+        except Exception:
+            pass
+
+        snajper = getattr(self, "tarzan_snajper", None)
+        if snajper is not None:
+            try:
+                snajper.fire(logical, audio_key)
+                snajper.fire("nextion_audio_event", audio_key)
+            except Exception:
+                pass
+
+        # Natychmiastowy fallback PC, bo Snajper może nie mieć jeszcze zarejestrowanego audio_adaptera.
+        if self._play_audio_key(audio_key, wav_candidates):
+            logs.append(f"{screen_key} AUDIO {audio_key}")
+        else:
+            logs.append(f"{screen_key} AUDIO MISS {audio_key}")
+
+    def _play_audio_key(self, audio_key: str, wav_candidates=()) -> bool:
+        """Odtwarza realny WAV. Najpierw bezpośredni plik, potem opcjonalny audio player."""
         try:
             import winsound
             root = Path(__file__).resolve().parents[2]
-            wav_path = root / "audio" / "voice" / "Motion_starting.wav"
-            if wav_path.exists():
-                winsound.PlaySound(str(wav_path), winsound.SND_FILENAME | winsound.SND_ASYNC)
+            for rel in wav_candidates:
+                wav_path = root / rel
+                if wav_path.exists():
+                    winsound.PlaySound(str(wav_path), winsound.SND_FILENAME | winsound.SND_ASYNC)
+                    return True
         except Exception:
             pass
+
+        if play_audio is not None:
+            key_variants = [audio_key, audio_key.replace("/", "_"), Path(audio_key).name]
+            for key_name in key_variants:
+                try:
+                    result = play_audio(key_name)
+                    # Nie zakładamy wyjątku jako jedynego sygnału błędu, ale jeśli player istnieje,
+                    # traktujemy go jako drugi tor dopiero po nieudanym bezpośrednim WAV.
+                    return True if result is None else bool(result)
+                except Exception:
+                    pass
+        return False
+
+    def _play_clap_audio(self) -> None:
+        """Kompatybilność: stare wywołanie traktujemy jako start CLAP."""
+        self._fire_audio_event("clap_start", logs=[], screen_key="nextion_7")
 
     def _update_clap_tc_for_snajper(self, force: bool = False) -> None:
         """Lekki 10 ms strzał TC przez istniejący Snajper, tylko gdy b_clap uruchomił TC."""
@@ -829,7 +980,8 @@ class TarzanNextionBridge:
 
         sample_ms = max(1, int(getattr(self.bus, "sample_ms", 10) or 10))
         if self._clap_tc_running:
-            raw_ms = int(round((time.monotonic() - self._clap_tc_start_monotonic) * 1000.0))
+            raw_delta_ms = int(round((time.monotonic() - self._clap_tc_start_monotonic) * 1000.0))
+            raw_ms = int(self._clap_tc_start_elapsed_ms) + max(0, raw_delta_ms)
             elapsed_ms = max(0, (raw_ms // sample_ms) * sample_ms)
             self._clap_tc_elapsed_ms = elapsed_ms
         else:
@@ -839,7 +991,10 @@ class TarzanNextionBridge:
             return
 
         self._clap_tc_last_sent_ms = elapsed_ms
-        self.bus.set_take_time(elapsed_ms)
+        # Jedno źródło TC: bridge publikuje gotowy take_timecode.
+        # Nie wywołujemy bus.set_take_time(), bo w obecnym torze potrafi ono
+        # wstrzyknąć techniczne 00:00:00:001 po STOP i cofać overlay/fizyczny t0.
+        self._publish_clap_tc_state(self._clap_tc_running, elapsed_ms=elapsed_ms, source="NEXTION_CLAP_TC")
 
 
     def _fire_snajper_signal(self, name: str, value: Any, source: str = "NEXTION", force_physical: bool = False) -> None:

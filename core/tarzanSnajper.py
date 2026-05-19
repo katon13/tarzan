@@ -2984,11 +2984,9 @@ _FINAL_MAP = {
         T("par_tkinter", "sensors_panel", "temp_label", "text"),
     ],
     "take_clap": [
-        T("physical_nextion", "take_main", "sound", "play"),
-        T("physical_nextion", "take_main", "t_clap", "txt"),
-        T("physical_nextion", "take_main", "p5", "pic"),
-        T("canvas_preview", "take_main", "t_clap", "txt"),
-        T("canvas_preview", "take_main", "p5", "pic"),
+        # Stan CLAP nie jest tekstem TC i nie uruchamia już komendy play na Nextionie.
+        # Audio idzie osobnymi sygnałami take_clap_start / take_clap_stop.
+        T("canvas_preview", "take_main", "b_clap", "val"),
     ],
     "tfd_save_sound": [
         T("physical_nextion", "settings_main", "sound", "play"),
@@ -3032,3 +3030,32 @@ for i in range(6):
 
 for _logical, _targets in _FINAL_MAP.items():
     DEFAULT_TARZAN_SNAJPER_TARGETS[_logical] = _targets
+
+# TARZAN_SNAJPER_AUDIO_EVENTS_2026_05_19
+# Audio z fizycznego Nextiona idzie jako zdarzenie Snajpera. Bridge ma fallback WAV,
+# więc brak zarejestrowanego audio_adaptera nie blokuje działania dźwięku.
+if "audio_adapter" not in TARZAN_SNAJPER_ADAPTERS:
+    TARZAN_SNAJPER_ADAPTERS = TARZAN_SNAJPER_ADAPTERS + ("audio_adapter",)
+DEFAULT_TARZAN_SNAJPER_SIGNAL_MAP.update({
+    "take_clap_start": "take_clap_start",
+    "take_clap_stop": "take_clap_stop",
+    "take_tc_running": "take_tc_running",
+    "nextion_audio_event": "nextion_audio_event",
+    "nextion_audio_key": "nextion_audio_event",
+    "nextion_audio_rev": "nextion_audio_event",
+})
+DEFAULT_TARZAN_SNAJPER_TARGETS["take_clap_start"] = [
+    T("audio_adapter", "audio", "signals/clap", "play"),
+    T("log_adapter", "nextion_audio", "take_clap_start", "text"),
+]
+DEFAULT_TARZAN_SNAJPER_TARGETS["take_clap_stop"] = [
+    T("audio_adapter", "audio", "voice/motin_coplete", "play"),
+    T("log_adapter", "nextion_audio", "take_clap_stop", "text"),
+]
+DEFAULT_TARZAN_SNAJPER_TARGETS["take_tc_running"] = [
+    T("canvas_preview", "take_main", "b_clap", "val"),
+    T("par_tkinter", "take_panel", "tc_running", "state"),
+]
+DEFAULT_TARZAN_SNAJPER_TARGETS["nextion_audio_event"] = [
+    T("log_adapter", "nextion_audio", "last_event", "text"),
+]

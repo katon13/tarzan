@@ -234,12 +234,12 @@ class TarzanNextionPreviewPanel(tk.Frame):
         self.log_text = tk.Text(
             log_frame,
             bg="#050708",
-            fg="#d0d7de",
-            insertbackground="#d0d7de",
+            fg="#7cff7c",
+            insertbackground="#7cff7c",
             relief="flat",
             wrap="none",
             height=12,
-            font=("Consolas", 9),
+            font=("Consolas", 8),
         )
         self.log_text.pack(side="left", fill="both", expand=True)
         scrollbar = tk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)

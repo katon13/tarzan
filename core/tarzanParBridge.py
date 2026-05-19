@@ -34,6 +34,16 @@ class TarzanParBridge:
             self.take_player.set_scheduler(after, after_cancel)
         self.nextion = TarzanNextionBridge(self.bus) if TarzanNextionBridge is not None else None
 
+    @property
+    def tarzan_snajper(self):
+        """Propagacja Snajpera do fizycznego mostu Nextiona."""
+        return getattr(self.nextion, "tarzan_snajper", None) if self.nextion is not None else None
+
+    @tarzan_snajper.setter
+    def tarzan_snajper(self, value):
+        if self.nextion is not None:
+            self.nextion.tarzan_snajper = value
+
     def nextion_snapshot(self) -> Dict[str, Any]:
         if self.nextion is None:
             return {}
@@ -69,9 +79,6 @@ class TarzanParBridge:
     # ------------------------------------------------------------------
     # TARZAN_SNAJPER — delegacja do hardware/tarzanNextion/bridge.py
     # ------------------------------------------------------------------
-    def poll(self):
-        return self.nextion_poll()
-
     def queue_snajper_command(self, scope: str, component: str, prop: str, value) -> None:
         if self.nextion is not None and hasattr(self.nextion, "queue_snajper_command"):
             self.nextion.queue_snajper_command(scope, component, prop, value)

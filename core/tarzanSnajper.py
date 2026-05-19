@@ -2955,6 +2955,9 @@ _FINAL_MAP = {
         T("canvas_preview", "level_xyz", "va1", "val"),
         T("par_tkinter", "sensors_panel", "level_y_label", "text"),
     ],
+    "level_z": [
+        T("par_tkinter", "sensors_panel", "level_z_label", "text"),
+    ],
     "sensor_shock": [
         T("physical_nextion", "take_main", "t_shock", "txt"),
         T("canvas_preview", "take_main", "t_shock", "txt"),

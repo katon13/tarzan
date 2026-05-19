@@ -11,9 +11,10 @@
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanParBridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanParBridge.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/tarzanSnajper.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanSnajper.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/tfd_metadata.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/tfd_metadata.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanNextionPreview.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

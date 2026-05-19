@@ -1918,28 +1918,10 @@ class TarzanParApp(tk.Tk):
     def nextion_snajper_tick(self):
         try:
             self.bridge.poll()
+            # flush_snajper_commands jest już wywoływany wewnątrz poll(), 
+            # ale zostawiamy jawne wywołanie dla pewności przy zmianach live.
             if hasattr(self.bridge, "flush_snajper_commands"):
                 self.bridge.flush_snajper_commands()
-
-            # NEXTION_PHYSICAL_RESYNC
-            now = time.time()
-            if not hasattr(self, "_last_nextion_resync_slow"):
-                self._last_nextion_resync_slow = 0
-            if not hasattr(self, "_last_nextion_resync_fast"):
-                self._last_nextion_resync_fast = 0
-            
-            # FAST RESYNC: co 100ms
-            if now - self._last_nextion_resync_fast > 0.1:
-                self._last_nextion_resync_fast = now
-                if hasattr(self, "tarzan_snajper"):
-                    self.tarzan_snajper.fire_nextion_physical_resync(self.bus, fast=True)
-
-            # SLOW RESYNC: co 2000 ms dla pól trwałych
-            if now - self._last_nextion_resync_slow > 2.0:
-                self._last_nextion_resync_slow = now
-                if hasattr(self, "tarzan_snajper"):
-                    self.tarzan_snajper.fire_nextion_physical_resync(self.bus, fast=False)
-
         except Exception as exc:
             if hasattr(self.bus, "log"):
                 self.bus.log("PAR_ERROR", f"Nextion Snajper Tick Error: {exc}")

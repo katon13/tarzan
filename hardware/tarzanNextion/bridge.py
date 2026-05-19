@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 
 from .config import load_ports
 from .device import TarzanNextionDevice
-from .protocol import cmd_page, cmd_text, cmd_value, cmd_visible, command_bytes
+from .protocol import cmd_page, cmd_text, cmd_visible, command_bytes
 from .screen_model import ScreenDefinition, load_screen_definition
 from .state_mapper import TarzanNextionStateMapper
 
@@ -114,12 +114,12 @@ class TarzanNextionBridge:
         self._snajper_pending = OrderedDict()
         self._tfd_save_status_until = 0.0
         self._tfd_save_status_visible = False
-        self._settings_main_meta_fired = False
         # Teksty settings_main są edytowalne na fizycznym Nextionie.
         # Dlatego odtwarzamy je z JSON/stanu tylko raz po starcie bridge,
         # a potem nie nadpisujemy ich przy każdym powrocie na stronę.
         self._settings_main_text_loaded = False
-        self.tarzan_snajper = None
+        self._tarzan_snajper = None
+        self._reverse_signal_map: Dict[str, List[str]] = {}
 
         # TC sterowany fizycznym b_clap.
         # To nie jest osobny bridge ani nowy refresh: b_clap tylko otwiera/zamyka
@@ -255,6 +255,55 @@ class TarzanNextionBridge:
             except Exception:
                 pass
 
+    @property
+    def tarzan_snajper(self):
+        return self._tarzan_snajper
+
+    @tarzan_snajper.setter
+    def tarzan_snajper(self, value):
+        self._tarzan_snajper = value
+        if value:
+            self._rebuild_reverse_signal_map()
+
+    def _rebuild_reverse_signal_map(self):
+        """Buduje mapę logical -> List[raw_signals] dla potrzeb refreshu."""
+        self._reverse_signal_map = {}
+        snajper = self._tarzan_snajper
+        if not snajper:
+            return
+        
+        # 1. Mapowanie z signal_map
+        if hasattr(snajper, "signal_map"):
+            for raw, logical in snajper.signal_map.items():
+                self._reverse_signal_map.setdefault(logical, []).append(raw)
+        
+        # 2. Mapowanie tożsamościowe i prefiksy dla wszystkich nazw logicznych
+        if hasattr(snajper, "targets"):
+            for logical in snajper.targets.keys():
+                # Kandydaci na nazwy w busie
+                candidates = [logical, f"par_{logical}", f"sensor_{logical}", f"par_sensor_{logical}"]
+                
+                # Dodatkowe specyficzne mapowania dla osi
+                if logical.startswith("axis_") and logical.endswith("_value"):
+                    # np. axis_0_value -> par_axis_0_pos, axis_0_pos
+                    try:
+                        axis_id = logical.split("_")[1]
+                        candidates.extend([f"par_axis_{axis_id}_pos", f"axis_{axis_id}_pos"])
+                    except (IndexError, ValueError):
+                        pass
+                elif logical.startswith("axis_") and logical.endswith("_dir"):
+                    try:
+                        axis_id = logical.split("_")[1]
+                        candidates.extend([f"par_axis_{axis_id}_dir", f"axis_{axis_id}_dir"])
+                    except (IndexError, ValueError):
+                        pass
+                
+                for cand in candidates:
+                    if logical not in self._reverse_signal_map:
+                        self._reverse_signal_map[logical] = [cand]
+                    elif cand not in self._reverse_signal_map[logical]:
+                        self._reverse_signal_map[logical].append(cand)
+
     def get_rrp_state(self, screen_key: str = "nextion_7") -> Dict[str, Any]:
         return dict(self.rrp_state)
 
@@ -292,7 +341,7 @@ class TarzanNextionBridge:
             if page_id:
                 self._append_transport_log(f"TX {screen_key}: page {page_id}")
                 device.send_raw(cmd_page(page_id))
-                self._fire_tfd_meta_for_page(screen_key, page_id)
+                self._refresh_physical_nextion_page_from_state(screen_key, page_id)
             self._request_current_page(screen_key, device)
         return ok
 
@@ -347,9 +396,7 @@ class TarzanNextionBridge:
         if device is not None and device.connected:
             self._append_transport_log(f"TX {screen_key}: page {page_id}")
             device.send_raw(cmd_page(page_id))
-            if page_id != "settings_main":
-                self._settings_main_meta_fired = False
-            self._fire_tfd_meta_for_page(screen_key, page_id)
+            self._refresh_physical_nextion_page_from_state(screen_key, page_id)
             self._request_current_page(screen_key, device)
 
     def next_page(self, screen_key: str) -> None:
@@ -547,17 +594,6 @@ class TarzanNextionBridge:
                             logs.append(f"{key} TFD SYS UI_CUT: {enabled}")
                             handled_text = True
                             continue
-                        if msg.startswith("set:ui_cut="):
-                            self.active_pages[key] = "settings_main"
-                            enabled = 1 if msg.split("=", 1)[1].strip() == "1" else 0
-                            self._nextion_ui_cut = bool(enabled)
-                            self._write_tfd_meta_value("nextion_ui_cut", enabled)
-                            self._fire_snajper_signal("nextion_ui_cut", enabled, source="NEXTION", force_physical=True)
-                            self._show_tfd_save_status()
-                            self.flush_snajper_commands()
-                            logs.append(f"{key} TFD SET UI_CUT: {enabled}")
-                            handled_text = True
-                            continue
                         # 1. RRP EVENTS
                         if msg.startswith("rrp:"):
                             self._handle_rrp_event(msg)
@@ -582,9 +618,7 @@ class TarzanNextionBridge:
                     page_index = int(raw[1])
                     page_id = self._page_id_from_index(key, page_index)
                     self.active_pages[key] = page_id
-                    if page_id != "settings_main":
-                        self._settings_main_meta_fired = False
-                    self._fire_tfd_meta_for_page(key, page_id)
+                    self._refresh_physical_nextion_page_from_state(key, page_id)
                     logs.append(f"{key} PAGE {page_id}")
                     continue
 
@@ -890,63 +924,175 @@ class TarzanNextionBridge:
 
         self.queue_snajper_command("settings_main", "t_save_status", "visible", 0)
 
-    def _fire_tfd_meta_for_page(self, screen_key: str, page_id: str) -> None:
-        """Po sendme / PAGE przekazuje stronę do Snajpera.
+    def _refresh_physical_nextion_page_from_state(self, screen_key: str, page_id: str) -> None:
+        """Jednorazowy page-start refresh aktywnej strony po sendme / PAGE 0x66.
 
-        Bridge nie wybiera pól TITLE/DIRECTOR i nie odświeża settings_main cyklicznie.
-        Snajper wysyła tylko statyczne metadane strony:
-            take_main     -> t1/t2
-            settings_main -> t_title/t_director
+        Zasada:
+        1. Bierze aktualny stan z PAR / SignalBus / TFDState.
+        2. Wysyła tylko targety Snajpera 'physical_nextion' należące do aktywnej strony (scope == page_id).
+        3. settings_main: t_title/t_director tylko raz (INIT/SKIP), b_ui_cut zawsze.
+        4. Na koniec flush.
         """
         if screen_key != "nextion_7":
             return
-
+            
         self.active_pages[screen_key] = page_id
+        snajper = getattr(self, "tarzan_snajper", None)
+        if snajper is None:
+            self._append_transport_log(f"EV {screen_key}: PAGE START REFRESH SKIP {page_id} reason=NO_SNAJPER")
+            self.flush_snajper_commands()
+            return
 
-        if page_id != "settings_main":
-            self._settings_main_meta_fired = False
-        else:
-            self._settings_main_meta_fired = True
+        fired = 0
 
-        # JSON jest ładowany na starcie bridge. PAGE/sendme odtwarza aktualny stan pamięci,
-        # żeby robocze przełączenie b_ui_cut nie było nadpisywane ponownym odczytem pliku.
-
-        # SETTINGS_MAIN jest ekranem ustawień. Po każdym sendme/PAGE fizyczny
-        # Nextion tworzy komponenty od nowa, więc trzeba wysłać wartości bez
-        # przechodzenia przez cache Snajpera. To nie jest cykl, tylko jednorazowy
-        # refresh strony po jej załadowaniu.
+        # Specjalna obsługa settings_main (ekran edycyjny)
         if page_id == "settings_main":
-            title = getattr(tfd_state, "title", None) if tfd_state is not None else None
-            director = getattr(tfd_state, "director", None) if tfd_state is not None else None
-            ui_cut = 1 if bool(self._nextion_ui_cut) else 0
-
-            # t_title/t_director są polami edytowalnymi na fizycznym Nextionie.
-            # Odtwarzamy je z JSON/stanu tylko przy pierwszym wejściu po starcie bridge.
-            # Potem nie nadpisujemy ich przy każdym PAGE settings_main, żeby klawiatura
-            # fizycznego Nextiona mogła zmienić tekst i dopiero SAVE zapisał wynik.
             if not self._settings_main_text_loaded:
-                if title is not None:
-                    self.queue_snajper_command("settings_main", "t_title", "txt", str(title))
-                if director is not None:
-                    self.queue_snajper_command("settings_main", "t_director", "txt", str(director))
+                fired += self._force_page_target_from_logical(snajper, page_id, "tfd_title", only_targets={"t_title"})
+                fired += self._force_page_target_from_logical(snajper, page_id, "tfd_director", only_targets={"t_director"})
                 self._settings_main_text_loaded = True
                 self._append_transport_log(f"EV {screen_key}: SETTINGS PAGE TEXT INIT")
             else:
                 self._append_transport_log(f"EV {screen_key}: SETTINGS PAGE TEXT SKIP")
 
-            self.queue_snajper_command("settings_main", "b_ui_cut", "val", ui_cut)
-            self._append_transport_log(f"EV {screen_key}: SETTINGS PAGE REFRESH ui_cut={ui_cut}")
-            self.flush_snajper_commands()
-            return
+            fired += self._force_page_target_from_logical(
+                snajper,
+                page_id,
+                "nextion_ui_cut",
+                only_targets={"b_ui_cut"},
+                explicit_value=1 if bool(self._nextion_ui_cut) else 0,
+            )
+        else:
+            # Dla wszystkich pozostałych stron (take_main, rrp_main, sensors_main, page1, boot, itp.)
+            # odtwarzamy wszystkie fizyczne targety strony, dla których aktualna wartość 
+            # jest dostępna w TFDState/SignalBus/PAR.
+            logicals = []
+            for logical, targets in getattr(snajper, "targets", {}).items():
+                if any(
+                    target.adapter == "physical_nextion" and target.scope == page_id
+                    for target in targets
+                ):
+                    logicals.append(logical)
 
-        snajper = getattr(self, "tarzan_snajper", None)
-        if snajper is not None and hasattr(snajper, "fire_nextion_page_loaded_resync"):
-            try:
-                snajper.fire_nextion_page_loaded_resync(self.bus, page_id)
-            except Exception as exc:
-                self._append_transport_log(f"EV {screen_key}: SNAJPER PAGE RESYNC ERROR {page_id}: {exc}")
+            for logical in set(logicals):
+                fired += self._force_page_target_from_logical(snajper, page_id, logical)
 
+        self._append_transport_log(f"EV {screen_key}: PAGE START REFRESH {page_id} targets={fired}")
         self.flush_snajper_commands()
+
+    def _force_page_target_from_logical(
+        self,
+        snajper,
+        page_id: str,
+        logical: str,
+        only_targets: set[str] | None = None,
+        explicit_value: Any | None = None,
+    ) -> int:
+        """Wysyła aktualną wartość logicznego sygnału na fizyczne targety aktywnej strony."""
+        value = explicit_value if explicit_value is not None else self._read_page_refresh_value(snajper, logical)
+        if value is None:
+            return 0
+
+        adapter = getattr(snajper, "adapters", {}).get("physical_nextion")
+        if adapter is None:
+            return 0
+
+        fired = 0
+        normalized = snajper.normalize_value(value) if hasattr(snajper, "normalize_value") else str(value)
+        
+        # Pobieramy listę targetów dla danego sygnału logicznego
+        targets_list = getattr(snajper, "targets", {}).get(logical, [])
+        for target in targets_list:
+            if target.adapter != "physical_nextion":
+                continue
+            if target.scope != page_id:
+                continue
+            if only_targets is not None and target.target not in only_targets:
+                continue
+
+            # Czyścimy cache Snajpera, aby wymusić wysyłkę nawet jeśli wartość się nie zmieniła w busie
+            try:
+                # W TARZAN_SNAJPER_V8 cache_key to np. "physical_nextion.take_main.t1.txt"
+                cache_key = snajper._cache_key(target)
+                snajper.last_values.pop(cache_key, None)
+            except Exception:
+                cache_key = None
+
+            try:
+                adapter.update_target(target, value)
+                # Po udanej aktualizacji wpisujemy do cache znormalizowaną wartość
+                if cache_key is not None:
+                    snajper.last_values[cache_key] = normalized
+                fired += 1
+            except Exception:
+                pass
+
+        return fired
+
+    def _read_page_refresh_value(self, snajper, logical: str) -> Any | None:
+        """Odczytuje wartość sygnału z hierarchii: TFDState > SignalBus > Fallback."""
+        # 1. TFDState (np. title, director, nextion_ui_cut)
+        if tfd_state is not None:
+            if logical == "tfd_title":
+                return getattr(tfd_state, "title", None)
+            if logical == "tfd_director":
+                return getattr(tfd_state, "director", None)
+            if logical == "nextion_ui_cut":
+                return 1 if bool(self._nextion_ui_cut) else 0
+            if logical == "take_number":
+                return getattr(tfd_state, "take_number", None)
+            if logical == "take_status":
+                return getattr(tfd_state, "status", None)
+
+        # 2. SignalBus
+        if self.bus:
+            # 2a. Agregacja dla specyficznych sygnałów logicznych
+            if logical == "sensor_xyz":
+                # Próbujemy zebrać X, Y, Z z osobnych kanałów busa (MMA7660)
+                lx = self.bus.read("sensor_level_x", self.bus.read("par_level_x", 0))
+                ly = self.bus.read("sensor_level_y", self.bus.read("par_level_y", 0))
+                lz = self.bus.read("sensor_level_z", self.bus.read("par_level_z", 0))
+                return f"{lx},{ly},{lz}"
+            
+            if logical == "nextion_level_xyz_va0_val":
+                return self.bus.read("sensor_level_x", self.bus.read("par_level_x", 0))
+            if logical == "nextion_level_xyz_va1_val":
+                return self.bus.read("sensor_level_y", self.bus.read("par_level_y", 0))
+            if logical == "nextion_level_xyz_va2_val":
+                return self.bus.read("sensor_level_z", self.bus.read("par_level_z", 0))
+
+            # 2b. Próbujemy po nazwie logicznej bezpośrednio
+            val = self.bus.read(logical, default=None)
+            if val is not None:
+                return val
+            
+            # 2c. Próbujemy sygnały źródłowe z mapy odwrotnej (wzbogaconej o prefiksy)
+            raw_signals = self._reverse_signal_map.get(logical, [])
+            for sig in raw_signals:
+                val = self.bus.read(sig, default=None)
+                if val is not None:
+                    return val
+
+            # 2d. Fallbacki dla metadanych TFD/TAKE oraz sensorów
+            tfd_fallbacks = {
+                "tfd_title": ("par_tfd_title", "tfd_title", "take_title", "movie_title", "title"),
+                "tfd_director": ("par_tfd_director", "tfd_director", "take_director", "movie_director", "director"),
+                "take_number": ("par_take_number", "take_number", "take_label", "loaded_take_path"),
+                "take_status": ("par_take_status", "take_status", "par_mode", "system_status"),
+                "level_x": ("sensor_level_x", "par_level_x", "level_x", "axis_x_pos", "par_xyz_x"),
+                "level_y": ("sensor_level_y", "par_level_y", "level_y", "axis_y_pos", "par_xyz_y"),
+                "level_z": ("sensor_level_z", "par_level_z", "level_z", "axis_z_pos", "par_xyz_z"),
+                "sensor_temp": ("par_temp", "sensor_temp", "temp", "par_sensors_temp"),
+                "sensor_light": ("par_light", "sensor_light", "light", "par_sensors_light"),
+                "sensor_xyz": ("par_xyz", "sensor_xyz", "par_sensors_xyz"),
+            }
+            if logical in tfd_fallbacks:
+                for fallback_key in tfd_fallbacks[logical]:
+                    val = self.bus.read(fallback_key, default=None)
+                    if val is not None:
+                        return val
+
+        return None
 
     def _handle_tfd_meta_event(self, msg: str, logs: List[str], key: str) -> bool:
         """Przetwarza tekst z settings_main: set:title=... albo set:director=..."""

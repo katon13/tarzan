@@ -29,7 +29,610 @@ except Exception:
     def profile_method(name=None):
         def deco(func): return func
         return deco
-    class profile_block:
+    
+# =============================================================================
+# TARZAN_SNAJPER — SEKCJE PAR
+# =============================================================================
+
+TARZAN_SNAJPER_PAR_SECTIONS = {
+    "rrp": {
+        "par_rrp_p1_val", "par_rrp_p2_val",
+        "par_rrp_p1_dir", "par_rrp_p2_dir",
+        "par_rrp_p1_sens", "par_rrp_p2_sens",
+        "par_rrp_p1_axis", "par_rrp_p2_axis",
+    },
+    "motor_cards": {
+        "axis_0_value", "axis_1_value", "axis_2_value",
+        "axis_3_value", "axis_4_value", "axis_5_value",
+        "axis_cam_v_pulses", "axis_cam_t_pulses", "axis_cam_f_pulses",
+        "axis_cam_h_pulses", "axis_arm_h_pulses", "axis_arm_v_pulses",
+    },
+    "step_dir_preview": {
+        "axis_0_step", "axis_1_step", "axis_2_step",
+        "axis_3_step", "axis_4_step", "axis_5_step",
+        "axis_0_dir", "axis_1_dir", "axis_2_dir",
+        "axis_3_dir", "axis_4_dir", "axis_5_dir",
+        "step_dir_stream", "protocol_tick", "take_timecode",
+    },
+    "temperature": {
+        "sensor_temp_c", "temperature_c", "par_temp_c",
+    },
+    "light": {
+        "sensor_light_lux", "light_lux", "par_light_lux",
+    },
+    "xyz": {
+        "sensor_xyz", "sensor_level_x", "sensor_level_y", "sensor_level_z",
+        "level_x", "level_y", "level_z",
+    },
+    "limits": {
+        "sensor_limits_status", "limit_state", "krańcówki", "krancowki",
+    },
+    "shock_laser": {
+        "sensor_shock_state", "sensor_laser_set", "shock_state", "laser_state",
+    },
+    "sok": {
+        "sok_pan", "sok_tilt", "sok_focus", "sok_cam",
+    },
+    "cnc": {
+        "cnc_status", "cnc_signal", "cnc_step", "cnc_dir",
+    },
+    "logs": {
+        "system_status", "log_event", "par_log",
+    },
+}
+
+
+
+# TARZAN_SNAJPER_STAGE4_STEP_DIR_LIVE:
+# Podgląd sygnałów STEP/DIR działa jako sekcja live.
+# Zmiana STEP/DIR/CTR osi aktualizuje sekcję Podgląd sygnałów,
+# nie cały PAR i nie cały layout.
+
+
+# =============================================================================
+# TARZAN_SNAJPER — STEP/DIR MULTI TARGET
+
+# =============================================================================
+# TARZAN_SNAJPER — STEP/DIR DIRECT FIRE
+
+# =============================================================================
+# TARZAN_SNAJPER — STEP/DIR DIRECT TARGET
+# =============================================================================
+
+
+# =============================================================================
+# TARZAN_SNAJPER — REALNY CEL STEP/DIR
+
+
+# =============================================================================
+# TARZAN_SNAJPER — REALNE CELE LOGI / TAKE / NEXTION
+# =============================================================================
+
+class TarzanLogSnajperTarget:
+    """
+    Cel Snajpera dla panelu LOGI.
+    Podpięty bezpośrednio pod bus.log().
+    Nie robi refreshu panelu.
+    """
+
+    def __init__(self, widget=None) -> None:
+        self.widget = widget
+        self.last_line = None
+        self.max_lines = 600
+
+    def set_widget(self, widget) -> None:
+        self.widget = widget
+
+    def snajper_log_fire(self, line: str) -> None:
+        if not line or line == self.last_line:
+            return
+        self.last_line = line
+
+        widget = self.widget
+        if widget is None:
+            return
+
+        try:
+            if hasattr(widget, "insert"):
+                widget.insert("end", line + "\n")
+                try:
+                    current = int(float(widget.index("end-1c").split(".")[0]))
+                    if current > self.max_lines:
+                        widget.delete("1.0", f"{current - self.max_lines}.0")
+                except Exception:
+                    pass
+                if hasattr(widget, "see"):
+                    widget.see("end")
+                return
+            if hasattr(widget, "configure"):
+                widget.configure(text=line)
+        except Exception:
+            return
+
+
+class TarzanTakeSnajperTarget:
+    """
+    Cel Snajpera dla TAKE — ODTWARZACZ PROTOKOŁU.
+    Aktualizuje tylko status / czas TAKE, gdy TAKE jest otwarty i idą ms.
+    """
+
+    def __init__(self, panels) -> None:
+        self.panels = panels
+        self.last = {}
+
+    def snajper_take_fire(self, signal: str, value, state: dict | None = None) -> None:
+        self.last[signal] = value
+
+        # Najpierw dokładny label aplikacji, jeśli istnieje.
+        app = getattr(self.panels, "app", None)
+        if app is not None and hasattr(app, "update_take_label"):
+            try:
+                app.update_take_label()
+            except Exception:
+                pass
+
+        # Potem znane lokalne labelki panelu TAKE, jeśli są zarejestrowane.
+        label = getattr(self.panels, "take_status_label", None)
+        if label is not None:
+            try:
+                take_time = self.last.get("take_time_ms", self.last.get("take_timecode", value))
+                label.configure(text=f"TAKE: {take_time} ms")
+            except Exception:
+                pass
+
+        time_label = getattr(self.panels, "take_time_label", None)
+        if time_label is not None:
+            try:
+                time_label.configure(text=f"{value} ms")
+            except Exception:
+                pass
+
+
+# NEXTION fizyczny nie ma już lokalnego celu ani ręcznych map.
+# Sygnał BUS -> TarzanSnajper.fire_from_signal(...) -> physical_nextion -> queue_snajper_command(...).
+
+
+class TarzanStepDirPreviewTarget:
+    """
+    Własny cel Snajpera dla panelu PODGLĄD SYGNAŁÓW — STEP / DIR.
+
+    To nie jest nakładka na stary draw_timeline.
+    Ten target sam prowadzi canvas tej sekcji:
+    - układ i styl jak w oryginalnym oknie PAR,
+    - ikony osi po lewej,
+    - linie S/D/H/L,
+    - czerwony marker chwili odczytu,
+    - czytelne strzały Snajpera na właściwych liniach,
+    - opisy sygnałów w kontrolowanym miejscu.
+
+    Nie robi refresh_all.
+    Nie używa PAR_APP.tick.
+    Nie zapisuje do BUS.
+    """
+
+    AXIS_ORDER = ("arm_h", "arm_v", "cam_h", "cam_v", "arm_t", "cam_f")
+    AXIS_LABELS = {
+        "arm_h": "ARM_H",
+        "arm_v": "ARM_V",
+        "cam_h": "CAM_H",
+        "cam_v": "CAM_V",
+        "arm_t": "ARM_T",
+        "cam_f": "CAM_F",
+    }
+
+    def __init__(self, panels, canvas) -> None:
+        self.panels = panels
+        self.canvas = canvas
+        self.items = {}
+        self.state = {axis: {"step": 0, "dir": 0, "ctr": 0, "pulses": 0, "pos": 0} for axis in self.AXIS_ORDER}
+        self.event_index = 0
+        self.geometry = {}
+        self._rendered = False
+
+    def redraw(self) -> None:
+        self._render_base()
+        self._render_values()
+
+    def snajper_step_dir_fire(self, axis: str, kind: str, signal: str, value, state: dict) -> None:
+        if axis not in self.AXIS_ORDER:
+            axis = self._normalize_axis(axis)
+
+        if axis not in self.AXIS_ORDER:
+            return
+
+        self.event_index += 1
+
+        if kind in {"auto_step", "rec_step"}:
+            kind = "step"
+
+        if kind in {"step", "dir", "ctr", "pulses", "pos"}:
+            self.state.setdefault(axis, {})[kind] = value
+
+        self.state[axis]["last_signal"] = signal
+        self.state[axis]["last_value"] = value
+        self.state[axis]["last_kind"] = kind
+
+        if not self._rendered:
+            self._render_base()
+
+        self._fire_axis(axis, kind, value)
+        self._render_axis_values(axis)
+
+    def _normalize_axis(self, axis: str) -> str:
+        s = str(axis).lower()
+        if "arm_h" in s:
+            return "arm_h"
+        if "arm_v" in s:
+            return "arm_v"
+        if "arm_t" in s or "tilt" in s:
+            return "arm_t"
+        if "cam_h" in s:
+            return "cam_h"
+        if "cam_v" in s:
+            return "cam_v"
+        if "cam_f" in s or "focus" in s:
+            return "cam_f"
+        return s
+
+    def _render_base(self) -> None:
+        can = self.canvas
+        try:
+            can.delete("step_dir_owned")
+        except Exception:
+            return
+
+        w = max(can.winfo_width(), 760)
+        h = max(can.winfo_height(), 210)
+
+        left = 132
+        right = w - 14
+        top = 18
+        row_gap = max(30, int((h - 42) / max(1, len(self.AXIS_ORDER))))
+        self.geometry = {"left": left, "right": right, "top": top, "row_gap": row_gap, "w": w, "h": h}
+
+        # tło
+        can.create_rectangle(0, 0, w, h, fill="#070b0e", outline="", tags="step_dir_owned")
+
+        # pionowa siatka
+        for t in range(6):
+            x = left + t * ((right - left) / 5)
+            can.create_line(x, top - 6, x, h - 28, fill="#162129", tags="step_dir_owned")
+
+        mid_x = left + (right - left) / 2
+        can.create_line(mid_x, top - 8, mid_x, h - 28, fill="#ff2b22", width=1, tags="step_dir_owned")
+        self.items[("marker",)] = can.create_line(mid_x, top - 8, mid_x, h - 28, fill="#ff2b22", width=1, tags="step_dir_owned")
+
+        for idx, axis in enumerate(self.AXIS_ORDER):
+            base_y = top + idx * row_gap
+            step_y = base_y + 8
+            dir_y = base_y + 23
+            self.geometry[(axis, "step_y")] = step_y
+            self.geometry[(axis, "dir_y")] = dir_y
+
+            # separator
+            can.create_line(4, base_y - 5, right, base_y - 5, fill="#101a20", tags="step_dir_owned")
+
+            # ikona osi z istniejącego stylu
+            icon = None
+            try:
+                icon = self.panels._load_timeline_icon(self.AXIS_LABELS[axis])
+            except Exception:
+                icon = None
+
+            if icon:
+                can.create_image(34, base_y + 15, image=icon, anchor="center", tags="step_dir_owned")
+            else:
+                can.create_text(34, base_y + 15, text=self.AXIS_LABELS[axis], anchor="center",
+                                fill=COLORS["muted"], font=("Segoe UI", 7, "bold"), tags="step_dir_owned")
+
+            # S/D i H/L
+            can.create_text(58, step_y, text="S", anchor="center", fill=COLORS["green"],
+                            font=("Segoe UI", 8, "bold"), tags="step_dir_owned")
+            can.create_text(58, dir_y, text="D", anchor="center", fill=COLORS["blue"],
+                            font=("Segoe UI", 8, "bold"), tags="step_dir_owned")
+
+            self.items[(axis, "step_hl")] = can.create_text(77, step_y, text="L", anchor="center",
+                                                            fill=_TIMELINE_L_COLOR, font=("Segoe UI", 8, "bold"),
+                                                            tags="step_dir_owned")
+            self.items[(axis, "dir_hl")] = can.create_text(77, dir_y, text="L", anchor="center",
+                                                           fill=_TIMELINE_L_COLOR, font=("Segoe UI", 8, "bold"),
+                                                           tags="step_dir_owned")
+
+            # linie bazowe jak w Twoim oknie
+            can.create_line(left, step_y, right, step_y, fill=COLORS["green"], width=2, tags="step_dir_owned")
+            can.create_line(left, dir_y, right, dir_y, fill=COLORS["blue"], width=2, tags="step_dir_owned")
+
+            # miejsce na opisy dodanych sygnałów, ale kontrolowane i krótkie
+            self.items[(axis, "desc")] = can.create_text(6, base_y + 29, text="", anchor="w",
+                                                         fill="#ff9d00", font=("Segoe UI", 7, "bold"),
+                                                         tags="step_dir_owned")
+
+        can.create_text(left, h - 8,
+                        text="czerwona linia = chwila odczytu; H/L = aktualny stan STEP/DIR; PULS/POS/CTR = dane osi",
+                        anchor="w", fill=COLORS["muted"], font=("Segoe UI", 7), tags="step_dir_owned")
+        self._rendered = True
+
+    def _render_values(self) -> None:
+        for axis in self.AXIS_ORDER:
+            self._render_axis_values(axis)
+
+    def _render_axis_values(self, axis: str) -> None:
+        can = self.canvas
+        st = self.state.get(axis, {})
+        step_val = self._to_level(st.get("step", 0))
+        dir_val = self._to_level(st.get("dir", 0))
+
+        step_item = self.items.get((axis, "step_hl"))
+        if step_item:
+            can.itemconfigure(step_item, text="H" if step_val else "L",
+                              fill=_TIMELINE_H_COLOR if step_val else _TIMELINE_L_COLOR)
+
+        dir_item = self.items.get((axis, "dir_hl"))
+        if dir_item:
+            can.itemconfigure(dir_item, text="H" if dir_val else "L",
+                              fill=_TIMELINE_H_COLOR if dir_val else _TIMELINE_L_COLOR)
+
+        desc_item = self.items.get((axis, "desc"))
+        if desc_item:
+            desc = []
+            if st.get("pulses") not in (None, "", 0):
+                desc.append(f"PULS:{st.get('pulses')}")
+            if st.get("pos") not in (None, "", 0):
+                desc.append(f"POS:{st.get('pos')}")
+            if st.get("ctr") not in (None, "", 0):
+                desc.append(f"CTR:{st.get('ctr')}")
+            can.itemconfigure(desc_item, text="  ".join(desc[:3]))
+
+    def _fire_axis(self, axis: str, kind: str, value) -> None:
+        can = self.canvas
+        g = self.geometry
+        if not g:
+            return
+
+        left, right = g["left"], g["right"]
+        x = left + 16 + ((self.event_index * 13) % max(30, right - left - 38))
+
+        if kind == "dir":
+            y = g.get((axis, "dir_y"), 20)
+            color = COLORS["blue"]
+        elif kind in {"ctr", "pulses", "pos"}:
+            y = g.get((axis, "step_y"), 20) - 8
+            color = "#ff9d00" if kind != "ctr" else "#ff3333"
+        else:
+            y = g.get((axis, "step_y"), 20)
+            color = COLORS["green"]
+
+        old_key = (axis, kind, "shot")
+        old = self.items.get(old_key)
+        if old:
+            try:
+                can.delete(old)
+            except Exception:
+                pass
+
+        # Krótki, czytelny strzał — nie gęsty prostokąt.
+        if kind == "step":
+            pts = [x, y + 6, x, y - 6, x + 10, y - 6, x + 10, y + 6, x + 22, y + 6]
+            self.items[old_key] = can.create_line(*pts, fill=color, width=2, tags="step_dir_owned")
+        else:
+            self.items[old_key] = can.create_line(x, y, x + 28, y, fill=color, width=4, tags="step_dir_owned")
+
+        marker = self.items.get(("marker",))
+        if marker:
+            can.coords(marker, x, g["top"] - 8, x, g["h"] - 28)
+
+    def _to_level(self, value) -> int:
+        try:
+            return 1 if int(value) > 0 else 0
+        except Exception:
+            return 1 if str(value).strip().upper() in {"H", "HIGH", "TRUE", "ON", "1"} else 0
+
+class TarzanStepDirMultiSnajper:
+    """
+    Snajper STEP/DIR bez zgadywania.
+
+    Nie szuka widgetów.
+    Nie skanuje Canvasów.
+    Nie próbuje wielu metod.
+
+    Wymaga jawnego celu:
+        panels.step_dir_snajper_target
+
+    Ten cel musi mieć metodę:
+        snajper_step_dir_fire(axis, kind, signal, value, state)
+
+    Jeżeli celu nie ma, Snajper nie udaje refreshu.
+    """
+
+    AXIS_ORDER = ("cam_h", "cam_v", "cam_t", "cam_f", "arm_h", "arm_v", "arm_t", "global")
+
+    def __init__(self, panels) -> None:
+        self.panels = panels
+        self.last_values = {}
+        self.axis_state = {}
+        self._in_fire = False
+
+    def is_step_dir_signal(self, name: str) -> bool:
+        s = str(name).lower()
+        return (
+            "step" in s or "_stp" in s or
+            "dir" in s or "ctr" in s or
+            "pulse" in s or "puls" in s or
+            s.endswith("_pos") or "_pos" in s or
+            s.startswith("axis_") or s.startswith("par_") or
+            s.startswith("cnc_") or s.startswith("play_") or s.startswith("rec_")
+        )
+
+    def fire(self, name: str, value) -> None:
+        if self._in_fire:
+            return
+        if not self.is_step_dir_signal(name):
+            return
+
+        key = str(name)
+        normalized = str(value)
+        if self.last_values.get(key) == normalized:
+            return
+        self.last_values[key] = normalized
+
+        axis = self._axis_from_signal(key)
+        kind = self._kind_from_signal(key)
+
+        state = self.axis_state.setdefault(axis, {})
+        state[kind] = value
+        state["last_signal"] = key
+        state["last_value"] = value
+
+        target = getattr(self.panels, "step_dir_snajper_target", None)
+        if target is None:
+            return
+
+        fire_method = getattr(target, "snajper_step_dir_fire", None)
+        if fire_method is None:
+            return
+
+        self._in_fire = True
+        try:
+            fire_method(axis, kind, key, value, dict(state))
+        finally:
+            self._in_fire = False
+
+    def _axis_from_signal(self, name: str) -> str:
+        s = name.lower()
+        aliases = (
+            ("cam_h", ("cam_h", "camera_h", "pozioma_kamery")),
+            ("cam_v", ("cam_v", "camera_v", "pionowa_kamery")),
+            ("cam_t", ("cam_t", "tilt", "pochyl")),
+            ("cam_f", ("cam_f", "focus", "ostrosc", "ostrość")),
+            ("arm_h", ("arm_h", "ramie_h", "pozioma_ramienia")),
+            ("arm_v", ("arm_v", "ramie_v", "pionowa_ramienia")),
+            ("arm_t", ("arm_t", "arm_tilt", "ramie_tilt")),
+        )
+        for axis, keys in aliases:
+            if any(k in s for k in keys):
+                return axis
+        m = re.search(r"axis[_-]?(\d+)", s)
+        if m:
+            idx = int(m.group(1))
+            if 0 <= idx < len(self.AXIS_ORDER):
+                return self.AXIS_ORDER[idx]
+            return f"axis_{idx}"
+        return "global"
+
+    def _kind_from_signal(self, name: str) -> str:
+        s = name.lower()
+        if "dir" in s:
+            return "dir"
+        if "ctr" in s:
+            return "ctr"
+        if "rec_step" in s:
+            return "rec_step"
+        if "auto_step" in s:
+            return "auto_step"
+        if "step" in s or "_stp" in s:
+            return "step"
+        if "pulse" in s or "puls" in s:
+            return "pulses"
+        if "_pos" in s or s.endswith("pos"):
+            return "pos"
+        return "value"
+
+
+class TarzanParSectionSnajper:
+    """
+    Snajper sekcyjny PAR.
+
+    Nie robi refresh_all.
+    Nie czyści całego Canvas.
+    Jedna zmiana sygnału uruchamia tylko sekcję, której dotyczy sygnał.
+    Sekcja może odświeżyć kilka własnych elementów, ale nie cały PAR.
+    """
+
+    def __init__(self, panels) -> None:
+        self.panels = panels
+        self.last_values = {}
+        self.signal_to_sections = {}
+        for section, signals in TARZAN_SNAJPER_PAR_SECTIONS.items():
+            for signal in signals:
+                self.signal_to_sections.setdefault(signal, set()).add(section)
+
+    def fire(self, signal_name: str, value) -> None:
+        if getattr(self, "_in_fire", False):
+            return
+
+        key = str(signal_name)
+        normalized = str(value)
+        if self.last_values.get(key) == normalized:
+            return
+        self.last_values[key] = normalized
+
+        sections = set(self.signal_to_sections.get(key, set()))
+        sections.update(self._infer_sections(key))
+
+        self._in_fire = True
+        try:
+            for section in sorted(sections):
+                self.update_section(section, key, value)
+        finally:
+            self._in_fire = False
+
+    def _infer_sections(self, signal_name: str) -> set[str]:
+        s = signal_name.lower()
+        sections = set()
+
+        # RRP / potencjometry operatora
+        if "rrp" in s or "p1" in s or "p2" in s:
+            sections.add("rrp")
+
+        # OSIE + STEP/DIR. To jest najważniejszy tor live dla podglądu sygnałów.
+        if (
+            "axis" in s or "os_" in s or "step" in s or "_stp" in s or
+            "dir" in s or "_ctr" in s or "ctr" in s or "pulse" in s or
+            "puls" in s or "cnc_" in s or "play_" in s
+        ):
+            sections.add("motor_cards")
+            sections.add("step_dir_preview")
+
+        # TAKE time also przesuwa podgląd STEP/DIR.
+        if "timecode" in s or "take_time" in s or "protocol_tick" in s:
+            sections.add("step_dir_preview")
+
+        if "temp" in s:
+            sections.add("temperature")
+
+        if "light" in s or "lux" in s or "bh1750" in s:
+            sections.add("light")
+
+        if "xyz" in s or "level" in s or "mma" in s:
+            sections.add("xyz")
+
+        if "limit" in s or "kranc" in s or "krańc" in s:
+            sections.add("limits")
+
+        if "shock" in s or "shok" in s or "laser" in s:
+            sections.add("shock_laser")
+
+        if "sok" in s:
+            sections.add("sok")
+
+        if "cnc" in s:
+            sections.add("cnc")
+            sections.add("step_dir_preview")
+
+        if "status" in s or "log" in s:
+            sections.add("logs")
+
+        return sections
+
+
+    def update_section(self, section: str, signal_name: str, value) -> None:
+        method = getattr(self.panels, f"_snajper_update_section_{section}", None)
+        if method is not None:
+            method(signal_name, value)
+            return
+        self.panels._snajper_update_section_generic(section, signal_name, value)
+
+class profile_block:
         def __init__(self, name): self.name = name
         def __enter__(self): return self
         def __exit__(self, exc_type, exc, tb): return False
@@ -266,6 +869,9 @@ class TarzanParPanels:
         self.bus.subscribe(self._on_bus_signal_change)
 
     def _on_bus_signal_change(self, name: str, state: TarzanSignalState):
+        self.snajper_fire_log_take_nextion(name, state.value)
+        self._ensure_step_dir_multi_snajper()
+        self.step_dir_multi_snajper.fire(name, state.value)
         """Przekazuje zmiany z SignalBus do rejestru rows paneli PAR."""
         self.rows.set_value(name, state.value)
 
@@ -427,12 +1033,23 @@ class TarzanParPanels:
         
         card.set_counter(int(float(pulses)))
 
-        # Logger silnika
+        # Logger silnika — Snajper/LOGI: jeden wpis ruchu osi, nie każdy impuls STEP.
         if not hasattr(card, "_has_logger"):
             def _mk_logger(ax_key, c_ref):
                 def _logger():
-                    try: self.bus.log("PAR_MOTOR", f"{ax_key}: DIR={1 if c_ref.dir.state else 0} STEP=01")
-                    except Exception: pass
+                    try:
+                        now = time.time()
+                        dir_val = 1 if c_ref.dir.state else 0
+                        key = f"PAR_MOTOR_{ax_key}"
+                        state = (dir_val, bool(c_ref.step.state))
+                        last_state = self._last_log_values.get(key)
+                        last_time = self._last_log_times.get(key, 0)
+                        if state != last_state or now - last_time >= 1.0:
+                            self._last_log_values[key] = state
+                            self._last_log_times[key] = now
+                            self.bus.log("PAR_MOTOR", f"{ax_key}: RUCH DIR={dir_val} SRC=PAR_MOTOR")
+                    except Exception:
+                        pass
                 return _logger
             card.on_motor_step_log = _mk_logger(axis, card)
             card._has_logger = True
@@ -452,6 +1069,10 @@ class TarzanParPanels:
         root.grid_columnconfigure(0, weight=1)
         root.grid_columnconfigure(1, weight=1)
         self._rrp_operator_updaters = []
+
+        # TARZAN_SNAJPER: Rejestracja widgetów RRP
+        snajper = getattr(self.app, "tarzan_snajper", None)
+        tk_adapter = snajper.adapters.get("par_tkinter") if snajper else None
 
         def _rrp_selected_axis(player: str) -> str:
             return str(self.bus.get(f"par_rrp_{player}_selected_axis", "") or "").upper()
@@ -477,6 +1098,7 @@ class TarzanParPanels:
 
             val_lbl = tk.Label(box, text="0", bg="#0f171d", fg=COLORS["green"], font=("Consolas", 18, "bold"), pady=4)
             val_lbl.pack(fill="x", padx=6)
+            if tk_adapter: tk_adapter.register_widget("rrp_panel", f"{player}_value_label", val_lbl)
 
             axis_frame = tk.Frame(box, bg=COLORS["panel3"])
             axis_frame.pack(pady=2)
@@ -486,6 +1108,7 @@ class TarzanParPanels:
             
             axis_lbl = tk.Label(axis_frame, text="STOP", bg=COLORS["panel3"], fg="#5f6b72", font=("Segoe UI", 10, "bold"))
             axis_lbl.pack(side="left", padx=2)
+            if tk_adapter: tk_adapter.register_widget("rrp_panel", f"{player}_axis_label", axis_lbl)
 
             can = tk.Canvas(box, width=122, height=122, bg=COLORS["panel3"], highlightthickness=0, takefocus=True)
             can.pack(pady=10)
@@ -667,6 +1290,8 @@ class TarzanParPanels:
             def step(d):
                 st["a"] = (st["a"] + (30 if d else -30)) % 360; dr(st["a"])
                 m = mode_var.get()
+                if not m:
+                    m = "PAN" if title == "SOKPan" else ("TILT" if title == "SOKTilt" else "")
                 sig_map = {
                     'PAN':   (['axis_cam_h_dir'], ['axis_cam_h_step']),
                     'TILT':  (['axis_cam_v_dir'], ['axis_cam_v_step']),
@@ -812,9 +1437,15 @@ class TarzanParPanels:
         canvas = tk.Canvas(body, width=w, height=h, bg="#070b0e", highlightthickness=1, highlightbackground=COLORS["border"])
         canvas.pack(side="left", padx=(0, 9), pady=1)
         v_f = tk.Frame(body, bg=COLORS["panel"]); v_f.pack(side="left", fill="both", expand=True)
+
+        # TARZAN_SNAJPER: Rejestracja poziomic
+        snajper = getattr(self.app, "tarzan_snajper", None)
+        tk_adapter = snajper.adapters.get("par_tkinter") if snajper else None
+
         # Use canonical names sensor_level_*
         st = {"x": float(self.bus.get("sensor_level_x") or 0), "y": float(self.bus.get("sensor_level_y") or 0), "z": float(self.bus.get("sensor_level_z") or 100)}
         vrs = {a: tk.StringVar(value=f"{a} +0") for a in ("X", "Y", "Z")}
+        lbls = {}
 
         def clamp(v): return max(-100.0, min(100.0, float(v)))
         def calc_z(x, y): return math.sqrt(max(0, 10000 - (x*x + y*y)))
@@ -842,7 +1473,11 @@ class TarzanParPanels:
         cx, cy = w//2, h//2
         for a in ("X", "Y", "Z"):
             r = tk.Frame(v_f, bg=COLORS["panel"]); r.pack(fill="x")
-            tk.Label(r, textvariable=vrs[a], bg=COLORS["panel"], fg=COLORS["green"], font=("Segoe UI", 13, "bold"), anchor="w", width=6).pack(side="left")
+            l = tk.Label(r, textvariable=vrs[a], bg=COLORS["panel"], fg=COLORS["green"], font=("Segoe UI", 13, "bold"), anchor="w", width=6)
+            l.pack(side="left")
+            lbls[a.lower()] = l
+            if tk_adapter and a.lower() in ("x", "y"):
+                tk_adapter.register_widget("sensors_panel", f"level_{a.lower()}_label", l)
             for t, d in [("X", None), ("+", 1), ("-", -1)]:
                 tk.Button(
                     r,
@@ -875,6 +1510,12 @@ class TarzanParPanels:
         led.pack(pady=10)
         lbl = tk.Label(panel.body, text=off_text, bg=COLORS["panel"], fg=COLORS["text"], font=("Segoe UI", 10, "bold"))
         lbl.pack(pady=5)
+        
+        # TARZAN_SNAJPER: Rejestracja sensora binarnego
+        snajper = getattr(self.app, "tarzan_snajper", None)
+        tk_adapter = snajper.adapters.get("par_tkinter") if snajper else None
+        if tk_adapter: tk_adapter.register_widget("sensors_panel", f"{key}_label", lbl)
+
         def dr(v=None):
             val = self.bus.get(signal) if v is None else v
             led.set(val); lbl.configure(text=on_text if val else off_text, fg=COLORS["green"] if val else COLORS["text"])
@@ -890,6 +1531,12 @@ class TarzanParPanels:
         can.pack(side="left", padx=(0, 7))
         v_l = tk.Label(w, text="", bg=COLORS["panel"], fg=COLORS["green"], font=("Segoe UI", 15, "bold"))
         v_l.pack(side="left", fill="both", expand=True)
+        
+        # TARZAN_SNAJPER: Rejestracja sensora analogowego
+        snajper = getattr(self.app, "tarzan_snajper", None)
+        tk_adapter = snajper.adapters.get("par_tkinter") if snajper else None
+        if tk_adapter: tk_adapter.register_widget("sensors_panel", f"{key}_label", v_l)
+
         def clamp(v):
             try: return max(float(start), min(float(end), float(v or start)))
             except: return float(start)
@@ -1121,13 +1768,101 @@ class TarzanParPanels:
 
     # --- SYNCHRONIZACJA I TIMELINE ---
 
+
+
+
+    def register_step_dir_snajper_target(self, target) -> None:
+        """
+        Jawne podpięcie celu STEP/DIR.
+        target musi mieć:
+            snajper_step_dir_fire(axis, kind, signal, value, state)
+        """
+        self.step_dir_snajper_target = target
+
+
+
+
+    def _ensure_log_take_nextion_snajper_targets(self) -> None:
+        if not hasattr(self, "log_snajper_target") or self.log_snajper_target is None:
+            self.log_snajper_target = TarzanLogSnajperTarget()
+        if not hasattr(self, "take_snajper_target") or self.take_snajper_target is None:
+            self.take_snajper_target = TarzanTakeSnajperTarget(self)
+        # NEXTION fizyczny idzie przez app.tarzan_snajper i adapter physical_nextion.
+        self.nextion_snajper_target = None
+
+    def register_log_snajper_widget(self, widget) -> None:
+        self._ensure_log_take_nextion_snajper_targets()
+        self.log_snajper_target.set_widget(widget)
+
+    def _ensure_step_dir_multi_snajper(self) -> None:
+        if not hasattr(self, "step_dir_multi_snajper") or self.step_dir_multi_snajper is None:
+            self.step_dir_multi_snajper = TarzanStepDirMultiSnajper(self)
+
+    def _ensure_section_snajper(self) -> None:
+        """
+        TARZAN_SNAJPER STAGE5:
+        Gwarantuje, że sekcyjny Snajper istnieje zanim on_state_change
+        zacznie obsługiwać szybkie sygnały z BUS.
+        """
+        if not hasattr(self, "section_snajper") or self.section_snajper is None:
+            self.section_snajper = TarzanParSectionSnajper(self)
+
+
+    def snajper_fire_log_take_nextion(self, name: str, value) -> None:
+        """
+        Celowe strzały Snajpera dla LOGI / TAKE / NEXTION.
+        Nie odświeża całych paneli.
+        Nie zapisuje do BUS.
+        """
+        self._ensure_log_take_nextion_snajper_targets()
+
+        s = str(name).lower()
+
+        # LOGI — tylko sygnały log/status/error, żeby nie zalewać logu STEPami.
+        if "log" in s or "status" in s or "error" in s or "par_error" in s:
+            pass
+# TAKE — gdy jest otwarty TAKE i idą ms / TC.
+        if (
+            "take_time" in s or "take_timecode" in s or
+            "take_ms" in s or "time_ms" in s or
+            "take_number" in s or "take_status" in s
+        ):
+            self.take_snajper_target.snajper_take_fire(name, value, None)
+
+        # NEXTION — przez centralny katalog celów Snajpera, bez lokalnych map panelu.
+        app = getattr(self, "app", None)
+        snajper = getattr(app, "tarzan_snajper", None) if app is not None else None
+        if snajper is not None:
+            snajper.fire_from_signal(name, value)
+
+        # Usunięto: cykliczne update_log() i refresh_axis_cards()
+        # Te akcje powinny iść przez Snajpera lub być wyzwalane zdarzeniowo.
+        if "keyboard" in s or "free_keyboard" in s or "rec_p41" in s or "rec_p42" in s or "rec_p43" in s:
+            if value: # Tylko przy aktywacji/wpisaniu
+                self.update_log()
+
     def on_state_change(self, name, state):
         is_limit = "limit" in name.lower() or (self.bus.get_meta(name) and self.bus.get_meta(name).grupa == "KRAŃCÓWKI")
         if is_limit: 
             self._update_limits_status()
         
         val = state.value
+        self.snajper_fire_log_take_nextion(name, val)
+        if name in {"sensor_level_x", "sensor_level_y", "sensor_level_z", "level_x", "level_y", "level_z"}:
+            app = getattr(self, "app", None)
+            snajper = getattr(app, "tarzan_snajper", None) if app is not None else None
+            if snajper is not None:
+                xyz_value = {
+                    "x": self.bus.get("sensor_level_x", self.bus.get("level_x", 0)),
+                    "y": self.bus.get("sensor_level_y", self.bus.get("level_y", 0)),
+                    "z": self.bus.get("sensor_level_z", self.bus.get("level_z", 0)),
+                }
+                snajper.fire("sensor_xyz", xyz_value)
+        self._ensure_step_dir_multi_snajper()
+        self.step_dir_multi_snajper.fire(name, val)
         self.rows.set_value(name, val)
+        self._ensure_section_snajper()
+        self.section_snajper.fire(name, val)
 
         # Logowanie krańcówek
         if is_limit and name != "sensor_limits_status" and val != state.previous_value:
@@ -1167,6 +1902,10 @@ class TarzanParPanels:
                     self._last_log_values[name] = val
                     axis = name.split("_")[-1].upper()
                     self.bus.log("SENSOR", f"POZIOM {axis}: {int(val)} SRC={state.source}")
+            elif name == "par_rrp_refresh_needed":
+                # Celowane odświeżenie kart osi bez refresh_all
+                if val:
+                    self.refresh_axis_cards()
 
         if val == 1 and state.previous_value == 0:
             # SOK: System Odczytu Kierunku przez nazwy kanoniczne
@@ -1221,37 +1960,56 @@ class TarzanParPanels:
                         self.bus.force_signal(extra, val, source="PAR_LINK")
         except Exception: pass
 
-        # Odświeżanie kart osi (wizualizacja Step/Dir) - DEBOUNCED
-        for b in AXIS_SIGNAL_BINDINGS.values():
-            if any(name in group for group in b.values()):
-                now = time.time()
-                if now - getattr(self, "_last_axis_card_refresh", 0) > 0.1: # max 10 FPS dla kart osi (oszczędność CPU)
-                    self._last_axis_card_refresh = now
-                    self.refresh_axis_cards()
-                break
+        # Odświeżanie kart osi (wizualizacja Step/Dir) - WYŁĄCZONE DLA SNAJPERA
+        # for b in AXIS_SIGNAL_BINDINGS.values():
+        #     if any(name in group for group in b.values()):
+        #         now = time.time()
+        #         if now - getattr(self, "_last_axis_card_refresh", 0) > 0.1: # max 10 FPS dla kart osi (oszczędność CPU)
+        #             self._last_axis_card_refresh = now
+        #             self.refresh_axis_cards()
+        #         break
 
-        # Timeline
-        for i, (ax, mode, signals, color) in enumerate(_AXIS_TIMELINE_ROWS):
-            if name in signals:
-                if val != state.previous_value:
-                    self._schedule_timeline_redraw()
-                break
+        # STEP/DIR Snajper:
+        # Nie wołamy redraw po sygnale live, bo redraw czyści canvas i usuwa strzały.
+        # Strzały są wykonywane wcześniej przez self.step_dir_multi_snajper.fire(...).
+
+        # LOGI: odśwież, gdy zmieni się dowolna istniejąca kolejka logów BUS.
+        try:
+            log_count = 0
+            for attr in ("log_lines", "logs", "log_queue", "events"):
+                if hasattr(self.bus, attr):
+                    candidate = getattr(self.bus, attr)
+                    if candidate is not None:
+                        log_count = len(candidate)
+                        break
+            if log_count != getattr(self, "_last_seen_log_count", -1):
+                self._last_seen_log_count = log_count
+                self.update_log()
+        except Exception:
+            pass
+
 
     def timeline(self, parent):
         p = self.panel("timeline", parent, "PODGLĄD SYGNAŁÓW — STEP / DIR")
         self.timeline_canvas = tk.Canvas(p.body, bg="#070b0e", height=210, highlightthickness=0)
         self.timeline_canvas.pack(fill="both", expand=True, pady=4)
-        self.timeline_canvas.bind("<Configure>", lambda e: self.draw_timeline())
-        self.draw_timeline()
+        self.step_dir_canvas = self.timeline_canvas
+        target = TarzanStepDirPreviewTarget(self, self.timeline_canvas)
+        self.register_step_dir_snajper_target(target)
+        self.timeline_canvas.bind("<Configure>", lambda e, t=target: t.redraw())
+        self.timeline_canvas.after_idle(target.redraw)
         return p
 
     def _schedule_timeline_redraw(self):
-        if not self._timeline_after_id:
-            self._timeline_after_id = self.app.after(_TIMELINE_DEBOUNCE_MS, self._do_draw_timeline)
+        target = getattr(self, "step_dir_snajper_target", None)
+        if target is not None and hasattr(target, "redraw"):
+            target.redraw()
 
     def _do_draw_timeline(self):
         self._timeline_after_id = None
-        self.draw_timeline()
+        target = getattr(self, "step_dir_snajper_target", None)
+        if target is not None and hasattr(target, "redraw"):
+            target.redraw()
 
     def _axis_icon_path(self, axis_key: str):
         if not axis_icon: return None
@@ -1276,61 +2034,9 @@ class TarzanParPanels:
         return photo
 
     def draw_timeline(self):
-        can = self.timeline_canvas
-        if not can: return
-        can.delete("all")
-        w, h = max(can.winfo_width(), 760), max(can.winfo_height(), 210)
-        left, right = 100, w - 14
-        top, row_h = 12, max(15, min(22, int((h - 28) / 12)))
-        amp, total_h = max(5, min(9, row_h - 7)), row_h * 12
-        hist = list(self.bus.history)[-_TIMELINE_HISTORY_LIMIT:]
-        buckets = {tuple(names): [] for _ax, _ki, names, _col in _AXIS_TIMELINE_ROWS}
-        name_to_bucket = {}
-        for key in buckets:
-            for n in key: name_to_bucket[n] = key
-        for item in hist:
-            k = name_to_bucket.get(item.get("name"))
-            if k: buckets[k].append(item)
-
-        mid_x = left + (right - left) / 2
-        for t in range(6):
-            x = left + t * ((right - left) / 5)
-            can.create_line(x, top - 3, x, top + total_h + 2, fill="#162129")
-        can.create_line(mid_x, top - 5, mid_x, top + total_h + 4, fill="#ff2b22", width=1)
-        for idx, (axis, kind, names, color) in enumerate(_AXIS_TIMELINE_ROWS):
-            y = top + idx * row_h + row_h // 2
-            if kind == "STEP":
-                sep_y = max(top, y - row_h // 2)
-                can.create_line(4, sep_y, right, sep_y, fill="#101a20")
-                icon = self._load_timeline_icon(axis)
-                if icon: can.create_image(35, y + row_h // 2, image=icon, anchor="center")
-                else: can.create_text(35, y + row_h // 2, text=axis, anchor="center", fill=COLORS["muted"], font=("Segoe UI", 7, "bold"))
-            cur = 1 if any(self.bus.get(n) for n in names) else 0
-            can.create_text(58, y, text="S" if kind == "STEP" else "D", anchor="center", fill=color, font=("Segoe UI", 7, "bold"))
-            can.create_text(75, y, text="H" if cur else "L", anchor="center", fill=_TIMELINE_H_COLOR if cur else _TIMELINE_L_COLOR, font=("Segoe UI", 7, "bold"))
-            can.create_line(left, y, right, y, fill="#22313a")
-            
-            filtered = buckets.get(tuple(names), [])[-_TIMELINE_POINTS_LIMIT:]
-            points = []
-            if filtered:
-                step_x = max(1, (right - left) / max(1, len(filtered) - 1))
-                for j, item in enumerate(filtered):
-                    val = 1 if item.get("value") else 0
-                    vx = left + j * step_x
-                    points.append((vx, y - amp if val else y))
-            else:
-                points = [(left, y - amp if cur else y), (right, y - amp if cur else y)]
-
-            if len(points) >= 2:
-                for a, b in zip(points, points[1:]):
-                    can.create_line(a[0], a[1], b[0], a[1], fill=color, width=2)
-                    can.create_line(b[0], a[1], b[0], b[1], fill=color, width=2)
-        if (top + total_h + 8) < h:
-            can.create_text(left, h - 8, text="czerwona linia = chwila odczytu; H/L = aktualny stan STEP/DIR", anchor="w", fill=COLORS["muted"], font=("Segoe UI", 7))
-        if (top + total_h + 8) < h:
-            can.create_text(left, h - 8, text="czerwona linia = chwila odczytu; H/L = aktualny stan STEP/DIR", anchor="w", fill=COLORS["muted"], font=("Segoe UI", 7))
-
-    # --- POZOSTAŁE PANELE ---
+        target = getattr(self, "step_dir_snajper_target", None)
+        if target is not None and hasattr(target, "redraw"):
+            target.redraw()
 
     def ui_panel(self, p): return self.ui(p)
     def ui(self, parent):
@@ -1527,14 +2233,20 @@ class TarzanParPanels:
                 line1.set(l1)
                 line2.set(l2)
 
+                raw_l1 = line1.get()
+                raw_l2 = line2.get()
+                self.bus.log("LCD1602", f"{title} SET TEXT='{raw_l1}|{raw_l2}'")
+                self.bus.log("LCD1602", f"{title} SEND TEXT='{l1}|{l2}' -> {sig1}, {sig2}")
+
                 self._set_signal(sig1, l1, "PAR_LCD")
                 self._set_signal(sig2, l2, "PAR_LCD")
 
                 if title.upper().startswith("PLAY"):
+                    self.bus.log("LCD1602", f"{title} SEND MIRROR TEXT='{l1}|{l2}' -> par_lcd_line1, par_lcd_line2")
                     self._set_signal("par_lcd_line1", l1, "PAR_LCD")
                     self._set_signal("par_lcd_line2", l2, "PAR_LCD")
 
-                self.bus.log("LCD1602", f"{title} SEND |{l1}| |{l2}|")
+                self.update_log()
 
             tk.Button(
                 row,
@@ -1594,8 +2306,10 @@ class TarzanParPanels:
 
         def update():
             pattern = "/".join("".join("1" if state[r][c] else "0" for c in range(8)) for r in range(8))
+            self.bus.log("MATRIX_LED", f"SET pattern={pattern}")
             self._set_signal("par_matrix_pattern", pattern, "PAR_MATRIX")
-            self.bus.log("MATRIX_LED", f"UPDATE {pattern}")
+            self.bus.log("MATRIX_LED", f"SEND par_matrix_pattern={pattern}")
+            self.update_log()
 
         tk.Button(holder, text="UPDATE MATRIX", bg=COLORS["button"], fg=COLORS["text"], relief="flat", command=update).grid(row=1, column=0, sticky="ew", pady=(4, 0))
         return panel
@@ -1615,7 +2329,7 @@ class TarzanParPanels:
                 font=("Segoe UI", 12, "bold"),
                 width=3,
                 height=1,
-                command=lambda val=k: self.bus.log("KEYBOARD", f"KEY {val}")
+                command=lambda val=k: (self.bus.log("KEYBOARD", f"KEY {val}"), self.update_log())
             ).grid(row=i // 3, column=i % 3, sticky="nsew", padx=3, pady=3)
         for i in range(3):
             g.grid_columnconfigure(i, weight=1)
@@ -1638,6 +2352,22 @@ class TarzanParPanels:
 
     def take(self, p):
         pan = self.panel("take", p, "TAKE — ODTWARZACZ PROTOKOŁU")
+
+        # TARZAN_SNAJPER: Rejestracja widgetów TFD
+        snajper = getattr(self.app, "tarzan_snajper", None)
+        tk_adapter = snajper.adapters.get("par_tkinter") if snajper else None
+
+        self.movie_title_label = tk.Label(pan.body, text="TYTUŁ: ---", bg=COLORS["panel"], fg=COLORS["text"], font=("Segoe UI", 10))
+        self.movie_title_label.pack(fill="x")
+        if tk_adapter: tk_adapter.register_widget("take_panel", "movie_title_label", self.movie_title_label)
+
+        self.director_label = tk.Label(pan.body, text="REŻYSER: ---", bg=COLORS["panel"], fg=COLORS["text"], font=("Segoe UI", 10))
+        self.director_label.pack(fill="x")
+        if tk_adapter: tk_adapter.register_widget("take_panel", "director_label", self.director_label)
+
+        self.timecode_label = tk.Label(pan.body, text="00:00:00:0000", bg=COLORS["panel2"], fg=COLORS["green"], font=("Consolas", 18, "bold"))
+        self.timecode_label.pack(fill="x", pady=5)
+        if tk_adapter: tk_adapter.register_widget("take_panel", "timecode_label", self.timecode_label)
 
         top = tk.Frame(pan.body, bg=COLORS["panel"])
         top.pack(fill="x")
@@ -1663,6 +2393,7 @@ class TarzanParPanels:
             font=("Segoe UI", 14),
         )
         self.app.take_label.pack(fill="x", pady=8)
+        if tk_adapter: tk_adapter.register_widget("take_panel", "take_label", self.app.take_label)
 
         return pan
 
@@ -1698,44 +2429,60 @@ class TarzanParPanels:
     def system(self, p):
         panel = self.panel("system", p, "SYSTEM")
         b = tk.Frame(panel.body, bg=COLORS["panel"], padx=10, pady=10); b.pack(fill="x")
+        
+        # TARZAN_SNAJPER: Rejestracja statusu systemowego
+        snajper = getattr(self.app, "tarzan_snajper", None)
+        tk_adapter = snajper.adapters.get("par_tkinter") if snajper else None
+
         tk.Label(b, text="TARZAN OS v2.4", bg=COLORS["panel"], fg=COLORS["green"], font=("Segoe UI", 10, "bold")).pack(anchor="w")
+        
+        self.status_label = tk.Label(b, text="STATUS: LIVE", bg=COLORS["panel"], fg=COLORS["green"], font=("Segoe UI", 11, "bold"))
+        self.status_label.pack(anchor="w", pady=5)
+        if tk_adapter: tk_adapter.register_widget("status_panel", "status_label", self.status_label)
+
         tk.Label(b, text="CPU: 12%", bg=COLORS["panel"], fg=COLORS["green"]).pack(anchor="w")
         tk.Label(b, text="IP: 192.168.1.10", bg=COLORS["panel"], fg=COLORS["muted"]).pack(anchor="w")
         return panel
 
     def update_log(self):
-        if not self.log_text: return
-        
-        # Inicjalizacja indeksu przy pierwszym wywołaniu
-        if not hasattr(self, "_last_log_idx"):
-            self._last_log_idx = 0
-            self.log_text.configure(state="normal")
-            self.log_text.delete("1.0", tk.END)
-            self.log_text.configure(state="disabled")
-
-        # Pobieramy tylko nowe linie
-        new_lines = self.bus.log_lines[self._last_log_idx:]
-        if not new_lines: return
-        
-        self.log_text.configure(state="normal")
-        for line in new_lines:
-            self.log_text.insert(tk.END, line + "\n")
-        
-        # Ograniczamy liczbę linii w widżecie do 100
+        """
+        Istniejący target LOGI.
+        Odświeża tylko self.log_text i tylko wtedy, gdy kolejka logów realnie się zmieniła.
+        Bez limitu ilości wpisów.
+        """
+        if not hasattr(self, "log_text"):
+            return
         try:
-            total_lines = int(self.log_text.index('end-1c').split('.')[0])
-            if total_lines > 100:
-                self.log_text.delete("1.0", f"{total_lines - 100}.0")
+            lines = None
+            for attr in ("log_lines", "logs", "log_queue", "events"):
+                if hasattr(self.bus, attr):
+                    candidate = getattr(self.bus, attr)
+                    if candidate is not None:
+                        lines = list(candidate)
+                        break
+
+            if lines is None:
+                return
+
+            snapshot = tuple(str(line) for line in lines)
+            if snapshot == getattr(self, "_last_log_snapshot", ()):
+                return
+            self._last_log_snapshot = snapshot
+
+            self.log_text.delete("1.0", "end")
+            self.log_text.insert("end", "\n".join(snapshot))
+            if snapshot:
+                self.log_text.insert("end", "\n")
+            self.log_text.see("end")
         except Exception:
-            pass
-            
-        self.log_text.see(tk.END)
-        self.log_text.configure(state="disabled")
-        self._last_log_idx = len(self.bus.log_lines)
+            return
 
     def log_panel(self, p):
         panel = self.panel("log", p, "LOGI")
         self.log_text = tk.Text(panel.body, height=8, bg="#070b0e", fg=COLORS["green"], font=("Consolas", 8)); self.log_text.pack(fill="both", expand=True)
+        self.register_log_snajper_widget(self.log_text)
+        # TARZAN_SNAJPER_LOGI_INITIAL_QUEUE: pokaż kolejkę, która powstała przed renderem panelu.
+        self.update_log()
         return panel
 
     def cnc_signals_panel(self, p):
@@ -1759,33 +2506,221 @@ class TarzanParPanels:
         return panel
 
     def nextion_refresh_previews(self):
-        bridge = self.app.bridge.nextion if hasattr(self.app.bridge, "nextion") and self.app.bridge.nextion is not None else self.app.bridge
-        snapshot = bridge.snapshot() if hasattr(bridge, "snapshot") else {}
+        """
+        Model cyklicznego odświeżania podglądu został usunięty.
+        Zastąpiono przez TARZAN_SNAJPER.fire_from_signal(...) w on_state_change.
+        Ta metoda może być wywołana tylko raz przy wejściu na stronę dla pełnego renderu struktury.
+        """
+        pass
 
-        rrp_rev = snapshot.get("nextion_7.rrp_rev")
-        if rrp_rev != self._last_rrp_refresh_rev:
-            self._last_rrp_refresh_rev = rrp_rev
-            for updater in list(getattr(self, "_rrp_operator_updaters", [])):
+    # -------------------------------------------------------------------------
+    # TARZAN_SNAJPER — aktualizacje sekcyjne PAR
+    # -------------------------------------------------------------------------
+
+    def _snajper_update_section_generic(self, section: str, signal_name: str, value) -> None:
+        self._snajper_touch_known_widgets(section, signal_name, value)
+
+    def _snajper_touch_known_widgets(self, section: str, signal_name: str, value) -> None:
+        """
+        Celowana aktualizacja znanych widgetów sekcji.
+        Działa bez refresh_all i bez przebudowy całego PAR.
+        """
+        candidates = [
+            signal_name,
+            signal_name.replace("sensor_", ""),
+            signal_name.replace("par_", ""),
+            signal_name.replace("_c", ""),
+            signal_name.replace("_lux", ""),
+        ]
+        for name in candidates:
+            for suffix in ("_label", "_value_label", "_value", "_text", "_var"):
+                widget = getattr(self, f"{name}{suffix}", None)
+                if widget is not None:
+                    self._snajper_set_widget_value(widget, value)
+
+    def _snajper_set_widget_value(self, widget, value) -> None:
+        try:
+            # Rejestracja widgetu w Snajperze przy pierwszym użyciu, jeśli jeszcze nie jest zarejestrowany
+            app = getattr(self, "app", None)
+            snajper = getattr(app, "tarzan_snajper", None)
+            if snajper:
+                # Próbujemy znaleźć nazwę widgetu dla rejestracji w Snajperze
+                for attr_name in dir(self):
+                    if getattr(self, attr_name) is widget:
+                        snajper.register_widget("par_tkinter", attr_name, widget)
+                        break
+
+            if hasattr(widget, "set"):
+                widget.set(value)
+                return
+            if hasattr(widget, "configure"):
                 try:
-                    updater()
+                    keys = widget.keys() if hasattr(widget, "keys") else ()
+                    if "text" in keys:
+                        widget.configure(text=str(value))
+                except Exception:
+                    pass
+                return
+            if hasattr(widget, "itemconfigure"):
+                return
+        except Exception:
+            return
+
+    def _snajper_update_section_rrp(self, signal_name: str, value) -> None:
+        self._snajper_touch_known_widgets("rrp", signal_name, value)
+
+    def _snajper_update_section_temperature(self, signal_name: str, value) -> None:
+        self._snajper_touch_known_widgets("temperature", signal_name, value)
+        for name in ("temperature_panel", "temp_panel", "temperature_widget", "temp_widget"):
+            widget = getattr(self, name, None)
+            if hasattr(widget, "set_value"):
+                widget.set_value(value)
+
+    def _snajper_update_section_light(self, signal_name: str, value) -> None:
+        self._snajper_touch_known_widgets("light", signal_name, value)
+        for name in ("light_panel", "bh1750_panel", "light_widget"):
+            widget = getattr(self, name, None)
+            if hasattr(widget, "set_value"):
+                widget.set_value(value)
+
+    def _snajper_update_section_xyz(self, signal_name: str, value) -> None:
+        self._snajper_touch_known_widgets("xyz", signal_name, value)
+        for name in ("xyz_panel", "level_panel", "level_xyz_panel", "level_widget"):
+            widget = getattr(self, name, None)
+            if hasattr(widget, "set_value"):
+                widget.set_value(signal_name, value)
+            elif hasattr(widget, "update_xyz"):
+                widget.update_xyz(signal_name, value)
+
+    def _snajper_update_section_motor_cards(self, signal_name: str, value) -> None:
+        cards = getattr(self, "axis_cards", None) or getattr(self, "_axis_cards", None)
+        if isinstance(cards, dict):
+            for key, card in cards.items():
+                if str(key) in signal_name or f"axis_{key}" in signal_name:
+                    try:
+                        if hasattr(card, "set_value"):
+                            card.set_value(signal_name, value)
+                        elif hasattr(card, "update_value"):
+                            card.update_value(signal_name, value)
+                        # Nie ustawiamy configure(text=...) na kartach osi,
+                        # bo część z nich to Frame/Canvas i Tkinter zwraca unknown option "-text".
+                    except Exception:
+                        pass
+
+    def _snajper_update_section_step_dir_preview(self, signal_name: str, value) -> None:
+        """
+        Live podgląd sygnałów STEP/DIR.
+
+        To nie jest refresh_all.
+        To jest odświeżenie tylko sekcji "PODGLĄD SYGNAŁÓW — STEP / DIR".
+        Sekcja może wykonać swój lokalny repaint/rysowanie, bo to jej obszar działania.
+        """
+
+        # 1. Preferowany model: istniejący widget/panel ma własną metodę live-update.
+        for name in (
+            "step_dir_preview",
+            "signals_preview",
+            "protocol_preview",
+            "step_preview_panel",
+            "step_dir_panel",
+            "signals_step_dir_panel",
+        ):
+            widget = getattr(self, name, None)
+            if widget is None:
+                continue
+            for method_name in (
+                "update_signal",
+                "update_live_signal",
+                "set_signal_value",
+                "set_value",
+                "snajper_update",
+            ):
+                method = getattr(widget, method_name, None)
+                if method is not None:
+                    try:
+                        method(signal_name, value)
+                        return
+                    except TypeError:
+                        try:
+                            method(value)
+                            return
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+
+        # 2. Drugi model: panel jest budowany jako Canvas/Frame i ma metodę rysowania sekcji.
+        # To jest lokalny repaint sekcji STEP/DIR, dozwolony w Snajperze sekcyjnym.
+        for method_name in (
+            "_draw_step_dir_preview",
+            "_draw_signals_preview",
+            "_draw_protocol_preview",
+            "_render_step_dir_preview",
+            "_refresh_step_dir_preview_section",
+            "_refresh_protocol_preview_section",
+            "_update_step_dir_preview",
+        ):
+            method = getattr(self, method_name, None)
+            if method is not None:
+                try:
+                    method()
+                    return
+                except TypeError:
+                    try:
+                        method(signal_name, value)
+                        return
+                    except Exception:
+                        pass
                 except Exception:
                     pass
 
-        for screen_key, widget in list(self.nextion_preview_widgets.items()):
-            state_key = (
-                snapshot.get(f"{screen_key}.connected"),
-                snapshot.get(f"{screen_key}.page"),
-                snapshot.get(f"{screen_key}.rrp_rev"),
-                snapshot.get(f"{screen_key}.log_last"),
-                snapshot.get("par_level_x"),
-                snapshot.get("par_level_y"),
-                tfd_state.packet_id if tfd_state is not None else 0,
-            )
-            if self._last_preview_state.get(screen_key) == state_key:
-                continue
-            self._last_preview_state[screen_key] = state_key
+        # 3. Trzeci model: jeśli istnieje canvas tej sekcji, poruszamy markerem czasu
+        # albo dopisujemy minimalną informację tekstową, bez ruszania całego PAR.
+        canvas = None
+        for name in (
+            "step_dir_canvas",
+            "signals_preview_canvas",
+            "protocol_preview_canvas",
+            "step_preview_canvas",
+        ):
+            candidate = getattr(self, name, None)
+            if candidate is not None:
+                canvas = candidate
+                break
+
+        if canvas is not None:
             try:
-                widget.refresh()
+                marker = getattr(self, "_snajper_step_dir_marker", None)
+                width = max(1, int(canvas.winfo_width()))
+                x = (hash(str(signal_name)) % width)
+                if marker is None:
+                    self._snajper_step_dir_marker = canvas.create_line(x, 0, x, max(1, canvas.winfo_height()), fill="red")
+                else:
+                    canvas.coords(marker, x, 0, x, max(1, canvas.winfo_height()))
+                return
+            except Exception:
+                pass
+
+        # 4. Ostatecznie aktualizujemy rows/log — bez pełnego refreshu.
+        self._snajper_touch_known_widgets("step_dir_preview", signal_name, value)
+
+
+    def _snajper_update_section_limits(self, signal_name: str, value) -> None:
+        self._snajper_touch_known_widgets("limits", signal_name, value)
+
+    def _snajper_update_section_shock_laser(self, signal_name: str, value) -> None:
+        self._snajper_touch_known_widgets("shock_laser", signal_name, value)
+
+    def _snajper_update_section_sok(self, signal_name: str, value) -> None:
+        self._snajper_touch_known_widgets("sok", signal_name, value)
+
+    def _snajper_update_section_cnc(self, signal_name: str, value) -> None:
+        self._snajper_touch_known_widgets("cnc", signal_name, value)
+
+    def _snajper_update_section_logs(self, signal_name: str, value) -> None:
+        if hasattr(self, "log"):
+            try:
+                self.log(f"{signal_name}: {value}")
             except Exception:
                 pass
 

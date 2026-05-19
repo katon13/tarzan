@@ -16,6 +16,10 @@ class TFDState:
         self.tc = "00:00:00:00"
         self.t0 = time.strftime("%d.%m.%Y")
         self.packet_id = 0
+        self.nextion_ui_cut = False
+        self.save_status_visible = False
+        self.save_status_text = ""
+        self.snajper = None
         
         self.events = []
         self.last_packet = {}
@@ -34,6 +38,7 @@ class TFDState:
                     data = json.load(f)
                     self.title = data.get("title", self.title)
                     self.director = data.get("director", self.director)
+                    self.nextion_ui_cut = bool(data.get("nextion_ui_cut", self.nextion_ui_cut))
             except:
                 pass
 
@@ -41,22 +46,36 @@ class TFDState:
         try:
             self.meta_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.meta_path, 'w', encoding='utf-8') as f:
-                json.dump({"title": self.title, "director": self.director}, f, ensure_ascii=False, indent=2)
+                json.dump({"title": self.title, "director": self.director, "nextion_ui_cut": bool(self.nextion_ui_cut)}, f, ensure_ascii=False, indent=2)
         except:
             pass
 
-    def update_meta(self, title=None, director=None):
+    def set_snajper(self, snajper):
+        self.snajper = snajper
+
+    def update_meta(self, title=None, director=None, nextion_ui_cut=None):
         changed = False
         if title is not None: 
             new_title = str(title).strip()[:100]
             if new_title != self.title:
                 self.title = new_title
                 changed = True
+                if self.snajper:
+                    self.snajper.fire("tfd_title", self.title)
         if director is not None: 
             new_director = str(director).strip()[:100]
             if new_director != self.director:
                 self.director = new_director
                 changed = True
+                if self.snajper:
+                    self.snajper.fire("tfd_director", self.director)
+        if nextion_ui_cut is not None:
+            new_ui_cut = bool(nextion_ui_cut)
+            if new_ui_cut != self.nextion_ui_cut:
+                self.nextion_ui_cut = new_ui_cut
+                changed = True
+                if self.snajper:
+                    self.snajper.fire("nextion_ui_cut", self.nextion_ui_cut)
         if changed:
             self.save_metadata()
 
@@ -80,6 +99,8 @@ class TFDState:
         if event_type == "CLAP":
             self.clap = 1
             self._clap_time = time.time()
+            if self.snajper:
+                self.snajper.fire("take_clap", 1)
         return event
 
     def format_tfd_axis_value(self, pulses, dir_val):
@@ -167,6 +188,8 @@ class TFDState:
         # Auto-reset klapsa po 800ms
         if self.clap and (now - self._clap_time) > 0.8:
             self.clap = 0
+            if self.snajper:
+                self.snajper.fire("take_clap", 0)
             
         if (now - self._last_update_time) < self._update_interval and self.last_packet:
             return self.last_packet
@@ -185,15 +208,23 @@ class TFDState:
         elif par_mode == 1: mode = "LIVE"
         elif par_mode == 2: mode = "MIX"
         
+        old_status = self.status
         self.status = "MIZ" if mode == "MIX" else mode # Użytkownik preferuje MIZ
+        if self.snajper and self.status != old_status:
+            self.snajper.fire("take_status", self.status)
         
         # TC i Czas bieżący
+        old_tc = self.tc
         self.tc = str(bus.get("take_tc", "00:00:00:00"))
+        if self.snajper and self.tc != old_tc:
+            self.snajper.fire("take_timecode", self.tc)
+            
         tc_data = self.format_tfd_tc(self.tc)
         self.t0 = tc_data["full"]
         self.tc_short = tc_data["short"]
         
         # Numer ujęcia z ścieżki TAKE lub numeru
+        old_take = self.take_number
         take_path = getattr(bus, "loaded_take_path", None)
         if take_path:
             import re
@@ -214,6 +245,9 @@ class TFDState:
             raw_take = bus.get("take_num") or bus.get("par_take_num", 1)
             self.take_number = self.format_tfd_take_number(raw_take)
 
+        if self.snajper and self.take_number != old_take:
+            self.snajper.fire("take_number", self.take_number)
+
         # Pełne dane osi - Mapowanie zgodne z nazwami kanonicznymi
         axes = {}
         axis_names = ["CAM_V", "ARM_T", "CAM_F", "CAM_H", "ARM_H", "ARM_V"]
@@ -229,6 +263,9 @@ class TFDState:
             # Korzystamy z nazwy kanonicznej generowanej przez SignalBus
             pulses = bus.get(f"axis_{axis_id}_pulses", 0)
             
+            # Stan aktywności osi (ruch)
+            moving = bool(bus.get(f"axis_{axis_id}_moving", False))
+            
             # Formatujemy wartość osi dla TFD: +00000 / -00000
             formatted_pos = self.format_tfd_axis_value(pulses, dir_val)
             
@@ -236,12 +273,13 @@ class TFDState:
                 "name": name,
                 "pos": formatted_pos,
                 "dir": dir_val,
-                "pulses": pulses
+                "pulses": pulses,
+                "moving": moving
             }
 
         # Czujniki - korzystamy z nazw kanonicznych
-        laser_active = bus.get("sensor_laser_set", 0)
-        laser_error = bus.get("sensor_laser_error", 0)
+        laser_active = bool(bus.get("sensor_laser_set", 0))
+        laser_error = bool(bus.get("sensor_laser_error", 0))
         # Czujnik laserowy - formatujemy na ON/OFF/ERR
         if laser_error:
             laser_state = "ERR"
@@ -298,6 +336,18 @@ class TFDState:
 
         self.last_packet = packet
         self.packet_id += 1
+        
+        # Snajper fire dla ikon Overlay (opcjonalnie, jeśli snajper ma adapter SSE)
+        if self.snajper:
+            for i in range(6):
+                ax = axes.get(f"axis{i}", {})
+                self.snajper.fire(f"tfd_axis_{i}_active", ax.get("moving", False))
+            
+            self.snajper.fire("tfd_laser_active", laser_active)
+            self.snajper.fire("tfd_laser_error", laser_error)
+            self.snajper.fire("tfd_limits_active", raw_limits != "0")
+            self.snajper.fire("tfd_shock_active", bool(shock_val))
+            
         return packet
 
     def get_packet(self):
@@ -312,6 +362,12 @@ class TFDState:
 
     def to_dict(self):
         """Zwraca słownik z danymi. Jeśli last_packet nie istnieje, tworzy pakiet startowy."""
+        # Przed zwróceniem pakietu, upewniamy się że jest aktualny z SignalBus
+        from core.tarzanSignalBus import get_signal_bus
+        bus = get_signal_bus()
+        if bus:
+            self.update_from_bus(bus)
+
         if not self.last_packet:
             return {
                 "packet_id": self.packet_id,

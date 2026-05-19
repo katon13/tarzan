@@ -1,0 +1,1043 @@
+Page rrp_main
+    Attributes
+        ID               : 0
+        Scope            : local
+        Send Component ID: on press and release
+        Width            : 800
+        Locked           : no
+        Fill             : solid color
+        Back. Color      : 0
+    
+    Events
+        Preinitialize Event
+            va_p1_axis.val=-1
+            va_p2_axis.val=-1
+            b_p1_cam_v.val=1
+            b_p1_cam_t.val=1
+            b_p1_cam_f.val=1
+            b_p1_cam_h.val=1
+            b_p1_arm_h.val=1
+            b_p1_arm_v.val=1
+            b_p2_cam_v.val=1
+            b_p2_cam_t.val=1
+            b_p2_cam_f.val=1
+            b_p2_cam_h.val=1
+            b_p2_arm_h.val=1
+            b_p2_arm_v.val=1
+            tsw b_p1_cam_v,1
+            tsw b_p1_cam_t,1
+            tsw b_p1_cam_f,1
+            tsw b_p1_cam_h,1
+            tsw b_p1_arm_h,1
+            tsw b_p1_arm_v,1
+            tsw b_p2_cam_v,1
+            tsw b_p2_cam_t,1
+            tsw b_p2_cam_f,1
+            tsw b_p2_cam_h,1
+            tsw b_p2_arm_h,1
+            tsw b_p2_arm_v,1
+            va_p1_dir.val=0
+            va_p2_dir.val=0
+            b_p1_dir.val=0
+            b_p2_dir.val=0
+            va_p1_val.val=0
+            va_p2_val.val=0
+            h_p1_sens.val=0
+            h_p2_sens.val=0
+        
+        Postinitialize Event
+            b_home.pic=19
+            t_p1_val.txt="0"
+            t_p2_val.txt="0"
+            sendme
+        
+Variable (int32) va_p1_axis
+    Attributes
+        ID   : 20
+        Scope: local
+        Value: 0
+    
+Variable (int32) va_p2_axis
+    Attributes
+        ID   : 21
+        Scope: local
+        Value: 1
+    
+Variable (int32) va_tmp
+    Attributes
+        ID   : 22
+        Scope: local
+        Value: 0
+    
+Variable (int32) va_p2_dir
+    Attributes
+        ID   : 23
+        Scope: local
+        Value: 0
+    
+Variable (int32) va_p1_dir
+    Attributes
+        ID   : 24
+        Scope: local
+        Value: 0
+    
+Variable (int32) va_p1_val
+    Attributes
+        ID   : 26
+        Scope: local
+        Value: 0
+    
+Variable (int32) va_p2_val
+    Attributes
+        ID   : 27
+        Scope: local
+        Value: 0
+    
+Text t_p1_val
+    Attributes
+        ID                  : 3
+        Scope               : local
+        Send Component ID   : on press and release
+        x coordinate        : 420
+        y coordinate        : 140
+        Width               : 200
+        Height              : 81
+        Fill                : image
+        Associated Keyboard : none
+        Font ID             : 1
+        Back. Picture ID    : 21
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : 0
+        Max. Text Size      : 6
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t_p2_val
+    Attributes
+        ID                  : 5
+        Scope               : local
+        Send Component ID   : on press and release
+        x coordinate        : 420
+        y coordinate        : 380
+        Width               : 200
+        Height              : 81
+        Fill                : image
+        Associated Keyboard : none
+        Font ID             : 1
+        Back. Picture ID    : 21
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : 0
+        Max. Text Size      : 6
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t_buf_p1
+    Attributes
+        ID                  : 28
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 312
+        y coordinate        : 203
+        Width               : 100
+        Height              : 30
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 0
+        Back. Color         : 0
+        Font Color          : 0
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : 
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t_buf_p2
+    Attributes
+        ID                  : 29
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 309
+        y coordinate        : 442
+        Width               : 100
+        Height              : 30
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 0
+        Back. Color         : 0
+        Font Color          : 0
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : 
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Slider h_p1_sens
+    Attributes
+        ID                     : 2
+        Scope                  : local
+        Send Component ID      : on press and release
+        x coordinate           : 20
+        y coordinate           : 160
+        Width                  : 400
+        Height                 : 35
+        Direction              : horizontal
+        Fill                   : image
+        Cursor width           : 81
+        Cursor height          : 81
+        Back. Picture ID       : 22
+        Slided Back. Picture ID: 23
+        Position               : 0
+        Upper range limit      : 100
+        Lower range limit      : 0
+    
+    Events
+        Touch Release Event
+            cov h_p1_sens.val,t_buf_p1.txt,0
+            print "rrp:p1_se="
+            prints t_buf_p1.txt,0
+            printh FF FF FF
+        
+Slider h_p2_sens
+    Attributes
+        ID                     : 4
+        Scope                  : local
+        Send Component ID      : on press and release
+        x coordinate           : 20
+        y coordinate           : 400
+        Width                  : 400
+        Height                 : 35
+        Direction              : horizontal
+        Fill                   : image
+        Cursor width           : 81
+        Cursor height          : 81
+        Back. Picture ID       : 22
+        Slided Back. Picture ID: 23
+        Position               : 0
+        Upper range limit      : 100
+        Lower range limit      : 0
+    
+    Events
+        Touch Release Event
+            cov h_p2_sens.val,t_buf_p2.txt,0
+            print "rrp:p2_se="
+            prints t_buf_p2.txt,0
+            printh FF FF FF
+        
+Button b_home
+    Attributes
+        ID                               : 1
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 680
+        y coordinate                     : 370
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 19
+        Back. Picture ID (Pressed)       : 20
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Press Event
+            b_home.pic=19
+        
+        Touch Release Event
+            b_home.pic=20
+            page page1
+            sendme
+        
+Button b_stop
+    Attributes
+        ID                               : 25
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 680
+        y coordinate                     : 138
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 39
+        Back. Picture ID (Pressed)       : 40
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Press Event
+            b_stop.pic=40
+        
+        Touch Release Event
+            b_stop.pic=39
+            va_p1_axis.val=-1
+            va_p2_axis.val=-1
+            b_p1_cam_v.val=1
+            b_p1_cam_t.val=1
+            b_p1_cam_f.val=1
+            b_p1_cam_h.val=1
+            b_p1_arm_h.val=1
+            b_p1_arm_v.val=1
+            b_p2_cam_v.val=1
+            b_p2_cam_t.val=1
+            b_p2_cam_f.val=1
+            b_p2_cam_h.val=1
+            b_p2_arm_h.val=1
+            b_p2_arm_v.val=1
+            tsw b_p1_cam_v,1
+            tsw b_p1_cam_t,1
+            tsw b_p1_cam_f,1
+            tsw b_p1_cam_h,1
+            tsw b_p1_arm_h,1
+            tsw b_p1_arm_v,1
+            tsw b_p2_cam_v,1
+            tsw b_p2_cam_t,1
+            tsw b_p2_cam_f,1
+            tsw b_p2_cam_h,1
+            tsw b_p2_arm_h,1
+            tsw b_p2_arm_v,1
+            va_p1_dir.val=0
+            va_p2_dir.val=0
+            b_p1_dir.val=0
+            b_p2_dir.val=0
+            va_p1_val.val=0
+            va_p2_val.val=0
+            t_p1_val.txt="0"
+            t_p2_val.txt="0"
+            h_p1_sens.val=0
+            h_p2_sens.val=0
+            print "rrp:stop=1"
+            printh FF FF FF
+        
+Dual-state Button b_p1_cam_v
+    Attributes
+        ID                               : 6
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 20
+        y coordinate                     : 20
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 25
+        Back. Picture ID (Pressed)       : 26
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_tmp.val=va_p1_axis.val
+            va_p1_axis.val=0
+            b_p1_cam_v.val=0
+            b_p1_cam_t.val=1
+            b_p1_cam_f.val=1
+            b_p1_cam_h.val=1
+            b_p1_arm_h.val=1
+            b_p1_arm_v.val=1
+            if(va_tmp.val==1)
+            {
+                tsw b_p2_cam_t,1
+            }else if(va_tmp.val==2)
+            {
+                tsw b_p2_cam_f,1
+            }else if(va_tmp.val==3)
+            {
+                tsw b_p2_cam_h,1
+            }else if(va_tmp.val==4)
+            {
+                tsw b_p2_arm_h,1
+            }else if(va_tmp.val==5)
+            {
+                tsw b_p2_arm_v,1
+            }
+            tsw b_p2_cam_v,0
+            print "rrp:p1_ax="
+            print "0"
+            printh FF FF FF
+        
+Dual-state Button b_p2_cam_v
+    Attributes
+        ID                               : 7
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 20
+        y coordinate                     : 260
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 25
+        Back. Picture ID (Pressed)       : 26
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_tmp.val=va_p2_axis.val
+            va_p2_axis.val=0
+            b_p2_cam_v.val=0
+            b_p2_cam_t.val=1
+            b_p2_cam_f.val=1
+            b_p2_cam_h.val=1
+            b_p2_arm_h.val=1
+            b_p2_arm_v.val=1
+            if(va_tmp.val==1)
+            {
+                tsw b_p1_cam_t,1
+            }else if(va_tmp.val==2)
+            {
+                tsw b_p1_cam_f,1
+            }else if(va_tmp.val==3)
+            {
+                tsw b_p1_cam_h,1
+            }else if(va_tmp.val==4)
+            {
+                tsw b_p1_arm_h,1
+            }else if(va_tmp.val==5)
+            {
+                tsw b_p1_arm_v,1
+            }
+            tsw b_p1_cam_v,0
+            print "rrp:p2_ax="
+            print "0"
+            printh FF FF FF
+        
+Dual-state Button b_p1_dir
+    Attributes
+        ID                               : 8
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 680
+        y coordinate                     : 20
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 38
+        Back. Picture ID (Pressed)       : 37
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_p1_dir.val=b_p1_dir.val
+            print "rrp:p1_dr="
+            if(va_p1_dir.val==0)
+            {
+                print "0"
+            }else
+            {
+                print "1"
+            }
+            printh FF FF FF
+        
+Dual-state Button b_p2_dir
+    Attributes
+        ID                               : 9
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 680
+        y coordinate                     : 260
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 38
+        Back. Picture ID (Pressed)       : 37
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_p2_dir.val=b_p2_dir.val
+            print "rrp:p2_dr="
+            if(va_p2_dir.val==0)
+            {
+                print "0"
+            }else
+            {
+                print "1"
+            }
+            printh FF FF FF
+        
+Dual-state Button b_p1_cam_t
+    Attributes
+        ID                               : 10
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 120
+        y coordinate                     : 20
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 27
+        Back. Picture ID (Pressed)       : 28
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_tmp.val=va_p1_axis.val
+            va_p1_axis.val=1
+            b_p1_cam_v.val=1
+            b_p1_cam_t.val=0
+            b_p1_cam_f.val=1
+            b_p1_cam_h.val=1
+            b_p1_arm_h.val=1
+            b_p1_arm_v.val=1
+            if(va_tmp.val==0)
+            {
+                tsw b_p2_cam_v,1
+            }else if(va_tmp.val==2)
+            {
+                tsw b_p2_cam_f,1
+            }else if(va_tmp.val==3)
+            {
+                tsw b_p2_cam_h,1
+            }else if(va_tmp.val==4)
+            {
+                tsw b_p2_arm_h,1
+            }else if(va_tmp.val==5)
+            {
+                tsw b_p2_arm_v,1
+            }
+            tsw b_p2_cam_t,0
+            print "rrp:p1_ax="
+            print "1"
+            printh FF FF FF
+        
+Dual-state Button b_p1_cam_f
+    Attributes
+        ID                               : 11
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 220
+        y coordinate                     : 20
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 29
+        Back. Picture ID (Pressed)       : 30
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_tmp.val=va_p1_axis.val
+            va_p1_axis.val=2
+            b_p1_cam_v.val=1
+            b_p1_cam_t.val=1
+            b_p1_cam_f.val=0
+            b_p1_cam_h.val=1
+            b_p1_arm_h.val=1
+            b_p1_arm_v.val=1
+            if(va_tmp.val==0)
+            {
+                tsw b_p2_cam_v,1
+            }else if(va_tmp.val==1)
+            {
+                tsw b_p2_cam_t,1
+            }else if(va_tmp.val==3)
+            {
+                tsw b_p2_cam_h,1
+            }else if(va_tmp.val==4)
+            {
+                tsw b_p2_arm_h,1
+            }else if(va_tmp.val==5)
+            {
+                tsw b_p2_arm_v,1
+            }
+            tsw b_p2_cam_f,0
+            print "rrp:p1_ax="
+            print "2"
+            printh FF FF FF
+        
+Dual-state Button b_p1_cam_h
+    Attributes
+        ID                               : 12
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 320
+        y coordinate                     : 20
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 31
+        Back. Picture ID (Pressed)       : 32
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_tmp.val=va_p1_axis.val
+            va_p1_axis.val=3
+            b_p1_cam_v.val=1
+            b_p1_cam_t.val=1
+            b_p1_cam_f.val=1
+            b_p1_cam_h.val=0
+            b_p1_arm_h.val=1
+            b_p1_arm_v.val=1
+            if(va_tmp.val==0)
+            {
+                tsw b_p2_cam_v,1
+            }else if(va_tmp.val==1)
+            {
+                tsw b_p2_cam_t,1
+            }else if(va_tmp.val==2)
+            {
+                tsw b_p2_cam_f,1
+            }else if(va_tmp.val==4)
+            {
+                tsw b_p2_arm_h,1
+            }else if(va_tmp.val==5)
+            {
+                tsw b_p2_arm_v,1
+            }
+            tsw b_p2_cam_h,0
+            print "rrp:p1_ax="
+            print "3"
+            printh FF FF FF
+        
+Dual-state Button b_p1_arm_h
+    Attributes
+        ID                               : 13
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 420
+        y coordinate                     : 20
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 33
+        Back. Picture ID (Pressed)       : 34
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_tmp.val=va_p1_axis.val
+            va_p1_axis.val=4
+            b_p1_cam_v.val=1
+            b_p1_cam_t.val=1
+            b_p1_cam_f.val=1
+            b_p1_cam_h.val=1
+            b_p1_arm_h.val=0
+            b_p1_arm_v.val=1
+            if(va_tmp.val==0)
+            {
+                tsw b_p2_cam_v,1
+            }else if(va_tmp.val==1)
+            {
+                tsw b_p2_cam_t,1
+            }else if(va_tmp.val==2)
+            {
+                tsw b_p2_cam_f,1
+            }else if(va_tmp.val==3)
+            {
+                tsw b_p2_cam_h,1
+            }else if(va_tmp.val==5)
+            {
+                tsw b_p2_arm_v,1
+            }
+            tsw b_p2_arm_h,0
+            print "rrp:p1_ax="
+            print "4"
+            printh FF FF FF
+        
+Dual-state Button b_p1_arm_v
+    Attributes
+        ID                               : 14
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 520
+        y coordinate                     : 20
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 35
+        Back. Picture ID (Pressed)       : 36
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_tmp.val=va_p1_axis.val
+            va_p1_axis.val=5
+            b_p1_cam_v.val=1
+            b_p1_cam_t.val=1
+            b_p1_cam_f.val=1
+            b_p1_cam_h.val=1
+            b_p1_arm_h.val=1
+            b_p1_arm_v.val=0
+            if(va_tmp.val==0)
+            {
+                tsw b_p2_cam_v,1
+            }else if(va_tmp.val==1)
+            {
+                tsw b_p2_cam_t,1
+            }else if(va_tmp.val==2)
+            {
+                tsw b_p2_cam_f,1
+            }else if(va_tmp.val==3)
+            {
+                tsw b_p2_cam_h,1
+            }else if(va_tmp.val==4)
+            {
+                tsw b_p2_arm_h,1
+            }
+            tsw b_p2_arm_v,0
+            print "rrp:p1_ax="
+            print "5"
+            printh FF FF FF
+        
+Dual-state Button b_p2_cam_t
+    Attributes
+        ID                               : 15
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 120
+        y coordinate                     : 260
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 27
+        Back. Picture ID (Pressed)       : 28
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_tmp.val=va_p2_axis.val
+            va_p2_axis.val=1
+            b_p2_cam_v.val=1
+            b_p2_cam_t.val=0
+            b_p2_cam_f.val=1
+            b_p2_cam_h.val=1
+            b_p2_arm_h.val=1
+            b_p2_arm_v.val=1
+            if(va_tmp.val==0)
+            {
+                tsw b_p1_cam_v,1
+            }else if(va_tmp.val==2)
+            {
+                tsw b_p1_cam_f,1
+            }else if(va_tmp.val==3)
+            {
+                tsw b_p1_cam_h,1
+            }else if(va_tmp.val==4)
+            {
+                tsw b_p1_arm_h,1
+            }else if(va_tmp.val==5)
+            {
+                tsw b_p1_arm_v,1
+            }
+            tsw b_p1_cam_t,0
+            print "rrp:p2_ax="
+            print "1"
+            printh FF FF FF
+        
+Dual-state Button b_p2_cam_f
+    Attributes
+        ID                               : 16
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 220
+        y coordinate                     : 260
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 29
+        Back. Picture ID (Pressed)       : 30
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_tmp.val=va_p2_axis.val
+            va_p2_axis.val=2
+            b_p2_cam_v.val=1
+            b_p2_cam_t.val=1
+            b_p2_cam_f.val=0
+            b_p2_cam_h.val=1
+            b_p2_arm_h.val=1
+            b_p2_arm_v.val=1
+            if(va_tmp.val==0)
+            {
+                tsw b_p1_cam_v,1
+            }else if(va_tmp.val==1)
+            {
+                tsw b_p1_cam_t,1
+            }else if(va_tmp.val==3)
+            {
+                tsw b_p1_cam_h,1
+            }else if(va_tmp.val==4)
+            {
+                tsw b_p1_arm_h,1
+            }else if(va_tmp.val==5)
+            {
+                tsw b_p1_arm_v,1
+            }
+            tsw b_p1_cam_f,0
+            print "rrp:p2_ax="
+            print "2"
+            printh FF FF FF
+        
+Dual-state Button b_p2_cam_h
+    Attributes
+        ID                               : 17
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 320
+        y coordinate                     : 260
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 31
+        Back. Picture ID (Pressed)       : 32
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_tmp.val=va_p2_axis.val
+            va_p2_axis.val=3
+            b_p2_cam_v.val=1
+            b_p2_cam_t.val=1
+            b_p2_cam_f.val=1
+            b_p2_cam_h.val=0
+            b_p2_arm_h.val=1
+            b_p2_arm_v.val=1
+            if(va_tmp.val==0)
+            {
+                tsw b_p1_cam_v,1
+            }else if(va_tmp.val==1)
+            {
+                tsw b_p1_cam_t,1
+            }else if(va_tmp.val==2)
+            {
+                tsw b_p1_cam_f,1
+            }else if(va_tmp.val==4)
+            {
+                tsw b_p1_arm_h,1
+            }else if(va_tmp.val==5)
+            {
+                tsw b_p1_arm_v,1
+            }
+            tsw b_p1_cam_h,0
+            print "rrp:p2_ax="
+            print "3"
+            printh FF FF FF
+        
+Dual-state Button b_p2_arm_h
+    Attributes
+        ID                               : 18
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 420
+        y coordinate                     : 260
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 33
+        Back. Picture ID (Pressed)       : 34
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_tmp.val=va_p2_axis.val
+            va_p2_axis.val=4
+            b_p2_cam_v.val=1
+            b_p2_cam_t.val=1
+            b_p2_cam_f.val=1
+            b_p2_cam_h.val=1
+            b_p2_arm_h.val=0
+            b_p2_arm_v.val=1
+            if(va_tmp.val==0)
+            {
+                tsw b_p1_cam_v,1
+            }else if(va_tmp.val==1)
+            {
+                tsw b_p1_cam_t,1
+            }else if(va_tmp.val==2)
+            {
+                tsw b_p1_cam_f,1
+            }else if(va_tmp.val==3)
+            {
+                tsw b_p1_cam_h,1
+            }else if(va_tmp.val==5)
+            {
+                tsw b_p1_arm_v,1
+            }
+            tsw b_p1_arm_h,0
+            print "rrp:p2_ax="
+            print "4"
+            printh FF FF FF
+        
+Dual-state Button b_p2_arm_v
+    Attributes
+        ID                               : 19
+        Scope                            : local
+        Send Component ID                : on press and release
+        x coordinate                     : 520
+        y coordinate                     : 260
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 35
+        Back. Picture ID (Pressed)       : 36
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Release Event
+            va_tmp.val=va_p2_axis.val
+            va_p2_axis.val=5
+            b_p2_cam_v.val=1
+            b_p2_cam_t.val=1
+            b_p2_cam_f.val=1
+            b_p2_cam_h.val=1
+            b_p2_arm_h.val=1
+            b_p2_arm_v.val=0
+            if(va_tmp.val==0)
+            {
+                tsw b_p1_cam_v,1
+            }else if(va_tmp.val==1)
+            {
+                tsw b_p1_cam_t,1
+            }else if(va_tmp.val==2)
+            {
+                tsw b_p1_cam_f,1
+            }else if(va_tmp.val==3)
+            {
+                tsw b_p1_cam_h,1
+            }else if(va_tmp.val==4)
+            {
+                tsw b_p1_arm_h,1
+            }
+            tsw b_p1_arm_v,0
+            print "rrp:p2_ax="
+            print "5"
+            printh FF FF FF
+        

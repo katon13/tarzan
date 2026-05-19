@@ -106,6 +106,12 @@ class TarzanParTakePlayer:
         self.take = take
         self.index = 0
         self.bus.loaded_take_path = str(path)
+        # Numer i wersja TAKE muszą przejść przez BUS, bo Snajper odpala cele
+        # fizycznego Nextiona z fire_from_signal(...), bez ręcznego sync.
+        self.bus.force_signal("take_number", path.name, source="TAKE_LOAD")
+        self.bus.force_signal("loaded_take_path", str(path), source="TAKE_LOAD")
+        self.bus.force_signal("take_status", "LOADED", source="TAKE_LOAD")
+        self.bus.set_take_time(0)
         self.bus.log("TAKE", f"Załadowano TAKE: {path.name}, rows={len(take.rows)}, duration={take.duration_ms} ms")
         return take
 
@@ -114,6 +120,10 @@ class TarzanParTakePlayer:
         self.take = None
         self.index = 0
         self.bus.loaded_take_path = None
+        self.bus.force_signal("take_number", "BRAK", source="TAKE_UNLOAD")
+        self.bus.force_signal("loaded_take_path", "", source="TAKE_UNLOAD")
+        self.bus.force_signal("take_status", "EMPTY", source="TAKE_UNLOAD")
+        self.bus.set_take_time(0)
         self.bus.log("TAKE", "Odłączono TAKE")
 
     def step_to_index(self, index: int) -> Optional[Dict[str, str]]:
@@ -145,6 +155,7 @@ class TarzanParTakePlayer:
             self.bus.log("TAKE", "PLAY zablokowany: brak app.after()")
             return
         self.playing = True
+        self.bus.force_signal("take_status", "PLAY", source="TAKE_PLAY")
         self.bus.log("TAKE", "PLAY")
         self._schedule_next(delay_ms=0)
 
@@ -153,6 +164,7 @@ class TarzanParTakePlayer:
             return
         self.playing = False
         self._cancel_after()
+        self.bus.force_signal("take_status", "PAUSE", source="TAKE_PAUSE")
         self.bus.log("TAKE", "PAUSE")
 
     def stop(self, *, reset_to_zero: bool = True, log_stop: bool = True) -> None:
@@ -187,6 +199,7 @@ class TarzanParTakePlayer:
                 self.index = 0
             else:
                 self.playing = False
+                self.bus.force_signal("take_status", "END", source="TAKE_END")
                 self.bus.log("TAKE", "KONIEC")
                 return
         row = self.take.rows[self.index]

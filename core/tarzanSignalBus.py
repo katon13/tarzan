@@ -635,6 +635,21 @@ class TarzanSignalBus:
     # ------------------------------------------------------------------
     def set_take_time(self, time_ms: int) -> None:
         self.take_time_ms = int(time_ms)
+        # TAKE time musi być realnym zdarzeniem BUS, bo fizyczny Nextion
+        # jest aktualizowany przez Snajpera z fire_from_signal(...).
+        self.force_signal("take_time_ms", self.take_time_ms, source="TAKE_TIMER")
+        self.force_signal("take_timecode", self._format_take_timecode(self.take_time_ms), source="TAKE_TIMER")
+
+    @staticmethod
+    def _format_take_timecode(time_ms: int) -> str:
+        ms = max(0, int(time_ms))
+        h = ms // 3_600_000
+        ms %= 3_600_000
+        m = ms // 60_000
+        ms %= 60_000
+        s = ms // 1000
+        milli = ms % 1000
+        return f"{h:02d}:{m:02d}:{s:02d}:{milli:03d}"
 
     def write_many_outputs(self, values: Dict[str, Any], *, source: str = "TAKE", time_ms: Optional[int] = None) -> None:
         for name, value in values.items():

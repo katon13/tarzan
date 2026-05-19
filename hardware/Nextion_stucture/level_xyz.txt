@@ -1,0 +1,136 @@
+Page level_xyz
+    Attributes
+        ID               : 0
+        Scope            : local
+        Send Component ID: disabled
+        Width            : 800
+        Locked           : no
+        Fill             : solid color
+        Back. Color      : 0
+    
+    Events
+        Postinitialize Event
+            fill 0,0,800,480,0
+            pic 190,30,6
+            line 200,240,600,240,63488
+            line 400,40,400,440,63488
+            cirs 400,240,8,63488
+            b_home.pic=19
+            sendme
+        
+Variable (int32) va0
+    Attributes
+        ID   : 3
+        Scope: local
+        Value: 0
+    
+Variable (int32) va1
+    Attributes
+        ID   : 4
+        Scope: local
+        Value: 0
+    
+Variable (int32) va2
+    Attributes
+        ID   : 5
+        Scope: local
+        Value: 400
+    
+Variable (int32) va3
+    Attributes
+        ID   : 6
+        Scope: local
+        Value: 240
+    
+Picture p0
+    Attributes
+        ID               : 1
+        Scope            : local
+        Send Component ID: disabled
+        x coordinate     : 190
+        y coordinate     : 31
+        Width            : 420
+        Height           : 420
+        Picture ID       : 6
+    
+Button b_home
+    Attributes
+        ID                               : 7
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 680
+        y coordinate                     : 370
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 19
+        Back. Picture ID (Pressed)       : 20
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Press Event
+            b_home.pic=19
+        
+        Touch Release Event
+            b_home.pic=20
+            page page1
+            sendme
+        
+Timer tm0
+    Attributes
+        ID         : 2
+        Scope      : local
+        Period (ms): 100
+        Enabled    : yes
+    
+    Events
+        Timer Event
+            if(va0.val>30)
+            {
+                va0.val=30
+            }
+            if(va0.val<-30)
+            {
+                va0.val=-30
+            }
+            if(va1.val>30)
+            {
+                va1.val=30
+            }
+            if(va1.val<-30)
+            {
+                va1.val=-30
+            }
+            va2.val=398
+            va2.val+=va0.val
+            va2.val+=va0.val
+            va2.val+=va0.val
+            va2.val+=va0.val
+            va3.val=237
+            va3.val+=va1.val
+            va3.val+=va1.val
+            va3.val+=va1.val
+            va3.val+=va1.val
+            fill 0,0,800,480,0
+            pic 190,30,6
+            if(va0.val==0&&va1.val==0)
+            {
+                line 265,237,535,237,2016
+                line 398,105,398,375,2016
+                cirs va2.val,va3.val,16,2016
+            }else
+            {
+                line 265,237,535,237,63488
+                line 398,105,398,375,63488
+                cirs va2.val,va3.val,16,63488
+            }
+            b_home.pic=19
+        

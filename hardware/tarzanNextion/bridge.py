@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from collections import OrderedDict
+from pathlib import Path
+
+import json
 import time
 from typing import Any, Dict, List
 
@@ -101,13 +105,27 @@ class TarzanNextionBridge:
         self.last_sync = 0.0
         self.last_sent_snapshot: Dict[str, Any] = {}
         self.last_commands: List[str] = []
+        self._transport_log: List[str] = []
+        self._transport_log_limit = 500
+        self._nextion_ui_cut = bool(getattr(tfd_state, "nextion_ui_cut", False)) if tfd_state is not None else False
         self._snapshot_cache = {}
         self._snapshot_time = 0.0
         self.last_version = -1
-        self._sent_cache = {}
+        self._snajper_pending = OrderedDict()
         self._tfd_save_status_until = 0.0
         self._tfd_save_status_visible = False
-        
+        self._settings_main_meta_fired = False
+        self.tarzan_snajper = None
+
+        # TC sterowany fizycznym b_clap.
+        # To nie jest osobny bridge ani nowy refresh: b_clap tylko otwiera/zamyka
+        # istniejący tor Snajpera dla take_timecode, a flush zostaje w flush_snajper_commands().
+        self._clap_tc_running = False
+        self._clap_tc_start_monotonic = 0.0
+        self._clap_tc_elapsed_ms = 0
+        self._clap_tc_last_sent_ms = -1
+        self._clap_tc_last_toggle_monotonic = 0.0
+
         # Stan RRP (Physical Source of Truth)
         self.rrp_state = {
             "va_p1_axis": -1, "va_p1_dir": 0, "va_p1_val": 0, "h_p1_sens": 0,
@@ -133,6 +151,7 @@ class TarzanNextionBridge:
 
     def _request_current_page(self, device: TarzanNextionDevice) -> None:
         if device.connected:
+            self._append_transport_log(f"TX {device.screen_key}: sendme")
             device.send_raw(command_bytes("sendme"))
 
     def connect_enabled(self) -> None:
@@ -145,16 +164,20 @@ class TarzanNextionBridge:
         if device is None:
             return False
         ok = device.handshake(wait_ms=100)
+        self._append_transport_log(f"EV {screen_key}: CONNECT {'OK' if ok else 'FAIL'} port={device.port} baud={device.baudrate}")
         if ok:
             page_id = self.active_pages.get(screen_key, "")
             if page_id:
+                self._append_transport_log(f"TX {screen_key}: page {page_id}")
                 device.send_raw(cmd_page(page_id))
+                self._fire_tfd_meta_for_page(screen_key, page_id)
             self._request_current_page(device)
         return ok
 
     def disconnect_screen(self, screen_key: str) -> None:
         device = self.devices.get(screen_key)
         if device is not None:
+            self._append_transport_log(f"EV {screen_key}: DISCONNECT")
             device.close()
 
     def disconnect_all(self) -> None:
@@ -172,17 +195,18 @@ class TarzanNextionBridge:
             base[f"{key}.baudrate"] = int(device.baudrate)
             base[f"{key}.last_error"] = device.last_error or ""
             base[f"{key}.page"] = self.active_pages.get(key, "")
+            base[f"{key}.ui_cut"] = int(bool(self._nextion_ui_cut))
+            base[f"{key}.snajper_pending"] = len(self._snajper_pending)
+            base[f"{key}.transport_log_count"] = len(self._transport_log)
             
             # Dodajemy stan RRP do sekcji ekranu (wymagane przez PAR)
             if key == "nextion_7":
                 base[f"{key}.rrp_rev"] = self.rrp_state.get("rrp_rev", 0)
                 for k, v in self.rrp_state.items():
                     base[f"{key}.rrp.{k}"] = v
-                # RRP pokazuje licznik impulsów aktualnie wybranej osi.
-                p1_axis = _rrp_axis_binding("p1", self.rrp_state.get("va_p1_axis", -1)).get("selected_axis", "")
-                p2_axis = _rrp_axis_binding("p2", self.rrp_state.get("va_p2_axis", -1)).get("selected_axis", "")
-                base[f"{key}.rrp.p1_val"] = self.bus.get(f"par_{p1_axis}_pulses", 0) if p1_axis else 0
-                base[f"{key}.rrp.p2_val"] = self.bus.get(f"par_{p2_axis}_pulses", 0) if p2_axis else 0
+                # DODANE: Uwzględniamy gęstość STEP w snapshotcie, aby sync() wykrywał zmiany
+                base[f"{key}.rrp.p1_val"] = self.bus.get("par_rrp_p1_val", "0")
+                base[f"{key}.rrp.p2_val"] = self.bus.get("par_rrp_p2_val", "0")
         
         # Kompatybilność wsteczna
         for k, v in self.rrp_state.items():
@@ -199,7 +223,11 @@ class TarzanNextionBridge:
         self.active_pages[screen_key] = page_id
         device = self.devices.get(screen_key)
         if device is not None and device.connected:
+            self._append_transport_log(f"TX {screen_key}: page {page_id}")
             device.send_raw(cmd_page(page_id))
+            if page_id != "settings_main":
+                self._settings_main_meta_fired = False
+            self._fire_tfd_meta_for_page(screen_key, page_id)
             self._request_current_page(device)
 
     def next_page(self, screen_key: str) -> None:
@@ -228,236 +256,122 @@ class TarzanNextionBridge:
                 return page
         return screen.pages[0] if screen.pages else {"id": "empty", "components": []}
 
-    def build_commands(self, screen_key: str, state: Dict[str, Any]) -> List[bytes]:
-        page = self.get_page(screen_key)
-        commands: List[bytes] = []
-        for comp in page.get("components", []):
-            nxt = comp.get("nextion") or {}
-            component = nxt.get("component")
-            prop = nxt.get("property", "txt")
-            if not component:
+    def _append_transport_log(self, line: str) -> None:
+        """Lekki log transportu dla panelu diagnostycznego Nextiona."""
+        try:
+            stamp = time.strftime("%H:%M:%S")
+        except Exception:
+            stamp = "--:--:--"
+        text = f"{stamp} {line}"
+        self._transport_log.append(text)
+        if len(self._transport_log) > self._transport_log_limit:
+            del self._transport_log[:len(self._transport_log) - self._transport_log_limit]
+
+    def get_recent_transport_log(self, screen_key: str = "nextion_7", limit: int = 120) -> List[str]:
+        """Zwraca ostatnie logi TX/RX/PAGE/SET/SYS/ERR dla monitora PAR."""
+        try:
+            limit = max(1, int(limit))
+        except Exception:
+            limit = 120
+        prefix_a = f"TX {screen_key}:"
+        prefix_b = f"RX {screen_key}:"
+        prefix_c = f"EV {screen_key}:"
+        prefix_d = f"{screen_key} "
+        filtered = [
+            line for line in self._transport_log
+            if prefix_a in line or prefix_b in line or prefix_c in line or prefix_d in line
+        ]
+        return filtered[-limit:]
+
+    def clear_transport_log(self, screen_key: str | None = None) -> None:
+        """Czyści log transportu. Jeśli podano screen_key, czyści tylko wpisy tego ekranu."""
+        if not screen_key:
+            self._transport_log.clear()
+            return
+        prefix_a = f"TX {screen_key}:"
+        prefix_b = f"RX {screen_key}:"
+        prefix_c = f"EV {screen_key}:"
+        prefix_d = f"{screen_key} "
+        self._transport_log = [
+            line for line in self._transport_log
+            if not (prefix_a in line or prefix_b in line or prefix_c in line or prefix_d in line)
+        ]
+
+    def get_nextion_monitor_state(self, screen_key: str = "nextion_7") -> Dict[str, Any]:
+        """Jedno miejsce odczytu stanu dla uproszczonego panelu Nextiona."""
+        device = self.devices.get(screen_key)
+        return {
+            "screen_key": screen_key,
+            "connected": bool(getattr(device, "connected", False)) if device is not None else False,
+            "port": getattr(device, "port", ""),
+            "baudrate": int(getattr(device, "baudrate", 0) or 0),
+            "last_error": getattr(device, "last_error", "") or "",
+            "page": self.active_pages.get(screen_key, ""),
+            "ui_cut": int(bool(self._nextion_ui_cut)),
+            "pending": len(self._snajper_pending),
+            "log_count": len(self._transport_log),
+        }
+
+    def queue_snajper_command(self, scope: str, component: str, prop: str, value) -> None:
+        # TARZAN_SNAJPER_V8: Bridge jest tylko wykonawcą. 
+        # Cache i decyzja o wysyłce leży wyłącznie w core/tarzanSnajper.py.
+        value = str(value)
+        key = f"{scope}.{component}.{prop}"
+        self._snajper_pending[key] = (scope, component, prop, value)
+
+    def flush_snajper_commands(self) -> None:
+        # TARZAN_SNAJPER: dynamiczne zmiany Nextiona.
+        # Nieaktywne strony zostają w pending, żeby nie gubić wartości.
+        self._update_clap_tc_for_snajper()
+        self._update_tfd_save_status_for_snajper()
+        pending = list(self._snajper_pending.items())
+        for key, (scope, component, prop, value) in pending:
+            if not self._is_scope_active(scope):
                 continue
-            visible_if = comp.get("visible_if")
-            if visible_if:
-                commands.append(cmd_visible(component, bool(state.get(visible_if))))
-            bind = comp.get("bind")
-            if bind:
-                value = state.get(bind, comp.get("text", ""))
+
+            command_texts: List[str] = []
+            if prop in {"txt", "text"}:
+                command_texts = [f'{component}.txt="{value}"']
+                payloads = [cmd_text(component, value)]
+            elif prop == "val":
+                command_texts = [f"{component}.val={value}"]
+                payloads = [command_bytes(command_texts[0])]
+            elif prop == "pic":
+                command_texts = [f"{component}.pic={value}"]
+                payloads = [command_bytes(command_texts[0])]
+            elif prop == "pco":
+                command_texts = [f"{component}.pco={value}"]
+                payloads = [command_bytes(command_texts[0])]
+            elif prop == "visible":
+                visible = str(value).strip().lower() not in {"0", "false", "off", "hidden", "hide", ""}
+                command_texts = [f"vis {component},{1 if visible else 0}"]
+                payloads = [cmd_visible(component, visible)]
+            elif prop == "play":
+                # Komenda play dla audio na Nextionie
+                command_texts = [f"play {value}"]
+                payloads = [command_bytes(command_texts[0])]
             else:
-                value = comp.get("text", "")
-            if prop == "val":
-                if self._should_update(screen_key, f"{component}.val", value): commands.append(cmd_value(component, value))
-            else:
-                if self._should_update(screen_key, f"{component}.txt", value): commands.append(cmd_text(component, value))
-        return commands
+                continue
 
-    def _level_xyz_commands(self, screen_key: str, state: Dict[str, Any]) -> List[bytes]:
-        if screen_key != "nextion_7":
-            return []
-        if self.active_pages.get(screen_key) != "level_xyz":
-            return []
+            sent = False
+            for screen_key, device in self.devices.items():
+                if self._enabled(screen_key) and device.connected and self.active_pages.get(screen_key) == scope:
+                    self.last_commands.append(f"{screen_key}: SNAJPER {scope}.{component}.{prop}={value}")
+                    for command_text, payload in zip(command_texts, payloads):
+                        self._append_transport_log(f"TX {screen_key}: SNAJPER {scope}.{component}.{prop}={value} | {command_text}")
+                        device.send_raw(payload)
+                    sent = True
 
-        try:
-            x = int(float(self.bus.get("sensor_level_x", 0) or 0))
-        except Exception:
-            x = 0
+            if sent:
+                self._snajper_pending.pop(key, None)
 
-        try:
-            y = int(float(self.bus.get("sensor_level_y", 0) or 0))
-        except Exception:
-            y = 0
-
-        x = max(-30, min(30, x))
-        y = max(-30, min(30, y))
-
-        cmds = []
-        if self._should_update(screen_key, "va0.val", x): cmds.append(command_bytes(f"va0.val={x}"))
-        if self._should_update(screen_key, "va1.val", y): cmds.append(command_bytes(f"va1.val={y}"))
-        return cmds
-
-    def _rrp_main_commands(self, screen_key: str, state: Dict[str, Any]) -> List[bytes]:
-        if screen_key != "nextion_7":
-            return []
-        if self.active_pages.get(screen_key) != "rrp_main":
-            return []
-        
-        cmds = []
-        # Pobieramy ten sam licznik impulsów, który PAR pokazuje pod kartą osi:
-        # self.bus.get(f"par_{axis.lower()}_pulses", 0).
-        # Tutaj axis pochodzi z aktualnego wyboru P1/P2 na RRP.
-        p1_axis = _rrp_axis_binding("p1", self.rrp_state.get("va_p1_axis", -1)).get("selected_axis", "")
-        p2_axis = _rrp_axis_binding("p2", self.rrp_state.get("va_p2_axis", -1)).get("selected_axis", "")
-        p1_val = self.bus.get(f"par_{p1_axis}_pulses", 0) if p1_axis else 0
-        p2_val = self.bus.get(f"par_{p2_axis}_pulses", 0) if p2_axis else 0
-        p1_text = str(int(float(p1_val or 0)))
-        p2_text = str(int(float(p2_val or 0)))
-
-        # Wysyłamy do pól tekstowych oraz do zmiennych pomocniczych na fizycznym ekranie.
-        # ref jest tani i usuwa przypadek, w którym tekst przyjął wartość, ale pole graficzne nie odrysowało się.
-        if self._should_update(screen_key, "t_p1_val", p1_text):
-            cmds.append(cmd_text("t_p1_val", p1_text))
-            cmds.append(command_bytes("ref t_p1_val"))
-        if self._should_update(screen_key, "t_p2_val", p2_text):
-            cmds.append(cmd_text("t_p2_val", p2_text))
-            cmds.append(command_bytes("ref t_p2_val"))
-        if self._should_update(screen_key, "va_p1_val.val", p1_text): cmds.append(command_bytes(f"va_p1_val.val={p1_text}"))
-        if self._should_update(screen_key, "va_p2_val.val", p2_text): cmds.append(command_bytes(f"va_p2_val.val={p2_text}"))
-        
-        # DODANE: Synchronizacja stanu wyboru osi (ikon) na Nextionie
-        p1_ax = self.rrp_state.get("va_p1_axis", -1)
-        p2_ax = self.rrp_state.get("va_p2_axis", -1)
-        if self._should_update(screen_key, "va_p1_axis.val", p1_ax): cmds.append(command_bytes(f"va_p1_axis.val={p1_ax}"))
-        if self._should_update(screen_key, "va_p2_axis.val", p2_ax): cmds.append(command_bytes(f"va_p2_axis.val={p2_ax}"))
-
-        return cmds
-
-    def _should_update(self, screen_key: str, component: str, value: Any) -> bool:
-        page_id = self.active_pages.get(screen_key, "unknown")
-        cache_key = f"{screen_key}.{page_id}.{component}"
-        if self._sent_cache.get(cache_key) == value:
-            return False
-        self._sent_cache[cache_key] = value
-        return True
+    def _is_scope_active(self, scope: str) -> bool:
+        if not hasattr(self, "active_pages"):
+            return True
+        return scope in set(self.active_pages.values())
 
     def sync(self, force: bool = False) -> None:
-        # AKTUALIZACJA TFD (Telemetria) przed snapshotem
-        if tfd_state:
-            tfd_state.update_from_bus(self.bus)
-
-        snapshot = self.snapshot()
-        now = time.time()
-        
-        interval = max(0.05, float(self.ports_cfg.get("sync_interval_ms", 50)) / 1000.0)
-        new_version = snapshot.get("version", 0)
-        if not force and new_version == self.last_version and (now - self.last_sync) < interval:
-            return
-        self.last_version = new_version
-
-            
-        self.last_sync = now
-        self.last_commands = []
-        for key, device in self.devices.items():
-            if not self._enabled(key) or not device.connected:
-                continue
-            commands = self.build_commands(key, snapshot)
-            commands.extend(self._level_xyz_commands(key, snapshot))
-            commands.extend(self._rrp_main_commands(key, snapshot))
-            
-            # DODANE: Wysyłka danych TFD do Nextiona (take_main lub settings_main)
-            if key == "nextion_7":
-                curr_page = self.active_pages.get(key)
-                if curr_page == "take_main":
-                    commands.extend(self._tfd_take_main_commands())
-                elif curr_page == "settings_main":
-                    commands.extend(self._tfd_settings_main_commands())
-
-            for payload in commands:
-                self.last_commands.append(f"{key}: {payload!r}")
-                device.send_raw(payload)
-        self.last_sent_snapshot = dict(snapshot)
-
-    def _tfd_take_main_commands(self) -> List[bytes]:
-        """
-        Generuje komendy aktualizujące pola TFD na ekranie Nextion take_main.
-        Wykorzystuje sent_cache w tfd_state do optymalizacji (wysyłka tylko zmian).
-        """
-        if not tfd_state:
-            return []
-            
-        packet = tfd_state.get_packet()
-        if not packet:
-            return []
-            
-        cmds = []
-        
-        # 1. Metadane (Tytuł, Reżyser, Take, TC, Status, Clap)
-        meta_data = {
-            "t1": packet.get("title", ""),
-            "t2": packet.get("director", ""),
-            "t_take": str(packet.get('take', '001')),
-            "t_clap": "CLAP" if packet.get("clap") else "",
-            "t_status": packet.get("status", "LIVE"),
-            "t0": packet.get("t0", "00:00:00:0000")
-        }
-        
-        for comp, val in meta_data.items():
-            if tfd_state.should_update(f"nextion_7.{comp}", val):
-                cmds.append(cmd_text(comp, val))
-                
-        # DODANE: Ikona CLAP (p5) - zmiana obrazka na czerwony tło
-        is_clap = bool(packet.get("clap"))
-        pic_id = 51 if is_clap else 50 # 50 = standard, 51 = red bg (zakładamy)
-        if tfd_state.should_update("nextion_7.p5.pic", pic_id):
-            cmds.append(command_bytes(f"p5.pic={pic_id}"))
-                
-        # 2. Osie (t_axis0..5)
-        axes = packet.get("axes", {})
-        for i in range(6):
-            comp = f"t_axis{i}"
-            axis_data = axes.get(f"axis{i}", {})
-            # Przywracamy formatowanie 000000 dla liczników (wymóg użytkownika)
-            # Używamy pulses (liczba kroków), ale z paddingiem do 6 cyfr
-            try:
-                p = axis_data.get("pulses", 0)
-                val = str(abs(int(float(p)))).zfill(6)
-            except:
-                val = "000000"
-            if tfd_state.should_update(f"nextion_7.{comp}", val):
-                cmds.append(cmd_text(comp, val))
-                
-        # 3. Czujniki
-        sensors = packet.get("sensors", {})
-        sensor_map = {
-            "t_laser": sensors.get("laser"),
-            "t_limits": sensors.get("limits"),
-            "t_shock": sensors.get("shock"),
-            "t_light": sensors.get("light"),
-            "t_temp": sensors.get("temp"),
-            "t_xyz": sensors.get("xyz")
-        }
-        
-        for comp, val in sensor_map.items():
-            if val is not None:
-                if tfd_state.should_update(f"nextion_7.{comp}", val):
-                    cmds.append(cmd_text(comp, val))
-                    
-        return cmds
-
-    def _tfd_settings_main_commands(self) -> List[bytes]:
-        """
-        Aktualizuje pola tekstowe na stronie ustawień fizycznego Nextiona.
-        """
-        if not tfd_state:
-            return []
-            
-        cmds = []
-        # t_title i t_director na stronie settings_main
-        if tfd_state.should_update("nextion_7.settings.title", tfd_state.title):
-            cmds.append(cmd_text("t_title", tfd_state.title))
-        if tfd_state.should_update("nextion_7.settings.director", tfd_state.director):
-            cmds.append(cmd_text("t_director", tfd_state.director))
-
-        # Potwierdzenie zapisu metadanych: wysyłane tym samym kanałem co t_title/t_director.
-        # Nie wysyłamy tego z poll() ani z osobnego wątku.
-        now = time.time()
-        if self._tfd_save_status_until > now:
-            # Wymuszamy wysyłkę tekstu i koloru przez cały czas trwania statusu, 
-            # aby nadpisać ewentualne lokalne zmiany na ekranie (np. "WAIT").
-            # Używamy bezpośrednio command_bytes/cmd_text/cmd_visible bez _should_update.
-            # Zmieniamy kolejność: najpierw tekst, potem kolor, na końcu widoczność.
-            # DODANE: pco i bco (kolor tekstu i tła), aby wymusić kontrast i odświeżenie.
-            cmds.append(cmd_text("t_save_status", "SAVED"))
-            cmds.append(command_bytes("t_save_status.bco=2016")) # Tło zielone
-            cmds.append(command_bytes("t_save_status.pco=65535")) # Tekst biały
-            cmds.append(cmd_visible("t_save_status", True))
-            self._tfd_save_status_visible = True
-        elif self._tfd_save_status_visible:
-            # Opis sugeruje: "Nie ukrywać jeszcze statusu". 
-            # Usuwamy wysyłkę vis 0, zostawiamy tylko reset flagi wewnętrznej.
-            self._tfd_save_status_visible = False
-            self._tfd_save_status_until = 0.0
-                        
-        return cmds
+        return self.flush_snajper_commands()
 
     def poll(self) -> List[str]:
         logs: List[str] = []
@@ -465,6 +379,7 @@ class TarzanNextionBridge:
             for event in device.poll():
                 raw = event.raw
                 logs.append(f"{key} EVENT {raw!r}")
+                self._append_transport_log(f"RX {key}: {raw!r}")
 
                 # Obsługa zdarzeń tekstowych (np. rrp:, set:, take:)
                 try:
@@ -483,6 +398,31 @@ class TarzanNextionBridge:
 
                     handled_text = False
                     for msg in messages:
+                        if self._handle_snajper_text_message(msg, logs, key):
+                            handled_text = True
+                            continue
+                        if msg.startswith("sys:ui_cut="):
+                            self.active_pages[key] = "settings_main"
+                            enabled = 1 if msg.split("=", 1)[1].strip() == "1" else 0
+                            self._nextion_ui_cut = bool(enabled)
+                            self._write_tfd_meta_value("nextion_ui_cut", bool(enabled))
+                            self._fire_snajper_signal("nextion_ui_cut", bool(enabled), source="NEXTION")
+                            self._show_tfd_save_status()
+                            self.flush_snajper_commands()
+                            logs.append(f"{key} TFD SYS UI_CUT: {enabled}")
+                            handled_text = True
+                            continue
+                        if msg.startswith("set:ui_cut="):
+                            self.active_pages[key] = "settings_main"
+                            enabled = 1 if msg.split("=", 1)[1].strip() == "1" else 0
+                            self._nextion_ui_cut = bool(enabled)
+                            self._write_tfd_meta_value("nextion_ui_cut", bool(enabled))
+                            self._fire_snajper_signal("nextion_ui_cut", bool(enabled), source="NEXTION")
+                            self._show_tfd_save_status()
+                            self.flush_snajper_commands()
+                            logs.append(f"{key} TFD SET UI_CUT: {enabled}")
+                            handled_text = True
+                            continue
                         # 1. RRP EVENTS
                         if msg.startswith("rrp:"):
                             self._handle_rrp_event(msg)
@@ -490,19 +430,12 @@ class TarzanNextionBridge:
                             handled_text = True
                             continue
 
-                        # 2. TFD METADATA EVENTS (set:title=..., set:director=...)
-                        if tfd_state and self._handle_tfd_meta_event(msg, logs, key):
+                        # 2. TFD METADATA EVENTS (set:title=..., set:director=..., set:ui_cut=...)
+                        if self._handle_tfd_meta_event(msg, logs, key):
                             handled_text = True
                             continue
 
-                        # 3. TFD CLAP EVENT (take:clap=1)
-                        if msg.startswith("take:clap=1") and tfd_state:
-                            # Dodajemy pełne zdarzenie TFD
-                            tfd_state.add_event("CLAP", "NEXTION_TAKE_MAIN")
-                            play_audio("clap")
-                            logs.append(f"{key} TFD CLAP EVENT!")
-                            handled_text = True
-                            continue
+                        # 3. TAKE CLAP / TC steruje _handle_snajper_text_message().
 
                     if handled_text:
                         continue
@@ -513,42 +446,413 @@ class TarzanNextionBridge:
                 if len(raw) >= 2 and raw[0] == 0x66:
                     page_id = self._page_id_from_index(key, int(raw[1]))
                     self.active_pages[key] = page_id
+                    if page_id != "settings_main":
+                        self._settings_main_meta_fired = False
+                    self._fire_tfd_meta_for_page(key, page_id)
                     logs.append(f"{key} PAGE {page_id}")
                     continue
 
                 if len(raw) >= 4 and raw[0] == 0x65:
                     self._request_current_page(device)
-                    logs.append(f"{key} TOUCH page={int(raw[1])} comp={int(raw[2])} event={int(raw[3])}")
+                    page_index = int(raw[1])
+                    component_id = int(raw[2])
+                    event_type = int(raw[3])
+                    if self._handle_touch_event(key, page_index, component_id, event_type, logs):
+                        continue
+                    logs.append(f"{key} TOUCH page={page_index} comp={component_id} event={event_type}")
+
+        # Jeżeli PAR ma lekki poll Nextiona, ten sam poll przepycha kolejkę Snajpera.
+        # To nie jest refresh_all ani PAR_APP.tick: wysyła tylko pending po konkretnych strzałach.
+        self.flush_snajper_commands()
+        for line in logs:
+            self._append_transport_log(f"EV {line}")
         return logs
+
+
+    def _handle_snajper_text_message(self, msg: str, logs: List[str] | None = None, screen_key: str = "nextion_7") -> bool:
+        """
+        Lekki dekoder tekstowych zdarzeń z fizycznego Nextiona.
+        Nie tworzy drugiego toru: przycisk b_clap tylko uruchamia istniejące
+        bus.set_take_time(...) -> Snajper -> physical_nextion -> queue/flush.
+        """
+        text = str(msg or "").strip()
+        if not text:
+            return False
+
+        compact = text.replace(" ", "")
+        # Jeżeli zdarzenie przyszło jako odpowiedź stringowa Nextiona (0x70),
+        # usuwamy prefiks i dalej obsługujemy ten sam tekst z HMI.
+        if compact and compact[0] == "\x70":
+            compact = compact[1:]
+        lower = compact.lower()
+        if logs is None:
+            logs = []
+
+        # Dual-state b_clap jest teraz traktowany jako STAN, nie jako ślepy toggle:
+        #   take:clap=1 -> START TC
+        #   take:clap=0 -> STOP TC
+        # Jeśli HMI wyśle samo "take:clap=" bez wartości, używamy fallbacku TOGGLE.
+        # Obsługujemy też warianty z bajtem 0x01/0x00, gdy Nextion wyśle wartość numeryczną.
+        if lower.startswith("take:clap=") or lower.startswith("clap="):
+            value = compact.split("=", 1)[1] if "=" in compact else ""
+            value = str(value).strip()
+            value_lower = value.lower()
+            if value_lower in {"1", "true", "on", "run", "start"} or (value and ord(value[0]) == 1):
+                self._set_clap_tc(True, logs, screen_key)
+                logs.append(f"{screen_key} TAKE CLAP TEXT {compact!r} -> TC START")
+                return True
+            if value_lower in {"0", "false", "off", "stop"} or (value and ord(value[0]) == 0):
+                self._set_clap_tc(False, logs, screen_key)
+                logs.append(f"{screen_key} TAKE CLAP TEXT {compact!r} -> TC STOP")
+                return True
+            self._toggle_clap_tc(logs, screen_key)
+            logs.append(f"{screen_key} TAKE CLAP TEXT {compact!r} -> TC TOGGLE")
+            return True
+
+        # Jawne wartości snajperowe zostają wartościami, bo mogą pochodzić z PAR/testów.
+        if lower in {
+            "b_clap=1",
+            "b_clap.val=1",
+            "take_main.b_clap=1",
+            "take_main.b_clap.val=1",
+        }:
+            self._set_clap_tc(True, logs, screen_key)
+            return True
+
+        if lower in {
+            "b_clap=0",
+            "b_clap.val=0",
+            "take_main.b_clap=0",
+            "take_main.b_clap.val=0",
+        }:
+            self._set_clap_tc(False, logs, screen_key)
+            return True
+
+        # Format uniwersalny dla Snajpera: snajper:scope.component.prop=value
+        # np. snajper:take_main.b_clap.val=1
+        if lower.startswith("snajper:"):
+            payload = compact.split(":", 1)[1]
+            if "=" not in payload:
+                return False
+            left, value = payload.split("=", 1)
+            parts = left.split(".")
+            if len(parts) >= 3:
+                scope, component, prop = parts[0], parts[1], parts[2]
+                if scope == "take_main" and component == "b_clap" and prop == "val":
+                    self._set_clap_tc(str(value).strip() == "1", logs, screen_key)
+                    return True
+                self.queue_snajper_command(scope, component, prop, value)
+                self.flush_snajper_commands()
+                return True
+
+        return False
+
+    def _component_name_from_touch(self, screen_key: str, page_index: int, component_id: int) -> str:
+        """Zwraca nazwę komponentu z definicji ekranu dla zdarzenia 0x65."""
+        try:
+            screen = self.screen_defs[screen_key]
+            if not (0 <= int(page_index) < len(screen.pages)):
+                return ""
+            page = screen.pages[int(page_index)]
+            for comp in page.get("components", []):
+                nxt = comp.get("nextion") or {}
+                name = str(nxt.get("component") or comp.get("component") or comp.get("id") or "")
+                raw_ids = [
+                    nxt.get("id"), nxt.get("component_id"), nxt.get("cmp_id"), nxt.get("cid"),
+                    comp.get("nextion_id"), comp.get("component_id"), comp.get("cmp_id"), comp.get("cid"),
+                ]
+                for raw_id in raw_ids:
+                    if raw_id is None:
+                        continue
+                    try:
+                        if int(raw_id) == int(component_id):
+                            return name
+                    except Exception:
+                        continue
+        except Exception:
+            return ""
+        return ""
+
+    def _handle_touch_event(self, screen_key: str, page_index: int, component_id: int, event_type: int, logs: List[str]) -> bool:
+        """Obsługuje realny touch Nextiona, gdy HMI nie wysyła tekstu take:clap=1."""
+        page_id = self._page_id_from_index(screen_key, int(page_index))
+        self.active_pages[screen_key] = page_id
+        component = self._component_name_from_touch(screen_key, int(page_index), int(component_id))
+
+        # b_clap w aktualnym HMI wysyła tekst take:clap=... w Touch Press Event.
+        # Send Component ID jest włączone tylko pomocniczo, więc touch 0x65 ignorujemy,
+        # żeby jeden klik nie wykonał dwóch przełączeń TC.
+        if page_id == "take_main" and component == "b_clap":
+            logs.append(f"{screen_key} TOUCH b_clap ignored; text take:clap is authoritative")
+            return True
+
+        return False
+
+
+    def _toggle_clap_tc(self, logs: List[str], screen_key: str) -> None:
+        """Fallback dla starego touch eventu: przełącza TC."""
+        self._set_clap_tc(not self._clap_tc_running, logs, screen_key)
+
+    def _set_clap_tc(self, running: bool, logs: List[str], screen_key: str) -> None:
+        """Dual-state b_clap: val=1 START TC, val=0 STOP TC."""
+        self.active_pages[screen_key] = "take_main"
+        self._clap_tc_last_toggle_monotonic = time.monotonic()
+
+        if running:
+            if not self._clap_tc_running:
+                self._clap_tc_running = True
+                self._clap_tc_start_monotonic = time.monotonic()
+                self._clap_tc_elapsed_ms = 0
+                self._clap_tc_last_sent_ms = -1
+                self.bus.set_take_time(0)
+                logs.append(f"{screen_key} TAKE CLAP TC START")
+                self._play_clap_audio()
+            else:
+                self._update_clap_tc_for_snajper(force=True)
+                logs.append(f"{screen_key} TAKE CLAP TC RUN")
+
+            self.bus.force_signal("take_main.t_clap.txt", "TC RUN", source="NEXTION_CLAP")
+        else:
+            if self._clap_tc_running:
+                self._update_clap_tc_for_snajper(force=True)
+                self._clap_tc_running = False
+                logs.append(f"{screen_key} TAKE CLAP TC STOP {self._clap_tc_elapsed_ms} ms")
+                self._play_clap_audio()
+            else:
+                logs.append(f"{screen_key} TAKE CLAP TC STOP")
+
+            # Nie zmieniamy take_status/t_status. Pole LIVE zostaje od statusu trybu.
+            self.bus.force_signal("take_main.t_clap.txt", "TC STOP", source="NEXTION_CLAP")
+
+        if tfd_state:
+            tfd_state.add_event("CLAP", "NEXTION_TAKE_MAIN")
+
+        self.flush_snajper_commands()
+
+    def _play_clap_audio(self) -> None:
+        """Odtwarza komunikat audio z audio/voice bez blokowania TC."""
+        for key_name in ("voice/Motion_starting", "Motion_starting", "clap"):
+            try:
+                play_audio(key_name)
+                return
+            except Exception:
+                pass
+
+        # Fallback dla Windows, gdy audio player nie ma jeszcze mapy voice/*.
+        try:
+            import winsound
+            root = Path(__file__).resolve().parents[2]
+            wav_path = root / "audio" / "voice" / "Motion_starting.wav"
+            if wav_path.exists():
+                winsound.PlaySound(str(wav_path), winsound.SND_FILENAME | winsound.SND_ASYNC)
+        except Exception:
+            pass
+
+    def _update_clap_tc_for_snajper(self, force: bool = False) -> None:
+        """Lekki 10 ms strzał TC przez istniejący Snajper, tylko gdy b_clap uruchomił TC."""
+        if not self._clap_tc_running and not force:
+            return
+
+        sample_ms = max(1, int(getattr(self.bus, "sample_ms", 10) or 10))
+        if self._clap_tc_running:
+            raw_ms = int(round((time.monotonic() - self._clap_tc_start_monotonic) * 1000.0))
+            elapsed_ms = max(0, (raw_ms // sample_ms) * sample_ms)
+            self._clap_tc_elapsed_ms = elapsed_ms
+        else:
+            elapsed_ms = int(self._clap_tc_elapsed_ms)
+
+        if not force and elapsed_ms == self._clap_tc_last_sent_ms:
+            return
+
+        self._clap_tc_last_sent_ms = elapsed_ms
+        self.bus.set_take_time(elapsed_ms)
+
+
+    def _fire_snajper_signal(self, name: str, value: Any, source: str = "NEXTION", force_physical: bool = False) -> None:
+        """Aktualizuje BUS i natychmiast odpala istniejącego Snajpera.
+
+        force_physical: jeśli True, wymusza ponowną wysyłkę do physical_nextion
+        poprzez wyczyszczenie cache Snajpera dla tego celu.
+        """
+        try:
+            self.bus.force_signal(name, value, source=source)
+        except Exception:
+            pass
+        snajper = getattr(self, "tarzan_snajper", None)
+        if snajper is not None:
+            try:
+                logical = snajper.signal_map.get(name) if hasattr(snajper, "signal_map") else name
+                if force_physical:
+                    # Czyścimy cache Snajpera tylko dla physical_nextion
+                    for target in snajper.targets.get(logical, []):
+                        if target.adapter == "physical_nextion":
+                            cache_key = snajper._cache_key(target)
+                            snajper.last_values.pop(cache_key, None)
+                
+                if hasattr(snajper, "fire"):
+                    snajper.fire(logical, value)
+                elif hasattr(snajper, "fire_from_signal"):
+                    snajper.fire_from_signal(name, value)
+            except Exception:
+                pass
+
+
+    def _write_tfd_meta_value(self, key: str, value: Any) -> None:
+        """Przekazuje metadane TFD do tfd_state. TFDState odpowiada za zapis JSON."""
+        if tfd_state is not None:
+            try:
+                if key == "title":
+                    tfd_state.update_meta(title=str(value))
+                elif key == "director":
+                    tfd_state.update_meta(director=str(value))
+                elif key == "nextion_ui_cut":
+                    cut_val = False
+                    if str(value).isdigit():
+                        cut_val = bool(int(value))
+                    else:
+                        cut_val = bool(value)
+                    self._nextion_ui_cut = bool(cut_val)
+                    tfd_state.update_meta(nextion_ui_cut=cut_val)
+            except Exception:
+                pass
+
+    def _show_tfd_save_status(self) -> None:
+        """Pokazuje SAVED na settings_main przez 1 sekundę przez istniejące cele Snajpera."""
+        self._tfd_save_status_until = time.time() + 1.0
+        self._tfd_save_status_visible = True
+        
+        # Synchronizujemy z tfd_state, aby resync mógł odtworzyć stan na fizycznym ekranie
+        if tfd_state:
+            tfd_state.save_status_visible = True
+            tfd_state.save_status_text = "SAVED"
+
+        # TARZAN_SNAJPER_V8: Cache i decyzja o resyncu leży wyłącznie w core/tarzanSnajper.py.
+        self._fire_snajper_signal("tfd_save_status", "SAVED", source="NEXTION_PHYSICAL")
+        self._fire_snajper_signal("tfd_save_sound", 3, source="NEXTION_PHYSICAL") # Dźwięk potwierdzenia (ID 3)
+        self._fire_snajper_signal("tfd_save_status_visible", 1, source="NEXTION_PHYSICAL")
+
+    def _update_tfd_save_status_for_snajper(self) -> None:
+        """Lekko chowa SAVED po 1 sekundzie; bez refresh_all i bez pełnego sync."""
+        if not self._tfd_save_status_visible:
+            return
+        if time.time() < self._tfd_save_status_until:
+            return
+        self._tfd_save_status_visible = False
+        self._tfd_save_status_until = 0.0
+        
+        if tfd_state:
+            tfd_state.save_status_visible = False
+            tfd_state.save_status_text = ""
+
+        # Bridge jest wykonawcą; Snajper w core/tarzanSnajper.py zajmie się resyncem i cache.
+        self._fire_snajper_signal("tfd_save_status_visible", 0, source="NEXTION_SAVE_TIMEOUT")
+
+    def _fire_tfd_meta_for_page(self, screen_key: str, page_id: str) -> None:
+        """Jednorazowo przeładowuje metadane aktywnej strony przez Snajpera."""
+        if screen_key != "nextion_7":
+            return
+
+        # Fizyczny Nextion mówi, która strona właśnie weszła.
+        self.active_pages[screen_key] = page_id
+
+        if page_id not in {"settings_main", "take_main"}:
+            if page_id != "settings_main":
+                self._settings_main_meta_fired = False
+            return
+
+        # TARZAN_SNAJPER_V8: Logika omijania cache i resyncu leży wyłącznie w core/tarzanSnajper.py.
+        if page_id == "settings_main":
+            self._settings_main_meta_fired = True
+
+        # Pobieramy najświeższe dane z tfd_state (singleton)
+        title = ""
+        director = ""
+        take_num = "001"
+        status = "LIVE"
+        tc = "00:00:00:0000"
+        is_clap = False
+        ui_cut = False
+
+        if tfd_state:
+            title = getattr(tfd_state, "title", "TYTUŁ FILMU")
+            director = getattr(tfd_state, "director", "REŻYSER")
+            take_num = str(getattr(tfd_state, "take_number", "001")).zfill(3)
+            status = getattr(tfd_state, "status", "LIVE")
+            tc = getattr(tfd_state, "tc", "00:00:00:0000")
+            is_clap = bool(getattr(tfd_state, "clap", False))
+            ui_cut = bool(getattr(tfd_state, "nextion_ui_cut", False))
+        else:
+            # Rezerwowy odczyt z busa
+            title = str(self.bus.get("par_tfd_title", "TYTUŁ FILMU"))
+            director = str(self.bus.get("par_tfd_director", "REŻYSER"))
+            ui_cut = bool(self.bus.get("par_nextion_ui_cut", False))
+            take_num = str(self.bus.get("par_take_number", "001"))
+            status = str(self.bus.get("par_take_status", "LIVE"))
+            tc = str(self.bus.get("par_take_timecode", "00:00:00:0000"))
+
+        self._nextion_ui_cut = bool(ui_cut)
+        self._fire_snajper_signal("tfd_title", title, source="NEXTION_PAGE_LOAD", force_physical=True)
+        self._fire_snajper_signal("tfd_director", director, source="NEXTION_PAGE_LOAD", force_physical=True)
+
+        if page_id == "take_main":
+            self._fire_snajper_signal("take_number", take_num, source="NEXTION_PAGE_LOAD", force_physical=True)
+            self._fire_snajper_signal("take_status", status, source="NEXTION_PAGE_LOAD", force_physical=True)
+            self._fire_snajper_signal("take_timecode", tc, source="NEXTION_PAGE_LOAD", force_physical=True)
+            self._fire_snajper_signal("take_clap", 1 if is_clap else 0, source="NEXTION_PAGE_LOAD", force_physical=True)
+
+        if page_id == "settings_main":
+            self._fire_snajper_signal("nextion_ui_cut", 1 if ui_cut else 0, source="NEXTION_PAGE_LOAD", force_physical=True)
+            self._tfd_save_status_visible = False
+            self._tfd_save_status_until = 0.0
+            self._fire_snajper_signal("tfd_save_status_visible", 0, source="NEXTION_PAGE_LOAD", force_physical=True)
+        
+        self.flush_snajper_commands()
 
     def _handle_tfd_meta_event(self, msg: str, logs: List[str], key: str) -> bool:
         """Przetwarza tekst z settings_main: set:title=... albo set:director=..."""
-        if not msg.startswith("set:") or not tfd_state:
+        if not msg.startswith("set:"):
             return False
 
+        # set:* przychodzi wyłącznie z fizycznego okna settings_main.
+        # Ustawiamy aktywny scope zanim Snajper zrobi flush; inaczej poprawny
+        # target może zostać w pending, bo bridge myśli, że aktywna jest inna strona.
+        self.active_pages[key] = "settings_main"
+        
+        # TARZAN_SNAJPER_V8: Logika cache i resyncu leży wyłącznie w core/tarzanSnajper.py.
+        # Bridge nie czyści już cache'u samowolnie.
+        
         payload = msg[4:]
         if payload.startswith("title="):
             val = payload[len("title="):].strip()
-            tfd_state.update_meta(title=val)
+            self._write_tfd_meta_value("title", val)
+            self._fire_snajper_signal("tfd_title", val, source="NEXTION_PHYSICAL")
             logs.append(f"{key} TFD SET TITLE: {val}")
             
-            # Wymuszenie odesłania statusu SAVED na ekran Nextion
-            self._tfd_save_status_until = time.time() + 2.0
-            self._tfd_save_status_visible = False
-            self.last_sync = 0
-            self._sent_cache.clear()
+            # Status SAVED idzie celowo przez istniejącą kolejkę Snajpera na 1 sekundę.
+            self._show_tfd_save_status()
+            self.flush_snajper_commands()
             return True
 
         if payload.startswith("director="):
             val = payload[len("director="):].strip()
-            tfd_state.update_meta(director=val)
+            self._write_tfd_meta_value("director", val)
+            self._fire_snajper_signal("tfd_director", val, source="NEXTION_PHYSICAL")
             logs.append(f"{key} TFD SET DIRECTOR: {val}")
             
-            # Wymuszenie odesłania statusu SAVED na ekran Nextion
-            self._tfd_save_status_until = time.time() + 2.0
-            self._tfd_save_status_visible = False
-            self.last_sync = 0
-            self._sent_cache.clear()
+            # Status SAVED idzie celowo przez istniejącą kolejkę Snajpera na 1 sekundę.
+            self._show_tfd_save_status()
+            self.flush_snajper_commands()
+            return True
+
+        if payload.startswith("ui_cut="):
+            raw_val = payload[len("ui_cut="):].strip()
+            enabled = 1 if raw_val == "1" else 0
+            self._nextion_ui_cut = bool(enabled)
+            self._write_tfd_meta_value("nextion_ui_cut", enabled)
+            self._fire_snajper_signal("nextion_ui_cut", enabled, source="NEXTION_PHYSICAL")
+            logs.append(f"{key} TFD SET UI_CUT: {enabled}")
+            self._show_tfd_save_status()
+            self.flush_snajper_commands()
             return True
 
         return False
@@ -706,3 +1010,6 @@ class TarzanNextionBridge:
         self.rrp_state[comp] = value
         self.rrp_state["rrp_rev"] += 1
         self._update_bus_from_rrp()
+
+    def nextion_sync(self, force: bool = False) -> None:
+        return self.flush_snajper_commands()

@@ -42,6 +42,19 @@ function updateUI(data) {
             const ax = data.axes['axis' + i];
             const value = (ax && typeof ax === 'object') ? (ax.pos ?? '00000') : (ax ?? '00000');
             setText('t_axis' + i, value, '00000');
+            
+            // Obsługa stanu aktywnego (ikona osi)
+            const axisIcon = document.querySelector(`.axis-item:nth-child(${i < 4 ? i+1 : (i === 4 ? 2 : 1)}) img`);
+            // Uwaga: selektor zależy od struktury HTML (Left: 0,1,2,3; Right: 5,4)
+            // Lepiej użyć ID lub data-atrybutów, ale spróbujmy dopasować do struktury
+            const iconEl = document.getElementById('t_axis' + i)?.previousElementSibling;
+            if (iconEl && iconEl.tagName === 'IMG') {
+                if (ax && ax.moving) {
+                    iconEl.classList.add('axis-active');
+                } else {
+                    iconEl.classList.remove('axis-active');
+                }
+            }
         }
     }
 
@@ -50,6 +63,21 @@ function updateUI(data) {
         setText('t_limits', data.sensors.limits, 'OK');
         setText('t_shock', data.sensors.shock, 'OK');
         setText('t_light', data.sensors.light, '00000');
+
+        // Obsługa ikon sensorów
+        const sensorIcons = {
+            't_laser': data.sensors.laser !== 'OFF' && data.sensors.laser !== '0',
+            't_limits': data.sensors.limits !== 'OK',
+            't_shock': data.sensors.shock !== 'OK' && data.sensors.shock !== 'OFF' && data.sensors.shock !== '0',
+        };
+
+        for (const [id, active] of Object.entries(sensorIcons)) {
+            const iconEl = document.getElementById(id)?.previousElementSibling;
+            if (iconEl && iconEl.tagName === 'IMG') {
+                if (active) iconEl.classList.add('sensor-active');
+                else iconEl.classList.remove('sensor-active');
+            }
+        }
 
         const tempVal = data.sensors.temp ?? '22C';
         const tempText = String(tempVal).toUpperCase().includes('C') ? String(tempVal) : String(tempVal) + 'C';
@@ -60,6 +88,16 @@ function updateUI(data) {
 
     setText('t1', data.title, 'TYTUŁ FILMU');
     setText('t2', data.director, 'REŻYSER');
+
+    // Obsługa ikony ujęcia (klaps otwarty/zamknięty)
+    const takeIcon = document.querySelector('.take-icon');
+    if (takeIcon) {
+        if (Number(data.clap || 0) === 1) {
+            takeIcon.src = "/img/take/take_open_128.png";
+        } else {
+            takeIcon.src = "/img/take/take_closed_128.png";
+        }
+    }
 
     const clap = getEl('clap-indicator');
     const clapState = Number(data.clap || 0);

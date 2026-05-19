@@ -84,6 +84,9 @@ class TFDHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(200)
                 if img_path.suffix == '.png': self.send_header('Content-type', 'image/png')
                 elif img_path.suffix == '.jpg': self.send_header('Content-type', 'image/jpeg')
+                
+                # Dodanie cache dla obrazów (1 godzina) aby ograniczyć ruch w logach
+                self.send_header('Cache-Control', 'public, max-age=3600')
                 self.end_headers()
                 with open(img_path, 'rb') as f:
                     self.wfile.write(f.read())

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from core.tarzanSnajper import create_default_tarzan_snajper, TkCanvasSnajperAdapter, TkWidgetSnajperAdapter
 
 import copy
 from pathlib import Path
@@ -183,6 +184,18 @@ class AxisSandboxModel:
     MIN_NODE_GAP_MS = 500
 
     def __init__(self, mechanics: AxisMechanics) -> None:
+
+        # TARZAN_SNAJPER_SANDBOX_SECTION_INIT_CORE
+
+        self.tarzan_snajper = create_default_tarzan_snajper()
+
+        self.snajper_canvas_adapter = TkCanvasSnajperAdapter()
+
+        self.snajper_tk_adapter = TkWidgetSnajperAdapter()
+
+        self.tarzan_snajper.register_adapter("sandbox_canvas", self.snajper_canvas_adapter)
+
+        self.tarzan_snajper.register_adapter("sandbox_tkinter", self.snajper_tk_adapter)
         self.mechanics = copy.deepcopy(mechanics)
         self.nodes: List[AxisNode] = self._build_default_nodes()
         self._curve_cache: tuple[tuple[int, float], ...] | None = None
@@ -983,3 +996,77 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+    # -------------------------------------------------------------------------
+    # TARZAN_SNAJPER — sekcje Sandbox osi
+    # -------------------------------------------------------------------------
+
+    def sandbox_section_snajper_fire(self, section: str, payload=None) -> None:
+        key = f"{section}:{payload}"
+        if getattr(self, "sandbox_section_last_values", {}).get(section) == key:
+            return
+        self.sandbox_section_last_values[section] = key
+
+        if section == "curve":
+            self._sandbox_section_curve(payload)
+        elif section == "step_preview":
+            self._sandbox_section_step_preview(payload)
+        elif section == "metrics":
+            self._sandbox_section_metrics(payload)
+
+    def _sandbox_section_curve(self, payload=None) -> None:
+        if hasattr(self, "tarzan_snajper"):
+            self.tarzan_snajper.fire("sandbox_curve", self._sandbox_curve_coords())
+
+    def _sandbox_section_step_preview(self, payload=None) -> None:
+        if hasattr(self, "tarzan_snajper"):
+            self.tarzan_snajper.fire("sandbox_step_preview", self._sandbox_step_coords())
+
+    def _sandbox_section_metrics(self, payload=None) -> None:
+        if hasattr(self, "tarzan_snajper"):
+            self.tarzan_snajper.fire("sandbox_metrics", self._sandbox_metrics_text())
+
+    def _sandbox_curve_coords(self):
+        points = None
+        for name in ("curve_points", "points", "nodes"):
+            if hasattr(self, name):
+                points = getattr(self, name)
+                break
+        if points is None and hasattr(self, "model"):
+            for name in ("curve_points", "points", "nodes"):
+                if hasattr(self.model, name):
+                    points = getattr(self.model, name)
+                    break
+        if points is None:
+            return ()
+        coords = []
+        for point in points:
+            if isinstance(point, (tuple, list)) and len(point) >= 2:
+                coords.extend([point[0], point[1]])
+            elif hasattr(point, "x") and hasattr(point, "y"):
+                coords.extend([point.x, point.y])
+            elif hasattr(point, "time_ms") and hasattr(point, "value"):
+                coords.extend([point.time_ms, point.value])
+        return tuple(coords)
+
+    def _sandbox_step_coords(self):
+        source = None
+        for name in ("step_preview", "step_bars", "steps", "protocol_rows", "protocol"):
+            if hasattr(self, name):
+                source = getattr(self, name)
+                break
+        if source is None:
+            return ()
+        coords = []
+        for idx, row in enumerate(source):
+            if isinstance(row, dict):
+                x = row.get("time_ms", idx)
+                y = row.get("STEP", row.get("step", 0))
+                coords.extend([x, 0, x, y])
+            elif isinstance(row, (tuple, list)) and len(row) >= 2:
+                coords.extend([row[0], 0, row[0], row[1]])
+        return tuple(coords)
+
+    def _sandbox_metrics_text(self) -> str:
+        selected = getattr(self, "selected_index", getattr(self, "selected_point_index", None))
+        return f"selected={selected}"

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from core.tarzanSnajper import create_default_tarzan_snajper, TkCanvasSnajperAdapter, TkWidgetSnajperAdapter
 
 import copy
 import json
@@ -567,6 +568,18 @@ class IconRenderer:
     """Renderer ikon slotów TAKE z cache."""
 
     def __init__(self, ui: UiSettings) -> None:
+
+        # TARZAN_SNAJPER_EHR_SECTION_INIT_CORE
+
+        self.tarzan_snajper = create_default_tarzan_snajper()
+
+        self.snajper_canvas_adapter = TkCanvasSnajperAdapter()
+
+        self.snajper_tk_adapter = TkWidgetSnajperAdapter()
+
+        self.tarzan_snajper.register_adapter("ehr_canvas", self.snajper_canvas_adapter)
+
+        self.tarzan_snajper.register_adapter("ehr_tkinter", self.snajper_tk_adapter)
         self.ui = ui
         self.base_cache: dict[tuple[str, int, int], Image.Image | None] = {}
         self.photo_cache: dict[tuple[Any, ...], Any] = {}
@@ -3889,3 +3902,118 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 def main() -> None:
     app = TarzanEhrMultiAxisWindow()
     app.mainloop()
+
+    # -------------------------------------------------------------------------
+    # TARZAN_SNAJPER — sekcje EHR
+    # -------------------------------------------------------------------------
+
+    def ehr_section_snajper_fire(self, section: str, payload=None) -> None:
+        key = f"{section}:{payload}"
+        if getattr(self, "ehr_section_last_values", {}).get(section) == key:
+            return
+        self.ehr_section_last_values[section] = key
+
+        if section == "axis_curve":
+            self._ehr_section_axis_curve(payload)
+        elif section == "step_preview":
+            self._ehr_section_step_preview(payload)
+        elif section == "axis_metrics":
+            self._ehr_section_axis_metrics(payload)
+        elif section == "take_slots":
+            self._ehr_section_take_slots(payload)
+        elif section == "timeline":
+            self._ehr_section_timeline(payload)
+
+    def _ehr_section_axis_curve(self, payload=None) -> None:
+        axis_index = self._ehr_payload_axis_index(payload)
+        coords = self._ehr_axis_curve_coords(axis_index)
+        if hasattr(self, "tarzan_snajper"):
+            self.tarzan_snajper.fire(f"ehr_axis_{axis_index}_curve", coords)
+
+    def _ehr_section_step_preview(self, payload=None) -> None:
+        axis_index = self._ehr_payload_axis_index(payload)
+        coords = self._ehr_axis_step_coords(axis_index)
+        if hasattr(self, "tarzan_snajper"):
+            self.tarzan_snajper.fire(f"ehr_axis_{axis_index}_step_preview", coords)
+
+    def _ehr_section_axis_metrics(self, payload=None) -> None:
+        axis_index = self._ehr_payload_axis_index(payload)
+        text = self._ehr_axis_metrics_text(axis_index)
+        if hasattr(self, "tarzan_snajper"):
+            self.tarzan_snajper.fire(f"ehr_axis_{axis_index}_metrics", text)
+
+    def _ehr_section_take_slots(self, payload=None) -> None:
+        if not hasattr(self, "tarzan_snajper"):
+            return
+        slots = getattr(self, "take_slot_widgets", {})
+        if isinstance(slots, dict):
+            for slot_index, widget in slots.items():
+                self.snajper_tk_adapter.register_widget("ehr_take_slots", f"slot_{slot_index}", widget)
+
+    def _ehr_section_timeline(self, payload=None) -> None:
+        if hasattr(self, "tarzan_snajper"):
+            self.tarzan_snajper.fire("timeline_cursor", self._ehr_timeline_cursor_coords())
+
+    def _ehr_payload_axis_index(self, payload=None) -> int:
+        if isinstance(payload, int):
+            return max(0, min(5, payload))
+        if isinstance(payload, dict):
+            return max(0, min(5, int(payload.get("axis_index", 0))))
+        return int(getattr(self, "active_axis_index", 0) or 0)
+
+    def _ehr_axis_curve_coords(self, axis_index: int):
+        axes = getattr(self, "axis_models", getattr(self, "axes", []))
+        axis = axes[axis_index] if axis_index < len(axes) else None
+        points = None
+        if axis is not None:
+            for name in ("nodes", "points", "curve_points"):
+                if hasattr(axis, name):
+                    points = getattr(axis, name)
+                    break
+        if points is None:
+            return ()
+        coords = []
+        for point in points:
+            if isinstance(point, (tuple, list)) and len(point) >= 2:
+                coords.extend([point[0], point[1]])
+            elif hasattr(point, "x") and hasattr(point, "y"):
+                coords.extend([point.x, point.y])
+            elif hasattr(point, "time_ms") and hasattr(point, "value"):
+                coords.extend([point.time_ms, point.value])
+        return tuple(coords)
+
+    def _ehr_axis_step_coords(self, axis_index: int):
+        source = None
+        for attr in ("axis_step_previews", "axis_steps", "protocol_by_axis"):
+            if hasattr(self, attr):
+                obj = getattr(self, attr)
+                if isinstance(obj, dict):
+                    source = obj.get(axis_index)
+                elif isinstance(obj, (list, tuple)) and axis_index < len(obj):
+                    source = obj[axis_index]
+                break
+        if source is None:
+            return ()
+        coords = []
+        for idx, row in enumerate(source):
+            if isinstance(row, dict):
+                x = row.get("time_ms", idx)
+                y = row.get("STEP", row.get("step", 0))
+                coords.extend([x, 0, x, y])
+            elif isinstance(row, (tuple, list)) and len(row) >= 2:
+                coords.extend([row[0], 0, row[0], row[1]])
+        return tuple(coords)
+
+    def _ehr_axis_metrics_text(self, axis_index: int) -> str:
+        axes = getattr(self, "axis_models", getattr(self, "axes", []))
+        axis = axes[axis_index] if axis_index < len(axes) else None
+        if axis is None:
+            return f"axis_{axis_index}"
+        axis_def = getattr(axis, "axis_def", None)
+        if axis_def is not None and hasattr(axis_def, "axis_name"):
+            return str(axis_def.axis_name)
+        return str(getattr(axis, "axis_name", getattr(axis, "name", f"axis_{axis_index}")))
+
+    def _ehr_timeline_cursor_coords(self):
+        value = getattr(self, "current_time_ms", 0)
+        return (value, 0, value, 100)

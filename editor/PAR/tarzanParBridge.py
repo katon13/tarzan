@@ -27,6 +27,27 @@ class TarzanParBridge:
         self.take_player = TarzanParTakePlayer(self.bus, self.mapper)
         if after is not None and after_cancel is not None:
             self.take_player.set_scheduler(after, after_cancel)
+        
+        # NEXTION SNAJPER: fizyczny most Nextiona jako pod-komponent
+        from hardware.tarzanNextion.bridge import TarzanNextionBridge
+        self.nextion = TarzanNextionBridge(self.bus)
+
+    def nextion_connect(self):
+        return self.nextion.connect_enabled()
+
+    def nextion_sync(self, force: bool = False):
+        return self.nextion.sync(force=force)
+
+    def poll(self):
+        return self.nextion.poll()
+
+    def flush_snajper_commands(self):
+        if hasattr(self.nextion, "flush_snajper_commands"):
+            return self.nextion.flush_snajper_commands()
+
+    def queue_snajper_command(self, scope: str, component: str, prop: str, value):
+        if hasattr(self.nextion, "queue_snajper_command"):
+            return self.nextion.queue_snajper_command(scope, component, prop, value)
 
     def set_mode(self, mode: str) -> None:
         self.bus.set_mode(mode)

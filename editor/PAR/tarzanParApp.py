@@ -1,4 +1,5 @@
 from __future__ import annotations
+from core.tarzanSnajper import create_default_tarzan_snajper, NextionPhysicalSnajperAdapter
 
 import json
 import time
@@ -216,19 +217,38 @@ class TarzanParApp(tk.Tk):
 
         self.bus = get_signal_bus("TEST")
         self.bridge = TarzanParBridge(self.bus, after=self.after, after_cancel=self.after_cancel)
+        self.tarzan_snajper = create_default_tarzan_snajper()
+        self.bridge.tarzan_snajper = self.tarzan_snajper
+        self.tarzan_snajper.register_adapter("physical_nextion", NextionPhysicalSnajperAdapter(self.bridge))
+        
+        # TARZAN_SNAJPER: Rejestracja adaptera dla Tkinter w PAR
+        from core.tarzanSnajper import TkWidgetSnajperAdapter
+        self.tarzan_snajper.register_adapter("par_tkinter", TkWidgetSnajperAdapter())
+
+        # TARZAN_SNAJPER: Rejestracja adaptera dla Canvas Preview
+        from core.tarzanSnajper import TkCanvasSnajperAdapter
+        self.par_canvas_adapter = TkCanvasSnajperAdapter()
+        self.tarzan_snajper.register_adapter("canvas_preview", self.par_canvas_adapter)
+
+        # TARZAN_SNAJPER: fizyczny Nextion używa katalogu celów z core/tarzanSnajper.py.
+        # To jest brakujące stałe połączenie BUS -> Snajper. Bez tego flush może nie mieć
+        # pending commands dla TC/TAKE po bus.set_take_time(...).
+        self.bus.subscribe(lambda name, state: self.tarzan_snajper.fire_from_signal(name, getattr(state, "value", state)))
+        # Nie rejestrujemy ręcznych map w panelach.
         self.panels = TarzanParPanels(self, self.bus)
         self.bus.subscribe(self.panels.on_state_change)
         self.take_label = None
 
         self.build()
-        self.refresh()
+        # WYCIETE HARD CUT V3: stary model odswiezania usuniety.
         try:
             self.bridge.nextion_connect()
             self.bridge.nextion_sync(force=True)
         except Exception:
             pass
-        self.after(50, self.nextion_tick)
-        self.after(200, self.tick)
+        self.after_idle(self.snajper_render_initial_structure)
+        self.after(30, self.nextion_snajper_tick)
+        # USUNIĘTE: PAR_APP.tick wyłączony
 
     def load_layout(self):
         try:
@@ -652,12 +672,12 @@ class TarzanParApp(tk.Tk):
 
     def hide_panel(self, key):
         self.visible[key] = False
-        self.refresh()
+        # WYCIETE HARD CUT V3: stary model odswiezania usuniety.
         self.save_layout()
 
     def toggle_panel(self, key):
         self.visible[key] = not self.visible.get(key, False)
-        self.refresh()
+        # WYCIETE HARD CUT V3: stary model odswiezania usuniety.
         self.save_layout()
 
 
@@ -1223,7 +1243,7 @@ class TarzanParApp(tk.Tk):
             return temp_zone_layout, temp_panel_layout
 
         def draw_preview(*_):
-            canvas.delete("all")
+            # WYCIETE HARD CUT V3: stary model odswiezania usuniety.
             try:
                 cols = max(1, int(master_cols.get()))
                 rows = max(1, int(master_rows.get()))
@@ -1823,7 +1843,7 @@ class TarzanParApp(tk.Tk):
                 pass
             self._clamp_zone_layout()
             self._clamp_panel_layout()
-            self.refresh()
+            # WYCIETE HARD CUT V3: stary model odswiezania usuniety.
             try:
                 draw_preview()
             except Exception:
@@ -1839,7 +1859,7 @@ class TarzanParApp(tk.Tk):
             self.master_grid = dict(DEFAULT_MASTER_GRID)
             self.zone_layout = {k: dict(v) for k, v in DEFAULT_ZONE_LAYOUT.items()}
             self.row_height_px = DEFAULT_ROW_HEIGHT_PX
-            self.refresh()
+            # WYCIETE HARD CUT V3: stary model odswiezania usuniety.
             self.save_layout()
             win.destroy()
 
@@ -1894,17 +1914,38 @@ class TarzanParApp(tk.Tk):
     def stop_take(self):
         self.bridge.stop_take()
 
-    @profile_method("PAR_APP.nextion_tick")
-    def nextion_tick(self):
+    @profile_method("PAR_APP.nextion_snajper_tick")
+    def nextion_snajper_tick(self):
         try:
             self.bridge.poll()
-            self.bridge.sync(force=False)
-            if hasattr(self.panels, "nextion_refresh_previews"):
-                self.panels.nextion_refresh_previews()
+            if hasattr(self.bridge, "flush_snajper_commands"):
+                self.bridge.flush_snajper_commands()
+
+            # NEXTION_PHYSICAL_RESYNC
+            now = time.time()
+            if not hasattr(self, "_last_nextion_resync_slow"):
+                self._last_nextion_resync_slow = 0
+            if not hasattr(self, "_last_nextion_resync_fast"):
+                self._last_nextion_resync_fast = 0
+            
+            # FAST RESYNC: co 100ms
+            if now - self._last_nextion_resync_fast > 0.1:
+                self._last_nextion_resync_fast = now
+                if hasattr(self, "tarzan_snajper"):
+                    self.tarzan_snajper.fire_nextion_physical_resync(self.bus, fast=True)
+
+            # SLOW RESYNC: co 2000 ms dla pól trwałych
+            if now - self._last_nextion_resync_slow > 2.0:
+                self._last_nextion_resync_slow = now
+                if hasattr(self, "tarzan_snajper"):
+                    self.tarzan_snajper.fire_nextion_physical_resync(self.bus, fast=False)
+
         except Exception as exc:
             if hasattr(self.bus, "log"):
-                self.bus.log("PAR_ERROR", f"Nextion Tick Error: {exc}")
-        self.after(50, self.nextion_tick)
+                self.bus.log("PAR_ERROR", f"Nextion Snajper Tick Error: {exc}")
+        self.after(30, self.nextion_snajper_tick)
+
+
 
     def update_take_label(self):
         if not self.take_label:
@@ -1915,11 +1956,57 @@ class TarzanParApp(tk.Tk):
         else:
             self.take_label.configure(text=f"TAKE: {Path(take.path).name}\nrows={len(take.rows)} duration={take.duration_ms} ms\ntime={self.bus.take_time_ms} ms")
 
-    @profile_method("PAR_APP.tick")
-    def tick(self):
-        self.clock.configure(text=f"CZAS SYSTEMU: {time.strftime('%H:%M:%S')}    TAKE: {self.bus.take_time_ms} ms    FPS: 60")
-        self.panels.update_log()
-        pass
-        # Timeline aktualizuje się zbiorczo po zmianach sygnałów.
-        self.update_take_label()
-        self.after(200, self.tick)
+
+    def snajper_tick_dispatch(self) -> None:
+        """
+        TARZAN_SNAJPER STAGE8:
+        PAR_APP.tick nie może robić odświeżania UI.
+        Tick może zasilać logikę i BUS, a UI idzie przez Snajpera sekcyjnego.
+        """
+        panels = getattr(self, "panels", None)
+        if panels is None:
+            return
+        section_snajper = getattr(panels, "section_snajper", None)
+        if section_snajper is None and hasattr(panels, "_ensure_section_snajper"):
+            panels._ensure_section_snajper()
+            section_snajper = getattr(panels, "section_snajper", None)
+        if section_snajper is None:
+            return
+        section_snajper.fire("protocol_tick", getattr(self, "_tick_counter", 0))
+
+    def snajper_fire_layout(self, selected_cell=None, panel_status=None, zone_label=None) -> None:
+        snajper = getattr(self, "tarzan_snajper", None)
+        if snajper is None:
+            return
+        if selected_cell is not None:
+            snajper.fire("layout_selected_cell", selected_cell)
+        if panel_status is not None:
+            snajper.fire("layout_panel_status", panel_status)
+        if zone_label is not None:
+            snajper.fire("layout_zone_label", zone_label)
+
+    def snajper_render_initial_structure(self) -> None:
+        """
+        TARZAN_SNAJPER ETAP 1:
+        Snajper nie zastępuje pierwszego renderu struktury PAR.
+        Ta metoda buduje panele w środku okna jeden raz po starcie.
+        Nie jest dynamicznym refresh wartości.
+        """
+        self.refresh()
+        
+        # Przekazujemy Snajpera do TFDState, aby umożliwić celowane aktualizacje z TFD
+        try:
+            from editor.TFD.tfd_state import tfd_state
+            if tfd_state and hasattr(self, "tarzan_snajper"):
+                tfd_state.set_snajper(self.tarzan_snajper)
+        except Exception as e:
+            print(f"SNAJPER ERROR: Could not set snajper to tfd_state: {e}")
+
+        # Rejestracja Canvas Preview w Snajperze po pierwszym renderze
+        for screen_key, widget in getattr(self.panels, "nextion_preview_widgets", {}).items():
+            if hasattr(self, "par_canvas_adapter"):
+                try:
+                    self.par_canvas_adapter.register_canvas_panel(screen_key, widget)
+                except Exception as e:
+                    print(f"SNAJPER ERROR: Could not register canvas panel {screen_key}: {e}")
+

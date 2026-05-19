@@ -33,12 +33,12 @@
   ],
   "active_slot": 6,
   "axis_activity": {
-    "oś pozioma kamery": true,
     "oś pionowa kamery": true,
-    "oś pochyłu kamery": true,
+    "oś pochyłu ramienia": true,
     "oś ostrości kamery": true,
-    "oś pionowa ramienia": true,
+    "oś pozioma kamery": true,
     "oś pozioma ramienia": true,
+    "oś pionowa ramienia": true,
     "DRON": true
   }
 }

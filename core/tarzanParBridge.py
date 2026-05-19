@@ -65,6 +65,21 @@ class TarzanParBridge:
         if self.nextion is not None:
             self.nextion.disconnect_all()
 
+
+    # ------------------------------------------------------------------
+    # TARZAN_SNAJPER — delegacja do hardware/tarzanNextion/bridge.py
+    # ------------------------------------------------------------------
+    def poll(self):
+        return self.nextion_poll()
+
+    def queue_snajper_command(self, scope: str, component: str, prop: str, value) -> None:
+        if self.nextion is not None and hasattr(self.nextion, "queue_snajper_command"):
+            self.nextion.queue_snajper_command(scope, component, prop, value)
+
+    def flush_snajper_commands(self) -> None:
+        if self.nextion is not None and hasattr(self.nextion, "flush_snajper_commands"):
+            self.nextion.flush_snajper_commands()
+
     def set_mode(self, mode: str) -> None:
         self.bus.set_mode(mode)
 

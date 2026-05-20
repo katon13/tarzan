@@ -1372,10 +1372,21 @@ class TarzanNextionBridge:
                 self.bus.force_signal(f"rrp_{player}_{key}", value, source="NEXTION_PHYSICAL")
                 self.bus.force_signal(f"par_rrp_{player}_{key}", value, source="NEXTION_PHYSICAL")
 
-            # Kompatybilność dla starego preview: nie jest to już źródło prawdy.
+            # Aktualny stan RRP dla PAR/SignalBus.
             self.bus.force_signal(f"par_rrp_{player}_axis", binding["selected_axis"], source="NEXTION_PHYSICAL")
             self.bus.force_signal(f"par_rrp_{player}_dir", direction, source="NEXTION_PHYSICAL")
             self.bus.force_signal(f"par_rrp_{player}_sens", sensitivity, source="NEXTION_PHYSICAL")
+
+            # Wskaźnik RRP: P1/P2 pokazuje licznik impulsów aktualnie wybranej osi.
+            selected_axis = binding.get("selected_axis", "")
+            counter = 0
+            if selected_axis:
+                counter = self.bus.get(f"axis_{selected_axis}_pulses", 0)
+            self._fire_snajper_signal(
+                f"rrp_{player}_value",
+                counter,
+                source="NEXTION_PHYSICAL",
+            )
 
         rec_auto_active = any(en_sig in RRP_REC_AUTO_EN_SIGNALS for en_sig in active_en_signals)
         self.bus.write_output("ui_rec_auto_enable", 1 if rec_auto_active else 0, source="NEXTION_PHYSICAL")

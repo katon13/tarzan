@@ -42,6 +42,10 @@ class TarzanSnajper:
         self.adapters: Dict[str, TarzanSnajperAdapter] = {}
         self.last_values: Dict[str, str] = {}
         self.enabled: bool = True
+        self._rrp_selected_axis: Dict[str, str] = {
+            "p1": "",
+            "p2": "",
+        }
 
     def register_adapter(self, name: str, adapter: TarzanSnajperAdapter) -> None:
         self.adapters[name] = adapter
@@ -84,10 +88,41 @@ class TarzanSnajper:
     def fire_from_signal(self, raw_signal: str, value: Any) -> None:
         if not self.enabled:
             return
+
         logical_signal = self.signal_map.get(raw_signal) or resolve_caliber(raw_signal)
+
+        self._remember_rrp_selected_axis(raw_signal, logical_signal, value)
+
         if not logical_signal:
             return
+
         self.fire(logical_signal, value)
+        self._fire_rrp_value_from_axis_pulses(raw_signal, value)
+
+    def _remember_rrp_selected_axis(self, raw_signal: str, logical_signal: str | None, value: Any) -> None:
+        signal_names = {str(raw_signal or "").strip(), str(logical_signal or "").strip()}
+
+        if signal_names.intersection({"rrp_p1_selected_axis", "par_rrp_p1_selected_axis", "par_rrp_p1_axis"}):
+            self._rrp_selected_axis["p1"] = str(value or "").strip()
+            return
+
+        if signal_names.intersection({"rrp_p2_selected_axis", "par_rrp_p2_selected_axis", "par_rrp_p2_axis"}):
+            self._rrp_selected_axis["p2"] = str(value or "").strip()
+            return
+
+    def _fire_rrp_value_from_axis_pulses(self, raw_signal: str, value: Any) -> None:
+        raw = str(raw_signal or "").strip()
+
+        if not raw.startswith("axis_") or not raw.endswith("_pulses"):
+            return
+
+        selected_axis = raw[len("axis_"):-len("_pulses")]
+
+        if self._rrp_selected_axis.get("p1") == selected_axis:
+            self.fire("rrp_p1_value", value)
+
+        if self._rrp_selected_axis.get("p2") == selected_axis:
+            self.fire("rrp_p2_value", value)
 
     def fire_many(self, updates: Dict[str, Any]) -> None:
         for logical_signal, value in updates.items():

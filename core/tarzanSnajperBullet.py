@@ -139,7 +139,7 @@ def take_label(value: Any) -> str:
         return f"{int(m.group(1)):03d} {int(m.group(2)):02d}"
 
     try:
-        return f"{int(float(text)):03d}"
+        return f"{int(float(text)):03d} 00"
     except Exception:
         return text
 

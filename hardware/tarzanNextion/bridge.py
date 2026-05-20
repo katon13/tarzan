@@ -41,18 +41,18 @@ def _rrp_binding(selected_axis: str, step_signal: str, dir_signal: str, en_signa
 # P1 i P2 mają osobne wiersze przycisków, dlatego rozpoznanie indeksu jest osobne dla playera.
 RRP_AXIS_BY_NEXTION_INDEX = {
     "p1": {
-        0: _rrp_binding("cam_h", "axis_cam_h_step", "axis_cam_h_dir", "axis_cam_h_en"),
-        1: _rrp_binding("cam_v", "axis_cam_v_step", "axis_cam_v_dir", "axis_cam_v_en"),
+        0: _rrp_binding("cam_v", "axis_cam_v_step", "axis_cam_v_dir", "axis_cam_v_en"),
+        1: _rrp_binding("arm_t", "axis_arm_t_step", "axis_arm_t_dir", "axis_arm_t_en"),
         2: _rrp_binding("cam_f", "axis_cam_f_step", "axis_cam_f_dir", "axis_cam_f_en"),
-        3: _rrp_binding("arm_t", "axis_arm_t_step", "axis_arm_t_dir", "axis_arm_t_en"),
+        3: _rrp_binding("cam_h", "axis_cam_h_step", "axis_cam_h_dir", "axis_cam_h_en"),
         4: _rrp_binding("arm_h", "axis_arm_h_step", "axis_arm_h_dir", "axis_arm_h_en"),
         5: _rrp_binding("arm_v", "axis_arm_v_step", "axis_arm_v_dir", "axis_arm_v_en"),
     },
     "p2": {
-        0: _rrp_binding("cam_h", "axis_cam_h_step", "axis_cam_h_dir", "axis_cam_h_en"),
-        1: _rrp_binding("cam_v", "axis_cam_v_step", "axis_cam_v_dir", "axis_cam_v_en"),
+        0: _rrp_binding("cam_v", "axis_cam_v_step", "axis_cam_v_dir", "axis_cam_v_en"),
+        1: _rrp_binding("arm_t", "axis_arm_t_step", "axis_arm_t_dir", "axis_arm_t_en"),
         2: _rrp_binding("cam_f", "axis_cam_f_step", "axis_cam_f_dir", "axis_cam_f_en"),
-        3: _rrp_binding("arm_t", "axis_arm_t_step", "axis_arm_t_dir", "axis_arm_t_en"),
+        3: _rrp_binding("cam_h", "axis_cam_h_step", "axis_cam_h_dir", "axis_cam_h_en"),
         4: _rrp_binding("arm_h", "axis_arm_h_step", "axis_arm_h_dir", "axis_arm_h_en"),
         5: _rrp_binding("arm_v", "axis_arm_v_step", "axis_arm_v_dir", "axis_arm_v_en"),
     },
@@ -135,7 +135,20 @@ class TarzanNextionBridge:
         self.rrp_state = {
             "va_p1_axis": -1, "va_p1_dir": 0, "va_p1_val": 0, "h_p1_sens": 0,
             "va_p2_axis": -1, "va_p2_dir": 0, "va_p2_val": 0, "h_p2_sens": 0,
+            "axis_cam_h_pulses": 0,
+            "axis_cam_v_pulses": 0,
+            "axis_cam_f_pulses": 0,
+            "axis_arm_t_pulses": 0,
+            "axis_arm_h_pulses": 0,
+            "axis_arm_v_pulses": 0,
             "rrp_rev": 0
+        }
+
+        # RRP: suwak odtwarzamy z RAM dopiero po realnym wyborze osi.
+        # Bez osi PC nie wymusza h_p*_sens.val po PAGE/sendme.
+        self._rrp_player_initialized = {
+            "p1": False,
+            "p2": False,
         }
 
         # TFD metadata bootstrap: na starcie odtwarzamy stan zapisany w JSON,
@@ -1093,6 +1106,13 @@ class TarzanNextionBridge:
             
         self.active_pages[screen_key] = page_id
         snajper = getattr(self, "tarzan_snajper", None)
+
+        # rrp_main: Nextion po Preinitialize lokalnie zeruje przyciski, kierunek,
+        # suwaki i liczniki. Źródłem odtworzenia jest RAM Bridge, więc najpierw
+        # publikujemy aktualny self.rrp_state do SignalBus, a dopiero potem strzela Snajper.
+        if page_id == "rrp_main":
+            self._update_bus_from_rrp()
+
         if snajper is None:
             self._append_transport_log(f"EV {screen_key}: PAGE START REFRESH SKIP {page_id} reason=NO_SNAJPER")
             self.flush_snajper_commands()
@@ -1130,7 +1150,35 @@ class TarzanNextionBridge:
                     logicals.append(logical)
 
             for logical in set(logicals):
-                fired += self._force_page_target_from_logical(snajper, page_id, logical)
+                explicit_value = None
+                if page_id == "rrp_main":
+                    if logical == "rrp_p1_sens":
+                        if not self._rrp_player_initialized.get("p1", False):
+                            continue
+                        explicit_value = self.rrp_state.get("h_p1_sens", 0)
+                    elif logical == "rrp_p2_sens":
+                        if not self._rrp_player_initialized.get("p2", False):
+                            continue
+                        explicit_value = self.rrp_state.get("h_p2_sens", 0)
+                    elif logical == "rrp_p1_dir":
+                        explicit_value = self.rrp_state.get("va_p1_dir", 0)
+                    elif logical == "rrp_p2_dir":
+                        explicit_value = self.rrp_state.get("va_p2_dir", 0)
+                    elif logical == "rrp_p1_value":
+                        explicit_value = self.rrp_state.get("va_p1_val", 0)
+                    elif logical == "rrp_p2_value":
+                        explicit_value = self.rrp_state.get("va_p2_val", 0)
+                    elif logical == "rrp_p1_axis_index":
+                        explicit_value = self.rrp_state.get("va_p1_axis", -1)
+                    elif logical == "rrp_p2_axis_index":
+                        explicit_value = self.rrp_state.get("va_p2_axis", -1)
+
+                fired += self._force_page_target_from_logical(
+                    snajper,
+                    page_id,
+                    logical,
+                    explicit_value=explicit_value,
+                )
 
         self._append_transport_log(f"EV {screen_key}: PAGE START REFRESH {page_id} targets={fired}")
         self.flush_snajper_commands()
@@ -1316,6 +1364,13 @@ class TarzanNextionBridge:
         if cmd_key == "stop" and val_int == 1:
             self.rrp_state["va_p1_axis"] = -1
             self.rrp_state["va_p2_axis"] = -1
+            self.rrp_state["va_p1_dir"] = 0
+            self.rrp_state["va_p2_dir"] = 0
+            self.rrp_state["va_p1_val"] = 0
+            self.rrp_state["va_p2_val"] = 0
+            self._rrp_player_initialized["p1"] = False
+            self._rrp_player_initialized["p2"] = False
+            self.rrp_state["rrp_rev"] += 1
         else:
             # Mapowanie nazw z rrp_main.txt na klucze w rrp_state
             # h_p1_sens -> h_p1_sens
@@ -1334,6 +1389,11 @@ class TarzanNextionBridge:
             
             target_key = mapping.get(cmd_key, cmd_key)
             self.rrp_state[target_key] = val_int
+
+            if cmd_key == "p1_ax":
+                self._rrp_player_initialized["p1"] = val_int >= 0
+            elif cmd_key == "p2_ax":
+                self._rrp_player_initialized["p2"] = val_int >= 0
         
             self.rrp_state["rrp_rev"] += 1
         self._update_bus_from_rrp()
@@ -1345,6 +1405,34 @@ class TarzanNextionBridge:
         warstw trafiają już gotowe kanoniczne nazwy osi i sygnałów.
         """
         active_en_signals = set()
+
+        # Pamięć liczników impulsów wszystkich osi RRP po stronie PC/Bridge.
+        # To nie pochodzi z Nextiona; Nextion tylko pokazuje ostatni stan z RAM.
+        axis_order = ("cam_v", "arm_t", "cam_f", "cam_h", "arm_h", "arm_v")
+        for idx, axis_name in enumerate(axis_order):
+            current = self.rrp_state.get(f"axis_{axis_name}_pulses", 0)
+            value = current
+            if self.bus:
+                for key in (
+                    f"axis_{axis_name}_pulses",
+                    f"axis_{axis_name}_pos",
+                    f"axis_{idx}_value",
+                    f"par_axis_{idx}_val",
+                    f"par_axis_{idx}_pos",
+                ):
+                    try:
+                        if hasattr(self.bus, "get"):
+                            candidate = self.bus.get(key, None)
+                        elif hasattr(self.bus, "read"):
+                            candidate = self.bus.read(key, default=None)
+                        else:
+                            candidate = None
+                    except Exception:
+                        candidate = None
+                    if candidate is not None:
+                        value = candidate
+                        break
+            self.rrp_state[f"axis_{axis_name}_pulses"] = value
 
         for player in ("p1", "p2"):
             axis_index = self.rrp_state.get(f"va_{player}_axis", -1)
@@ -1359,6 +1447,7 @@ class TarzanNextionBridge:
 
             canonical_state = {
                 "active": active,
+                "axis_index": axis_index,
                 "selected_axis": binding["selected_axis"],
                 "pot_signal": pot_signal,
                 "step_signal": binding["step_signal"],
@@ -1369,19 +1458,40 @@ class TarzanNextionBridge:
             }
 
             for key, value in canonical_state.items():
+                # Sensitivity wolno wypychać do Snajpera dopiero po realnym wyborze osi.
+                # Zera z Preinitialize Nextiona nie są prawdą PC.
+                if key == "sens" and not self._rrp_player_initialized.get(player, False):
+                    continue
                 self.bus.force_signal(f"rrp_{player}_{key}", value, source="NEXTION_PHYSICAL")
                 self.bus.force_signal(f"par_rrp_{player}_{key}", value, source="NEXTION_PHYSICAL")
 
             # Aktualny stan RRP dla PAR/SignalBus.
             self.bus.force_signal(f"par_rrp_{player}_axis", binding["selected_axis"], source="NEXTION_PHYSICAL")
             self.bus.force_signal(f"par_rrp_{player}_dir", direction, source="NEXTION_PHYSICAL")
-            self.bus.force_signal(f"par_rrp_{player}_sens", sensitivity, source="NEXTION_PHYSICAL")
+
+            # Gotowa pamięć przycisków osi RRP. Źródłem jest RAM Bridge,
+            # a nie lokalny stan Nextiona po Preinitialize.
+            # Nextion dual-state: 0 = aktywny/wciśnięty, 1 = nieaktywny.
+            selected_axis = binding.get("selected_axis", "")
+            for axis_name in axis_order:
+                btn_value = 0 if selected_axis == axis_name else 1
+                self.bus.force_signal(f"rrp_{player}_btn_{axis_name}", btn_value, source="NEXTION_PHYSICAL")
+                self.bus.force_signal(f"par_rrp_{player}_btn_{axis_name}", btn_value, source="NEXTION_PHYSICAL")
+
+            if self._rrp_player_initialized.get(player, False):
+                self.bus.force_signal(f"par_rrp_{player}_sens", sensitivity, source="NEXTION_PHYSICAL")
+                self._fire_snajper_signal(
+                    f"rrp_{player}_sens",
+                    sensitivity,
+                    source="NEXTION_PHYSICAL",
+                )
 
             # Wskaźnik RRP: P1/P2 pokazuje licznik impulsów aktualnie wybranej osi.
-            selected_axis = binding.get("selected_axis", "")
+            # Licznik jest zapisany w RAM Bridge dla każdej osi i z RAM wraca po PAGE/sendme.
             counter = 0
             if selected_axis:
-                counter = self.bus.get(f"axis_{selected_axis}_pulses", 0)
+                counter = self.rrp_state.get(f"axis_{selected_axis}_pulses", 0)
+            self.rrp_state[f"va_{player}_val"] = counter
             self._fire_snajper_signal(
                 f"rrp_{player}_value",
                 counter,

@@ -40,6 +40,62 @@ def T(adapter: str, scope: str, target: str, prop: str) -> TarzanSnajperTarget:
 
 
 DEFAULT_TARZAN_SNAJPER_TARGETS: Dict[str, List[TarzanSnajperTarget]] = {
+    'rrp_p1_axis_index': [
+        T('physical_nextion', 'rrp_main', 'va_p1_axis', 'val'),
+        T('canvas_preview', 'rrp_main', 'va_p1_axis', 'val'),
+    ],
+    'rrp_p2_axis_index': [
+        T('physical_nextion', 'rrp_main', 'va_p2_axis', 'val'),
+        T('canvas_preview', 'rrp_main', 'va_p2_axis', 'val'),
+    ],
+    'rrp_p1_btn_cam_h': [
+        T('physical_nextion', 'rrp_main', 'b_p1_cam_h', 'val'),
+        T('canvas_preview', 'rrp_main', 'b_p1_cam_h', 'val'),
+    ],
+    'rrp_p1_btn_cam_v': [
+        T('physical_nextion', 'rrp_main', 'b_p1_cam_v', 'val'),
+        T('canvas_preview', 'rrp_main', 'b_p1_cam_v', 'val'),
+    ],
+    'rrp_p1_btn_cam_f': [
+        T('physical_nextion', 'rrp_main', 'b_p1_cam_f', 'val'),
+        T('canvas_preview', 'rrp_main', 'b_p1_cam_f', 'val'),
+    ],
+    'rrp_p1_btn_arm_t': [
+        T('physical_nextion', 'rrp_main', 'b_p1_cam_t', 'val'),
+        T('canvas_preview', 'rrp_main', 'b_p1_cam_t', 'val'),
+    ],
+    'rrp_p1_btn_arm_h': [
+        T('physical_nextion', 'rrp_main', 'b_p1_arm_h', 'val'),
+        T('canvas_preview', 'rrp_main', 'b_p1_arm_h', 'val'),
+    ],
+    'rrp_p1_btn_arm_v': [
+        T('physical_nextion', 'rrp_main', 'b_p1_arm_v', 'val'),
+        T('canvas_preview', 'rrp_main', 'b_p1_arm_v', 'val'),
+    ],
+    'rrp_p2_btn_cam_h': [
+        T('physical_nextion', 'rrp_main', 'b_p2_cam_h', 'val'),
+        T('canvas_preview', 'rrp_main', 'b_p2_cam_h', 'val'),
+    ],
+    'rrp_p2_btn_cam_v': [
+        T('physical_nextion', 'rrp_main', 'b_p2_cam_v', 'val'),
+        T('canvas_preview', 'rrp_main', 'b_p2_cam_v', 'val'),
+    ],
+    'rrp_p2_btn_cam_f': [
+        T('physical_nextion', 'rrp_main', 'b_p2_cam_f', 'val'),
+        T('canvas_preview', 'rrp_main', 'b_p2_cam_f', 'val'),
+    ],
+    'rrp_p2_btn_arm_t': [
+        T('physical_nextion', 'rrp_main', 'b_p2_cam_t', 'val'),
+        T('canvas_preview', 'rrp_main', 'b_p2_cam_t', 'val'),
+    ],
+    'rrp_p2_btn_arm_h': [
+        T('physical_nextion', 'rrp_main', 'b_p2_arm_h', 'val'),
+        T('canvas_preview', 'rrp_main', 'b_p2_arm_h', 'val'),
+    ],
+    'rrp_p2_btn_arm_v': [
+        T('physical_nextion', 'rrp_main', 'b_p2_arm_v', 'val'),
+        T('canvas_preview', 'rrp_main', 'b_p2_arm_v', 'val'),
+    ],
     'rrp_p1_dir': [
         T('physical_nextion', 'rrp_main', 'b_p1_dir', 'val'),
         T('physical_nextion', 'rrp_main', 'va_p1_dir', 'val'),

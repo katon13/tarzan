@@ -222,9 +222,9 @@ function updateUI(data) {
             }
         }
 
-        const tempVal = data.sensors.temp ?? '22C';
-        const tempText = String(tempVal).toUpperCase().includes('C') ? String(tempVal) : String(tempVal) + 'C';
-        setText('t_temp', tempText, '22C');
+        const tempVal = data.sensors.temp ?? '22';
+        const tempText = String(tempVal).toUpperCase().includes('C') ? String(tempVal) : String(tempVal) + '';
+        setText('t_temp', tempText, '22');
         setText('t_xyz', data.sensors.xyz, '+00 +00 +00');
     }
 

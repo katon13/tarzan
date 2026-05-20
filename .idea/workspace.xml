@@ -12,24 +12,10 @@
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/core/tarzanSnajper.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanSnajper.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/nextion/nextion_7_layout.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/nextion/nextion_7_layout.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/nextion/nextion_7_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/nextion/nextion_7_settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/par/tarzan_par_layout.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/par/tarzan_par_layout.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/snajper/TARZAN_SNAJPER_FULL_V3.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/snajper/TARZAN_SNAJPER_FULL_V3.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/snajper/TARZAN_SNAJPER_NEXTION_COMPONENTS_FULL.csv" beforeDir="false" afterPath="$PROJECT_DIR$/docs/snajper/TARZAN_SNAJPER_NEXTION_COMPONENTS_FULL.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/snajper/TARZAN_SNAJPER_SIGNALS_FULL.csv" beforeDir="false" afterPath="$PROJECT_DIR$/docs/snajper/TARZAN_SNAJPER_SIGNALS_FULL.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/snajper/TARZAN_SNAJPER_TARGETS_FULL.csv" beforeDir="false" afterPath="$PROJECT_DIR$/docs/snajper/TARZAN_SNAJPER_TARGETS_FULL.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParApp.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.css" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.html" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/nextion7_Stats.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/nextion7_Stats.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/page1.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/page1.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/sensors_main.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/sensors_main.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/nextion/page/Nextion_take_acitve_ico_200.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/Nextion_take_acitve_ico_200.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/nextion/page/Nextion_take_ico_200.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/Nextion_take_ico_200.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/nextion/page/tlo_t.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/page/tlo_t.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/tfd_metadata.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/tfd_metadata.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.js" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tarzan_tfd_overlay.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/TFD/tfd_state.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/TFD/tfd_state.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/tarzanPAR.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/tarzanPAR.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

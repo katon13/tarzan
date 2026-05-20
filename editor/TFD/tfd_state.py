@@ -379,7 +379,7 @@ class TFDState:
             if match:
                 num = match.group(1).zfill(3)
                 ver = match.group(2)
-                self.take_number = f"{num}-{ver}" if ver else num
+                self.take_number = f"{num} {ver}" if ver else num
             else:
                 self.take_number = "001"
         else:
@@ -419,7 +419,7 @@ class TFDState:
 
         light_val = self._bus_get(bus, "sensor_light_lux", 0)
         try:
-            light = f'{str(int(light_val)).zfill(5)}'
+            light = f'{str(int(light_val)).zfill(5)} '
         except Exception:
             light = "00000"
 

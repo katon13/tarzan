@@ -45,7 +45,7 @@ Button b_level
         Scope                            : local
         Send Component ID                : disabled
         x coordinate                     : 300
-        y coordinate                     : 40
+        y coordinate                     : 240
         Width                            : 200
         Height                           : 200
         Fill                             : image
@@ -99,13 +99,13 @@ Button b_sensors
         Scope                            : local
         Send Component ID                : disabled
         x coordinate                     : 300
-        y coordinate                     : 240
+        y coordinate                     : 40
         Width                            : 200
         Height                           : 200
         Fill                             : image
         Font ID                          : 0
-        Background Picture ID (Unpressed): 14
-        Back. Picture ID (Pressed)       : 13
+        Background Picture ID (Unpressed): 65
+        Back. Picture ID (Pressed)       : 64
         Horizontal Alignment             : center
         Vertical Alignment               : center
         State                            : unpressed

@@ -31,7 +31,7 @@ Text t_title
         Horizontal Alignment: left
         Vertical Alignment  : center
         Input Type          : character
-        Text                : TYTU£ FILMU
+        Text                : 
         Max. Text Size      : 150
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -55,7 +55,7 @@ Text t_director
         Horizontal Alignment: left
         Vertical Alignment  : center
         Input Type          : character
-        Text                : RE¯YSER FILMU
+        Text                : 
         Max. Text Size      : 150
         Word wrap           : disabled
         Horizontal Spacing  : 0

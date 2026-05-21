@@ -11,8 +11,14 @@
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/tarzanSnajperTarget.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanSnajperTarget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/tarzanNextion/bridge.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/par/tarzan_par_layout.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/par/tarzan_par_layout.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/nextion7_Stats.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/nextion7_Stats.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/page1.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/page1.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/rrp_main.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/rrp_main.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/sensors_main.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/settings_main.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/settings_main.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardware/Nextion_stucture/take_main.txt" beforeDir="false" afterPath="$PROJECT_DIR$/hardware/Nextion_stucture/take_main.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

@@ -65,8 +65,8 @@
     "poextbus": "right",
     "camera": "right",
     "system": "right",
-    "nextion_7_preview": "right",
     "axes": "top",
+    "nextion_7_preview": "right",
     "bridge": "top",
     "cnc_signals": "top"
   },
@@ -219,7 +219,7 @@
       "zone": "right",
       "order": 10,
       "colspan": 4,
-      "rowspan": 5
+      "rowspan": 6
     },
     "poextbus": {
       "zone": "right",
@@ -239,17 +239,17 @@
       "colspan": 4,
       "rowspan": 2
     },
-    "nextion_7_preview": {
-      "zone": "right",
-      "order": 50,
-      "colspan": 4,
-      "rowspan": 11
-    },
     "axes": {
       "zone": "top",
       "order": 10,
       "colspan": 14,
       "rowspan": 6
+    },
+    "nextion_7_preview": {
+      "zone": "right",
+      "order": 50,
+      "colspan": 4,
+      "rowspan": 10
     },
     "bridge": {
       "zone": "top",

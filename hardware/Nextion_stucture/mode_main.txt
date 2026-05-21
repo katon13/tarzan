@@ -1,0 +1,265 @@
+Page mode_main
+    Attributes
+        ID               : 0
+        Scope            : local
+        Send Component ID: disabled
+        Width            : 800
+        Locked           : no
+        Fill             : solid color
+        Back. Color      : 0
+    
+    Events
+        Postinitialize Event
+            sendme
+        
+Button b_home
+    Attributes
+        ID                               : 1
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 680
+        y coordinate                     : 370
+        Width                            : 100
+        Height                           : 100
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 19
+        Back. Picture ID (Pressed)       : 20
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Press Event
+            b_home.pic=19
+        
+        Touch Release Event
+            b_home.pic=20
+            page page1
+            sendme
+        
+Dual-state Button bt0
+    Attributes
+        ID                               : 2
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 40
+        y coordinate                     : 52
+        Width                            : 120
+        Height                           : 200
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 77
+        Back. Picture ID (Pressed)       : 76
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+Dual-state Button bt1
+    Attributes
+        ID                               : 3
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 160
+        y coordinate                     : 52
+        Width                            : 120
+        Height                           : 200
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 75
+        Back. Picture ID (Pressed)       : 74
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+Dual-state Button bt2
+    Attributes
+        ID                               : 4
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 280
+        y coordinate                     : 52
+        Width                            : 120
+        Height                           : 200
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 79
+        Back. Picture ID (Pressed)       : 78
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+Dual-state Button bt6
+    Attributes
+        ID                               : 5
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 400
+        y coordinate                     : 52
+        Width                            : 120
+        Height                           : 200
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 71
+        Back. Picture ID (Pressed)       : 70
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+Dual-state Button bt7
+    Attributes
+        ID                               : 6
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 520
+        y coordinate                     : 52
+        Width                            : 120
+        Height                           : 200
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 73
+        Back. Picture ID (Pressed)       : 72
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+Dual-state Button bt8
+    Attributes
+        ID                               : 7
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 640
+        y coordinate                     : 52
+        Width                            : 120
+        Height                           : 200
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 67
+        Back. Picture ID (Pressed)       : 66
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+Dual-state Button bt9
+    Attributes
+        ID                               : 8
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 40
+        y coordinate                     : 252
+        Width                            : 120
+        Height                           : 178
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 87
+        Back. Picture ID (Pressed)       : 86
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+Dual-state Button bt10
+    Attributes
+        ID                               : 9
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 160
+        y coordinate                     : 252
+        Width                            : 120
+        Height                           : 178
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 89
+        Back. Picture ID (Pressed)       : 88
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+Dual-state Button bt11
+    Attributes
+        ID                               : 10
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 400
+        y coordinate                     : 252
+        Width                            : 120
+        Height                           : 177
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 91
+        Back. Picture ID (Pressed)       : 90
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+Dual-state Button bt12
+    Attributes
+        ID                               : 11
+        Scope                            : local
+        Send Component ID                : disabled
+        x coordinate                     : 280
+        y coordinate                     : 252
+        Width                            : 120
+        Height                           : 178
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 85
+        Back. Picture ID (Pressed)       : 84
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    

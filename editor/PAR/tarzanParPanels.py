@@ -282,12 +282,14 @@ class TarzanStepDirPreviewTarget:
             return
 
         w = max(can.winfo_width(), 760)
-        h = max(can.winfo_height(), 210)
+        h = max(can.winfo_height(), 330)
 
         left = 132
         right = w - 14
         top = 18
-        row_gap = max(30, int((h - 42) / max(1, len(self.AXIS_ORDER))))
+        # Każda oś ma teraz własny pas danych pod STEP/DIR.
+        # Zwiększony row_gap daje większy margines nad i pod pomarańczowym tekstem PULS/POS/CTR.
+        row_gap = max(50, int((h - 64) / max(1, len(self.AXIS_ORDER))))
         self.geometry = {"left": left, "right": right, "top": top, "row_gap": row_gap, "w": w, "h": h}
 
         # tło
@@ -304,10 +306,14 @@ class TarzanStepDirPreviewTarget:
 
         for idx, axis in enumerate(self.AXIS_ORDER):
             base_y = top + idx * row_gap
-            step_y = base_y + 8
-            dir_y = base_y + 23
+            step_y = base_y + 7
+            dir_y = base_y + 21
+            data_line_y = base_y + 31
+            desc_y = base_y + 40
             self.geometry[(axis, "step_y")] = step_y
             self.geometry[(axis, "dir_y")] = dir_y
+            self.geometry[(axis, "data_line_y")] = data_line_y
+            self.geometry[(axis, "desc_y")] = desc_y
 
             # separator
             can.create_line(4, base_y - 5, right, base_y - 5, fill="#101a20", tags="step_dir_owned")
@@ -342,8 +348,10 @@ class TarzanStepDirPreviewTarget:
             can.create_line(left, step_y, right, step_y, fill=COLORS["green"], width=2, tags="step_dir_owned")
             can.create_line(left, dir_y, right, dir_y, fill=COLORS["blue"], width=2, tags="step_dir_owned")
 
-            # miejsce na opisy dodanych sygnałów, ale kontrolowane i krótkie
-            self.items[(axis, "desc")] = can.create_text(6, base_y + 29, text="", anchor="w",
+            # Osobny pas danych osi: cienka linia + PULS/POS/CTR pod ikoną i pod S/D/H/L.
+            can.create_line(8, data_line_y, 116, data_line_y,
+                            fill="#1a252c", width=1, tags="step_dir_owned")
+            self.items[(axis, "desc")] = can.create_text(62, desc_y, text="", anchor="center",
                                                          fill="#ff9d00", font=("Segoe UI", 7, "bold"),
                                                          tags="step_dir_owned")
 
@@ -2084,7 +2092,7 @@ class TarzanParPanels:
 
     def timeline(self, parent):
         p = self.panel("timeline", parent, "PODGLĄD SYGNAŁÓW — STEP / DIR")
-        self.timeline_canvas = tk.Canvas(p.body, bg="#070b0e", height=210, highlightthickness=0)
+        self.timeline_canvas = tk.Canvas(p.body, bg="#070b0e", height=330, highlightthickness=0)
         self.timeline_canvas.pack(fill="both", expand=True, pady=4)
         self.step_dir_canvas = self.timeline_canvas
         target = TarzanStepDirPreviewTarget(self, self.timeline_canvas)
@@ -2457,6 +2465,28 @@ class TarzanParPanels:
         self.director_label = tk.Label(pan.body, text="REŻYSER: ---", bg=COLORS["panel"], fg=COLORS["text"], font=("Segoe UI", 10))
         self.director_label.pack(fill="x")
         if tk_adapter: tk_adapter.register_widget("take_panel", "director_label", self.director_label)
+
+        # TAKE META INIT:
+        # Widgety TITLE/DIRECTOR są już zarejestrowane w adapterze par_tkinter.
+        # Teraz wymuszamy tylko ponowny strzał istniejącym Snajperem, bez lokalnych map
+        # i bez ręcznego grzebania w cache pojedynczych targetów.
+        try:
+            if snajper is not None:
+                if hasattr(snajper, "clear_scope"):
+                    snajper.clear_scope("take_panel")
+
+                title = getattr(tfd_state, "title", None) if tfd_state is not None else None
+                director = getattr(tfd_state, "director", None) if tfd_state is not None else None
+
+                if title is None:
+                    title = self.bus.get("tfd_title", self.bus.get("par_tfd_title", ""))
+                if director is None:
+                    director = self.bus.get("tfd_director", self.bus.get("par_tfd_director", ""))
+
+                snajper.fire_from_signal("tfd_title", "" if title is None else title)
+                snajper.fire_from_signal("tfd_director", "" if director is None else director)
+        except Exception:
+            pass
 
         self.timecode_label = tk.Label(pan.body, text="00:00:00:0000", bg=COLORS["panel2"], fg=COLORS["green"], font=("Consolas", 18, "bold"))
         self.timecode_label.pack(fill="x", pady=5)

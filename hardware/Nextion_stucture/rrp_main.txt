@@ -104,12 +104,12 @@ Text t_p1_val
         Height              : 81
         Fill                : image
         Associated Keyboard : none
-        Font ID             : 1
+        Font ID             : 6
         Back. Picture ID    : 21
         Horizontal Alignment: center
         Vertical Alignment  : center
         Input Type          : character
-        Text                : 0
+        Text                : 000000
         Max. Text Size      : 6
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -126,12 +126,12 @@ Text t_p2_val
         Height              : 81
         Fill                : image
         Associated Keyboard : none
-        Font ID             : 1
+        Font ID             : 6
         Back. Picture ID    : 21
         Horizontal Alignment: center
         Vertical Alignment  : center
         Input Type          : character
-        Text                : 0
+        Text                : 000000
         Max. Text Size      : 6
         Word wrap           : disabled
         Horizontal Spacing  : 0

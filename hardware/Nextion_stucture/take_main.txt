@@ -17,7 +17,7 @@ Text t_axis0
         ID                  : 1
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 349
+        x coordinate        : 361
         y coordinate        : 114
         Width               : 160
         Height              : 64
@@ -41,7 +41,7 @@ Text t_axis1
         ID                  : 9
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 349
+        x coordinate        : 361
         y coordinate        : 179
         Width               : 160
         Height              : 64
@@ -65,7 +65,7 @@ Text t_axis3
         ID                  : 10
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 605
+        x coordinate        : 617
         y coordinate        : 112
         Width               : 160
         Height              : 64
@@ -89,7 +89,7 @@ Text t_axis2
         ID                  : 11
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 605
+        x coordinate        : 617
         y coordinate        : 179
         Width               : 160
         Height              : 64
@@ -113,7 +113,7 @@ Text t_axis4
         ID                  : 12
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 349
+        x coordinate        : 361
         y coordinate        : 244
         Width               : 160
         Height              : 64
@@ -137,7 +137,7 @@ Text t_axis5
         ID                  : 13
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 605
+        x coordinate        : 617
         y coordinate        : 244
         Width               : 160
         Height              : 64
@@ -161,10 +161,10 @@ Text t_take
         ID                  : 14
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 118
-        y coordinate        : 175
-        Width               : 148
-        Height              : 70
+        x coordinate        : 145
+        y coordinate        : 184
+        Width               : 125
+        Height              : 35
         Fill                : solid color
         Style               : flat
         Associated Keyboard : none
@@ -174,7 +174,7 @@ Text t_take
         Horizontal Alignment: center
         Vertical Alignment  : center
         Input Type          : character
-        Text                : 000
+        Text                : 000 00
         Max. Text Size      : 20
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -186,7 +186,7 @@ Text t_clap
         Scope               : local
         Send Component ID   : disabled
         x coordinate        : 15
-        y coordinate        : 107
+        y coordinate        : 118
         Width               : 100
         Height              : 15
         Fill                : solid color
@@ -233,16 +233,16 @@ Text t_limits
         ID                  : 23
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 76
-        y coordinate        : 416
+        x coordinate        : 83
+        y coordinate        : 428
         Width               : 230
-        Height              : 50
+        Height              : 30
         Fill                : solid color
         Style               : flat
         Associated Keyboard : none
-        Font ID             : 8
+        Font ID             : 10
         Back. Color         : 0
-        Font Color          : 1760
+        Font Color          : 65535
         Horizontal Alignment: left
         Vertical Alignment  : center
         Input Type          : character
@@ -257,20 +257,20 @@ Text t_status
         ID                  : 24
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 678
-        y coordinate        : 20
-        Width               : 100
-        Height              : 64
+        x coordinate        : 693
+        y coordinate        : 328
+        Width               : 80
+        Height              : 40
         Fill                : solid color
         Style               : flat
         Associated Keyboard : none
-        Font ID             : 6
+        Font ID             : 10
         Back. Color         : 0
         Font Color          : 65535
         Horizontal Alignment: center
         Vertical Alignment  : center
         Input Type          : character
-        Text                : OFF
+        Text                : 
         Max. Text Size      : 10
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -305,9 +305,9 @@ Text t_light
         ID                  : 26
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 476
+        x coordinate        : 475
         y coordinate        : 338
-        Width               : 130
+        Width               : 140
         Height              : 40
         Fill                : solid color
         Style               : flat
@@ -318,7 +318,7 @@ Text t_light
         Horizontal Alignment: left
         Vertical Alignment  : center
         Input Type          : character
-        Text                : 00000
+        Text                : 000000
         Max. Text Size      : 20
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -377,20 +377,20 @@ Text t1
         ID                  : 29
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 113
-        y coordinate        : 27
-        Width               : 540
-        Height              : 28
+        x coordinate        : 153
+        y coordinate        : 18
+        Width               : 510
+        Height              : 40
         Fill                : solid color
         Style               : flat
         Associated Keyboard : none
-        Font ID             : 3
+        Font ID             : 9
         Back. Color         : 0
         Font Color          : 65535
         Horizontal Alignment: left
         Vertical Alignment  : center
         Input Type          : character
-        Text                : SYSTEM NOT CONNECT
+        Text                : 
         Max. Text Size      : 300
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -401,20 +401,20 @@ Text t2
         ID                  : 30
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 129
-        y coordinate        : 63
-        Width               : 500
-        Height              : 25
+        x coordinate        : 154
+        y coordinate        : 62
+        Width               : 510
+        Height              : 35
         Fill                : solid color
         Style               : flat
         Associated Keyboard : none
-        Font ID             : 3
+        Font ID             : 10
         Back. Color         : 0
         Font Color          : 65535
         Horizontal Alignment: left
         Vertical Alignment  : center
         Input Type          : character
-        Text                : fdsafa
+        Text                : 
         Max. Text Size      : 300
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -492,12 +492,228 @@ Text tz
         Horizontal Spacing  : 0
         Vertical Spacing    : 0
     
+Text t3
+    Attributes
+        ID                  : 35
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 8
+        y coordinate        : 20
+        Width               : 120
+        Height              : 40
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 9
+        Back. Color         : 0
+        Font Color          : 65535
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : tMAS
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t4
+    Attributes
+        ID                  : 36
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 9
+        y coordinate        : 57
+        Width               : 120
+        Height              : 40
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 9
+        Back. Color         : 0
+        Font Color          : 65535
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : PLAY
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t5
+    Attributes
+        ID                  : 37
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 617
+        y coordinate        : 338
+        Width               : 50
+        Height              : 40
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 9
+        Back. Color         : 0
+        Font Color          : 65535
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : LX
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t6
+    Attributes
+        ID                  : 38
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 562
+        y coordinate        : 418
+        Width               : 40
+        Height              : 40
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 9
+        Back. Color         : 0
+        Font Color          : 65535
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : C
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t7
+    Attributes
+        ID                  : 39
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 96
+        y coordinate        : 370
+        Width               : 30
+        Height              : 30
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 10
+        Back. Color         : 0
+        Font Color          : 65535
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : x
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t8
+    Attributes
+        ID                  : 40
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 176
+        y coordinate        : 370
+        Width               : 30
+        Height              : 30
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 10
+        Back. Color         : 0
+        Font Color          : 65535
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : Y
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t9
+    Attributes
+        ID                  : 41
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 249
+        y coordinate        : 370
+        Width               : 30
+        Height              : 30
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 10
+        Back. Color         : 0
+        Font Color          : 65535
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : Z
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t10
+    Attributes
+        ID                  : 42
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 143
+        y coordinate        : 123
+        Width               : 120
+        Height              : 40
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 9
+        Back. Color         : 0
+        Font Color          : 65535
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : TAKE
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t11
+    Attributes
+        ID                  : 44
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 215
+        y coordinate        : 190
+        Width               : 10
+        Height              : 40
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 9
+        Back. Color         : 0
+        Font Color          : 65535
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : .
+        Max. Text Size      : 10
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
 Picture p_axis0
     Attributes
         ID               : 3
         Scope            : local
         Send Component ID: disabled
-        x coordinate     : 283
+        x coordinate     : 295
         y coordinate     : 114
         Width            : 64
         Height           : 64
@@ -508,7 +724,7 @@ Picture p_axis1
         ID               : 4
         Scope            : local
         Send Component ID: disabled
-        x coordinate     : 283
+        x coordinate     : 295
         y coordinate     : 179
         Width            : 64
         Height           : 64
@@ -519,7 +735,7 @@ Picture p_axis5
         ID               : 5
         Scope            : local
         Send Component ID: disabled
-        x coordinate     : 281
+        x coordinate     : 293
         y coordinate     : 244
         Width            : 64
         Height           : 64
@@ -530,7 +746,7 @@ Picture p_axis3
         ID               : 6
         Scope            : local
         Send Component ID: disabled
-        x coordinate     : 544
+        x coordinate     : 556
         y coordinate     : 114
         Width            : 85
         Height           : 64
@@ -541,7 +757,7 @@ Picture p_axis2
         ID               : 7
         Scope            : local
         Send Component ID: disabled
-        x coordinate     : 544
+        x coordinate     : 556
         y coordinate     : 179
         Width            : 64
         Height           : 64
@@ -552,7 +768,7 @@ Picture p_axis4
         ID               : 8
         Scope            : local
         Send Component ID: disabled
-        x coordinate     : 542
+        x coordinate     : 554
         y coordinate     : 244
         Width            : 64
         Height           : 64
@@ -629,14 +845,14 @@ Button b_home
         ID                               : 2
         Scope                            : local
         Send Component ID                : disabled
-        x coordinate                     : 683
-        y coordinate                     : 369
+        x coordinate                     : 687
+        y coordinate                     : 371
         Width                            : 100
-        Height                           : 100
+        Height                           : 102
         Fill                             : image
         Font ID                          : 0
-        Background Picture ID (Unpressed): 59
-        Back. Picture ID (Pressed)       : 58
+        Background Picture ID (Unpressed): 81
+        Back. Picture ID (Pressed)       : 80
         Horizontal Alignment             : center
         Vertical Alignment               : center
         State                            : unpressed
@@ -660,14 +876,42 @@ Dual-state Button b_clap
         ID                               : 31
         Scope                            : local
         Send Component ID                : on press
-        x coordinate                     : 7
-        y coordinate                     : 127
+        x coordinate                     : 17
+        y coordinate                     : 138
         Width                            : 100
-        Height                           : 102
+        Height                           : 100
         Fill                             : image
         Font ID                          : 0
         Background Picture ID (Unpressed): 57
         Back. Picture ID (Pressed)       : 56
+        Horizontal Alignment             : center
+        Vertical Alignment               : center
+        State                            : unpressed
+        Text                             : 
+        Max. Text Size                   : 10
+        Word wrap                        : disabled
+        Horizontal Spacing               : 0
+        Vertical Spacing                 : 0
+    
+    Events
+        Touch Press Event
+            print "take:clap="
+            prints b_clap.val,0
+            printh FF FF FF
+        
+Dual-state Button bt0
+    Attributes
+        ID                               : 43
+        Scope                            : local
+        Send Component ID                : on press
+        x coordinate                     : 684
+        y coordinate                     : 4
+        Width                            : 100
+        Height                           : 102
+        Fill                             : image
+        Font ID                          : 0
+        Background Picture ID (Unpressed): 83
+        Back. Picture ID (Pressed)       : 82
         Horizontal Alignment             : center
         Vertical Alignment               : center
         State                            : unpressed

@@ -23,7 +23,7 @@
   "axis_color_overrides": {
     "cam_h": "#4783ff",
     "cam_v": "#61ff95",
-    "cam_t": "#ff9561",
+    "cam_t": "#FF6188",
     "cam_f": "#61c9ff",
     "arm_v": "#ffcd61",
     "arm_h": "#ff61ca",
@@ -31,9 +31,9 @@
   },
   "show_ghost_line": true,
   "ghost_line_color": "#EAB308",
-  "ghost_line_width": 5,
-  "ghost_line_dash_on": 4,
-  "ghost_line_dash_off": 4,
+  "ghost_line_width": 1,
+  "ghost_line_dash_on": 1,
+  "ghost_line_dash_off": 1,
   "ghost_assist_enabled": true,
   "ghost_assist_threshold_y": 10.0
 }

@@ -2067,14 +2067,24 @@ class AxisSettingsDialog(tk.Toplevel):
             c.create_text(px, bottom + 10, text=f"{minute}m", fill=self.master_window.MUTED, anchor="n", font=("Consolas", 8))
 
         original_nodes = getattr(self.model, "original_nodes", None)
-        if original_nodes and len(original_nodes) >= 2:
+        ghost_settings = self.master_window.main_take_settings
+        if getattr(ghost_settings, "show_ghost_line", True) and original_nodes and len(original_nodes) >= 2:
             # Używamy zoptymalizowanego samplowania ghostów
             ghost_samples = self.master_window._sample_original_curve(self.model)
             ghost_pts = []
             for t, y in ghost_samples:
                 ghost_pts.extend([self._time_to_x(t, left, right), self._logical_y_to_canvas(y, top, bottom)])
             if len(ghost_pts) >= 4:
-                c.create_line(*ghost_pts, fill="#EAB308", width=1, dash=(4, 4), smooth=False)
+                c.create_line(
+                    *ghost_pts,
+                    fill=getattr(ghost_settings, "ghost_line_color", "#EAB308"),
+                    width=int(getattr(ghost_settings, "ghost_line_width", 1)),
+                    dash=(
+                        int(getattr(ghost_settings, "ghost_line_dash_on", 4)),
+                        int(getattr(ghost_settings, "ghost_line_dash_off", 4)),
+                    ),
+                    smooth=False,
+                )
 
         samples = self.model.sample_curve(1000, duration_ms=self.master_window.global_take_duration_ms)
         pts = []
@@ -2506,7 +2516,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._force_curve_resample_after_save = False
         self._configure_after_id = None
         self._main_canvas_redraw_after_id = None
-        self.take_panel_visible = True
         self.main_grid = None
         self.panel_a_top = None
         self.panel_b_clock = None
@@ -2660,9 +2669,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         tk.Button(self.panel_a_top, text="CLEAR TAKE", command=self._clear_take_slots_click, bg="#DC2626", fg="white",
                   activebackground="#DC2626", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
                   font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
-        tk.Button(self.panel_a_top, text="TAKE", command=self._on_toggle_take_btn_click, bg="#2563EB", fg="white",
-                  activebackground="#2563EB", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
-                  font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
         tk.Button(self.panel_a_top, text="SAVE TXT", command=self._save_take_txt_click, bg="#047857", fg="white",
                   activebackground="#047857", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
                   font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
@@ -2728,10 +2734,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.panel_b_clock.grid(row=1, column=0, sticky="nsew")
 
         if self.take_panel is not None:
-            if self.take_panel_visible:
-                self.take_panel.grid(row=1, column=1, sticky="ew")
-            else:
-                self.take_panel.grid_remove()
+            self.take_panel.grid(row=1, column=1, sticky="ew")
 
         if self.panel_d_info is not None:
             self.panel_d_info.grid(row=2, column=0, sticky="nsew")
@@ -2765,7 +2768,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                                         justify="left", anchor="w", font=("Consolas", 9), padx=10, pady=4)
         self.axis_info_label.pack(fill="x", pady=(0, 4))
 
-        self.protocol_label_var = tk.StringVar(value=f"PODGLĄD PROTOKOŁU — {self._active_model().axis_def.axis_name}")
+        self.protocol_label_var = tk.StringVar(value=f"STEP MATRIX — {self._active_model().axis_def.axis_name}")
         self.protocol_label = tk.Label(info_parent, textvariable=self.protocol_label_var, bg=self.BG, fg=self.FG,
                                        anchor="w", font=("Segoe UI Semibold", 11))
         self.protocol_label.pack(fill="x", pady=(0, 2), padx=10)
@@ -2783,7 +2786,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             wrap="none",
             font=(self.protocol_desc_font_family, PROTOCOL_STREAM_DESC_FONT_SIZE),
         )
-        self.protocol_text.pack(side="left", fill="both", expand=True, padx=10, pady=8)
+        self.protocol_text.pack(side="left", fill="both", expand=True, padx=8, pady=8)
         self.protocol_text.tag_configure(
             "step_bits",
             foreground=PROTOCOL_STREAM_FG,
@@ -3289,19 +3292,25 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                         mx = self._time_to_x(node.time_ms, rect.left, rect.right)
                         c.create_line(mx, rect.top + 4, mx, rect.bottom - 4, fill=axis_color, width=1, dash=(3, 5), tags=(axis_tag, "marker"))
 
-                ghost_samples = self._sample_original_curve(model)
-                ghost_pts = []
-                for t_ms, y in ghost_samples:
-                    ghost_pts.extend([self._time_to_x(t_ms, rect.left, rect.right),
-                                      self._logical_y_to_canvas(model, y, rect.top, rect.bottom)])
-                if len(ghost_pts) >= 4:
-                    c.create_line(
-                        *ghost_pts,
-                        fill="#64748B",
-                        width=1,
-                        smooth=False,
-                        tags=(axis_tag, "ghost")
-                    )
+                ghost_settings = self.main_take_settings
+                if getattr(ghost_settings, "show_ghost_line", True):
+                    ghost_samples = self._sample_original_curve(model)
+                    ghost_pts = []
+                    for t_ms, y in ghost_samples:
+                        ghost_pts.extend([self._time_to_x(t_ms, rect.left, rect.right),
+                                          self._logical_y_to_canvas(model, y, rect.top, rect.bottom)])
+                    if len(ghost_pts) >= 4:
+                        c.create_line(
+                            *ghost_pts,
+                            fill=getattr(ghost_settings, "ghost_line_color", "#EAB308"),
+                            width=int(getattr(ghost_settings, "ghost_line_width", 1)),
+                            dash=(
+                                int(getattr(ghost_settings, "ghost_line_dash_on", 4)),
+                                int(getattr(ghost_settings, "ghost_line_dash_off", 4)),
+                            ),
+                            smooth=False,
+                            tags=(axis_tag, "ghost")
+                        )
 
                 samples = model.sample_curve(self._main_curve_sample_count(), duration_ms=self.global_take_duration_ms)
                 pts = []
@@ -3483,7 +3492,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
         rows = model.protocol_rows(duration_ms=self.global_take_duration_ms)
         if not rows:
-            text = f"OŚ: {model.axis_def.axis_name}\n\nBrak danych protokołu.\n"
+            text = "Brak danych protokołu.\n"
         else:
             first_active_idx = 0
             for idx, row in enumerate(rows):
@@ -3918,21 +3927,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
     def _take_dir(self) -> Path:
         return Path(__file__).resolve().parents[2] / "data" / "take"
-
-    def _toggle_take_panel(self) -> None:
-        """Pokazuje/ukrywa panel TAKE bez zmiany wzoru layoutu strony."""
-        if self.take_panel is None:
-            return
-        self._grid_main_layout()
-        if self.take_panel_visible:
-            self._set_status("Panel TAKE pokazany.")
-        else:
-            self._set_status("Panel TAKE ukryty.")
-
-    def _on_toggle_take_btn_click(self) -> None:
-        self.take_panel_visible = not self.take_panel_visible
-        self._toggle_take_panel()
-
     def _save_take_to_path(self, path: Path) -> Path:
         saved_path = save_take_txt(self.axis_models, self.global_take_duration_ms, path)
         # Po udanym SAVE: obecna aktywna linia zostaje skopiowana jako nowy ghost

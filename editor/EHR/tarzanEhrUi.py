@@ -12,6 +12,7 @@ from typing import Optional, Any, Callable
 
 import tkinter as tk
 from tkinter import filedialog
+from tkinter import font as tkfont
 
 try:
     from PIL import Image, ImageDraw, ImageFont, ImageTk
@@ -54,8 +55,6 @@ IMG_TAKE_DIR = PROJECT_DIR / "img" / "take"
 FONT_DIR = PROJECT_DIR / "font"
 
 SLOTS_JSON_PATH = EHR_DIR / "take_protocol_slots.json"
-UI_JSON_PATH = EHR_DIR / "take_protocol_ui_settings.json"
-
 SANDBOX_ASSET_DIR = Path("/mnt/data")
 SANDBOX_FONT_PATH = PROJECT_DIR / "font" / "Pattifont.ttf"
 
@@ -87,6 +86,67 @@ SLOT_COUNT = 10
 WINDOW_WIDTH = 1920
 WINDOW_HEIGHT = 520
 
+# --- STAŁE GŁÓWNEGO UKŁADU EHR ---
+# Jedno źródło szerokości lewej kolumny: B = zegar, D = podgląd/info.
+LEFT_COLUMN_WIDTH = 400
+CLOCK_FONT_SIZE = 80
+CLOCK_FONT_CANDIDATES = (
+    "DSEG7 Classic",
+    "DSEG7 Classic Mini",
+    "DSEG7 Modern",
+    "DSEG7 Modern Mini",
+    "Digital-7 Mono",
+    "Digital-7",
+    "Seven Segment",
+    "Seven Segment Display",
+    "DS-Digital",
+    "LCDMono2",
+    "Consolas",
+)
+
+# --- STAŁE BOCZNEGO PODGLĄDU STEP STRUMIEŃ ---
+# Text nie może rozpychać lewej kolumny; szerokość trzyma LEFT_COLUMN_WIDTH.
+PROTOCOL_STREAM_TEXT_HEIGHT = 42
+PROTOCOL_STREAM_TEXT_WIDTH = 1
+PROTOCOL_STREAM_DESC_FONT_SIZE = 5
+PROTOCOL_STREAM_BITS_FONT_SIZE = 5
+PROTOCOL_STREAM_FG = "#22C55E"
+PROTOCOL_STREAM_DESC_FONT_CANDIDATES = (
+    "Lato",
+    "Lato Medium",
+    "Lato Semibold",
+    "Segoe UI",
+    "Arial",
+    "Verdana",
+    "Tahoma",
+    "Consolas",
+)
+PROTOCOL_STREAM_PRE_ROLL_ROWS = 80
+PROTOCOL_STREAM_CHUNK_SIZE = 68
+
+
+def _select_first_available_font(candidates: tuple[str, ...], fallback: str) -> str:
+    """Zwraca pierwszy dostępny font Tkinter z listy kandydatów."""
+    try:
+        available = {str(name).lower(): str(name) for name in tkfont.families()}
+        for candidate in candidates:
+            found = available.get(candidate.lower())
+            if found:
+                return found
+    except Exception:
+        pass
+    return fallback
+
+
+def select_clock_font_family() -> str:
+    """Wybiera font zegara w stylu seven-segment, zgodnie z PAR, z bezpiecznym fallbackiem."""
+    return _select_first_available_font(CLOCK_FONT_CANDIDATES, "Consolas")
+
+
+def select_protocol_desc_font_family() -> str:
+    """Wybiera czytelny font opisów bocznego STEP STRUMIEŃ."""
+    return _select_first_available_font(PROTOCOL_STREAM_DESC_FONT_CANDIDATES, "Segoe UI")
+
 # --- KONFIGURACJA POZYCJI KONTROLEK OSI ---
 GEAR_OFFSET_X = -15
 GEAR_OFFSET_Y = -10
@@ -97,7 +157,7 @@ CONTROL_FONT_SIZE = 14
 # --- KLASY UI ---
 @dataclass
 class UiSettings:
-    """Adapter ustawień layoutu z JSON."""
+    """Ustawienia layoutu TAKE zapisane wyłącznie w kodzie."""
 
     protocol_title_y: int = 0
     protocol_height: int = 0
@@ -150,12 +210,12 @@ class UiSettings:
         return set(cls.__dataclass_fields__.keys())
 
     @classmethod
-    def _fallback_values(cls) -> dict[str, Any]:
-        """Minimalny fallback techniczny."""
+    def code_values(cls) -> dict[str, Any]:
+        """Jedyne źródło pozycji i rozmiarów ikon TAKE."""
         return {
             "protocol_title_y": 70,
-            "protocol_height": 290,
-            "row_center_y": 85,
+            "protocol_height": 180,
+            "row_center_y": 6,
             "protocol_inner_pad_x": 12,
             "row_pad_x": 0,
             "icon_width": 167,
@@ -192,21 +252,12 @@ class UiSettings:
         }
 
     @classmethod
-    def load_or_default(cls, path: Path) -> "UiSettings":
-        """Wczytuje ustawienia z JSON i mapuje do pól LIGHT."""
-        raw: dict[str, Any] = {}
-        try:
-            loaded = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                raw = loaded
-        except Exception:
-            raw = {}
-
-        fallback = cls._fallback_values()
+    def from_code(cls) -> "UiSettings":
+        """Buduje ustawienia TAKE wyłącznie z wartości zapisanych w kodzie."""
+        values = cls.code_values()
         payload: dict[str, Any] = {}
         for name in cls._field_names():
-            payload[name] = raw.get(name, fallback[name])
-
+            payload[name] = values[name]
         ui = cls(**payload)
         ui.clamp()
         return ui
@@ -767,7 +818,7 @@ class SlotWidget(tk.Frame):
         self.save_button = None
         self.save_button_window = None
 
-        top_y = -4
+        top_y = 0
 
         self.slot_photo_ref = self.owner.renderer.build_slot_photo(self.vm)
         self.canvas.create_image(self.owner.ui.icon_width / 2, top_y + self.owner.ui.icon_height / 2, image=self.slot_photo_ref)
@@ -904,7 +955,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
         self.external_save_callback = save_callback
         self.external_load_callback = load_callback
         self.store = SlotStore.load_or_default(SLOTS_JSON_PATH)
-        self.ui = UiSettings.load_or_default(UI_JSON_PATH)
+        self.ui = UiSettings.from_code()
         self.renderer = IconRenderer(self.ui)
 
         self.status_var = tk.StringVar(value="Gotowy.")
@@ -1140,9 +1191,9 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
             widget.set_vm(self.slot_models[index])
         self._set_status("Lista TAKE została odświeżona.")
 
-    def force_reload_layout_from_json(self) -> None:
-        """Przeładowuje layout z JSON i przebudowuje widok."""
-        self.ui = UiSettings.load_or_default(UI_JSON_PATH)
+    def force_reload_layout_from_code(self) -> None:
+        """Przeładowuje layout z wartości zapisanych w kodzie i przebudowuje widok."""
+        self.ui = UiSettings.from_code()
         self.renderer = IconRenderer(self.ui)
 
         for vm in self.slot_models:
@@ -1161,7 +1212,7 @@ class TarzanTakeProtocolLightWidget(tk.Frame):
         self.row_window = self.protocol_canvas.create_window(0, 0, window=self.row_frame, anchor="n")
         self._build_slot_row()
         self._layout_protocol()
-        self._set_status("Przeładowano layout TAKE PROTOCOL z JSON.")
+        self._set_status("Przeładowano layout TAKE PROTOCOL z kodu.")
 
 
 # ======================================================================================
@@ -2408,6 +2459,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.geometry("1780x1080")
         self.minsize(1500, 920)
         self.configure(bg=self.BG)
+        self.clock_font_family = select_clock_font_family()
+        self.protocol_desc_font_family = select_protocol_desc_font_family()
 
         self.config_model = EhrEditorConfig()
         self.settings_path = self._settings_path()
@@ -2454,7 +2507,13 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._configure_after_id = None
         self._main_canvas_redraw_after_id = None
         self.take_panel_visible = True
+        self.main_grid = None
+        self.panel_a_top = None
+        self.panel_b_clock = None
         self.take_panel = None
+        self.panel_d_info = None
+        self.panel_e_timeline = None
+        self.panel_f_status = None
         self.take_widget = None
         self._axis_activity: dict[str, bool] = {}
         self.main_body = None
@@ -2472,7 +2531,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
         self._build_ui()
         self._load_axis_activity()
-        self._toggle_take_panel() # Ensure layout is applied correctly for visible state
         self.update_idletasks()
         self.after_idle(self._refresh_all)
         self.after_idle(self._load_active_slot_on_start)
@@ -2575,29 +2633,48 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         return project_dir / "data" / "ehr" / "main_take_settings.json"
 
     def _build_ui(self) -> None:
-        outer = tk.Frame(self, bg=self.BG)
-        outer.pack(fill="both", expand=True, padx=0, pady=0)
+        """
+        Buduje główne okno EHR na jednym wzorze siatki:
 
-        top = tk.Frame(outer, bg=self.BG)
-        top.pack(fill="x", pady=0)
-        tk.Label(top, text="TARZAN — EHR", bg=self.BG, fg=self.FG, font=("Segoe UI Semibold", 16)).pack(side="left")
-        tk.Button(top, text="⚙", command=self._open_take_settings, bg="#39424E", fg=self.FG,
+        | A A |  A = TOP
+        | B C |  B = zegar / punkt, C = TAKE
+        | D E |  D = podgląd i info, E = timeline
+        | F F |  F = stopka / status
+
+        Pozycję paneli ustawia wyłącznie _grid_main_layout().
+        """
+        self.main_grid = tk.Frame(self, bg=self.BG)
+        self.main_grid.pack(fill="both", expand=True, padx=0, pady=0)
+        self.main_grid.grid_columnconfigure(0, weight=0, minsize=LEFT_COLUMN_WIDTH)
+        self.main_grid.grid_columnconfigure(1, weight=1)
+        self.main_grid.grid_rowconfigure(0, weight=0)
+        self.main_grid.grid_rowconfigure(1, weight=0)
+        self.main_grid.grid_rowconfigure(2, weight=1)
+        self.main_grid.grid_rowconfigure(3, weight=0)
+
+        self.panel_a_top = tk.Frame(self.main_grid, bg=self.BG)
+        tk.Label(self.panel_a_top, text="TARZAN — EHR", bg=self.BG, fg=self.FG, font=("Segoe UI Semibold", 16)).pack(side="left")
+        tk.Button(self.panel_a_top, text="⚙", command=self._open_take_settings, bg="#39424E", fg=self.FG,
                   activebackground="#39424E", activeforeground=self.FG, relief="flat", bd=0, padx=10, pady=4,
                   font=("Segoe UI Symbol", 12), cursor="hand2").pack(side="left", padx=(8, 0))
-        tk.Button(top, text="CLEAR TAKE", command=self._clear_take_slots_click, bg="#DC2626", fg="white",
+        tk.Button(self.panel_a_top, text="CLEAR TAKE", command=self._clear_take_slots_click, bg="#DC2626", fg="white",
                   activebackground="#DC2626", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
                   font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
-        tk.Button(top, text="TAKE", command=self._on_toggle_take_btn_click, bg="#2563EB", fg="white",
+        tk.Button(self.panel_a_top, text="TAKE", command=self._on_toggle_take_btn_click, bg="#2563EB", fg="white",
                   activebackground="#2563EB", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
                   font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
-        tk.Button(top, text="SAVE TXT", command=self._save_take_txt_click, bg="#047857", fg="white",
+        tk.Button(self.panel_a_top, text="SAVE TXT", command=self._save_take_txt_click, bg="#047857", fg="white",
                   activebackground="#047857", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
                   font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
-        tk.Button(top, text="LOAD TXT", command=self._load_take_txt_click, bg="#7C3AED", fg="white",
+        tk.Button(self.panel_a_top, text="LOAD TXT", command=self._load_take_txt_click, bg="#7C3AED", fg="white",
                   activebackground="#7C3AED", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
                   font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
 
-        self.take_panel = tk.Frame(outer, bg=self.BG)
+        self.panel_b_clock = tk.Frame(self.main_grid, bg=self.BG, width=LEFT_COLUMN_WIDTH)
+        self.panel_b_clock.grid_propagate(False)
+        self.panel_b_clock.pack_propagate(False)
+
+        self.take_panel = tk.Frame(self.main_grid, bg=self.BG)
         self.take_widget = TarzanTakeProtocolLightWidget(
             self.take_panel,
             status_sink=self._set_status,
@@ -2606,19 +2683,17 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         )
         self.take_widget.pack(fill="x")
 
-        body = tk.Frame(outer, bg=self.BG)
-        self.main_body = body
-        body.pack(fill="both", expand=True)
+        self.panel_d_info = tk.Frame(self.main_grid, bg=self.BG, width=LEFT_COLUMN_WIDTH)
+        self.panel_d_info.grid_propagate(False)
+        self.panel_d_info.pack_propagate(False)
+        self.left = self.panel_d_info
 
-        self.left = tk.Frame(body, bg=self.BG, width=300)
-        self.left.pack(side="left", fill="y", padx=0)
-        self.left.pack_propagate(False)
-        right = tk.Frame(body, bg=self.BG)
-        right.pack(side="left", fill="both", expand=True)
+        self.panel_e_timeline = tk.Frame(self.main_grid, bg=self.BG)
+        self.main_body = self.panel_e_timeline
 
-        self._build_left_panel(self.left)
+        self._build_left_panel(self.panel_b_clock, self.panel_d_info)
 
-        self.timeline_canvas = tk.Canvas(right, bg="#1B2028", highlightthickness=0)
+        self.timeline_canvas = tk.Canvas(self.panel_e_timeline, bg="#1B2028", highlightthickness=0)
         self.timeline_canvas.pack(fill="both", expand=True)
         self.timeline_canvas.bind("<Configure>", self._on_canvas_configure)
         self.timeline_canvas.bind("<Button-1>", self._on_canvas_press)
@@ -2627,42 +2702,94 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.timeline_canvas.bind("<Double-Button-1>", self._on_canvas_double_click)
         self.timeline_canvas.bind("<Button-3>", self._on_canvas_right_click)
 
-        self.status = tk.Label(outer, textvariable=self.status_var, bg=self.PANEL2, fg=self.FG, anchor="w",
+        self.status = tk.Label(self.main_grid, textvariable=self.status_var, bg=self.PANEL2, fg=self.FG, anchor="w",
                                padx=10, pady=8, font=("Segoe UI", 9))
-        self.status.pack(fill="x", pady=(2, 0))
+        self.panel_f_status = self.status
+
+        self._grid_main_layout()
         self._apply_visibility_settings()
 
-    def _build_left_panel(self, parent: tk.Misc) -> None:
+    def _grid_main_layout(self) -> None:
+        """
+        Jedyny właściciel położenia głównych paneli EHR.
+
+        | A A |
+        | B C |
+        | D E |
+        | F F |
+        """
+        if self.main_grid is None:
+            return
+
+        if self.panel_a_top is not None:
+            self.panel_a_top.grid(row=0, column=0, columnspan=2, sticky="ew")
+
+        if self.panel_b_clock is not None:
+            self.panel_b_clock.grid(row=1, column=0, sticky="nsew")
+
+        if self.take_panel is not None:
+            if self.take_panel_visible:
+                self.take_panel.grid(row=1, column=1, sticky="ew")
+            else:
+                self.take_panel.grid_remove()
+
+        if self.panel_d_info is not None:
+            self.panel_d_info.grid(row=2, column=0, sticky="nsew")
+
+        if self.panel_e_timeline is not None:
+            self.panel_e_timeline.grid(row=2, column=1, sticky="nsew")
+
+        if self.status is not None:
+            if self.main_take_settings.show_status_bar:
+                self.status.grid(row=3, column=0, columnspan=2, sticky="ew")
+            else:
+                self.status.grid_remove()
+
+    def _build_left_panel(self, clock_parent: tk.Misc, info_parent: tk.Misc | None = None) -> None:
+        if info_parent is None:
+            info_parent = clock_parent
         self.active_axis_name_var = tk.StringVar(value=self._active_model().axis_def.axis_name)
 
         self.selected_point_time_label = tk.Label(
-            parent,
+            clock_parent,
             textvariable=self.selected_point_time_var,
             bg=self.PANEL,
             fg="#22C55E",
             anchor="center",
-            font=("Segoe UI Semibold", 44, "bold"),
-            padx=10,
-            pady=6
+            font=(self.clock_font_family, CLOCK_FONT_SIZE, "normal"),
+            padx=0,
+            pady=0
         )
-        self.selected_point_time_label.pack(fill="x", pady=(0, 2))
-        self.axis_info_label = tk.Label(parent, textvariable=self.axis_info_var, bg=self.PANEL, fg=self.MUTED,
+        self.selected_point_time_label.pack(fill="both", expand=True, padx=0, pady=0)
+        self.axis_info_label = tk.Label(info_parent, textvariable=self.axis_info_var, bg=self.PANEL, fg=self.MUTED,
                                         justify="left", anchor="w", font=("Consolas", 9), padx=10, pady=4)
         self.axis_info_label.pack(fill="x", pady=(0, 4))
 
         self.protocol_label_var = tk.StringVar(value=f"PODGLĄD PROTOKOŁU — {self._active_model().axis_def.axis_name}")
-        self.protocol_label = tk.Label(parent, textvariable=self.protocol_label_var, bg=self.BG, fg=self.FG,
+        self.protocol_label = tk.Label(info_parent, textvariable=self.protocol_label_var, bg=self.BG, fg=self.FG,
                                        anchor="w", font=("Segoe UI Semibold", 11))
-        self.protocol_label.pack(fill="x", pady=(0, 2))
+        self.protocol_label.pack(fill="x", pady=(0, 2), padx=10)
 
-        self.protocol_box = tk.Frame(parent, bg=self.PANEL)
+        self.protocol_box = tk.Frame(info_parent, bg=self.PANEL)
         self.protocol_box.pack(fill="both", expand=True, pady=(0, 4))
-        self.protocol_text = tk.Text(self.protocol_box, height=24, bg=self.PANEL, fg=self.FG, relief="flat",
-                                     wrap="none", font=("Consolas", 8))
-        self.protocol_text.pack(side="left", fill="both", expand=True, padx=(8, 0), pady=8)
-        protocol_scroll = tk.Scrollbar(self.protocol_box, orient="vertical", command=self.protocol_text.yview)
-        protocol_scroll.pack(side="right", fill="y", padx=(0, 8), pady=8)
-        self.protocol_text.configure(yscrollcommand=protocol_scroll.set, state="disabled")
+        self.protocol_text = tk.Text(
+            self.protocol_box,
+            height=PROTOCOL_STREAM_TEXT_HEIGHT,
+            width=PROTOCOL_STREAM_TEXT_WIDTH,
+            bg=self.PANEL,
+            fg=self.FG,
+            insertbackground=self.FG,
+            relief="flat",
+            wrap="none",
+            font=(self.protocol_desc_font_family, PROTOCOL_STREAM_DESC_FONT_SIZE),
+        )
+        self.protocol_text.pack(side="left", fill="both", expand=True, padx=10, pady=8)
+        self.protocol_text.tag_configure(
+            "step_bits",
+            foreground=PROTOCOL_STREAM_FG,
+            font=(self.clock_font_family, PROTOCOL_STREAM_BITS_FONT_SIZE, "normal"),
+        )
+        self.protocol_text.configure(state="disabled")
 
     def _apply_visibility_settings(self) -> None:
         self.selected_point_time_label.pack_forget()
@@ -2670,19 +2797,16 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.protocol_label.pack_forget()
         self.protocol_box.pack_forget()
         
-        self.selected_point_time_label.pack(fill="x", pady=(0, 10))
+        self.selected_point_time_label.pack(fill="both", expand=True, padx=0, pady=0)
         
         if self.main_take_settings.show_axis_metrics:
             self.axis_info_label.pack(fill="x", pady=(0, 12), padx=0)
         if self.main_take_settings.show_protocol_preview:
-            self.protocol_label.pack(fill="x", pady=(0, 6))
+            self.protocol_label.pack(fill="x", pady=(0, 6), padx=10)
             self.protocol_box.pack(fill="both", expand=True, pady=(0, 10))
         
         self._update_selected_point_time_indicator()
-        if self.main_take_settings.show_status_bar:
-            self.status.pack(fill="x", pady=(2, 0))
-        else:
-            self.status.pack_forget()
+        self._grid_main_layout()
 
     def _bump_axis_data_version(self, axis_index: int) -> None:
         self._axis_data_versions[axis_index] += 1
@@ -3350,7 +3474,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.global_take_duration_ms,
         )
         
-        title = f"PODGLĄD PROTOKOŁU — {model.axis_def.axis_name}"
+        title = f"STEP MATRIX — {model.axis_def.axis_name}"
         if self.protocol_label_var.get() != title:
             self.protocol_label_var.set(title)
 
@@ -3366,44 +3490,37 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 if int(row['step']) == 1 or str(row['event']).strip():
                     first_active_idx = idx
                     break
-            pre_roll = 40
-            main_window = 420
+            pre_roll = PROTOCOL_STREAM_PRE_ROLL_ROWS
+            sample_ms = max(1, int(getattr(model, "sample_ms", 10) or 10))
+            # Ilość próbek podglądu wynika z czasu MAIN TAKE.
+            # Przykład: 3 min = 180000 ms / 10 ms = 18000 próbek.
+            main_window = max(1, int(round(self.global_take_duration_ms / sample_ms)))
             start_idx = max(0, first_active_idx - pre_roll)
             end_idx = min(len(rows), start_idx + main_window)
             window_rows = rows[start_idx:end_idx]
 
             bit_chunks = []
-            chunk_size = 64
+            chunk_size = PROTOCOL_STREAM_CHUNK_SIZE
             for i in range(0, len(window_rows), chunk_size):
                 chunk_rows = window_rows[i:i + chunk_size]
                 chunk_bits = ''.join(str(int(r['step'])) for r in chunk_rows)
                 chunk_time = chunk_rows[0]['time_ms'] if chunk_rows else 0
                 bit_chunks.append(f"{chunk_time:7d} ms | {chunk_bits}\n")
 
-            lines = [
-                f"OŚ ZAZNACZONA: {model.axis_def.axis_name}\n",
-                f"PODGLĄD TEJ OSI — próbka {model.sample_ms} ms\n",
-                f"OKNO PODGLĄDU: {window_rows[0]['time_ms']} ms .. {window_rows[-1]['time_ms']} ms\n",
-                "\n",
-                "STEP STRUMIEŃ 0/1 (każdy znak = 10 ms)\n",
-                "----------------------------------------\n",
-                *bit_chunks,
-                "\n",
-                "TIME_MS | DIR | STEP | EVENT\n",
-            ]
-            for row in window_rows:
-                lines.append(f"{row['time_ms']:7d} |  {row['dir']}  |   {row['step']}  | {row['event']}\n")
-            if end_idx < len(rows):
-                lines.append("...\n")
-                tail = rows[-1]
-                lines.append(f"{tail['time_ms']:7d} |  {tail['dir']}  |   {tail['step']}  | {tail['event']}\n")
-            text = ''.join(lines)
+            text = ''.join(bit_chunks)
 
         self.protocol_cache_key = cache_key
         self.protocol_cache_text = text
         self.protocol_text.configure(state='normal')
         self.protocol_text.delete('1.0', 'end')
         self.protocol_text.insert('1.0', text)
+        self.protocol_text.tag_remove('step_bits', '1.0', 'end')
+        for match in re.finditer(r'^\s*\d+\s+ms \| ([01]+)$', text, flags=re.MULTILINE):
+            self.protocol_text.tag_add(
+                'step_bits',
+                f"1.0+{match.start(1)}c",
+                f"1.0+{match.end(1)}c",
+            )
         self.protocol_text.configure(state='disabled')
 
     def _set_status(self, status: str | None = None) -> None:
@@ -3803,14 +3920,14 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         return Path(__file__).resolve().parents[2] / "data" / "take"
 
     def _toggle_take_panel(self) -> None:
+        """Pokazuje/ukrywa panel TAKE bez zmiany wzoru layoutu strony."""
         if self.take_panel is None:
             return
-        if not self.take_panel_visible:
-            self.take_panel.pack_forget()
-            self._set_status("Panel TAKE ukryty.")
-        else:
-            self.take_panel.pack(fill="x", side="bottom", pady=(2, 0))
+        self._grid_main_layout()
+        if self.take_panel_visible:
             self._set_status("Panel TAKE pokazany.")
+        else:
+            self._set_status("Panel TAKE ukryty.")
 
     def _on_toggle_take_btn_click(self) -> None:
         self.take_panel_visible = not self.take_panel_visible

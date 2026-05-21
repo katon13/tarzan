@@ -1,28 +1,28 @@
 {
   "slots": [
     {
-      "path": "data/take/TAKE_001_v01.txt"
+      "path": "data/take/TAKE_001_v41.txt"
     },
     {
-      "path": "data/take/TAKE_001_v13.txt"
+      "path": null
     },
     {
-      "path": "data/take/TAKE_001_v12.txt"
+      "path": null
     },
     {
-      "path": "data/take/TAKE_001_v37.txt"
+      "path": null
     },
     {
-      "path": "data/take/TAKE_001_v42.txt"
+      "path": null
     },
     {
-      "path": "data/take/TAKE_001_v17.txt"
+      "path": null
     },
     {
-      "path": "data/take/TAKE_001_v42.txt"
+      "path": null
     },
     {
-      "path": "data/take/TAKE_002_v16.txt"
+      "path": null
     },
     {
       "path": null
@@ -31,7 +31,7 @@
       "path": null
     }
   ],
-  "active_slot": 6,
+  "active_slot": 0,
   "axis_activity": {
     "oś pionowa kamery": true,
     "oś pochyłu ramienia": true,

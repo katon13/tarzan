@@ -12,7 +12,11 @@ import math
 import re
 import time
 
-from core.tarzanSignalBus import TarzanSignalBus, TarzanSignalState
+from core.tarzanSignalBus import TarzanSignalBus, TarzanSignalState, TarzanSignalMeta
+try:
+    from core.tarzanUstawienia import CZAS_PROBKOWANIA_MS
+except Exception:
+    CZAS_PROBKOWANIA_MS = 10
 try:
     from editor.PAR.tarzanParWidgets import COLORS, AxisCard, Led, Panel, SignalRow
 except ModuleNotFoundError:
@@ -1195,7 +1199,43 @@ class TarzanParPanels:
 
             # P1/P2 to kanały operatora. Potencjometr nie jest osią; oś jest wybierana osobno z Nextiona.
             knob_signal = _rrp_pot_signal(player)
-            state = {"value": float(self.bus.get(knob_signal, self.bus.get(signal, 0))), "after_id": None, "last_step_val": -1}
+            speed_signal = f"par_rrp_{player}_speed_mul"
+
+            # RRP SPEED musi być sygnałem ANALOG.
+            # Inaczej SignalBus tworzy go jako wirtualny LH i normalizuje X2/X4/... do 1,
+            # przez co przyciski wracają na X1, a generator nie dostaje mnożnika.
+            try:
+                if not self.bus.exists(speed_signal) or getattr(self.bus.get_meta(speed_signal), "typ", None) != "ANALOG":
+                    self.bus.meta[speed_signal] = TarzanSignalMeta(
+                        nazwa=speed_signal,
+                        plytka="VIRTUAL",
+                        typ="ANALOG",
+                        kierunek="IN",
+                        default="1",
+                        opis=f"Mnożnik szybkości generatora RRP {player.upper()}",
+                        grupa="RRP",
+                        status="AKTYWNY",
+                        kanoniczna_nazwa=f"rrp_{player}_speed_mul",
+                    )
+                    if speed_signal not in self.bus.state:
+                        self.bus.state[speed_signal] = TarzanSignalState(
+                            name=speed_signal,
+                            value=1,
+                            mode=self.bus.mode,
+                            source="PAR_RRP_SPEED_INIT",
+                        )
+            except Exception:
+                pass
+
+            state = {
+                "value": float(self.bus.get(knob_signal, self.bus.get(signal, 0))),
+                "after_id": None,
+                "last_step_val": -1,
+                "speed_mul": int(float(self.bus.get(speed_signal, 1) or 1)),
+                "tick_busy": False,
+                "pulse_accumulator": 0.0,
+                "last_tick_ts": time.monotonic(),
+            }
 
             val_lbl = tk.Label(box, text="0", bg="#0f171d", fg=COLORS["green"], font=("Consolas", 18, "bold"), pady=4)
             val_lbl.pack(fill="x", padx=6)
@@ -1212,7 +1252,56 @@ class TarzanParPanels:
             if tk_adapter: tk_adapter.register_widget("rrp_panel", f"{player}_axis_label", axis_lbl)
 
             can = tk.Canvas(box, width=122, height=122, bg=COLORS["panel3"], highlightthickness=0, takefocus=True)
-            can.pack(pady=10)
+            can.pack(pady=(8, 4))
+
+            # RRP SPEED — lokalne sterowanie istniejącym generatorem impulsów.
+            # X1..X4 nie skraca zegara poniżej CZAS_PROBKOWANIA_MS.
+            # Czułość ustawia zakres 0..50 imp/s, potencjometr płynnie go koryguje,
+            # a mnożnik X1..X4 podbija zakres bez przekraczania twardego limitu 50 imp/s.
+            speed_frame = tk.Frame(box, bg=COLORS["panel3"])
+            speed_frame.pack(fill="x", padx=8, pady=(0, 8))
+            speed_buttons = []
+
+            def paint_speed_buttons():
+                active_mul = int(float(state.get("speed_mul", 1) or 1))
+                for mul, btn in speed_buttons:
+                    active = mul == active_mul
+                    btn.configure(
+                        bg=COLORS["green"] if active else "#2a3238",
+                        fg="#061006" if active else COLORS["text"],
+                        activebackground=COLORS["green"],
+                        activeforeground="#061006",
+                    )
+
+            def set_speed_mul(mul, *, write_bus=True):
+                try:
+                    mul = int(float(mul or 1))
+                except Exception:
+                    mul = 1
+                if mul not in {1, 2, 3, 4}:
+                    mul = 1
+                state["speed_mul"] = mul
+                paint_speed_buttons()
+                if write_bus:
+                    self.bus.force_signal(speed_signal, mul, source="PAR_RRP_SPEED")
+
+            for mul in (1, 2, 3, 4):
+                btn = tk.Button(
+                    speed_frame,
+                    text=f"X{mul}",
+                    bg="#2a3238",
+                    fg=COLORS["text"],
+                    activebackground=COLORS["green"],
+                    activeforeground="#061006",
+                    relief="flat",
+                    font=("Segoe UI", 7, "bold"),
+                    padx=3,
+                    pady=1,
+                    command=lambda m=mul: set_speed_mul(m),
+                )
+                btn.pack(side="left", expand=True, fill="x", padx=1)
+                speed_buttons.append((mul, btn))
+            set_speed_mul(state["speed_mul"], write_bus=False)
 
             def drw(v=None):
                 if v is not None:
@@ -1251,36 +1340,98 @@ class TarzanParPanels:
                     axis_icon_lbl.configure(image="")
 
             def gen_tick():
+                # Generator RRP pracuje na stałej próbce TARZAN.
+                # Nie schodzi poniżej CZAS_PROBKOWANIA_MS; prędkość wynika z częstotliwości impulsów/s.
+                if state.get("tick_busy"):
+                    try:
+                        state["after_id"] = self.app.after(max(1, int(CZAS_PROBKOWANIA_MS)), gen_tick)
+                    except Exception:
+                        pass
+                    return
+
+                state["tick_busy"] = True
+                sample_ms = max(1, int(CZAS_PROBKOWANIA_MS))
+                next_delay = sample_ms
                 try:
                     pot_signal = _rrp_pot_signal(player)
-                    pot_val = float(self.bus.get(pot_signal, self.bus.get(signal, 0)))
-                    sens = float(self.bus.get(f"par_rrp_{player}_sens", 50))
-                    intensity = (pot_val / 4095.0) * (sens / 100.0)
+                    pot_val = max(0.0, min(4095.0, float(self.bus.get(pot_signal, self.bus.get(signal, 0)))))
+                    sens = max(0.0, min(100.0, float(self.bus.get(f"par_rrp_{player}_sens", 50))))
+                    pot_norm = pot_val / 4095.0
+                    sens_norm = sens / 100.0
+                    intensity = pot_norm * sens_norm
 
-                    if intensity > 0.001:
-                        delay = max(20, int(40 / intensity)) # Skalowanie dla większej płynności (20-400ms)
-                        if intensity < 0.01: delay = 400 # Bardzo wolno przy minimalnym wychyleniu
+                    try:
+                        speed_mul = int(float(self.bus.get(speed_signal, state.get("speed_mul", 1)) or 1))
+                    except Exception:
+                        speed_mul = int(float(state.get("speed_mul", 1) or 1))
+                    if speed_mul not in {1, 2, 3, 4}:
+                        speed_mul = 1
+                    if speed_mul != state.get("speed_mul"):
+                        state["speed_mul"] = speed_mul
+                        paint_speed_buttons()
 
-                        step_signal = _rrp_step_signal(player)
-                        dir_signal = _rrp_dir_signal(player)
+                    step_signal = _rrp_step_signal(player)
+                    dir_signal = _rrp_dir_signal(player)
 
-                        if step_signal and dir_signal:
+                    if intensity > 0.001 and step_signal and dir_signal:
+                        # Model prędkości RRP — 20x szybszy w tej samej proporcji:
+                        # - zegar generatora zostaje 10 ms (CZAS_PROBKOWANIA_MS),
+                        # - czułość 0..100 ustawia bazowy zakres,
+                        # - potencjometr płynnie wybiera 0..100% z tego zakresu,
+                        # - X1..X4 podbija zakres,
+                        # - docelowy sufit jest 20x wyższy niż poprzednie 50 imp/s: 1000 imp/s.
+                        max_rrp_rate_hz = 1000.0
+                        rate_hz = max_rrp_rate_hz * sens_norm * float(speed_mul) * pot_norm
+                        rate_hz = max(0.0, min(max_rrp_rate_hz, rate_hz))
+
+                        now = time.monotonic()
+                        last_ts = float(state.get("last_tick_ts", now))
+                        elapsed_s = max(0.0, min(0.1, now - last_ts))
+                        state["last_tick_ts"] = now
+
+                        state["pulse_accumulator"] = min(30.0, float(state.get("pulse_accumulator", 0.0)) + rate_hz * elapsed_s)
+
+                        pulse_count = int(state["pulse_accumulator"])
+                        if pulse_count > 0:
+                            # Przy 1000 imp/s i ticku 10 ms nominalnie wypada do 10 impulsów na tick.
+                            # Zostawiamy akumulator, ale nie zalewamy Tkintera więcej niż 10 impulsami naraz.
+                            pulse_count = min(10, pulse_count)
+                            state["pulse_accumulator"] -= pulse_count
+
                             direction = int(self.bus.get(f"par_rrp_{player}_dir", 0))
                             self.bus.force_signal(dir_signal, direction, source="PAR_GEN")
-                            self._pulse_many_signals([step_signal], delay_ms=int(delay * 0.4), src="PAR_GEN")
 
-                            step_val = int(intensity * 100)
-                            if abs(step_val - state["last_step_val"]) >= 2: # Debouncing aktualizacji Nextiona
-                                state["last_step_val"] = step_val
-                                self.bus.set_input(f"par_rrp_{player}_val", step_val, source="PAR_GEN")
-                                self.bus.set_input(f"rrp_{player}_val", step_val, source="PAR_GEN")
+                            pulse_gap_ms = max(1, sample_ms // max(1, pulse_count))
+                            for pulse_idx in range(pulse_count):
+                                on_delay = pulse_idx * pulse_gap_ms
+                                off_delay = on_delay + 1
+                                self.app.after(
+                                    on_delay,
+                                    lambda name=step_signal: self.bus.force_signal(name, 1, source="PAR_GEN"),
+                                )
+                                self.app.after(
+                                    off_delay,
+                                    lambda name=step_signal: self.bus.force_signal(name, 0, source="PAR_GEN"),
+                                )
 
-                            state["after_id"] = self.app.after(delay, gen_tick)
-                            return
-                            
-                    state["after_id"] = self.app.after(50, gen_tick)
+                        # Wartość panelowa pokazuje realną docelową częstotliwość impulsów/s.
+                        step_val = int(round(rate_hz))
+                        if abs(step_val - state["last_step_val"]) >= 1:
+                            state["last_step_val"] = step_val
+                            self.bus.set_input(f"par_rrp_{player}_val", step_val, source="PAR_GEN")
+                            self.bus.set_input(f"rrp_{player}_val", step_val, source="PAR_GEN")
+                    else:
+                        state["pulse_accumulator"] = 0.0
+                        state["last_tick_ts"] = time.monotonic()
+                        next_delay = 80
                 except Exception:
-                    state["after_id"] = self.app.after(200, gen_tick)
+                    next_delay = 200
+                finally:
+                    state["tick_busy"] = False
+                    try:
+                        state["after_id"] = self.app.after(next_delay, gen_tick)
+                    except Exception:
+                        pass
 
             def on_wheel(event):
                 delta = 0
@@ -1308,6 +1459,7 @@ class TarzanParPanels:
             self._register_signal_proxy(f"par_rrp_{player}_selected_axis", lambda v: drw())
             self._register_signal_proxy(f"par_rrp_{player}_step_signal", lambda v: drw())
             self._register_signal_proxy(f"par_rrp_{player}_dir_signal", lambda v: drw())
+            self._register_signal_proxy(speed_signal, lambda v: set_speed_mul(v, write_bus=False))
             self._register_signal_proxy(knob_signal, lambda v: drw(v))
             self._register_signal_proxy(signal, lambda v: drw(v))
             self._rrp_operator_updaters.append(drw)

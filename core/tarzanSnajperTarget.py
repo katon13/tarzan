@@ -192,6 +192,9 @@ DEFAULT_TARZAN_SNAJPER_TARGETS: Dict[str, List[TarzanSnajperTarget]] = {
     'ehr_axis_0_step_preview': [
         T('ehr_canvas', 'ehr_protocol', 'axis_0_step_bars', 'coords'),
     ],
+    'ehr_axis_0_live_matrix': [
+        T('ehr_main', 'protocol_preview', 'axis_0_live_matrix', 'refresh'),
+    ],
     'ehr_axis_1_curve': [
         T('ehr_canvas', 'ehr_main', 'axis_1_curve', 'coords'),
     ],
@@ -200,6 +203,9 @@ DEFAULT_TARZAN_SNAJPER_TARGETS: Dict[str, List[TarzanSnajperTarget]] = {
     ],
     'ehr_axis_1_step_preview': [
         T('ehr_canvas', 'ehr_protocol', 'axis_1_step_bars', 'coords'),
+    ],
+    'ehr_axis_1_live_matrix': [
+        T('ehr_main', 'protocol_preview', 'axis_1_live_matrix', 'refresh'),
     ],
     'ehr_axis_2_curve': [
         T('ehr_canvas', 'ehr_main', 'axis_2_curve', 'coords'),
@@ -210,6 +216,9 @@ DEFAULT_TARZAN_SNAJPER_TARGETS: Dict[str, List[TarzanSnajperTarget]] = {
     'ehr_axis_2_step_preview': [
         T('ehr_canvas', 'ehr_protocol', 'axis_2_step_bars', 'coords'),
     ],
+    'ehr_axis_2_live_matrix': [
+        T('ehr_main', 'protocol_preview', 'axis_2_live_matrix', 'refresh'),
+    ],
     'ehr_axis_3_curve': [
         T('ehr_canvas', 'ehr_main', 'axis_3_curve', 'coords'),
     ],
@@ -218,6 +227,9 @@ DEFAULT_TARZAN_SNAJPER_TARGETS: Dict[str, List[TarzanSnajperTarget]] = {
     ],
     'ehr_axis_3_step_preview': [
         T('ehr_canvas', 'ehr_protocol', 'axis_3_step_bars', 'coords'),
+    ],
+    'ehr_axis_3_live_matrix': [
+        T('ehr_main', 'protocol_preview', 'axis_3_live_matrix', 'refresh'),
     ],
     'ehr_axis_4_curve': [
         T('ehr_canvas', 'ehr_main', 'axis_4_curve', 'coords'),
@@ -228,6 +240,9 @@ DEFAULT_TARZAN_SNAJPER_TARGETS: Dict[str, List[TarzanSnajperTarget]] = {
     'ehr_axis_4_step_preview': [
         T('ehr_canvas', 'ehr_protocol', 'axis_4_step_bars', 'coords'),
     ],
+    'ehr_axis_4_live_matrix': [
+        T('ehr_main', 'protocol_preview', 'axis_4_live_matrix', 'refresh'),
+    ],
     'ehr_axis_5_curve': [
         T('ehr_canvas', 'ehr_main', 'axis_5_curve', 'coords'),
     ],
@@ -236,6 +251,9 @@ DEFAULT_TARZAN_SNAJPER_TARGETS: Dict[str, List[TarzanSnajperTarget]] = {
     ],
     'ehr_axis_5_step_preview': [
         T('ehr_canvas', 'ehr_protocol', 'axis_5_step_bars', 'coords'),
+    ],
+    'ehr_axis_5_live_matrix': [
+        T('ehr_main', 'protocol_preview', 'axis_5_live_matrix', 'refresh'),
     ],
     'ehr_take_slot_0_status': [
         T('ehr_tkinter', 'ehr_take_slots', 'slot_0', 'state'),

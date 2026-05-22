@@ -27,7 +27,6 @@ from editor.EHR.tarzanEhrMultiAxisModel import (
     EhrEditorConfig,
     StepTuning,
 )
-from editor.EHR.tarzanEhrTakeModel import EhrTakeModel
 from editor.EHR.tarzanTakeTxtCore import save_take_txt, load_take_txt, next_take_txt_path
 
 try:
@@ -1554,6 +1553,7 @@ class AxisSettingsDialog(tk.Toplevel):
         }
 
         self.selected_index: int | None = None
+        self.selected_node_ref = None
         self.drag_mode: str | None = None
         self.drag_anchor_x = 0
         self.drag_anchor_y = 0
@@ -1616,6 +1616,16 @@ class AxisSettingsDialog(tk.Toplevel):
         self._axis_dialog_fire_seq += 1
         payload = self._axis_dialog_fire_seq if value is None else value
         self.tarzan_snajper.fire(logical_signal, payload)
+
+    def _restore_selected_index_from_ref(self) -> None:
+        ref = getattr(self, "selected_node_ref", None)
+        if ref is None:
+            return
+        try:
+            self.selected_index = self.model.nodes.index(ref)
+        except ValueError:
+            self.selected_index = None
+            self.selected_node_ref = None
 
     def _snajper_refresh_targets(
         self,
@@ -2233,6 +2243,7 @@ class AxisSettingsDialog(tk.Toplevel):
         idx = self._hit_node(event.x, event.y)
         if idx is not None:
             self.selected_index = idx
+            self.selected_node_ref = self.model.nodes[idx]
             self.drag_mode = "node"
             # Ghost assist cache
             self._ghost_samples_cache = []
@@ -2287,6 +2298,7 @@ class AxisSettingsDialog(tk.Toplevel):
                 new_y = snapped_y
 
             if self.model.move_node(self.selected_index, new_t, new_y):
+                self._restore_selected_index_from_ref()
                 self.model._invalidate_cache()
                 self._curve_needs_redraw = True
                 self._step_needs_redraw = True
@@ -2349,10 +2361,12 @@ class AxisSettingsDialog(tk.Toplevel):
             node = self.model.nodes[self.selected_index]
             final_y = self.model.apply_zero_snap(self.master_window.main_take_settings, node.y)
             if self.model.move_node(self.selected_index, node.time_ms, final_y):
+                self._restore_selected_index_from_ref()
                 self.model._invalidate_cache()
                 self._nodes_dirty = True
 
         self.drag_mode = None
+        self.selected_node_ref = None
         self.drag_anchor_x = 0
         self.drag_anchor_y = 0
         self._curve_needs_redraw = True
@@ -2379,6 +2393,7 @@ class AxisSettingsDialog(tk.Toplevel):
             return
         self.model.remove_node(idx)
         self.selected_index = None
+        self.selected_node_ref = None
         self._curve_needs_redraw = True
         self._step_needs_redraw = True
         self._metrics_cache_key = None
@@ -2389,8 +2404,49 @@ class AxisSettingsDialog(tk.Toplevel):
     def _on_close(self) -> None:
         # Zamknięcie okna pojedynczej osi nie synchronizuje MAIN TAKE.
         # Dane trafiają do głównego EHR wyłącznie przez SET UP -> MAIN TAKE.
+        self.selected_node_ref = None
         self.master_window.settings_dialogs.pop(self.axis_index, None)
         self.destroy()
+
+
+
+class EhrMainSnajperAdapter:
+    """Adapter Snajpera dla głównego EHR.
+
+    Nie generuje STEP ani ADRR. Tylko kieruje strzał Snajpera w istniejące
+    metody odświeżenia aktywnej osi: krzywa, metryki, STEP preview.
+    """
+
+    def __init__(self, window: "TarzanEhrMultiAxisWindow") -> None:
+        self.window = window
+
+    def update_target(self, target, value: Any) -> None:
+        if str(target.target) == "page_full":
+            self.window._snajper_draw_ehr_page_full()
+            return
+        if str(target.target) == "page_init":
+            self.window._snajper_draw_ehr_page_init()
+            return
+
+        axis_index = self.window._axis_index_from_ehr_target(str(target.target))
+        if axis_index is None:
+            return
+
+        if str(target.target).endswith("_curve"):
+            self.window._snajper_draw_ehr_axis_curve(axis_index)
+            return
+
+        if str(target.target).endswith("_step_preview"):
+            self.window._snajper_draw_ehr_axis_step_preview(axis_index)
+            return
+
+        if str(target.target).endswith("_metrics"):
+            self.window._snajper_draw_ehr_axis_metrics(axis_index)
+            return
+
+        if str(target.target).endswith("_live_matrix"):
+            self.window._snajper_draw_ehr_axis_live_matrix(axis_index)
+            return
 
 
 class TarzanEhrMultiAxisWindow(tk.Tk):
@@ -2428,9 +2484,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             axis.sandbox.mouse_y_precision = 1.0
             axis.sandbox.top_bottom_margin = 8
             axis.set_axis_take_duration_ms(self.global_take_duration_ms)
-        self.take_model = EhrTakeModel.from_runtime(self.global_take_duration_ms, self.main_take_settings, self.axis_models)
         self.active_axis_index = 0
         self.selected_index: int | None = None
+        self.selected_node_ref = None
         self.drag_axis_index: int | None = None
         self.drag_mode: str | None = None
         self.drag_anchor_x = 0
@@ -2447,7 +2503,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.dirty_axis_indices: set[int] = set()
         self._axis_data_versions = [0 for _ in self.axis_models]
         self._axis_selection_version = 0
-        self._take_model_version = 0
 
         self.selected_point_time_var = tk.StringVar(value="--:--")
         self.axis_info_var = tk.StringVar(value="")
@@ -2459,7 +2514,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.is_ghost_snapped = False
         self._ghost_samples_cache = []
         self._main_canvas_needs_redraw = True
-        self._take_model_dirty = False
         self._axis_info_dirty = True
         self._protocol_dirty = True
         self._force_curve_resample_after_save = False
@@ -2487,10 +2541,26 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             "DRON": "ta_dron_ico_320_active.png"
         }
 
+        # TARZAN EHR MAIN -> SNAJPER
+        # Jeden strzał Snajpera odświeża tylko wskazaną oś głównego EHR.
+        self.tarzan_snajper = create_default_tarzan_snajper()
+        self.ehr_main_snajper_adapter = EhrMainSnajperAdapter(self)
+        self.tarzan_snajper.register_adapter("ehr_main", self.ehr_main_snajper_adapter)
+        self.tarzan_snajper.register_adapter("ehr_canvas", self.ehr_main_snajper_adapter)
+        self.tarzan_snajper.register_adapter("ehr_tkinter", self.ehr_main_snajper_adapter)
+
+        self.tarzan_snajper.register_target("ehr_init", T("ehr_main", "page", "page_init", "refresh"))
+        self.tarzan_snajper.register_target("ehr_page_full", T("ehr_main", "page", "page_full", "refresh"))
+
+        self._ehr_axis_fire_seq = 0
+        self._live_matrix_after_id = None
+        self._live_matrix_pending_axis_index = None
+        self._live_matrix_interval_ms = 100
+
         self._build_ui()
         self._load_axis_activity()
         self.update_idletasks()
-        self.after_idle(self._refresh_all)
+        self.after_idle(lambda: self._snajper_init_ehr_page(status="Gotowy."))
         self.after_idle(self._load_active_slot_on_start)
 
     def _load_active_slot_on_start(self) -> None:
@@ -2519,10 +2589,14 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 self.take_widget._refresh_slot(active_idx)
 
                 self._set_status(f"Auto-load: TAKE {vm.take_number} załadowany z aktywnego slotu.")
+                return
             except Exception as e:
                 print(f"Błąd auto-loadingu TAKE ze slotu {active_idx}: {e}")
         elif vm.file_path:
             print(f"Auto-load SKIP: Plik {vm.file_path} nie istnieje.")
+        
+        # Jeśli nie załadowano pliku (lub błąd), wymuś inicjalny refresh
+        self._snajper_init_ehr_page(status="Gotowy.")
 
     def _load_axis_activity(self) -> None:
         """Wczytuje stan aktywności osi z widgetu slotów."""
@@ -2763,12 +2837,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
     def _bump_axis_data_version(self, axis_index: int) -> None:
         self._axis_data_versions[axis_index] += 1
 
-    def _mark_take_model_dirty(self) -> None:
-        self._take_model_dirty = True
-        self._take_model_version += 1
-        # Jeśli take jest brudny, to ghost (ostatnio zapisany) różni się od aktywnego.
-        # Cache ghostów powinien być stabilny, ale jeśli zmienia się duration, musimy go czyścić.
-        # Jednak duration zmienia się rzadko i jest częścią cache_key w _sample_original_curve.
 
     def _mark_axis_metrics_dirty(self) -> None:
         self._axis_info_dirty = True
@@ -2787,10 +2855,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._main_canvas_needs_redraw = True
         return True
 
-    def _mark_axis_data_changed(self, axis_index: int, *, mark_take_model: bool = False, mark_protocol: bool = True, mark_axis_info: bool = True, notify_ui: bool = True) -> None:
+    def _mark_axis_data_changed(self, axis_index: int, *, mark_protocol: bool = True, mark_axis_info: bool = True, notify_ui: bool = True) -> None:
         self._bump_axis_data_version(axis_index)
-        if mark_take_model:
-            self._mark_take_model_dirty()
         if axis_index == self.active_axis_index:
             if mark_protocol:
                 self._mark_protocol_dirty()
@@ -2810,15 +2876,193 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self._set_status(status or f"Oś zmieniona lokalnie: {self.axis_models[axis_index].axis_def.axis_name}.")
         self._configure_after_id = None
 
-    def _rebuild_take_model(self) -> None:
-        self.take_model = EhrTakeModel.from_runtime(self.global_take_duration_ms, self.main_take_settings, self.axis_models)
 
     def sync_axis_from_dialog(self, axis_index: int, status: str | None = None) -> None:
         self.dirty_axis_indices.discard(axis_index)
+        self._snajper_refresh_ehr_axis(
+            axis_index,
+            curve=True,
+            metrics=True,
+            step=True,
+            status=status,
+            notify_ui=True,
+        )
+
+    def _axis_index_from_ehr_target(self, target_name: str) -> int | None:
+        match = re.search(r"axis_(\d+)_", str(target_name or ""))
+        if not match:
+            return None
+        axis_index = int(match.group(1))
+        if 0 <= axis_index < len(self.axis_models):
+            return axis_index
+        return None
+
+    def _snajper_fire_ehr(self, logical_signal: str) -> None:
+        """Wymusza celowany strzał Snajpera mimo cache identycznych wartości."""
+        self._ehr_axis_fire_seq += 1
+        self.tarzan_snajper.fire(logical_signal, self._ehr_axis_fire_seq)
+
+    def _restore_selected_index_from_ref(self) -> None:
+        ref = getattr(self, "selected_node_ref", None)
+        if ref is None:
+            return
+        axis_idx = getattr(self, "drag_axis_index", None)
+        if axis_idx is None:
+            axis_idx = self.active_axis_index
+        
+        model = self.axis_models[axis_idx]
+        try:
+            self.selected_index = model.nodes.index(ref)
+        except ValueError:
+            self.selected_index = None
+            self.selected_node_ref = None
+
+    def _snajper_refresh_ehr_axis(
+        self,
+        axis_index: int,
+        *,
+        curve: bool = True,
+        metrics: bool = True,
+        step: bool = True,
+        status: str | None = None,
+        notify_ui: bool = True,
+    ) -> None:
+        """Centralne odświeżenie jednej osi EHR przez Snajpera.
+
+        Zasada:
+            jedna aktywna oś -> sygnał ehr_axis_N_* -> odświeżenie jej widoku.
+        Snajper nie generuje STEP ani ADRR. Model osi pozostaje źródłem matrixa,
+        markerów ADRR i Chaos Index.
+        """
+        if not (0 <= int(axis_index) < len(self.axis_models)):
+            return
+
+        axis_index = int(axis_index)
+        self.dirty_axis_indices.discard(axis_index)
+
         self._set_active_axis(axis_index)
-        self._mark_axis_data_changed(axis_index, mark_take_model=True, mark_protocol=True, mark_axis_info=True)
+        self._main_canvas_needs_redraw = False
+        self._configure_after_id = None
+
+        self._mark_axis_data_changed(
+            axis_index,
+            mark_protocol=step,
+            mark_axis_info=metrics,
+            notify_ui=notify_ui,
+        )
+
+        if step or metrics:
+            # Aktualizacja matrixa tej osi. To wywołanie pozostaje w modelu osi,
+            # więc ADRR, markery i Chaos Index są liczone w dotychczasowej warstwie.
+            try:
+                self.axis_models[axis_index].build_step_rows(duration_ms=self.global_take_duration_ms)
+            except AttributeError:
+                self.axis_models[axis_index].protocol_rows(duration_ms=self.global_take_duration_ms)
+
+        if curve:
+            self._snajper_fire_ehr(f"ehr_axis_{axis_index}_curve")
+        if metrics:
+            self._snajper_fire_ehr(f"ehr_axis_{axis_index}_metrics")
+        if step:
+            self._snajper_fire_ehr(f"ehr_axis_{axis_index}_step_preview")
+
+        if status is not None:
+            self._set_status(status)
+
+    def _snajper_draw_ehr_axis_curve(self, axis_index: int) -> None:
+        self._draw_main_canvas(only_axis_index=axis_index)
+        self._main_canvas_needs_redraw = False
+
+    def _snajper_draw_ehr_axis_metrics(self, axis_index: int) -> None:
+        if axis_index != self.active_axis_index:
+            return
+        self._refresh_axis_info(force=True)
+        self._axis_info_dirty = False
+
+    def _snajper_draw_ehr_axis_step_preview(self, axis_index: int) -> None:
+        if axis_index != self.active_axis_index:
+            return
+        self._refresh_protocol_preview(force=True)
+        self._protocol_dirty = False
+
+    def _request_live_matrix_refresh(self, axis_index: int) -> None:
+        if not (0 <= axis_index < len(self.axis_models)):
+            return
+
+        self._live_matrix_pending_axis_index = axis_index
+        if self._live_matrix_after_id is not None:
+            return
+
+        self._live_matrix_after_id = self.after(
+            self._live_matrix_interval_ms,
+            self._flush_live_matrix_refresh,
+        )
+
+    def _flush_live_matrix_refresh(self) -> None:
+        self._live_matrix_after_id = None
+        axis_index = self._live_matrix_pending_axis_index
+        self._live_matrix_pending_axis_index = None
+
+        if axis_index is None:
+            return
+
+        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_live_matrix")
+
+    def _snajper_draw_ehr_axis_live_matrix(self, axis_index: int) -> None:
+        if not (0 <= axis_index < len(self.axis_models)):
+            return
+
+        # Ustawienie osi jako aktywnej
+        if axis_index != self.active_axis_index:
+            self._set_active_axis(axis_index)
+
+        # Inwalidacja cache modelu osi
+        model = self.axis_models[axis_index]
+        model._invalidate_cache()
+
+        # Przeliczenie modelu (STEP/ADRR)
+        try:
+            model.build_step_rows(duration_ms=self.global_take_duration_ms)
+        except AttributeError:
+            model.protocol_rows(duration_ms=self.global_take_duration_ms)
+
+        # Wyczyszczenie kluczy cache i odświeżenie UI
+        self.protocol_cache_key = None
+        self.axis_info_cache_key = None
+        self._refresh_protocol_preview(force=True)
+        self._refresh_axis_info(force=True)
+        self._protocol_dirty = False
+        self._axis_info_dirty = False
+
+    def _snajper_init_ehr_page(self, status: str = "Gotowy.") -> None:
+        """Inicjalizacja widoku EHR przez Snajpera."""
+        if status is not None:
+            self._set_status(status)
+        self._snajper_fire_ehr("ehr_init")
+
+    def _snajper_refresh_ehr_page_full(self, status: str | None = None, rebuild_take_model: bool = True) -> None:
+        """Pełne odświeżenie strony EHR przez Snajpera (Canvas, Info, Protocol)."""
+        if status is not None:
+            self._set_status(status)
+        self._snajper_fire_ehr("ehr_page_full")
+
+    def _snajper_draw_ehr_page_full(self) -> None:
+        """Realizacja strzału Snajpera: pełne odświeżenie strony."""
+        self.protocol_cache_key = None
+        self.axis_info_cache_key = None
         self._main_canvas_needs_redraw = True
-        self._refresh_all(light=False, status=status)
+        self._axis_info_dirty = True
+        self._protocol_dirty = True
+        self._draw_main_canvas()
+        self._refresh_axis_info(force=True)
+        self._refresh_protocol_preview(force=True)
+        self._main_canvas_needs_redraw = False
+        self._axis_info_dirty = False
+        self._protocol_dirty = False
+
+    def _snajper_draw_ehr_page_init(self) -> None:
+        """Realizacja strzału Snajpera: inicjalizacja strony."""
+        self._snajper_draw_ehr_page_full()
 
     def _open_take_settings(self) -> None:
         dlg = MainTakeSettingsDialog(
@@ -2840,10 +3084,15 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.protocol_cache_key = None
         self.axis_info_cache_key = None
         self._main_canvas_needs_redraw = True
-        self._mark_take_model_dirty()
         self._mark_protocol_dirty()
         self._mark_axis_metrics_dirty()
         self._configure_after_id = None
+
+        self._snajper_refresh_ehr_page_full(
+            status="Zastosowano ustawienia MAIN TAKE.",
+            rebuild_take_model=True,
+        )
+
         for dlg in list(self.settings_dialogs.values()):
             if dlg.winfo_exists():
                 dlg._curve_needs_redraw = True
@@ -2851,7 +3100,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 dlg._metrics_cache_key = None
                 dlg._metrics_cache_text = ""
                 dlg._snajper_refresh_targets(curve=True, step=True, metrics=True)
-        self._refresh_all(light=False, status="Zastosowano ustawienia MAIN TAKE.")
 
     def _save_take_settings(self, settings: MainTakeSettings) -> None:
         self._apply_take_settings(settings)
@@ -2965,12 +3213,13 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         strength = float(getattr(self.main_take_settings, "smooth_strength_default", 0.35))
         passes = int(getattr(self.main_take_settings, "smooth_passes_default", 2))
         model.smooth_all(strength=strength, passes=passes)
-        self._set_active_axis(axis_index)
-        self._mark_axis_data_changed(axis_index)
-        self._draw_main_canvas()
-        self._refresh_protocol_preview()
-        self._refresh_axis_info()
-        self._set_status(f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.")
+        self._snajper_refresh_ehr_axis(
+            axis_index,
+            curve=True,
+            metrics=True,
+            step=True,
+            status=f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.",
+        )
 
     def _schedule_configure_refresh(self) -> None:
         if self._configure_after_id is not None:
@@ -3529,32 +3778,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             force_protocol=refresh_protocol,
         )
 
-    @profile_method('EHR_MAIN._refresh_all')
-    def _refresh_all(self, light: bool = False, status: str | None = None) -> None:
-        if self._main_canvas_needs_redraw:
-            self._draw_main_canvas()
-            self._main_canvas_needs_redraw = False
-        
-        if light:
-            if self._axis_info_dirty:
-                self._refresh_axis_info(force=False)
-            if status is not None:
-                self._set_status(status)
-            return
-
-        if self._take_model_dirty:
-            self._rebuild_take_model()
-            self._take_model_dirty = False
-        
-        if self._axis_info_dirty:
-            self._refresh_axis_info(force=False)
-        
-        if self._protocol_dirty:
-            self._refresh_protocol_preview(force=False)
-            self._protocol_dirty = False
-        
-        if status is not None:
-            self._set_status(status)
 
     def _open_settings(self, axis_index: int) -> None:
         axis_changed = self._set_active_axis(axis_index)
@@ -3642,6 +3865,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if node_index is not None:
             self.drag_axis_index = axis_index
             self.selected_index = node_index
+            self.selected_node_ref = model.nodes[node_index]
             self.drag_mode = "node"
             self._update_selected_point_time_indicator(axis_index, node_index)
             rect = self.axis_rects[axis_index]
@@ -3656,6 +3880,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             new_t = self._x_to_time(event.x, rect.left, rect.right)
             new_y = self._canvas_to_logical_y(model, event.y, rect.top, rect.bottom, apply_snap=False)
             model.move_node(self.selected_index, new_t, new_y)
+            self._restore_selected_index_from_ref()
+            self._request_live_matrix_refresh(axis_index)
             
             self.drag_anchor_x = event.x
             self.drag_anchor_y = event.y
@@ -3718,6 +3944,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 new_y = snapped_y
 
             if model.move_node(self.selected_index, new_t, new_y):
+                self._restore_selected_index_from_ref()
                 self._update_selected_point_time_indicator(axis_index, self.selected_index, new_t)
                 # Po move_node nody mogły zmienić kolejność, ale move_node zwraca True jeśli nastąpiła zmiana.
                 # sort_and_fix_nodes() w _draw_main_canvas zadba o spójność rysowania.
@@ -3726,12 +3953,14 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 model.sample_curve(self._main_curve_sample_count(), duration_ms=self.global_take_duration_ms)
                 self._drag_data_changed = True
                 self._request_main_canvas_redraw(only_axis_index=axis_index)
+                self._request_live_matrix_refresh(axis_index)
         elif self.drag_mode == "release":
             new_time = self._x_to_time(event.x, rect.left, rect.right)
             if model.set_release_time(new_time):
                 self._update_selected_point_time_indicator(axis_index, time_ms=new_time)
                 self._drag_data_changed = True
                 self._request_main_canvas_redraw(only_axis_index=axis_index)
+                self._request_live_matrix_refresh(axis_index)
         elif self.drag_mode == "pan":
             new_time = self._x_to_time(event.x, rect.left, rect.right)
             old_time = self._x_to_time(self.drag_anchor_x, rect.left, rect.right)
@@ -3764,6 +3993,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 self._update_selected_point_time_indicator()
                 self._drag_data_changed = True
                 self._request_main_canvas_redraw(only_axis_index=axis_index)
+                self._request_live_matrix_refresh(axis_index)
 
     def _on_canvas_release(self, _event) -> None:
         self.is_ghost_snapped = False
@@ -3777,11 +4007,13 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             # Dopiero przy release stosujemy snap do zera
             final_y = model.apply_zero_snap(self.main_take_settings, node.y)
             if model.move_node(self.selected_index, node.time_ms, final_y):
+                self._restore_selected_index_from_ref()
                 model._invalidate_cache()
                 drag_data_changed = True
 
         self.drag_axis_index = None
         self.selected_index = None
+        self.selected_node_ref = None
         self.drag_mode = None
         self.drag_anchor_x = 0
         self.drag_anchor_y = 0
@@ -3790,13 +4022,19 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._main_canvas_needs_redraw = True
         self._configure_after_id = None
         if had_drag_mode and changed_axis_index is not None and drag_data_changed:
-            self._mark_axis_data_changed(changed_axis_index)
-            self._draw_main_canvas()
-            self._refresh_protocol_preview()
-            self._refresh_axis_info()
-            self._set_status("Gotowy.")
+            self._snajper_refresh_ehr_axis(
+                changed_axis_index,
+                curve=True,
+                metrics=True,
+                step=True,
+                status="Gotowy.",
+            )
             return
-        self._request_main_canvas_redraw()
+        if changed_axis_index is not None:
+            self._main_canvas_needs_redraw = False
+            self._request_main_canvas_redraw(only_axis_index=changed_axis_index)
+        else:
+            self._request_main_canvas_redraw()
         self._set_status("Gotowy.")
 
     def _on_canvas_double_click(self, event) -> None:
@@ -3815,27 +4053,28 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if model.is_release_axis and abs(event.y - ((rect.top + rect.bottom) / 2.0)) <= 20:
             if model.set_release_time(t_ms):
                 model._invalidate_cache()
-                self._main_canvas_needs_redraw = True
-                self._mark_axis_data_changed(axis_index)
-                self._draw_main_canvas()
-                self._refresh_protocol_preview()
-                self._refresh_axis_info()
-                self._set_status(f"Ustawiono RELEASE na osi: {model.axis_def.axis_name}.")
+                self._snajper_refresh_ehr_axis(
+                    axis_index,
+                    curve=True,
+                    metrics=True,
+                    step=True,
+                    status=f"Ustawiono RELEASE na osi: {model.axis_def.axis_name}.",
+                )
             else:
-                self._request_main_canvas_redraw()
+                self._request_main_canvas_redraw(only_axis_index=axis_index)
                 self._set_status(f"Ustawiono RELEASE na osi: {model.axis_def.axis_name}.")
             return
         y = self._canvas_to_logical_y(model, event.y, rect.top, rect.bottom)
         model.add_node(t_ms, y)
         self._update_selected_point_time_indicator(axis_index, time_ms=t_ms)
         model._invalidate_cache()
-        self._main_canvas_needs_redraw = True
-        self._mark_axis_data_changed(axis_index)
-        self._configure_after_id = None
-        self._draw_main_canvas()
-        self._refresh_protocol_preview()
-        self._refresh_axis_info()
-        self._set_status(f"Dodano punkt na osi: {model.axis_def.axis_name}.")
+        self._snajper_refresh_ehr_axis(
+            axis_index,
+            curve=True,
+            metrics=True,
+            step=True,
+            status=f"Dodano punkt na osi: {model.axis_def.axis_name}.",
+        )
 
     def _on_canvas_right_click(self, event) -> None:
         axis_index = self._axis_index_from_point(event.x, event.y)
@@ -3851,28 +4090,30 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             return
         model = self.axis_models[axis_index]
         model.remove_node(node_index)
+        self.selected_index = None
+        self.selected_node_ref = None
         self._update_selected_point_time_indicator()
         model._invalidate_cache()
-        self._main_canvas_needs_redraw = True
-        self._mark_axis_data_changed(axis_index)
-        self._configure_after_id = None
-        self._draw_main_canvas()
-        self._refresh_protocol_preview()
-        self._refresh_axis_info()
-        self._set_status(f"Usunięto punkt z osi: {model.axis_def.axis_name}.")
+        self._snajper_refresh_ehr_axis(
+            axis_index,
+            curve=True,
+            metrics=True,
+            step=True,
+            status=f"Usunięto punkt z osi: {model.axis_def.axis_name}.",
+        )
 
     def _smooth_active(self) -> None:
         model = self._active_model()
         strength = max(0.0, min(1.0, float(getattr(self.main_take_settings, "smooth_strength_default", 0.35))))
         passes = max(1, min(8, int(getattr(self.main_take_settings, "smooth_passes_default", 2))))
         model.smooth_all(strength=strength, passes=passes)
-        self._main_canvas_needs_redraw = True
-        self._mark_axis_data_changed(self.active_axis_index)
-        self._configure_after_id = None
-        self._draw_main_canvas()
-        self._refresh_protocol_preview()
-        self._refresh_axis_info()
-        self._set_status(f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.")
+        self._snajper_refresh_ehr_axis(
+            self.active_axis_index,
+            curve=True,
+            metrics=True,
+            step=True,
+            status=f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.",
+        )
 
 
 
@@ -3894,8 +4135,12 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._ghost_samples_cache = []
         self._force_curve_resample_after_save = True
         self._main_canvas_needs_redraw = True
-        # Wymuś natychmiastowe przerysowanie całego canvasu po SAVE
-        self._draw_main_canvas()
+
+        self._snajper_refresh_ehr_page_full(
+            status=f"Zapisano TAKE TXT: {saved_path.name}",
+            rebuild_take_model=False,
+        )
+
         return saved_path
 
     def _load_take_from_path(self, path: Path) -> None:
@@ -3915,10 +4160,12 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.protocol_cache_key = None
         self.axis_info_cache_key = None
         self._main_canvas_needs_redraw = True
-        self._mark_take_model_dirty()
         self._mark_protocol_dirty()
         self._mark_axis_metrics_dirty()
-        self._refresh_all(light=False, status=f"Wczytano TAKE TXT: {path.name}")
+        self._snajper_refresh_ehr_page_full(
+            status=f"Wczytano TAKE TXT: {path.name}",
+            rebuild_take_model=True,
+        )
 
     def _save_take_slot(self, slot_index: int, current_path: Path | None) -> Path:
         path = next_take_txt_path(current_path, self._take_dir(), slot_index)
@@ -3967,117 +4214,6 @@ def main() -> None:
     app = TarzanEhrMultiAxisWindow()
     app.mainloop()
 
-    # -------------------------------------------------------------------------
-    # TARZAN_SNAJPER — sekcje EHR
-    # -------------------------------------------------------------------------
 
-    def ehr_section_snajper_fire(self, section: str, payload=None) -> None:
-        key = f"{section}:{payload}"
-        if getattr(self, "ehr_section_last_values", {}).get(section) == key:
-            return
-        self.ehr_section_last_values[section] = key
-
-        if section == "axis_curve":
-            self._ehr_section_axis_curve(payload)
-        elif section == "step_preview":
-            self._ehr_section_step_preview(payload)
-        elif section == "axis_metrics":
-            self._ehr_section_axis_metrics(payload)
-        elif section == "take_slots":
-            self._ehr_section_take_slots(payload)
-        elif section == "timeline":
-            self._ehr_section_timeline(payload)
-
-    def _ehr_section_axis_curve(self, payload=None) -> None:
-        axis_index = self._ehr_payload_axis_index(payload)
-        coords = self._ehr_axis_curve_coords(axis_index)
-        if hasattr(self, "tarzan_snajper"):
-            self.tarzan_snajper.fire(f"ehr_axis_{axis_index}_curve", coords)
-
-    def _ehr_section_step_preview(self, payload=None) -> None:
-        axis_index = self._ehr_payload_axis_index(payload)
-        coords = self._ehr_axis_step_coords(axis_index)
-        if hasattr(self, "tarzan_snajper"):
-            self.tarzan_snajper.fire(f"ehr_axis_{axis_index}_step_preview", coords)
-
-    def _ehr_section_axis_metrics(self, payload=None) -> None:
-        axis_index = self._ehr_payload_axis_index(payload)
-        text = self._ehr_axis_metrics_text(axis_index)
-        if hasattr(self, "tarzan_snajper"):
-            self.tarzan_snajper.fire(f"ehr_axis_{axis_index}_metrics", text)
-
-    def _ehr_section_take_slots(self, payload=None) -> None:
-        if not hasattr(self, "tarzan_snajper"):
-            return
-        slots = getattr(self, "take_slot_widgets", {})
-        if isinstance(slots, dict):
-            for slot_index, widget in slots.items():
-                self.snajper_tk_adapter.register_widget("ehr_take_slots", f"slot_{slot_index}", widget)
-
-    def _ehr_section_timeline(self, payload=None) -> None:
-        if hasattr(self, "tarzan_snajper"):
-            self.tarzan_snajper.fire("timeline_cursor", self._ehr_timeline_cursor_coords())
-
-    def _ehr_payload_axis_index(self, payload=None) -> int:
-        if isinstance(payload, int):
-            return max(0, min(5, payload))
-        if isinstance(payload, dict):
-            return max(0, min(5, int(payload.get("axis_index", 0))))
-        return int(getattr(self, "active_axis_index", 0) or 0)
-
-    def _ehr_axis_curve_coords(self, axis_index: int):
-        axes = getattr(self, "axis_models", getattr(self, "axes", []))
-        axis = axes[axis_index] if axis_index < len(axes) else None
-        points = None
-        if axis is not None:
-            for name in ("nodes", "points", "curve_points"):
-                if hasattr(axis, name):
-                    points = getattr(axis, name)
-                    break
-        if points is None:
-            return ()
-        coords = []
-        for point in points:
-            if isinstance(point, (tuple, list)) and len(point) >= 2:
-                coords.extend([point[0], point[1]])
-            elif hasattr(point, "x") and hasattr(point, "y"):
-                coords.extend([point.x, point.y])
-            elif hasattr(point, "time_ms") and hasattr(point, "value"):
-                coords.extend([point.time_ms, point.value])
-        return tuple(coords)
-
-    def _ehr_axis_step_coords(self, axis_index: int):
-        source = None
-        for attr in ("axis_step_previews", "axis_steps", "protocol_by_axis"):
-            if hasattr(self, attr):
-                obj = getattr(self, attr)
-                if isinstance(obj, dict):
-                    source = obj.get(axis_index)
-                elif isinstance(obj, (list, tuple)) and axis_index < len(obj):
-                    source = obj[axis_index]
-                break
-        if source is None:
-            return ()
-        coords = []
-        for idx, row in enumerate(source):
-            if isinstance(row, dict):
-                x = row.get("time_ms", idx)
-                y = row.get("STEP", row.get("step", 0))
-                coords.extend([x, 0, x, y])
-            elif isinstance(row, (tuple, list)) and len(row) >= 2:
-                coords.extend([row[0], 0, row[0], row[1]])
-        return tuple(coords)
-
-    def _ehr_axis_metrics_text(self, axis_index: int) -> str:
-        axes = getattr(self, "axis_models", getattr(self, "axes", []))
-        axis = axes[axis_index] if axis_index < len(axes) else None
-        if axis is None:
-            return f"axis_{axis_index}"
-        axis_def = getattr(axis, "axis_def", None)
-        if axis_def is not None and hasattr(axis_def, "axis_name"):
-            return str(axis_def.axis_name)
-        return str(getattr(axis, "axis_name", getattr(axis, "name", f"axis_{axis_index}")))
-
-    def _ehr_timeline_cursor_coords(self):
-        value = getattr(self, "current_time_ms", 0)
-        return (value, 0, value, 100)
+if __name__ == "__main__":
+    main()

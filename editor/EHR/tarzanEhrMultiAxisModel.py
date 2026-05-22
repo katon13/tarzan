@@ -4,6 +4,8 @@ import copy
 from dataclasses import asdict, dataclass
 from typing import Dict, List
 
+from mechanics.tarzanMechanikaOsi import TarzanMechanics
+
 
 @dataclass
 class AxisNode:
@@ -30,20 +32,103 @@ class AxisMechanics:
 
     @property
     def max_step_rate_per_s(self) -> float:
-        return 1000.0 / float(self.sample_ms)
+        sample_ms = max(1.0, float(self.sample_ms))
+        matrix_limit = 1000.0 / (sample_ms * 2.0)
+        if self.full_cycle_pulses <= 0 or self.min_full_cycle_time_s <= 0:
+            return matrix_limit
+        mechanical_limit = float(self.full_cycle_pulses) / float(self.min_full_cycle_time_s)
+        return max(0.0, min(mechanical_limit, matrix_limit))
 
 
-MECHANICS_PRESETS: Dict[str, AxisMechanics] = {
-    "oś wzorcowa": AxisMechanics(),
-    "oś pozioma kamery": AxisMechanics("oś pozioma kamery", 28800, 180.0, 12000, 24000, 10),
-    "oś pionowa kamery": AxisMechanics("oś pionowa kamery", 12800, 120.0, 9000, 18000, 10),
-    "oś pochyłu kamery": AxisMechanics("oś pochyłu kamery", 3200, 60.0, 5000, 9000, 10),
-    "oś pochyłu ramienia": AxisMechanics("oś pochyłu ramienia", 3200, 60.0, 5000, 9000, 10),
-    "oś ostrości kamery": AxisMechanics("oś ostrości kamery", 30764, 60.0, 3000, 7000, 10),
-    "oś pionowa ramienia": AxisMechanics("oś pionowa ramienia", 28485, 600.0, 20000, 40000, 10),
-    "oś pozioma ramienia": AxisMechanics("oś pozioma ramienia", 92273, 900.0, 30000, 60000, 10),
-    "DRON": AxisMechanics("DRON", 1, 60.0, 0, 0, 10),
-}
+def _mechanics_ms(seconds: float) -> int:
+    return int(round(float(seconds) * 1000.0))
+
+
+def _axis_mechanics(
+    axis_name: str,
+    full_cycle_pulses: float,
+    min_full_cycle_time_s: float,
+    start_settle_time_s: float,
+    start_ramp_time_s: float,
+    sample_ms: int = 10,
+) -> AxisMechanics:
+    """Buduje roboczą mechanikę EHR z centralnej definicji TarzanMechanics."""
+    return AxisMechanics(
+        axis_name=axis_name,
+        full_cycle_pulses=int(round(float(full_cycle_pulses))),
+        min_full_cycle_time_s=float(min_full_cycle_time_s),
+        start_settle_ms=_mechanics_ms(start_settle_time_s),
+        start_ramp_ms=_mechanics_ms(start_ramp_time_s),
+        sample_ms=int(sample_ms),
+    )
+
+
+def build_mechanics_presets_from_tarzan_mechanics() -> Dict[str, AxisMechanics]:
+    """
+    Buduje presety EHR z centralnego źródła prawdy mechaniki osi.
+
+    tarzanEhrMultiAxisModel.py nie jest suwerenem mechaniki.
+    Ten moduł tylko adaptuje dane konstrukcyjne z TarzanMechanics do formatu
+    AxisMechanics używanego przez generator STEP EHR.
+    """
+    return {
+        "oś wzorcowa": AxisMechanics(),
+        "oś pozioma kamery": _axis_mechanics(
+            "oś pozioma kamery",
+            TarzanMechanics.cameraHorizontalPulsesPerCycle(),
+            TarzanMechanics.CAMERA_HORIZONTAL_MIN_CYCLE_TIME_SEC,
+            TarzanMechanics.CAMERA_HORIZONTAL_START_SETTLE_TIME_SEC,
+            TarzanMechanics.CAMERA_HORIZONTAL_START_RAMP_TIME_SEC,
+        ),
+        "oś pionowa kamery": _axis_mechanics(
+            "oś pionowa kamery",
+            TarzanMechanics.cameraVerticalPulsesPerCycle(),
+            TarzanMechanics.CAMERA_VERTICAL_MIN_CYCLE_TIME_SEC,
+            TarzanMechanics.CAMERA_VERTICAL_START_SETTLE_TIME_SEC,
+            TarzanMechanics.CAMERA_VERTICAL_START_RAMP_TIME_SEC,
+        ),
+        "oś pochyłu kamery": _axis_mechanics(
+            "oś pochyłu kamery",
+            TarzanMechanics.cameraTiltPulsesPerCycle(),
+            TarzanMechanics.CAMERA_TILT_MIN_CYCLE_TIME_SEC,
+            TarzanMechanics.CAMERA_TILT_START_SETTLE_TIME_SEC,
+            TarzanMechanics.CAMERA_TILT_START_RAMP_TIME_SEC,
+        ),
+        # Zostawiamy nazwę używaną obecnie przez EHR jako alias kompatybilności.
+        # Wartości nadal pochodzą z centralnej mechaniki, nie z ręcznie wpisanej kopii.
+        "oś pochyłu ramienia": _axis_mechanics(
+            "oś pochyłu ramienia",
+            TarzanMechanics.cameraTiltPulsesPerCycle(),
+            TarzanMechanics.CAMERA_TILT_MIN_CYCLE_TIME_SEC,
+            TarzanMechanics.CAMERA_TILT_START_SETTLE_TIME_SEC,
+            TarzanMechanics.CAMERA_TILT_START_RAMP_TIME_SEC,
+        ),
+        "oś ostrości kamery": _axis_mechanics(
+            "oś ostrości kamery",
+            TarzanMechanics.cameraFocusPulsesPerCycle(),
+            TarzanMechanics.CAMERA_FOCUS_MIN_CYCLE_TIME_SEC,
+            TarzanMechanics.CAMERA_FOCUS_START_SETTLE_TIME_SEC,
+            TarzanMechanics.CAMERA_FOCUS_START_RAMP_TIME_SEC,
+        ),
+        "oś pionowa ramienia": _axis_mechanics(
+            "oś pionowa ramienia",
+            TarzanMechanics.armVerticalPulsesPerCycle(),
+            TarzanMechanics.ARM_VERTICAL_MIN_CYCLE_TIME_SEC,
+            TarzanMechanics.ARM_VERTICAL_START_SETTLE_TIME_SEC,
+            TarzanMechanics.ARM_VERTICAL_START_RAMP_TIME_SEC,
+        ),
+        "oś pozioma ramienia": _axis_mechanics(
+            "oś pozioma ramienia",
+            TarzanMechanics.armHorizontalPulsesPerCycle(),
+            TarzanMechanics.ARM_HORIZONTAL_MIN_CYCLE_TIME_SEC,
+            TarzanMechanics.ARM_HORIZONTAL_START_SETTLE_TIME_SEC,
+            TarzanMechanics.ARM_HORIZONTAL_START_RAMP_TIME_SEC,
+        ),
+        "DRON": AxisMechanics("DRON", 1, 60.0, 0, 0, 10),
+    }
+
+
+MECHANICS_PRESETS: Dict[str, AxisMechanics] = build_mechanics_presets_from_tarzan_mechanics()
 
 
 @dataclass
@@ -509,6 +594,8 @@ class AxisCurveModel:
         count = 0
         prev_sign = 0
         prev_rate = 0.0
+        prev_step = 0
+        rate_limit = max(0.0, float(self.mechanics.max_step_rate_per_s))
         samples = self.sample_curve(800, duration_ms=duration)
         if not samples:
             return []
@@ -545,14 +632,16 @@ class AxisCurveModel:
             if tuning.preview_rate_smoothing > 0.0:
                 alpha = max(0.0, min(0.95, tuning.preview_rate_smoothing))
                 rate = prev_rate * alpha + rate * (1.0 - alpha)
+            rate = max(0.0, min(rate, rate_limit))
             prev_rate = rate
             density = max(0.0, min(float(self.mechanics.max_step_per_sample), rate * (sample_ms / 1000.0)))
             accumulator += density
             step = 0
-            if accumulator >= tuning.emit_threshold:
+            if accumulator >= tuning.emit_threshold and prev_step == 0:
                 step = 1
                 accumulator -= tuning.emit_threshold
                 count += 1
+            prev_step = step
             rows.append({"time_ms": t, "y": y, "dir": dir_bit, "step": step, "count": count, "rate": rate, "acc": accumulator})
         self._step_cache[duration] = tuple(dict(r) for r in rows)
         return [dict(r) for r in self._step_cache[duration]]

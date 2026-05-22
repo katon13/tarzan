@@ -1,5 +1,6 @@
 from __future__ import annotations
 from core.tarzanSnajper import create_default_tarzan_snajper, TkCanvasSnajperAdapter, TkWidgetSnajperAdapter
+from core.tarzanSnajperTarget import T
 
 import copy
 import json
@@ -24,7 +25,6 @@ from editor.EHR.tarzanEhrMultiAxisModel import (
     AxisCurveModel,
     DEFAULT_AXIS_DEFINITIONS,
     EhrEditorConfig,
-    MECHANICS_PRESETS,
     StepTuning,
 )
 from editor.EHR.tarzanEhrTakeModel import EhrTakeModel
@@ -1312,7 +1312,7 @@ class MainTakeSettingsDialog(tk.Toplevel):
         self._entry_row(s3, "PRZEŹROCZYSTOŚĆ / SIŁA TŁA OSI (%)", self.background_strength_var, 0, 1)
         self._entry_row(s3, "DODATKOWE PODBICIE AKTYWNEJ OSI (%)", self.active_axis_emphasis_var, 1, 0)
         self._entry_row(s3, "GRUBOŚĆ LEWEGO ZNACZNIKA AKTYWNEJ OSI", self.active_axis_border_width_var, 1, 1)
-        self._check_row(s3, "POKAŻ KWADRATY START / STOP", self.show_start_stop_squares_var, 2, 0)
+        self._check_row(s3, "POKAŻ PUNKTY GRANICZNE TAKE", self.show_start_stop_squares_var, 2, 0)
         self._check_row(s3, "POKAŻ MARKERY CZASU DZIAŁANIA OSI", self.show_activity_markers_var, 2, 1)
 
         s4 = self._section_label(frame, "DOMYŚLNE WYGŁADZANIE")
@@ -1474,6 +1474,37 @@ class WaveRect:
         return self.left <= x <= self.right and self.top <= y <= self.bottom
 
 
+class AxisDialogSnajperAdapter:
+    """Lokalny adapter Snajpera dla okna ustawień pojedynczej osi.
+
+    Ten adapter nie buduje nowej logiki rysowania. Tylko kieruje strzał
+    Snajpera w istniejące cele AxisSettingsDialog: krzywą, STEP preview,
+    metryki i status.
+    """
+
+    def __init__(self, dialog: "AxisSettingsDialog") -> None:
+        self.dialog = dialog
+
+    def update_target(self, target, value: Any) -> None:
+        if target.target == "curve":
+            self.dialog._draw_curve()
+            self.dialog._curve_needs_redraw = False
+            return
+
+        if target.target == "step_preview":
+            self.dialog._draw_step()
+            self.dialog._step_needs_redraw = False
+            return
+
+        if target.target == "metrics":
+            self.dialog._refresh_metrics()
+            return
+
+        if target.target == "status":
+            self.dialog._set_status(str(value))
+            return
+
+
 class AxisSettingsDialog(tk.Toplevel):
     def __init__(self, master: "TarzanEhrMultiAxisWindow", axis_index: int) -> None:
         super().__init__(master)
@@ -1482,15 +1513,19 @@ class AxisSettingsDialog(tk.Toplevel):
         self.model = master.axis_models[axis_index]
 
         self.title(f"Ustawienia osi — {self.model.axis_def.axis_name}")
-        self.geometry("1880x1120")
-        self.minsize(1500, 960)
+        self.minsize(1500, 920)
+        try:
+            self.state("zoomed")
+        except tk.TclError:
+            self.geometry(f"{self.winfo_screenwidth()}x{self.winfo_screenheight()}+0+0")
         self.configure(bg=master.BG)
-        self.transient(master)
+        self.resizable(True, True)
 
         self.display_y_scale = tk.DoubleVar(value=self.model.sandbox.display_y_scale)
-        self.mouse_y_precision = tk.DoubleVar(value=self.model.sandbox.mouse_y_precision)
-        self.top_bottom_margin = tk.IntVar(value=self.model.sandbox.top_bottom_margin)
-        self.mechanics_preset_var = tk.StringVar(value=self.model.mechanics.axis_name)
+        self.mouse_y_precision = tk.DoubleVar(value=1.0)
+        self.top_bottom_margin = tk.IntVar(value=8)
+        self.model.sandbox.mouse_y_precision = float(self.mouse_y_precision.get())
+        self.model.sandbox.top_bottom_margin = int(self.top_bottom_margin.get())
         self.status_var = tk.StringVar(value="Gotowy.")
         self.metrics_var = tk.StringVar(value="")
         self.is_ghost_snapped = False
@@ -1530,12 +1565,51 @@ class AxisSettingsDialog(tk.Toplevel):
         self._nodes_dirty = True
         self._curve_redraw_after_id = None
         self._step_tuning_after_id = None
+        self._step_redraw_after_id = None
+        self._axis_dialog_fire_seq = 0
+
+        self.tarzan_snajper = create_default_tarzan_snajper()
+        self.axis_dialog_snajper_adapter = AxisDialogSnajperAdapter(self)
+        self.tarzan_snajper.register_adapter("axis_dialog", self.axis_dialog_snajper_adapter)
+        self._register_axis_dialog_snajper_targets()
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self._build_ui()
         self.update()
-        self._refresh_all(reason="INIT")
-        self.grab_set()
+        self.tarzan_snajper.clear_scope(f"axis_dialog_{self.axis_index}")
+        self._snajper_refresh_targets(curve=True, step=True, metrics=True, status="Gotowy.")
+
+    def _register_axis_dialog_snajper_targets(self) -> None:
+        """Rejestruje lokalne cele Snajpera dla tego konkretnego okna osi."""
+        scope = f"axis_dialog_{self.axis_index}"
+        self.tarzan_snajper.register_target("axis_dialog_curve", T("axis_dialog", scope, "curve", "refresh"))
+        self.tarzan_snajper.register_target("axis_dialog_step_preview", T("axis_dialog", scope, "step_preview", "refresh"))
+        self.tarzan_snajper.register_target("axis_dialog_metrics", T("axis_dialog", scope, "metrics", "refresh"))
+        self.tarzan_snajper.register_target("axis_dialog_status", T("axis_dialog", scope, "status", "text"))
+
+    def _snajper_fire(self, logical_signal: str, value: Any | None = None) -> None:
+        """Wymusza celowany strzał Snajpera w lokalny target okna osi."""
+        self._axis_dialog_fire_seq += 1
+        payload = self._axis_dialog_fire_seq if value is None else value
+        self.tarzan_snajper.fire(logical_signal, payload)
+
+    def _snajper_refresh_targets(
+        self,
+        *,
+        curve: bool = False,
+        step: bool = False,
+        metrics: bool = False,
+        status: str | None = None,
+    ) -> None:
+        """Odświeża tylko wskazane cele okna pojedynczej osi."""
+        if curve:
+            self._snajper_fire("axis_dialog_curve")
+        if step:
+            self._snajper_fire("axis_dialog_step_preview")
+        if metrics:
+            self._snajper_fire("axis_dialog_metrics")
+        if status is not None:
+            self._snajper_fire("axis_dialog_status", status)
 
     def _build_ui(self) -> None:
         outer = tk.Frame(self, bg=self.master_window.BG)
@@ -1553,11 +1627,7 @@ class AxisSettingsDialog(tk.Toplevel):
 
         btns = tk.Frame(top, bg=self.master_window.BG)
         btns.pack(side="right")
-        self._btn(btns, "SINUS TEST", self._sinus_test, "#2D6CDF").pack(side="left", padx=3)
-        self._btn(btns, "NEG TEST", self._negative_test, "#6F42C1").pack(side="left", padx=3)
-        self._btn(btns, "ZERO CROSS", self._zero_cross_test, "#0F766E").pack(side="left", padx=3)
-        self._btn(btns, "FLAT 0", self._flat_zero, "#C78B2A").pack(side="left", padx=3)
-        self._btn(btns, "RESET", self._reset_nodes, "#BE185D").pack(side="left", padx=3)
+
         self._btn(btns, "SET UP -> MAIN TAKE", self._apply_to_main_take, "#047857").pack(side="left", padx=3)
         self._btn(btns, "ZAMKNIJ", self._on_close, "#4B5563").pack(side="left", padx=3)
 
@@ -1604,28 +1674,6 @@ class AxisSettingsDialog(tk.Toplevel):
         tk.Label(parent, textvariable=self.metrics_var, bg=self.master_window.BG, fg=self.master_window.MUTED,
                  justify="left", anchor="w", font=("Consolas", 9)).pack(fill="x", pady=(0, 12))
 
-        mechanics_box = tk.Frame(parent, bg=self.master_window.PANEL)
-        mechanics_box.pack(fill="x", pady=(0, 10))
-        tk.Label(mechanics_box, text="MECHANIKA OSI", bg=self.master_window.PANEL, fg=self.master_window.FG,
-                 anchor="w", font=("Segoe UI Semibold", 9)).pack(fill="x", padx=10, pady=(8, 4))
-        available_mechanics = [name for name in MECHANICS_PRESETS.keys() if name != "oś wzorcowa"]
-        om = tk.OptionMenu(mechanics_box, self.mechanics_preset_var, *available_mechanics)
-        om.configure(bg="#39424E", fg=self.master_window.FG, activebackground="#39424E",
-                     activeforeground=self.master_window.FG, relief="flat", highlightthickness=0)
-        om["menu"].configure(bg="#2A3038", fg=self.master_window.FG)
-        om.pack(fill="x", padx=10, pady=(0, 8))
-        self._btn(mechanics_box, "WCZYTAJ Z MECHANIKI", self._apply_mechanics_preset, "#2563EB").pack(fill="x", padx=10, pady=(0, 10))
-
-        box = tk.Frame(parent, bg=self.master_window.PANEL)
-        box.pack(fill="x", pady=(0, 10))
-        self._scale_row(box, "VIEW Y SCALE", self.display_y_scale, 200.0, 800.0, 10.0, self._apply_visual_settings)
-        self._scale_row(box, "MOUSE PRECISION", self.mouse_y_precision, 0.10, 1.00, 0.05, self._apply_visual_settings)
-        self._scale_row(box, "TOP/BOTTOM MARGIN", self.top_bottom_margin, 8, 60, 1, self._apply_visual_settings)
-
-        save_row = tk.Frame(parent, bg=self.master_window.BG)
-        save_row.pack(fill="x", pady=(0, 10))
-        self._small_btn(save_row, "SAVE JSON", self._save_axis_settings_json, "#0F766E").pack(side="left", fill="x", expand=True, padx=(0, 4))
-        self._small_btn(save_row, "LOAD JSON", self._load_axis_settings_json, "#7C3AED").pack(side="left", fill="x", expand=True)
 
     def _build_step_tuning_panel(self, parent: tk.Misc) -> None:
         panel = tk.Frame(parent, bg=self.master_window.PANEL, padx=10, pady=10)
@@ -1636,32 +1684,15 @@ class AxisSettingsDialog(tk.Toplevel):
         grid.pack(fill="x")
 
         sliders = [
-            ("dead_zone_y", "DEAD ZONE Y", 0.0, 30.0, 0.5),
-            ("input_max_y", "INPUT MAX Y", 20.0, 100.0, 1.0),
-            ("input_gamma", "INPUT GAMMA", 0.1, 12.0, 0.1),
-            ("step_rate_gain", "STEP GAIN", 0.1, 5.0, 0.05),
-            ("step_rate_max_percent", "MAX RATE %", 1.0, 100.0, 1.0),
-            ("preview_rate_smoothing", "RATE SMOOTH", 0.0, 0.95, 0.01),
-            ("bucket_width_px", "BUCKET PX", 1, 16, 1),
-            ("off_bar_height", "OFF BAR H", 1, 40, 1),
-            ("low_zone_gain", "ZONE 0-33%", 0.0, 2.0, 0.01),
-            ("mid_zone_gain", "ZONE 33-66%", 0.0, 2.0, 0.01),
-            ("high_zone_gain", "ZONE 66-100%", 0.0, 2.0, 0.01),
-            ("accumulator_bias", "ACC BIAS", 0.0, 0.99, 0.01),
-            ("emit_threshold", "EMIT THRESH", 0.2, 2.0, 0.01),
-            ("node_hit_radius_px", "HIT RADIUS", 6, 30, 1),
-            ("time_drag_threshold_samples", "TIME DRAG THR", 0, 10, 1),
+            ("dead_zone_y", "MIĘKKI START", 0.0, 30.0, 0.5),
+            ("step_rate_gain", "GĘSTOŚĆ RUCHU", 0.1, 5.0, 0.05),
+            ("preview_rate_smoothing", "PŁYNNOŚĆ RUCHU", 0.0, 0.95, 0.01),
         ]
         for idx, (key, label, start, end, res) in enumerate(sliders):
             col = idx % 3
             row = idx // 3
             self._scale_row_grid(grid, row, col, label, self.step_vars[key], start, end, res, self._apply_step_tuning_live)
 
-        btn_row = tk.Frame(panel, bg=self.master_window.PANEL)
-        btn_row.pack(fill="x", pady=(10, 0))
-        self._btn(btn_row, "ZAPISZ TXT", self._save_tuning_txt, "#047857").pack(side="left", padx=(0, 6))
-        self._btn(btn_row, "WCZYTAJ TXT", self._load_tuning_txt, "#7C3AED").pack(side="left", padx=6)
-        self._btn(btn_row, "RESET STEP", self._reset_step_tuning, "#B45309").pack(side="left", padx=6)
 
     def _scale_row(self, parent, label, var, from_, to, resolution, command):
         wrap = tk.Frame(parent, bg=self.master_window.PANEL)
@@ -1760,26 +1791,8 @@ class AxisSettingsDialog(tk.Toplevel):
         tuning.clamp()
         return tuning
 
-    def _write_step_tuning_to_ui(self, tuning: StepTuning) -> None:
-        tuning.clamp()
-        for key in self.step_vars:
-            self.step_vars[key].set(getattr(tuning, key))
-
-    def _default_data_dir(self) -> Path:
-        editor_dir = Path(__file__).resolve().parent.parent
-        project_dir = editor_dir.parent
-        data_dir = project_dir / "data"
-        data_dir.mkdir(parents=True, exist_ok=True)
-        return data_dir
-
-    def _mark_main_take_dirty(self, status: str | None = None) -> None:
-        self.master_window.mark_axis_dirty(self.axis_index, status=status, redraw=False)
-
     def _apply_to_main_take(self) -> None:
         self.master_window.sync_axis_from_dialog(self.axis_index, status=f"Zaktualizowano MAIN TAKE z osi: {self.model.axis_def.axis_name}.")
-        # Po SET UP (apply_to_main_take) musimy wymusić odświeżenie wszystkiego
-        self.master_window._main_canvas_needs_redraw = True
-        self.master_window._refresh_all(light=False)
 
     def _apply_visual_settings(self) -> None:
         self.model.sandbox.display_y_scale = float(self.display_y_scale.get())
@@ -1787,7 +1800,6 @@ class AxisSettingsDialog(tk.Toplevel):
         self.model.sandbox.top_bottom_margin = int(self.top_bottom_margin.get())
         self._curve_needs_redraw = True
         self._refresh_curve_only("Zastosowano ustawienia wizualne (tylko krzywa).")
-        self._mark_main_take_dirty("Ustawienia wizualne osi zmienione.")
 
     def _apply_step_tuning_live(self) -> None:
         if self._step_tuning_after_id is not None:
@@ -1796,223 +1808,20 @@ class AxisSettingsDialog(tk.Toplevel):
 
     def _flush_step_tuning_live(self) -> None:
         self._step_tuning_after_id = None
-        self.model.set_step_tuning(self._read_step_tuning_from_ui())
-        self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
-        self._nodes_dirty = True
-        self._refresh_all("Zastosowano strojenie STEP.", reason="STEP_TUNING_LIVE")
-        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
-
-    def _apply_mechanics_preset(self) -> None:
-        mechanics = copy.deepcopy(MECHANICS_PRESETS[self.mechanics_preset_var.get()])
-        self.model.set_mechanics(mechanics)
-        self.model.set_axis_take_duration_ms(self.master_window.global_take_duration_ms)
-        self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
-        self._nodes_dirty = True
-        self._refresh_all(f"Wczytano parametry mechaniki: {mechanics.axis_name}.", reason="MECHANICS_PRESET")
-        self._mark_main_take_dirty(f"Mechanika osi gotowa. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE: {mechanics.axis_name}.")
-
-
-    def _axis_settings_to_json_text(self) -> str:
-        payload = {
-            "format": "AXIS_SANDBOX_SETTINGS_JSON_V1",
-            "axis_id": self.model.axis_def.axis_id,
-            "axis_name": self.model.axis_def.axis_name,
-            "visual": {
-                "display_y_scale": float(self.display_y_scale.get()),
-                "mouse_y_precision": float(self.mouse_y_precision.get()),
-                "top_bottom_margin": int(self.top_bottom_margin.get()),
-            },
-            "step_tuning": {key: getattr(self.model.step_tuning, key) for key in self.step_vars},
-            "mechanics": {
-                "axis_name": self.model.mechanics.axis_name,
-                "full_cycle_pulses": self.model.mechanics.full_cycle_pulses,
-                "min_full_cycle_time_s": self.model.mechanics.min_full_cycle_time_s,
-                "start_settle_ms": self.model.mechanics.start_settle_ms,
-                "start_ramp_ms": self.model.mechanics.start_ramp_ms,
-                "sample_ms": self.model.mechanics.sample_ms,
-            },
-        }
-        return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
-
-    def _load_axis_settings_from_json_text(self, text: str) -> None:
-        data = json.loads(text)
-        visual = dict(data.get("visual") or {})
-        if "display_y_scale" in visual:
-            self.display_y_scale.set(float(visual["display_y_scale"]))
-        if "mouse_y_precision" in visual:
-            self.mouse_y_precision.set(float(visual["mouse_y_precision"]))
-        if "top_bottom_margin" in visual:
-            self.top_bottom_margin.set(int(float(visual["top_bottom_margin"])))
-
-        self.model.sandbox.display_y_scale = float(self.display_y_scale.get())
-        self.model.sandbox.mouse_y_precision = float(self.mouse_y_precision.get())
-        self.model.sandbox.top_bottom_margin = int(self.top_bottom_margin.get())
-
-        step_data = dict(data.get("step_tuning") or {})
-        tuning = StepTuning()
-        for key, value in step_data.items():
-            if hasattr(tuning, key):
-                setattr(tuning, key, value)
-        tuning.clamp()
-        self._write_step_tuning_to_ui(tuning)
+        old_dead_zone = float(self.model.step_tuning.dead_zone_y)
+        tuning = self._read_step_tuning_from_ui()
         self.model.set_step_tuning(tuning)
+        self._curve_needs_redraw = abs(float(tuning.dead_zone_y) - old_dead_zone) > 1e-9
+        self._step_needs_redraw = True
+        self._metrics_cache_key = None
+        self._metrics_cache_text = ""
         self._nodes_dirty = True
-
-        mechanics_data = dict(data.get("mechanics") or {})
-        if mechanics_data:
-            try:
-                mechanics = self.model.mechanics.__class__(
-                    axis_name=str(mechanics_data.get("axis_name", self.model.mechanics.axis_name)),
-                    full_cycle_pulses=int(mechanics_data.get("full_cycle_pulses", self.model.mechanics.full_cycle_pulses)),
-                    min_full_cycle_time_s=float(mechanics_data.get("min_full_cycle_time_s", self.model.mechanics.min_full_cycle_time_s)),
-                    start_settle_ms=int(mechanics_data.get("start_settle_ms", self.model.mechanics.start_settle_ms)),
-                    start_ramp_ms=int(mechanics_data.get("start_ramp_ms", self.model.mechanics.start_ramp_ms)),
-                    sample_ms=int(mechanics_data.get("sample_ms", self.model.mechanics.sample_ms)),
-                )
-                self.model.set_mechanics(mechanics)
-                self.mechanics_preset_var.set(mechanics.axis_name)
-                self.model.set_axis_take_duration_ms(self.master_window.global_take_duration_ms)
-            except Exception:
-                pass
-
-    def _save_axis_settings_json(self) -> None:
-        default_name = self.model.axis_def.axis_name.replace(" ", "_") + "_axis_settings.json"
-        path = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            initialdir=str(self._default_data_dir()),
-            initialfile=default_name,
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-            title="Zapisz ustawienia osi do JSON",
+        self._snajper_refresh_targets(
+            curve=self._curve_needs_redraw,
+            step=True,
+            metrics=True,
+            status="Zastosowano strojenie STEP.",
         )
-        if not path:
-            return
-        Path(path).write_text(self._axis_settings_to_json_text(), encoding="utf-8")
-        self.status_var.set(f"Zapisano ustawienia osi: {path}")
-
-    def _load_axis_settings_json(self) -> None:
-        path = filedialog.askopenfilename(
-            initialdir=str(self._default_data_dir()),
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-            title="Wczytaj ustawienia osi z JSON",
-        )
-        if not path:
-            return
-        self._load_axis_settings_from_json_text(Path(path).read_text(encoding="utf-8"))
-        self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
-        self._refresh_all(f"Wczytano ustawienia osi: {path}", reason="LOAD_JSON")
-        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
-
-    def _save_tuning_txt(self) -> None:
-        tuning = self.model.step_tuning
-        default_name = self.model.axis_def.axis_name.replace(" ", "_") + "_step_preset.txt"
-        path = filedialog.asksaveasfilename(
-            defaultextension=".txt",
-            initialdir=str(self._default_data_dir()),
-            initialfile=default_name,
-            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
-            title="Zapisz preset STEP do TXT",
-        )
-        if not path:
-            return
-        Path(path).write_text(tuning.to_text(self.model.mechanics), encoding="utf-8")
-        self.status_var.set(f"Zapisano preset TXT: {path}")
-
-    def _load_tuning_txt(self) -> None:
-        path = filedialog.askopenfilename(
-            initialdir=str(self._default_data_dir()),
-            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
-            title="Wczytaj preset STEP z TXT",
-        )
-        if not path:
-            return
-        tuning, mechanics = StepTuning.from_text(Path(path).read_text(encoding="utf-8"))
-        if mechanics is not None:
-            self.model.set_mechanics(mechanics)
-            self.mechanics_preset_var.set(mechanics.axis_name)
-            self.model.set_axis_take_duration_ms(self.master_window.global_take_duration_ms)
-        self._write_step_tuning_to_ui(tuning)
-        self.model.set_step_tuning(tuning)
-        self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
-        self._refresh_all(f"Wczytano preset TXT: {path}", reason="LOAD_TUNING_TXT")
-        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
-
-    def _reset_step_tuning(self) -> None:
-        tuning = StepTuning()
-        self._write_step_tuning_to_ui(tuning)
-        self.model.set_step_tuning(tuning)
-        self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
-        self._nodes_dirty = True
-        self._refresh_all("Przywrócono domyślne parametry STEP.", reason="RESET_STEP_TUNING")
-        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
-
-    def _sinus_test(self) -> None:
-        self.model.set_sinus_test()
-        self.model.clone_original_state()
-        self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
-        self._nodes_dirty = True
-        self._refresh_all("Sinus test ustawiony.", reason="TEST_SINUS")
-        self._mark_main_take_dirty("Sinus test gotowy lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
-
-    def _negative_test(self) -> None:
-        self.model.set_negative_test()
-        self.model.clone_original_state()
-        self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
-        self._nodes_dirty = True
-        self._refresh_all("Negative test ustawiony.", reason="TEST_NEGATIVE")
-        self._mark_main_take_dirty("Negative test gotowy lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
-
-    def _zero_cross_test(self) -> None:
-        self.model.set_zero_cross_test()
-        self.model.clone_original_state()
-        self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
-        self._nodes_dirty = True
-        self._refresh_all("Zero cross test ustawiony.", reason="TEST_ZERO_CROSS")
-        self._mark_main_take_dirty("Zero cross test gotowy lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
-
-    def _flat_zero(self) -> None:
-        self.model.set_flat_zero()
-        self.model.clone_original_state()
-        self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
-        self._nodes_dirty = True
-        self._refresh_all("Linia wyzerowana.", reason="TEST_FLAT_ZERO")
-        self._mark_main_take_dirty("Linia osi wyzerowana lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
-
-    def _reset_nodes(self) -> None:
-        self.model.reset_to_original_state()
-        self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
-        self._nodes_dirty = True
-        self._refresh_all("Przywrócono ostatni stan bazowy.", reason="RESET_NODES")
-        self._mark_main_take_dirty("Stan bazowy osi przywrócony lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
 
     def _refresh_metrics(self) -> None:
         cache_key = (
@@ -2033,21 +1842,112 @@ class AxisSettingsDialog(tk.Toplevel):
         if self.metrics_var.get() != self._metrics_cache_text:
             self.metrics_var.set(self._metrics_cache_text)
 
+    def _soft_start_segments_from_samples(self, samples: list[tuple[int, float]], dead_zone: float) -> list[tuple[float, float]]:
+        """
+        Wyznacza lokalne strefy MIĘKKIEGO STARTU na podstawie przebiegu krzywej.
+
+        TARZAN nie traktuje początku i końca TAKE jak CNC. Brązowa strefa ma
+        pojawiać się tylko lokalnie tam, gdzie krzywa przechodzi przez okolice
+        zera, czyli w paśmie:
+
+            -dead_zone_y <= y <= +dead_zone_y
+
+        Nie poszerzamy tej strefy o start_settle_ms/start_ramp_ms z mechaniki,
+        bo wtedy przy kilku przejściach przez zero obszary zlewają się w jeden
+        długi pas od początku do końca. Mechanika ogranicza generator STEP,
+        a tutaj rysujemy czytelny operatorski obraz MIĘKKIEGO STARTU.
+        """
+        if not samples or len(samples) < 2 or dead_zone <= 0.0:
+            return []
+
+        ordered = sorted((float(t), float(y)) for t, y in samples)
+        zero_segments: list[tuple[float, float]] = []
+
+        # Dokładnie wyznaczamy odcinki, w których krzywa jest w paśmie zera.
+        # Granice są interpolowane na poziomach +dead_zone_y / -dead_zone_y,
+        # a nie zaokrąglane do najbliższej próbki.
+        for idx in range(1, len(ordered)):
+            t0, y0 = ordered[idx - 1]
+            t1, y1 = ordered[idx]
+            if t1 <= t0:
+                continue
+
+            cuts = [t0, t1]
+            dy = y1 - y0
+            if abs(dy) > 1e-9:
+                for level in (-dead_zone, dead_zone):
+                    frac = (level - y0) / dy
+                    if 0.0 < frac < 1.0:
+                        cuts.append(t0 + frac * (t1 - t0))
+
+            cuts = sorted(set(round(cut, 6) for cut in cuts))
+            for a, b in zip(cuts, cuts[1:]):
+                if b <= a:
+                    continue
+                mid_t = (a + b) / 2.0
+                mid_frac = (mid_t - t0) / (t1 - t0)
+                mid_y = y0 + dy * mid_frac
+                if abs(mid_y) <= dead_zone:
+                    zero_segments.append((a, b))
+
+        # Łączymy tylko bezpośrednio sąsiadujące fragmenty tego samego przejścia.
+        # Nie dokładamy tu mechanicznego czasu rampy, żeby nie tworzyć długich
+        # brązowych pól między osobnymi przejściami przez zero.
+        merged: list[tuple[float, float]] = []
+        for a, b in zero_segments:
+            if not merged:
+                merged.append((a, b))
+                continue
+            prev_a, prev_b = merged[-1]
+            if a <= prev_b + 0.001:
+                merged[-1] = (prev_a, max(prev_b, b))
+            else:
+                merged.append((a, b))
+        return merged
+
+
+    def _draw_soft_start_background(
+        self,
+        canvas: tk.Canvas,
+        left: int,
+        top: int,
+        right: int,
+        bottom: int,
+        samples: list[tuple[int, float]],
+    ) -> None:
+        """
+        Rysuje tło stref ruchu w oknie pojedynczej osi.
+
+        Zielony obszar = normalny ruch poza lokalną strefą MIĘKKIEGO STARTU.
+        Brązowy obszar = lokalny MIĘKKI START / lokalne wygaszenie:
+        każde przejście krzywej przez pas zera wyznaczony przez dead_zone_y.
+        Strefa nie jest poszerzana o start_settle_ms/start_ramp_ms.
+        """
+        canvas.create_rectangle(left, top, right, bottom, fill=self.master_window.SAFE, outline="")
+
+        dead_zone = max(0.0, float(self.model.step_tuning.dead_zone_y))
+        min_px_width = 2.0
+        for start_t, end_t in self._soft_start_segments_from_samples(samples, dead_zone):
+            if end_t <= start_t:
+                continue
+            x_a = self._time_to_x(int(round(start_t)), left, right)
+            x_b = self._time_to_x(int(round(end_t)), left, right)
+            if x_b <= x_a:
+                continue
+            if x_b - x_a < min_px_width:
+                center = (x_a + x_b) / 2.0
+                x_a = max(left, center - min_px_width / 2.0)
+                x_b = min(right, center + min_px_width / 2.0)
+            canvas.create_rectangle(x_a, top, x_b, bottom, fill=self.master_window.WARN, outline="")
+
     def _draw_curve(self) -> None:
         c = self.curve_canvas
         c.delete("all")
         left, top, right, bottom = self._curve_rect()
         c.create_rectangle(left, top, right, bottom, fill="#1B2028", outline="")
 
-        settle = self.model.mechanics.start_settle_ms
-        ramp = self.model.mechanics.start_ramp_ms
-        start_total = settle + ramp
-        stop_from = self.master_window.global_take_duration_ms - start_total
-        sx = self._time_to_x(start_total, left, right)
-        ex = self._time_to_x(stop_from, left, right)
-        c.create_rectangle(left, top, sx, bottom, fill=self.master_window.WARN, outline="")
-        c.create_rectangle(ex, top, right, bottom, fill=self.master_window.WARN, outline="")
-        c.create_rectangle(sx, top, ex, bottom, fill=self.master_window.SAFE, outline="")
+        samples = self.model.sample_curve(1000, duration_ms=self.master_window.global_take_duration_ms)
+        self._draw_soft_start_background(c, left, top, right, bottom, samples)
 
         for yv in [100, 50, 0, -50, -100]:
             py = self._logical_y_to_canvas(yv, top, bottom)
@@ -2086,7 +1986,6 @@ class AxisSettingsDialog(tk.Toplevel):
                     smooth=False,
                 )
 
-        samples = self.model.sample_curve(1000, duration_ms=self.master_window.global_take_duration_ms)
         pts = []
         for t, y in samples:
             pts.extend([self._time_to_x(t, left, right), self._logical_y_to_canvas(y, top, bottom)])
@@ -2121,8 +2020,6 @@ class AxisSettingsDialog(tk.Toplevel):
         x1 = self._time_to_x(self.master_window.global_take_duration_ms, left, right)
         c.create_line(x0, top, x0, bottom, fill="#45C46B", width=3)
         c.create_line(x1, top, x1, bottom, fill="#E65D5D", width=3)
-        c.create_text(x0 + 4, top + 8, text="START", fill="#45C46B", anchor="w", font=("Segoe UI", 8, "bold"))
-        c.create_text(x1 - 4, top + 8, text="STOP", fill="#E65D5D", anchor="e", font=("Segoe UI", 8, "bold"))
 
     def _draw_step(self) -> None:
         if self._nodes_dirty:
@@ -2169,8 +2066,7 @@ class AxisSettingsDialog(tk.Toplevel):
     def _flush_curve_redraw(self) -> None:
         self._curve_redraw_after_id = None
         if self._curve_needs_redraw:
-            self._draw_curve()
-            self._curve_needs_redraw = False
+            self._snajper_refresh_targets(curve=True)
 
     def _apply_drag_zero_snap(self, value: float) -> float:
         value = self.model.clamp_y(value)
@@ -2198,45 +2094,26 @@ class AxisSettingsDialog(tk.Toplevel):
             if self._nodes_dirty:
                 self.model.sort_and_fix_nodes()
                 self._nodes_dirty = False
-            self._draw_curve()
-            self._curve_needs_redraw = False
+            self._snajper_refresh_targets(curve=True)
         if status is not None:
-            self._set_status(status)
+            self._snajper_refresh_targets(status=status)
 
     def _refresh_step_only(self, status: str | None = None) -> None:
         if self._step_needs_redraw:
-            self._draw_step()
-            self._step_needs_redraw = False
+            self._snajper_refresh_targets(step=True)
         if status is not None:
-            self._set_status(status)
+            self._snajper_refresh_targets(status=status)
 
     def _request_step_redraw(self) -> None:
         self._step_needs_redraw = True
-        if self._step_tuning_after_id is not None:
+        if self._step_redraw_after_id is not None:
             return
-        # Używamy tego samego mechanizmu co dla tuningu, żeby nie mnożyć timerów
-        self._step_tuning_after_id = self.after(100, self._flush_step_tuning_live)
+        self._step_redraw_after_id = self.after(60, self._flush_step_redraw)
 
-    @profile_method('EHR_AXIS_DIALOG._refresh_all')
-    def _refresh_all(self, status: str | None = None, reason: str = "unknown") -> None:
-        print(f"AXIS FULL REFRESH from: {reason}")
-        if self._nodes_dirty:
-            self.model.sort_and_fix_nodes()
-            self._nodes_dirty = False
-
-        if self._metrics_cache_key is None:
-            self._refresh_metrics()
-
-        if self._curve_needs_redraw:
-            self._draw_curve()
-            self._curve_needs_redraw = False
-
+    def _flush_step_redraw(self) -> None:
+        self._step_redraw_after_id = None
         if self._step_needs_redraw:
-            self._draw_step()
-            self._step_needs_redraw = False
-
-        if status is not None:
-            self._set_status(status)
+            self._snajper_refresh_targets(step=True)
 
     def _hit_node(self, x: float, y: float) -> int | None:
         left, top, right, bottom = self._curve_rect()
@@ -2403,10 +2280,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_needs_redraw = True
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
-        self._request_curve_redraw()
-        self._draw_step() # Wymuszamy natychmiastowe odświeżenie przy release
-        self._refresh_metrics_only()
-        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
+        self._snajper_refresh_targets(curve=True, step=True, metrics=True)
 
     def _on_curve_double_click(self, event) -> None:
         left, top, right, bottom = self._curve_rect()
@@ -2418,9 +2292,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
         self._nodes_dirty = True
-        self._request_curve_redraw()
-        self._refresh_metrics_only()
-        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
+        self._snajper_refresh_targets(curve=True, step=True, metrics=True)
 
     def _on_curve_right_click(self, event) -> None:
         idx = self._hit_node(event.x, event.y)
@@ -2433,15 +2305,11 @@ class AxisSettingsDialog(tk.Toplevel):
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
         self._nodes_dirty = True
-        self._request_curve_redraw()
-        self._refresh_metrics_only()
-        self._mark_main_take_dirty("Oś zmieniona lokalnie. Użyj SET UP lub zamknij okno, aby zsynchronizować MAIN TAKE.")
+        self._snajper_refresh_targets(curve=True, step=True, metrics=True)
 
     def _on_close(self) -> None:
-        # Pełna synchronizacja przy zamykaniu
-        self.master_window.sync_axis_from_dialog(self.axis_index, status=f"Zamknięto edytor osi i zsynchronizowano MAIN TAKE: {self.model.axis_def.axis_name}.")
-        self.master_window._main_canvas_needs_redraw = True
-        self.master_window._refresh_all(light=False)
+        # Zamknięcie okna pojedynczej osi nie synchronizuje MAIN TAKE.
+        # Dane trafiają do głównego EHR wyłącznie przez SET UP -> MAIN TAKE.
         self.master_window.settings_dialogs.pop(self.axis_index, None)
         self.destroy()
 
@@ -2478,6 +2346,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.global_take_duration_ms = self.main_take_settings.take_duration_ms()
         self.axis_models = [AxisCurveModel(axis_def, self.config_model) for axis_def in DEFAULT_AXIS_DEFINITIONS]
         for axis in self.axis_models:
+            axis.sandbox.mouse_y_precision = 1.0
+            axis.sandbox.top_bottom_margin = 8
             axis.set_axis_take_duration_ms(self.global_take_duration_ms)
         self.take_model = EhrTakeModel.from_runtime(self.global_take_duration_ms, self.main_take_settings, self.axis_models)
         self.active_axis_index = 0
@@ -2899,7 +2769,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             if dlg.winfo_exists():
                 dlg._curve_needs_redraw = True
                 dlg._step_needs_redraw = True
-                dlg._refresh_all()
+                dlg._metrics_cache_key = None
+                dlg._metrics_cache_text = ""
+                dlg._snajper_refresh_targets(curve=True, step=True, metrics=True)
         self._refresh_all(light=False, status="Zastosowano ustawienia MAIN TAKE.")
 
     def _save_take_settings(self, settings: MainTakeSettings) -> None:
@@ -3955,6 +3827,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         # load_take_txt() wywołuje sort_and_fix_nodes() dla wszystkich osi,
         # więc tutaj tylko czyścimy cache i markujemy UI.
         for axis in self.axis_models:
+            axis.sandbox.mouse_y_precision = 1.0
+            axis.sandbox.top_bottom_margin = 8
             axis._invalidate_cache()
             if hasattr(axis, "_ghost_cache"):
                 axis._ghost_cache.clear()

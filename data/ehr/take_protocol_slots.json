@@ -1,10 +1,10 @@
 {
   "slots": [
     {
-      "path": "data/take/TAKE_001_v41.txt"
+      "path": null
     },
     {
-      "path": null
+      "path": "data/take/TAKE_001_v41.txt"
     },
     {
       "path": null
@@ -31,7 +31,7 @@
       "path": null
     }
   ],
-  "active_slot": 0,
+  "active_slot": 1,
   "axis_activity": {
     "oś pionowa kamery": true,
     "oś pochyłu ramienia": true,

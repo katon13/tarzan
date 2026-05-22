@@ -4,6 +4,7 @@ import copy
 from dataclasses import asdict, dataclass
 from typing import Dict, List
 
+from core.tarzanAdrr import AdrrSettings, filter_axis_rows_with_diagnostics
 from mechanics.tarzanMechanikaOsi import TarzanMechanics
 
 
@@ -159,6 +160,9 @@ class StepTuning:
     step_rate_gain: float = 1.0
     step_rate_max_percent: float = 100.0
     preview_rate_smoothing: float = 0.0
+    # Techniczna siła ADRR 0.0–1.0. W UI operator stroi HARMONIĘ RUCHU
+    # w precyzyjnej skali 0–1000 mapowanej nieliniowo na tę wartość.
+    adrr_strength: float = 0.0
     bucket_width_px: int = 1
     off_bar_height: int = 8
     low_zone_gain: float = 0.25
@@ -176,6 +180,7 @@ class StepTuning:
         self.step_rate_gain = max(0.01, min(5.0, float(self.step_rate_gain)))
         self.step_rate_max_percent = max(1.0, min(100.0, float(self.step_rate_max_percent)))
         self.preview_rate_smoothing = max(0.0, min(0.95, float(self.preview_rate_smoothing)))
+        self.adrr_strength = max(0.0, min(1.0, float(self.adrr_strength)))
         self.bucket_width_px = max(1, min(16, int(round(self.bucket_width_px))))
         self.off_bar_height = max(1, min(40, int(round(self.off_bar_height))))
         self.low_zone_gain = max(0.0, min(2.0, float(self.low_zone_gain)))
@@ -253,6 +258,8 @@ class AxisCurveModel:
         self.original_nodes: List[AxisNode] = copy.deepcopy(self.nodes)
         self._curve_cache: dict[tuple[int, int], tuple[tuple[int, float], ...]] = {}
         self._step_cache: dict[int, tuple[dict, ...]] = {}
+        self.last_adrr_dirt = []
+        self.last_adrr_chaos = None
 
     @property
     def take_duration_ms(self) -> int:
@@ -272,6 +279,8 @@ class AxisCurveModel:
     def _invalidate_cache(self) -> None:
         self._curve_cache.clear()
         self._step_cache.clear()
+        self.last_adrr_dirt = []
+        self.last_adrr_chaos = None
 
     def set_mechanics(self, mechanics: AxisMechanics) -> None:
         self.mechanics = copy.deepcopy(mechanics)
@@ -643,8 +652,49 @@ class AxisCurveModel:
                 count += 1
             prev_step = step
             rows.append({"time_ms": t, "y": y, "dir": dir_bit, "step": step, "count": count, "rate": rate, "acc": accumulator})
+
+        self.last_adrr_dirt = []
+        self.last_adrr_chaos = None
+        if tuning.adrr_strength > 0.0:
+            adrr_result = filter_axis_rows_with_diagnostics(
+                rows,
+                AdrrSettings(
+                    strength=tuning.adrr_strength,
+                    sample_ms=sample_ms,
+                    local_window=25,
+                    max_shift_samples=14,
+                    min_interval_samples=2,
+                    dirt_threshold=0.10,
+                    preserve_pulse_count=tuning.adrr_strength < 0.55,
+                    hard_cleanup=tuning.adrr_strength >= 0.55,
+                ),
+            )
+            rows = adrr_result.rows
+            self.last_adrr_dirt = list(adrr_result.dirt)
+            self.last_adrr_chaos = getattr(adrr_result, "chaos", None)
+
         self._step_cache[duration] = tuple(dict(r) for r in rows)
         return [dict(r) for r in self._step_cache[duration]]
+
+    def _format_adrr_chaos_lines(self) -> str:
+        chaos = getattr(self, "last_adrr_chaos", None)
+        if chaos is None:
+            return "  ADRR chaos przed : -\n"
+        try:
+            before = float(getattr(chaos, "chaos_before", 0.0))
+            after = float(getattr(chaos, "chaos_after", 0.0))
+            improvement = float(getattr(chaos, "improvement_percent", 0.0))
+            moved = int(getattr(chaos, "moved_count", 0))
+            removed = int(getattr(chaos, "removed_count", 0))
+            return (
+                f"  ADRR chaos przed : {before:.0f}\n"
+                f"  ADRR chaos po    : {after:.0f}\n"
+                f"  ADRR poprawa     : {improvement:+.0f}%\n"
+                f"  ADRR moved       : {moved}\n"
+                f"  ADRR removed     : {removed}\n"
+            )
+        except Exception:
+            return "  ADRR chaos przed : -\n"
 
     def current_pulse_count(self, duration_ms: int | None = None) -> int:
         rows = self.build_step_rows(duration_ms=duration_ms)
@@ -667,6 +717,9 @@ class AxisCurveModel:
             f"  wypełnienie      : {ratio * 100:.2f}%\n"
             f"  max |Y|          : {peak_abs_y:.2f}\n"
             f"  max rate         : {peak_rate:.2f} step/s\n"
+            f"  ADRR             : {int(round(max(0.0, min(1000.0, 1000.0 * (max(0.0, min(1.0, self.step_tuning.adrr_strength)) ** (1.0 / 1.6))))))}/1000 "
+            f"({self.step_tuning.adrr_strength * 100:.0f}%)\n"
+            f"{self._format_adrr_chaos_lines()}"
             f"  sample           : {self.sample_ms} ms\n"
             f"  zakres operatora : ±{int(round(self.sandbox.display_y_scale))}\n"
             f"  czas MAIN TAKE   : {summary_duration / 1000.0:.1f}s\n"

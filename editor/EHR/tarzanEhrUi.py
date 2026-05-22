@@ -1539,6 +1539,9 @@ class AxisSettingsDialog(tk.Toplevel):
             "step_rate_gain": tk.DoubleVar(value=defaults.step_rate_gain),
             "step_rate_max_percent": tk.DoubleVar(value=defaults.step_rate_max_percent),
             "preview_rate_smoothing": tk.DoubleVar(value=defaults.preview_rate_smoothing),
+            # ADRR jest przechowywany technicznie jako 0.0–1.0, ale operator stroi go
+            # w precyzyjnej skali 0–1000, jak dostrajanie rezonansu HARMONII RUCHU.
+            "adrr_strength": tk.DoubleVar(value=self._adrr_strength_to_operator(getattr(defaults, "adrr_strength", 0.0))),
             "bucket_width_px": tk.IntVar(value=defaults.bucket_width_px),
             "off_bar_height": tk.IntVar(value=defaults.off_bar_height),
             "low_zone_gain": tk.DoubleVar(value=defaults.low_zone_gain),
@@ -1586,6 +1589,27 @@ class AxisSettingsDialog(tk.Toplevel):
         self.tarzan_snajper.register_target("axis_dialog_step_preview", T("axis_dialog", scope, "step_preview", "refresh"))
         self.tarzan_snajper.register_target("axis_dialog_metrics", T("axis_dialog", scope, "metrics", "refresh"))
         self.tarzan_snajper.register_target("axis_dialog_status", T("axis_dialog", scope, "status", "text"))
+
+    @staticmethod
+    def _adrr_operator_to_strength(value: float) -> float:
+        """Mapuje operatorskie strojenie ADRR 0–1000 na techniczną siłę 0.0–1.0.
+
+        Skala jest celowo nieliniowa: początek działa bardzo łagodnie, środek
+        buduje HARMONIĘ RUCHU, a wysokie wartości wchodzą w mocne, rezonansowe
+        układanie matrixa STEP.
+        """
+        ui_value = max(0.0, min(1000.0, float(value)))
+        if ui_value <= 0.0:
+            return 0.0
+        return max(0.0, min(1.0, (ui_value / 1000.0) ** 1.6))
+
+    @staticmethod
+    def _adrr_strength_to_operator(strength: float) -> float:
+        """Odwrotność mapowania ADRR: 0.0–1.0 -> 0–1000 dla suwaka UI."""
+        normalized = max(0.0, min(1.0, float(strength)))
+        if normalized <= 0.0:
+            return 0.0
+        return max(0.0, min(1000.0, 1000.0 * (normalized ** (1.0 / 1.6))))
 
     def _snajper_fire(self, logical_signal: str, value: Any | None = None) -> None:
         """Wymusza celowany strzał Snajpera w lokalny target okna osi."""
@@ -1687,10 +1711,11 @@ class AxisSettingsDialog(tk.Toplevel):
             ("dead_zone_y", "MIĘKKI START", 0.0, 30.0, 0.5),
             ("step_rate_gain", "GĘSTOŚĆ RUCHU", 0.1, 5.0, 0.05),
             ("preview_rate_smoothing", "PŁYNNOŚĆ RUCHU", 0.0, 0.95, 0.01),
+            ("adrr_strength", "ADRR — HARMONIA RUCHU", 0.0, 1000.0, 1.0),
         ]
         for idx, (key, label, start, end, res) in enumerate(sliders):
-            col = idx % 3
-            row = idx // 3
+            col = idx % 4
+            row = idx // 4
             self._scale_row_grid(grid, row, col, label, self.step_vars[key], start, end, res, self._apply_step_tuning_live)
 
 
@@ -1778,6 +1803,7 @@ class AxisSettingsDialog(tk.Toplevel):
             step_rate_gain=float(self.step_vars["step_rate_gain"].get()),
             step_rate_max_percent=float(self.step_vars["step_rate_max_percent"].get()),
             preview_rate_smoothing=float(self.step_vars["preview_rate_smoothing"].get()),
+            adrr_strength=self._adrr_operator_to_strength(float(self.step_vars["adrr_strength"].get())),
             bucket_width_px=int(self.step_vars["bucket_width_px"].get()),
             off_bar_height=int(self.step_vars["off_bar_height"].get()),
             low_zone_gain=float(self.step_vars["low_zone_gain"].get()),
@@ -1834,6 +1860,7 @@ class AxisSettingsDialog(tk.Toplevel):
             self.model.step_tuning.step_rate_gain,
             self.model.step_tuning.step_rate_max_percent,
             self.model.step_tuning.preview_rate_smoothing,
+            getattr(self.model.step_tuning, "adrr_strength", 0.0),
         )
         if cache_key != self._metrics_cache_key:
             self._metrics_cache_text = self.model.metrics_summary(duration_ms=self.master_window.global_take_duration_ms)
@@ -2051,8 +2078,60 @@ class AxisSettingsDialog(tk.Toplevel):
                 c.create_line(x, y_mid, x, top + 12, fill=self.master_window.STEP_ON, width=max(1, bucket))
             else:
                 c.create_line(x, y_mid, x, y_mid + tuning.off_bar_height, fill=self.master_window.STEP_OFF, width=max(1, bucket))
+
+        adrr_dirt = list(getattr(self.model, "last_adrr_dirt", []) or [])
+        if adrr_dirt:
+            marker_bucket = max(1, bucket)
+            marked_x: set[int] = set()
+            for dirt in adrr_dirt:
+                time_ms = int(getattr(dirt, "time_ms", 0))
+                raw_x = int(round(self._time_to_x(time_ms, left, right)))
+                x = ((raw_x - left) // marker_bucket) * marker_bucket + left
+                if x in marked_x:
+                    continue
+                marked_x.add(x)
+                marker_top = top + 6
+                marker_bottom = min(bottom, int(y_mid + tuning.off_bar_height + 4))
+                c.create_line(x, marker_bottom, x, marker_top, fill="#FF3B30", width=max(2, marker_bucket), stipple="gray50")
+
         c.create_text(left, top - 2, text="STEP 0/1 preview", fill=self.master_window.FG, anchor="sw", font=("Segoe UI Semibold", 9))
         c.create_text(right, top - 2, text=f"rows={len(rows)}  pulses={rows[-1]['count']}", fill=self.master_window.MUTED, anchor="se", font=("Consolas", 8))
+
+        # ADRR diagnostics must stay readable in the STEP preview area.
+        # Do not build one long line: each operator value gets its own ADRR-prefixed row.
+        chaos = getattr(self.model, "last_adrr_chaos", None)
+        diag_lines: list[str] = []
+        if adrr_dirt:
+            diag_lines.append(f"ADRR dirt: {len(adrr_dirt)}")
+        if chaos is not None:
+            try:
+                before = float(getattr(chaos, "chaos_before", 0.0))
+                after = float(getattr(chaos, "chaos_after", 0.0))
+                improvement = float(getattr(chaos, "improvement_percent", 0.0))
+                moved = int(getattr(chaos, "moved_count", 0))
+                removed = int(getattr(chaos, "removed_count", 0))
+                diag_lines.extend([
+                    f"ADRR chaos przed: {before:.0f}",
+                    f"ADRR chaos po: {after:.0f}",
+                    f"ADRR poprawa: {improvement:+.0f}%",
+                    f"ADRR moved: {moved}",
+                    f"ADRR removed: {removed}",
+                ])
+            except Exception:
+                diag_lines.append("ADRR chaos: -")
+        if diag_lines:
+            diag_x = right - 4
+            diag_y = top + 8
+            line_h = 11
+            for idx, line in enumerate(diag_lines[:6]):
+                c.create_text(
+                    diag_x,
+                    diag_y + idx * line_h,
+                    text=line,
+                    fill=self.master_window.MUTED,
+                    anchor="ne",
+                    font=("Consolas", 8),
+                )
 
     def _set_status(self, status: str | None = None) -> None:
         self.status_var.set(status if status is not None else "Sandbox osi gotowy do strojenia.")

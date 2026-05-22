@@ -3213,13 +3213,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         strength = float(getattr(self.main_take_settings, "smooth_strength_default", 0.35))
         passes = int(getattr(self.main_take_settings, "smooth_passes_default", 2))
         model.smooth_all(strength=strength, passes=passes)
-        self._snajper_refresh_ehr_axis(
-            axis_index,
-            curve=True,
-            metrics=True,
-            step=True,
-            status=f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.",
-        )
+
+        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_curve")
+        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_live_matrix")
+
+        self._set_status(f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.")
 
     def _schedule_configure_refresh(self) -> None:
         if self._configure_after_id is not None:
@@ -4107,13 +4105,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         strength = max(0.0, min(1.0, float(getattr(self.main_take_settings, "smooth_strength_default", 0.35))))
         passes = max(1, min(8, int(getattr(self.main_take_settings, "smooth_passes_default", 2))))
         model.smooth_all(strength=strength, passes=passes)
-        self._snajper_refresh_ehr_axis(
-            self.active_axis_index,
-            curve=True,
-            metrics=True,
-            step=True,
-            status=f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.",
-        )
+
+        self._snajper_fire_ehr(f"ehr_axis_{self.active_axis_index}_curve")
+        self._snajper_fire_ehr(f"ehr_axis_{self.active_axis_index}_live_matrix")
+
+        self._set_status(f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.")
 
 
 

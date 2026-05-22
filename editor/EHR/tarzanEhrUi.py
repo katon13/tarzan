@@ -1570,6 +1570,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_tuning_after_id = None
         self._step_redraw_after_id = None
         self._axis_dialog_fire_seq = 0
+        self._is_switching_axis = False
 
         self.tarzan_snajper = create_default_tarzan_snajper()
         self.axis_dialog_snajper_adapter = AxisDialogSnajperAdapter(self)
@@ -1581,6 +1582,57 @@ class AxisSettingsDialog(tk.Toplevel):
         self.update()
         self.tarzan_snajper.clear_scope(f"axis_dialog_{self.axis_index}")
         self._snajper_refresh_targets(curve=True, step=True, metrics=True, status="Gotowy.")
+
+    def switch_axis(self, axis_index: int) -> None:
+        """Przełącza lupę na inną oś bez ponownego otwierania okna."""
+        self._is_switching_axis = True
+        try:
+            self.axis_index = axis_index
+            self.model = self.master_window.axis_models[axis_index]
+            self.title(f"Ustawienia osi — {self.model.axis_def.axis_name}")
+
+            # Aktualizacja nagłówka i nazwy osi w UI
+            if hasattr(self, "header_label"):
+                self.header_label.config(text=f"TARZAN — USTAWIENIA OSI: {self.model.axis_def.axis_name.upper()}")
+            if hasattr(self, "axis_name_label"):
+                self.axis_name_label.config(text=self.model.axis_def.axis_name.upper())
+
+            # Przeładuj wartości suwaków z self.model.step_tuning
+            defaults = copy.deepcopy(self.model.step_tuning)
+            self.step_vars["dead_zone_y"].set(defaults.dead_zone_y)
+            self.step_vars["input_max_y"].set(defaults.input_max_y)
+            self.step_vars["input_gamma"].set(defaults.input_gamma)
+            self.step_vars["step_rate_gain"].set(defaults.step_rate_gain)
+            self.step_vars["step_rate_max_percent"].set(defaults.step_rate_max_percent)
+            self.step_vars["preview_rate_smoothing"].set(defaults.preview_rate_smoothing)
+            self.step_vars["adrr_strength"].set(self._adrr_strength_to_operator(getattr(defaults, "adrr_strength", 0.0)))
+            self.step_vars["bucket_width_px"].set(defaults.bucket_width_px)
+            self.step_vars["off_bar_height"].set(defaults.off_bar_height)
+            self.step_vars["low_zone_gain"].set(defaults.low_zone_gain)
+            self.step_vars["mid_zone_gain"].set(defaults.mid_zone_gain)
+            self.step_vars["high_zone_gain"].set(defaults.high_zone_gain)
+            self.step_vars["accumulator_bias"].set(defaults.accumulator_bias)
+            self.step_vars["emit_threshold"].set(defaults.emit_threshold)
+            self.step_vars["node_hit_radius_px"].set(defaults.node_hit_radius_px)
+            self.step_vars["time_drag_threshold_samples"].set(defaults.time_drag_threshold_samples)
+
+            self.selected_index = None
+            self.selected_node_ref = None
+            self.drag_mode = None
+
+            # Wyczyść cache lokalne metryk/step
+            self._metrics_cache_key = None
+            self._metrics_cache_text = ""
+            self._nodes_dirty = True
+            self._curve_needs_redraw = True
+            self._step_needs_redraw = True
+
+            # Odśwież przez lokalnego Snajpera
+            self.tarzan_snajper.clear_scope(f"axis_dialog_{self.axis_index}")
+            self._register_axis_dialog_snajper_targets()
+            self._snajper_refresh_targets(curve=True, step=True, metrics=True, status=f"Przełączono na oś: {self.model.axis_def.axis_name}")
+        finally:
+            self._is_switching_axis = False
 
     def _register_axis_dialog_snajper_targets(self) -> None:
         """Rejestruje lokalne cele Snajpera dla tego konkretnego okna osi."""
@@ -1651,13 +1703,14 @@ class AxisSettingsDialog(tk.Toplevel):
 
         top = tk.Frame(outer, bg=self.master_window.BG)
         top.pack(fill="x", pady=(0, 8))
-        tk.Label(
+        self.header_label = tk.Label(
             top,
-            text="TARZAN — USTAWIENIA OSI",
+            text=f"TARZAN — USTAWIENIA OSI: {self.model.axis_def.axis_name.upper()}",
             bg=self.master_window.BG,
             fg=self.master_window.FG,
             font=("Segoe UI Semibold", 16),
-        ).pack(side="left")
+        )
+        self.header_label.pack(side="left")
 
         btns = tk.Frame(top, bg=self.master_window.BG)
         btns.pack(side="right")
@@ -1703,8 +1756,9 @@ class AxisSettingsDialog(tk.Toplevel):
         status.pack(fill="x", pady=(8, 0))
 
     def _build_left_panel(self, parent: tk.Misc) -> None:
-        tk.Label(parent, text=self.model.axis_def.axis_name.upper(), bg=self.master_window.BG, fg=self.master_window.FG,
-                 anchor="w", font=("Segoe UI Semibold", 12)).pack(fill="x", pady=(0, 8))
+        self.axis_name_label = tk.Label(parent, text=self.model.axis_def.axis_name.upper(), bg=self.master_window.BG, fg=self.master_window.FG,
+                 anchor="w", font=("Segoe UI Semibold", 12))
+        self.axis_name_label.pack(fill="x", pady=(0, 8))
         tk.Label(parent, textvariable=self.metrics_var, bg=self.master_window.BG, fg=self.master_window.MUTED,
                  justify="left", anchor="w", font=("Consolas", 9)).pack(fill="x", pady=(0, 12))
 
@@ -1838,6 +1892,8 @@ class AxisSettingsDialog(tk.Toplevel):
         self._refresh_curve_only("Zastosowano ustawienia wizualne (tylko krzywa).")
 
     def _apply_step_tuning_live(self) -> None:
+        if getattr(self, "_is_switching_axis", False):
+            return
         if self._step_tuning_after_id is not None:
             self.after_cancel(self._step_tuning_after_id)
         self._step_tuning_after_id = self.after(100, self._flush_step_tuning_live)
@@ -1858,6 +1914,7 @@ class AxisSettingsDialog(tk.Toplevel):
             metrics=True,
             status="Zastosowano strojenie STEP.",
         )
+        self.master_window._request_dialog_axis_live_preview(self.axis_index)
 
     def _refresh_metrics(self) -> None:
         cache_key = (
@@ -2255,6 +2312,8 @@ class AxisSettingsDialog(tk.Toplevel):
             new_t = self._x_to_time(event.x, left, right)
             new_y = self._canvas_to_logical_y(event.y, top, bottom, apply_snap=False)
             self.model.move_node(self.selected_index, new_t, new_y)
+            self._restore_selected_index_from_ref()
+            self.master_window._request_dialog_axis_live_preview(self.axis_index)
             
             self.drag_anchor_x = event.x
             self.drag_anchor_y = event.y
@@ -2305,6 +2364,7 @@ class AxisSettingsDialog(tk.Toplevel):
                 self._nodes_dirty = True
                 self._request_curve_redraw()
                 self._request_step_redraw()
+                self.master_window._request_dialog_axis_live_preview(self.axis_index)
         elif self.drag_mode == "pan":
             new_time = self._x_to_time(event.x, left, right)
             old_time = self._x_to_time(self.drag_anchor_x, left, right)
@@ -2352,6 +2412,7 @@ class AxisSettingsDialog(tk.Toplevel):
                 self._nodes_dirty = True
                 self._request_curve_redraw()
                 self._request_step_redraw()
+                self.master_window._request_dialog_axis_live_preview(self.axis_index)
 
     def _on_curve_release(self, _event) -> None:
         self.is_ghost_snapped = False
@@ -2374,6 +2435,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._metrics_cache_key = None
         self._metrics_cache_text = ""
         self._snajper_refresh_targets(curve=True, step=True, metrics=True)
+        self.master_window._request_dialog_axis_live_preview(self.axis_index)
 
     def _on_curve_double_click(self, event) -> None:
         left, top, right, bottom = self._curve_rect()
@@ -2386,6 +2448,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._metrics_cache_text = ""
         self._nodes_dirty = True
         self._snajper_refresh_targets(curve=True, step=True, metrics=True)
+        self.master_window._request_dialog_axis_live_preview(self.axis_index)
 
     def _on_curve_right_click(self, event) -> None:
         idx = self._hit_node(event.x, event.y)
@@ -2400,12 +2463,13 @@ class AxisSettingsDialog(tk.Toplevel):
         self._metrics_cache_text = ""
         self._nodes_dirty = True
         self._snajper_refresh_targets(curve=True, step=True, metrics=True)
+        self.master_window._request_dialog_axis_live_preview(self.axis_index)
 
     def _on_close(self) -> None:
         # Zamknięcie okna pojedynczej osi nie synchronizuje MAIN TAKE.
         # Dane trafiają do głównego EHR wyłącznie przez SET UP -> MAIN TAKE.
         self.selected_node_ref = None
-        self.master_window.settings_dialogs.pop(self.axis_index, None)
+        self.master_window.axis_detail_dialog = None
         self.destroy()
 
 
@@ -2496,7 +2560,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.axis_rects: dict[int, AxisViewportRect] = {}
         self.gear_rects: dict[int, GearRect] = {}
         self.wave_rects: dict[int, WaveRect] = {}
-        self.settings_dialogs: dict[int, AxisSettingsDialog] = {}
+        self.axis_detail_dialog: AxisSettingsDialog | None = None
         self.drag_release_anchor_time = 0
         self._drag_zero_snap_locked = False
         self._drag_data_changed = False
@@ -2845,15 +2909,26 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._protocol_dirty = True
 
     def _set_active_axis(self, axis_index: int) -> bool:
-        if axis_index == self.active_axis_index:
-            return False
+        changed = (axis_index != self.active_axis_index)
         self.active_axis_index = axis_index
-        self._axis_selection_version += 1
-        self._update_selected_point_time_indicator()
-        self._mark_axis_metrics_dirty()
-        self._mark_protocol_dirty()
-        self._main_canvas_needs_redraw = True
-        return True
+        if changed:
+            self._axis_selection_version += 1
+            self._update_selected_point_time_indicator()
+            self._mark_axis_metrics_dirty()
+            self._mark_protocol_dirty()
+            self._main_canvas_needs_redraw = True
+
+        if self.axis_detail_dialog is not None:
+            try:
+                if self.axis_detail_dialog.winfo_exists():
+                    if self.axis_detail_dialog.axis_index != axis_index:
+                        self.axis_detail_dialog.switch_axis(axis_index)
+                else:
+                    self.axis_detail_dialog = None
+            except Exception:
+                self.axis_detail_dialog = None
+
+        return changed
 
     def _mark_axis_data_changed(self, axis_index: int, *, mark_protocol: bool = True, mark_axis_info: bool = True, notify_ui: bool = True) -> None:
         self._bump_axis_data_version(axis_index)
@@ -3064,6 +3139,37 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         """Realizacja strzału Snajpera: inicjalizacja strony."""
         self._snajper_draw_ehr_page_full()
 
+    def _refresh_axis_dialog_if_needed(self, axis_index: int) -> None:
+        """Odświeża otwarte okno lupy, jeśli dotyczy tej samej osi."""
+        if self.axis_detail_dialog and self.axis_detail_dialog.winfo_exists() and self.axis_detail_dialog.axis_index == axis_index:
+            self.axis_detail_dialog._curve_needs_redraw = True
+            self.axis_detail_dialog._step_needs_redraw = True
+            self.axis_detail_dialog._metrics_cache_key = None
+            self.axis_detail_dialog._metrics_cache_text = ""
+            self.axis_detail_dialog._nodes_dirty = True
+            self.axis_detail_dialog._snajper_refresh_targets(curve=True, step=True, metrics=True)
+
+    def _open_or_switch_axis_detail(self, axis_index: int) -> None:
+        """Otwiera lub przełącza istniejące okno szczegółowe osi (Lupa)."""
+        if self.axis_models[axis_index].is_release_axis:
+            # Oś DRON/release nie ma okna szczegółowego
+            return
+
+        self._set_active_axis(axis_index)
+
+        if self.axis_detail_dialog is None or not self.axis_detail_dialog.winfo_exists():
+            self.axis_detail_dialog = AxisSettingsDialog(self, axis_index)
+
+        self.axis_detail_dialog.lift()
+        self.axis_detail_dialog.focus_force()
+
+    def _request_dialog_axis_live_preview(self, axis_index: int) -> None:
+        """Throttlowane odświeżenie MAIN EHR wywołane z okna dialogowego."""
+        # Wykorzystujemy istniejący mechanizm live matrix
+        self._request_live_matrix_refresh(axis_index)
+        # Dodatkowo krzywa
+        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_curve")
+
     def _open_take_settings(self) -> None:
         dlg = MainTakeSettingsDialog(
             self,
@@ -3093,13 +3199,12 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             rebuild_take_model=True,
         )
 
-        for dlg in list(self.settings_dialogs.values()):
-            if dlg.winfo_exists():
-                dlg._curve_needs_redraw = True
-                dlg._step_needs_redraw = True
-                dlg._metrics_cache_key = None
-                dlg._metrics_cache_text = ""
-                dlg._snajper_refresh_targets(curve=True, step=True, metrics=True)
+        if self.axis_detail_dialog is not None and self.axis_detail_dialog.winfo_exists():
+            self.axis_detail_dialog._curve_needs_redraw = True
+            self.axis_detail_dialog._step_needs_redraw = True
+            self.axis_detail_dialog._metrics_cache_key = None
+            self.axis_detail_dialog._metrics_cache_text = ""
+            self.axis_detail_dialog._snajper_refresh_targets(curve=True, step=True, metrics=True)
 
     def _save_take_settings(self, settings: MainTakeSettings) -> None:
         self._apply_take_settings(settings)
@@ -3778,30 +3883,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
 
     def _open_settings(self, axis_index: int) -> None:
-        axis_changed = self._set_active_axis(axis_index)
-        if self.axis_models[axis_index].is_release_axis:
-            self._refresh_light_ui(
-                status=f"Oś {self.axis_models[axis_index].axis_def.axis_name} nie ma okna ustawień.",
-                refresh_axis_info=True,
-                refresh_protocol=axis_changed,
-            )
-            return
-        dlg = self.settings_dialogs.get(axis_index)
-        if dlg is not None and dlg.winfo_exists():
-            dlg.lift()
-            dlg.focus_force()
-            self._refresh_light_ui(
-                status=f"Wybrano oś: {self._active_model().axis_def.axis_name}.",
-                refresh_axis_info=True,
-                refresh_protocol=axis_changed,
-            )
-            return
-        self.settings_dialogs[axis_index] = AxisSettingsDialog(self, axis_index)
-        self._refresh_light_ui(
-            status=f"Otwarto ustawienia osi: {self._active_model().axis_def.axis_name}.",
-            refresh_axis_info=True,
-            refresh_protocol=axis_changed,
-        )
+        self._open_or_switch_axis_detail(axis_index)
 
     def _on_canvas_press(self, event) -> None:
         gear_axis = self._gear_axis_from_point(event.x, event.y)
@@ -4027,6 +4109,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 step=True,
                 status="Gotowy.",
             )
+            self._refresh_axis_dialog_if_needed(changed_axis_index)
             return
         if changed_axis_index is not None:
             self._main_canvas_needs_redraw = False
@@ -4073,6 +4156,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             step=True,
             status=f"Dodano punkt na osi: {model.axis_def.axis_name}.",
         )
+        self._refresh_axis_dialog_if_needed(axis_index)
 
     def _on_canvas_right_click(self, event) -> None:
         axis_index = self._axis_index_from_point(event.x, event.y)
@@ -4099,6 +4183,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             step=True,
             status=f"Usunięto punkt z osi: {model.axis_def.axis_name}.",
         )
+        self._refresh_axis_dialog_if_needed(axis_index)
 
     def _smooth_active(self) -> None:
         model = self._active_model()

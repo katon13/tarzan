@@ -7,13 +7,13 @@
       "path": "data/take/TAKE_001_v41.txt"
     },
     {
-      "path": "data/take/TAKE_001_v02.txt"
+      "path": "data/take/TAKE_001_v01.txt"
     },
     {
       "path": "data/take/TAKE_001_v41.txt"
     },
     {
-      "path": "data/take/TAKE_ADRR_TEST_heavy_dirty_3min_v01.txt"
+      "path": null
     },
     {
       "path": null
@@ -31,7 +31,7 @@
       "path": null
     }
   ],
-  "active_slot": 1,
+  "active_slot": 3,
   "axis_activity": {
     "oś pionowa kamery": true,
     "oś pochyłu ramienia": true,

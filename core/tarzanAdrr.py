@@ -289,22 +289,34 @@ def _make_chaos_metrics(
     result_rows: Sequence[Mapping[str, Any]],
     dirt: Sequence[AdrrDirt],
     settings: AdrrSettings,
+    source_pulses: Sequence[int] | None = None,
+    result_pulses: Sequence[int] | None = None,
+    fast_mode: bool = False,
 ) -> AdrrChaos:
     """Buduje diagnostykę Chaos Index dla panelu ADRR.
 
     Funkcja nie zmienia danych. Porównuje STEP przed i po filtrze.
     """
-    before = _step_indices(source_rows)
-    after = _step_indices(result_rows)
+    before = source_pulses if source_pulses is not None else _step_indices(source_rows)
+    after = result_pulses if result_pulses is not None else _step_indices(result_rows)
     before_set = set(before)
     after_set = set(after)
 
-    chaos_before = _chaos_score_for_positions(before, settings)
-    chaos_after = _chaos_score_for_positions(after, settings)
-    if chaos_before <= 0.001:
-        improvement = 0.0 if chaos_after <= 0.001 else -100.0
+    if fast_mode:
+        # W trybie live nie liczymy chaos_before (stanu wejściowego).
+        chaos_before = 0.0
+        # Ograniczamy koszt chaos_after przez subsampling punktów.
+        # W trybie live 120 punktów wystarczy do wiarygodnego trendu Chaos Index.
+        after_sub = _subsample_positions(after, limit=120)
+        chaos_after = _chaos_score_for_positions(after_sub, settings)
+        improvement = 0.0
     else:
-        improvement = (chaos_before - chaos_after) / chaos_before * 100.0
+        chaos_before = _chaos_score_for_positions(before, settings)
+        chaos_after = _chaos_score_for_positions(after, settings)
+        if chaos_before <= 0.001:
+            improvement = 0.0 if chaos_after <= 0.001 else -100.0
+        else:
+            improvement = (chaos_before - chaos_after) / chaos_before * 100.0
 
     moved_count = sum(1 for item in dirt if getattr(item, "shift_samples", 0) != 0)
     removed_count = len(before_set - after_set)
@@ -475,7 +487,7 @@ def _phase_error_values(positions: Sequence[int], interval: float, phase: float)
     return errors
 
 
-def _harmony_score(positions: Sequence[int], interval: float, phase: float, settings: AdrrSettings) -> float:
+def _harmony_score(positions: Sequence[int], interval: float, phase: float, settings: AdrrSettings, fast_mode: bool = False) -> float:
     """Ocena dopasowania rytmu do modelu harmonii.
 
     Zoptymalizowana wersja z jedną pętlą i precyzyjnymi karami.
@@ -483,12 +495,18 @@ def _harmony_score(positions: Sequence[int], interval: float, phase: float, sett
     if interval <= 0:
         return 1_000_000.0
 
+    eval_positions = positions
+    if fast_mode and len(positions) > 64:
+        # Twardy limit dla live preview: oceniamy dopasowanie na mniejszej próbie punktów.
+        step = len(positions) // 64
+        eval_positions = positions[::step]
+
     errors: list[float] = []
     slot_counts: dict[int, int] = {}
     f_interval = float(interval)
     f_phase = float(phase)
 
-    for pos in positions:
+    for pos in eval_positions:
         f_pos = float(pos)
         k = round((f_pos - f_phase) / f_interval)
         grid = f_phase + k * f_interval
@@ -848,6 +866,7 @@ def _build_visual_slots(
     model: _HarmonyModel,
     song: _SongMap,
     settings: AdrrSettings,
+    fast_mode: bool = False,
 ) -> list[int]:
     """Buduje harmonijne sloty dla całej frazy, z uwzględnieniem obwiedni utworu.
 
@@ -866,29 +885,34 @@ def _build_visual_slots(
     span = max(1, last - first)
     pulse_count = len(positions)
     interval = max(float(settings.min_interval_samples), float(model.interval))
-    band = _envelope_at(song, (first + last) // 2)
-    if band is not None and band.pulse_count >= 2:
-        # Delikatnie mieszamy lokalny rytm z obwiednią, bo obraz matrixa ma mieć
-        # falę gęstości, a nie mechaniczne sloty oderwane od całości.
-        envelope_blend = min(0.38, _visual_cleanup_power(settings) * 0.38)
-        interval = interval * (1.0 - envelope_blend) + band.interval_hint * envelope_blend
 
-    grid_count = max(1, int(round(span / interval)) + 1)
-    cleanup = _visual_cleanup_power(settings)
-    kind = _phrase_density_kind(positions, model, song, settings)
-
-    if settings.preserve_pulse_count and settings.strength < 0.58:
+    if fast_mode:
+        # W trybie live upraszczamy: nie liczymy obwiedni ani gęstości frazy.
         target_count = pulse_count
     else:
-        # Nie dodajemy nowego ruchu. Co najwyżej odbieramy sloty oczywistym
-        # śmieciom, szczególnie w nadgęstych fragmentach.
-        if kind == "overdense":
-            target_count = int(round(pulse_count * (1.0 - 0.42 * cleanup) + grid_count * (0.42 * cleanup)))
-        elif kind == "sparse":
+        band = _envelope_at(song, (first + last) // 2)
+        if band is not None and band.pulse_count >= 2:
+            # Delikatnie mieszamy lokalny rytm z obwiednią, bo obraz matrixa ma mieć
+            # falę gęstości, a nie mechaniczne sloty oderwane od całości.
+            envelope_blend = min(0.38, _visual_cleanup_power(settings) * 0.38)
+            interval = interval * (1.0 - envelope_blend) + band.interval_hint * envelope_blend
+
+        grid_count = max(1, int(round(span / interval)) + 1)
+        cleanup = _visual_cleanup_power(settings)
+        kind = _phrase_density_kind(positions, model, song, settings)
+
+        if settings.preserve_pulse_count and settings.strength < 0.58:
             target_count = pulse_count
         else:
-            target_count = int(round(pulse_count * (1.0 - 0.25 * cleanup) + grid_count * (0.25 * cleanup)))
-        target_count = max(1, min(pulse_count, target_count))
+            # Nie dodajemy nowego ruchu. Co najwyżej odbieramy sloty oczywistym
+            # śmieciom, szczególnie w nadgęstych fragmentach.
+            if kind == "overdense":
+                target_count = int(round(pulse_count * (1.0 - 0.42 * cleanup) + grid_count * (0.42 * cleanup)))
+            elif kind == "sparse":
+                target_count = pulse_count
+            else:
+                target_count = int(round(pulse_count * (1.0 - 0.25 * cleanup) + grid_count * (0.25 * cleanup)))
+            target_count = max(1, min(pulse_count, target_count))
 
     if target_count <= 1:
         return [int(round((first + last) * 0.5))]
@@ -896,8 +920,9 @@ def _build_visual_slots(
     # Sloty są równomierne w ramach frazy, ale fazę bierzemy z modelu harmonii.
     # Następnie wybieramy te, które pokrywają całą frazę.
     raw_slots: list[int] = []
-    k0 = _floor((first - model.phase) / interval) - 2
-    k1 = _ceil((last - model.phase) / interval) + 2
+    margin = 1 if fast_mode else 2
+    k0 = _floor((first - model.phase) / interval) - margin
+    k1 = _ceil((last - model.phase) / interval) + margin
     for k in range(k0, k1 + 1):
         idx = int(round(model.phase + k * interval))
         if first - settings.max_shift_samples <= idx <= last + settings.max_shift_samples:
@@ -976,6 +1001,7 @@ def _assign_to_visual_slots(
     row_count: int,
     settings: AdrrSettings,
     model: _HarmonyModel,
+    fast_mode: bool = False,
 ) -> tuple[list[tuple[int, int, str]], list[tuple[int, str]]]:
     """Przypisuje impulsy frazy do wizualno-harmonicznych slotów.
 
@@ -999,6 +1025,8 @@ def _assign_to_visual_slots(
             pairs.append((float(dist), old, slot))
 
     pairs.sort(key=lambda item: item[0])
+    if fast_mode:
+        pairs = pairs[: len(positions) * 3]
 
     used_old: set[int] = set()
     used_slot: set[int] = set()
@@ -1035,7 +1063,7 @@ def _assign_to_visual_slots(
     return assigned, rejected
 
 
-def _infer_song_map(step_positions: Sequence[int], settings: AdrrSettings) -> _SongMap:
+def _infer_song_map(step_positions: Sequence[int], settings: AdrrSettings, fast_mode: bool = False) -> _SongMap:
     """Słucha całego utworu ruchu osi i buduje globalną mapę harmonii.
 
     To jest nadrzędne ucho ADRR. Lokalna fraza nie wybiera rytmu wyłącznie z
@@ -1059,8 +1087,9 @@ def _infer_song_map(step_positions: Sequence[int], settings: AdrrSettings) -> _S
     local_base = _robust_median(intervals, fallback=max(settings.min_interval_samples, 4))
 
     # Globalny model liczony na podpróbce, żeby nie obciążać UI przy 3-minutowym TAKE.
-    sample_positions = _subsample_positions(step_positions, limit=220)
-    global_model = _infer_harmony_fast(sample_positions, settings, guide_intervals=[local_base])
+    limit = 120 if fast_mode else 220
+    sample_positions = _subsample_positions(step_positions, limit=limit)
+    global_model = _infer_harmony_fast(sample_positions, settings, guide_intervals=[local_base], fast_mode=fast_mode)
     if global_model is not None:
         base = max(float(settings.min_interval_samples), global_model.interval)
         score_norm = global_model.score / max(1.0, base)
@@ -1115,6 +1144,7 @@ def _infer_harmony_fast(
     positions: Sequence[int],
     settings: AdrrSettings,
     guide_intervals: Sequence[float] | None = None,
+    fast_mode: bool = False,
 ) -> _HarmonyModel | None:
     """Szybkie słuchanie harmonii frazy.
 
@@ -1144,13 +1174,16 @@ def _infer_harmony_fast(
         if not any(abs(value - existing) < 0.35 for existing in unique):
             unique.append(value)
     # Najbardziej prawdopodobne kandydaty najpierw.
-    unique = sorted(unique, key=lambda v: (abs(v - density), abs(v - med)))[:10]
+    limit_candidates = 5 if fast_mode else 10
+    unique = sorted(unique, key=lambda v: (abs(v - density), abs(v - med)))[:limit_candidates]
 
-    seed_step = max(1, len(positions) // 6)
-    seed_positions = list(positions[::seed_step])[:6]
+    limit_seeds = 3 if fast_mode else 6
+    seed_step = max(1, len(positions) // limit_seeds)
+    seed_positions = list(positions[::seed_step])[:limit_seeds]
     if positions[-1] not in seed_positions:
         seed_positions.append(positions[-1])
 
+    limit_phases = 6 if fast_mode else 12
     best: _HarmonyModel | None = None
     for interval in unique:
         phases: list[float] = []
@@ -1163,8 +1196,8 @@ def _infer_harmony_fast(
         for phase in phases:
             if not any(abs(phase - old) < 0.25 for old in phase_unique):
                 phase_unique.append(phase)
-        for phase in phase_unique[:12]:
-            score = _harmony_score(positions, interval, phase, settings)
+        for phase in phase_unique[:limit_phases]:
+            score = _harmony_score(positions, interval, phase, settings, fast_mode=fast_mode)
             model = _HarmonyModel(
                 interval=float(interval),
                 phase=float(phase),
@@ -1235,6 +1268,7 @@ def _target_slot_count(positions: Sequence[int], model: _HarmonyModel, settings:
 def filter_axis_rows_with_diagnostics(
     rows: Sequence[Mapping[str, Any]],
     settings: AdrrSettings | None = None,
+    fast_mode: bool = False,
 ) -> AdrrResult:
     """Filtruje rytm STEP jednej osi i zwraca diagnostykę ADRR.
 
@@ -1256,14 +1290,27 @@ def filter_axis_rows_with_diagnostics(
 
     if settings.strength <= 0.0 or settings.max_shift_samples <= 0:
         out_rows = _recount_steps(_copy_rows(rows))
-        return AdrrResult(rows=out_rows, dirt=[], chaos=_make_chaos_metrics(rows, out_rows, [], settings))
+        pulses = _step_indices(rows)
+        return AdrrResult(
+            rows=out_rows,
+            dirt=[],
+            chaos=_make_chaos_metrics(
+                rows, out_rows, [], settings, source_pulses=pulses, result_pulses=pulses, fast_mode=fast_mode
+            ),
+        )
 
     pulses = _step_indices(rows)
     if len(pulses) < 3:
         out_rows = _recount_steps(_copy_rows(rows))
-        return AdrrResult(rows=out_rows, dirt=[], chaos=_make_chaos_metrics(rows, out_rows, [], settings))
+        return AdrrResult(
+            rows=out_rows,
+            dirt=[],
+            chaos=_make_chaos_metrics(
+                rows, out_rows, [], settings, source_pulses=pulses, result_pulses=pulses, fast_mode=fast_mode
+            ),
+        )
 
-    song = _infer_song_map(pulses, settings)
+    song = _infer_song_map(pulses, settings, fast_mode=fast_mode)
     phrases = _split_phrases(pulses, settings, song)
     row_count = len(rows)
     occupied: set[int] = set()
@@ -1275,9 +1322,10 @@ def filter_axis_rows_with_diagnostics(
     correction_power = 0.16 + 0.84 * settings.strength
     allow_reject = settings.hard_cleanup or settings.strength >= 0.58
 
+    max_pulses = 110 if fast_mode else 220
     for source_phrase in phrases:
         # Większe kawałki niż w v5: chcemy widzieć falę/motyw, ale nie blokować UI.
-        for phrase in _phrase_chunks(source_phrase, max_pulses=220):
+        for phrase in _phrase_chunks(source_phrase, max_pulses=max_pulses):
             positions = tuple(int(v) for v in pulses[phrase.start_pulse : phrase.end_pulse + 1])
             if not positions:
                 continue
@@ -1290,7 +1338,7 @@ def filter_axis_rows_with_diagnostics(
                 continue
 
             guide = _guide_intervals_for_phrase(positions, song, settings)
-            model = _infer_harmony_fast(positions, settings, guide_intervals=guide)
+            model = _infer_harmony_fast(positions, settings, guide_intervals=guide, fast_mode=fast_mode)
             if model is not None:
                 model = _stabilize_model_with_song(model, song, settings)
 
@@ -1310,8 +1358,8 @@ def filter_axis_rows_with_diagnostics(
                         final_positions.append(chosen)
                 continue
 
-            slots = _build_visual_slots(positions, model, song, settings)
-            assigned, rejected = _assign_to_visual_slots(positions, slots, occupied, row_count, settings, model)
+            slots = _build_visual_slots(positions, model, song, settings, fast_mode=fast_mode)
+            assigned, rejected = _assign_to_visual_slots(positions, slots, occupied, row_count, settings, model, fast_mode=fast_mode)
 
             for old_index, slot_index, reason in assigned:
                 if reason == "clean" and settings.strength < 0.35:
@@ -1336,23 +1384,7 @@ def filter_axis_rows_with_diagnostics(
                 final_positions.append(chosen)
 
                 if reason != "clean" or chosen != old_index:
-                    dirt.append(
-                        AdrrDirt(
-                            time_ms=_row_time_ms(rows, old_index, settings),
-                            corrected_time_ms=_row_time_ms(rows, chosen, settings),
-                            original_index=old_index,
-                            corrected_index=chosen,
-                            shift_samples=chosen - old_index,
-                            reason=reason if reason != "clean" else "harmony",
-                        )
-                    )
-
-            for old_index, reason in rejected:
-                if settings.preserve_pulse_count and not allow_reject:
-                    chosen = _nearest_free_index(old_index, old_index, occupied, row_count, settings)
-                    if chosen is not None:
-                        occupied.add(chosen)
-                        final_positions.append(chosen)
+                    if not fast_mode or len(dirt) < 20:
                         dirt.append(
                             AdrrDirt(
                                 time_ms=_row_time_ms(rows, old_index, settings),
@@ -1360,23 +1392,43 @@ def filter_axis_rows_with_diagnostics(
                                 original_index=old_index,
                                 corrected_index=chosen,
                                 shift_samples=chosen - old_index,
-                                reason="collision",
+                                reason=reason if reason != "clean" else "harmony",
                             )
                         )
+
+            for old_index, reason in rejected:
+                if settings.preserve_pulse_count and not allow_reject:
+                    chosen = _nearest_free_index(old_index, old_index, occupied, row_count, settings)
+                    if chosen is not None:
+                        occupied.add(chosen)
+                        final_positions.append(chosen)
+                        if not fast_mode or len(dirt) < 20:
+                            dirt.append(
+                                AdrrDirt(
+                                    time_ms=_row_time_ms(rows, old_index, settings),
+                                    corrected_time_ms=_row_time_ms(rows, chosen, settings),
+                                    original_index=old_index,
+                                    corrected_index=chosen,
+                                    shift_samples=chosen - old_index,
+                                    reason="collision",
+                                )
+                            )
                         continue
-                dirt.append(
-                    AdrrDirt(
-                        time_ms=_row_time_ms(rows, old_index, settings),
-                        corrected_time_ms=_row_time_ms(rows, old_index, settings),
-                        original_index=old_index,
-                        corrected_index=old_index,
-                        shift_samples=0,
-                        reason=reason,
+                if not fast_mode or len(dirt) < 20:
+                    dirt.append(
+                        AdrrDirt(
+                            time_ms=_row_time_ms(rows, old_index, settings),
+                            corrected_time_ms=_row_time_ms(rows, old_index, settings),
+                            original_index=old_index,
+                            corrected_index=old_index,
+                            shift_samples=0,
+                            reason=reason,
+                        )
                     )
-                )
 
             # Dziury harmonii
-            dirt.extend(_hole_markers_for_phrase(rows, positions, model, settings))
+            if not fast_mode:
+                dirt.extend(_hole_markers_for_phrase(rows, positions, model, settings))
 
     # FINALNA REKONSTRUKCJA: jedna pętla kopiująca i przeliczająca count
     final_rows: list[dict[str, Any]] = []
@@ -1392,16 +1444,27 @@ def filter_axis_rows_with_diagnostics(
         new_row["count"] = count
         final_rows.append(new_row)
 
-    return AdrrResult(rows=final_rows, dirt=dirt, chaos=_make_chaos_metrics(rows, final_rows, dirt, settings))
+    return AdrrResult(
+        rows=final_rows,
+        dirt=dirt,
+        chaos=_make_chaos_metrics(
+            rows, final_rows, dirt, settings, source_pulses=pulses, result_pulses=final_positions, fast_mode=fast_mode
+        ),
+    )
 
-def filter_axis_rows(rows: Sequence[Mapping[str, Any]], settings: AdrrSettings | None = None) -> list[dict[str, Any]]:
+def filter_axis_rows(
+    rows: Sequence[Mapping[str, Any]],
+    settings: AdrrSettings | None = None,
+    fast_mode: bool = False,
+) -> list[dict[str, Any]]:
     """Filtruje rytm STEP jednej osi bez zwracania diagnostyki."""
-    return filter_axis_rows_with_diagnostics(rows, settings).rows
+    return filter_axis_rows_with_diagnostics(rows, settings, fast_mode=fast_mode).rows
 
 
 def filter_axes_packet(
     packet: Mapping[T, Sequence[Mapping[str, Any]]],
     settings: AdrrSettings | Mapping[T, AdrrSettings] | Callable[[T], AdrrSettings] | None = None,
+    fast_mode: bool = False,
 ) -> dict[T, list[dict[str, Any]]]:
     """Filtruje pakiet osi bez zmiany kluczy i bez zmiany kolejności wejścia."""
     result: dict[T, list[dict[str, Any]]] = {}
@@ -1412,5 +1475,5 @@ def filter_axes_packet(
             axis_settings = settings.get(key, DEFAULT_ADRR_SETTINGS)  # type: ignore[arg-type]
         else:
             axis_settings = settings
-        result[key] = filter_axis_rows(axis_rows, axis_settings)
+        result[key] = filter_axis_rows(axis_rows, axis_settings, fast_mode=fast_mode)
     return result

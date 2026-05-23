@@ -257,7 +257,7 @@ class AxisCurveModel:
             self.release_time_ms = self.snap_time(self.take_duration_ms * 0.5)
         self.original_nodes: List[AxisNode] = copy.deepcopy(self.nodes)
         self._curve_cache: dict[tuple[int, int], tuple[tuple[int, float], ...]] = {}
-        self._step_cache: dict[int, tuple[dict, ...]] = {}
+        self._step_cache: dict[tuple[int, bool], tuple[dict, ...]] = {}
         self.last_adrr_dirt = []
         self.last_adrr_chaos = None
 
@@ -499,8 +499,8 @@ class AxisCurveModel:
         self.release_time_ms = new_time
         return True
 
-    def protocol_rows(self, duration_ms: int | None = None) -> List[dict]:
-        rows = self.build_step_rows(duration_ms=duration_ms)
+    def protocol_rows(self, duration_ms: int | None = None, fast_mode: bool = False) -> List[dict]:
+        rows = self.build_step_rows(duration_ms=duration_ms, fast_mode=fast_mode)
         release_time = self.release_time_ms if self.is_release_axis else None
         return [{
             "time_ms": int(row["time_ms"]),
@@ -584,18 +584,19 @@ class AxisCurveModel:
             return tuning.mid_zone_gain
         return tuning.high_zone_gain
 
-    def build_step_rows(self, duration_ms: int | None = None) -> List[dict]:
+    def build_step_rows(self, duration_ms: int | None = None, fast_mode: bool = False) -> List[dict]:
         duration = max(self.sample_ms, int(duration_ms or self.take_duration_ms))
-        if duration in self._step_cache:
-            return [dict(r) for r in self._step_cache[duration]]
+        cache_key = (duration, fast_mode)
+        if cache_key in self._step_cache:
+            return [dict(r) for r in self._step_cache[cache_key]]
         rows: List[dict] = []
         sample_ms = self.sample_ms
         steps = duration // sample_ms
         if self.is_release_axis:
             for i in range(steps + 1):
                 rows.append({"time_ms": i * sample_ms, "y": 0.0, "dir": 1, "step": 0, "count": 0, "rate": 0.0, "acc": 0.0})
-            self._step_cache[duration] = tuple(dict(r) for r in rows)
-            return [dict(r) for r in self._step_cache[duration]]
+            self._step_cache[cache_key] = tuple(dict(r) for r in rows)
+            return [dict(r) for r in self._step_cache[cache_key]]
 
         tuning = copy.deepcopy(self.step_tuning)
         tuning.clamp()
@@ -655,7 +656,13 @@ class AxisCurveModel:
 
         self.last_adrr_dirt = []
         self.last_adrr_chaos = None
-        if tuning.adrr_strength > 0.0:
+
+        # TARZAN ADRR RELEASE MODEL:
+        # fast_mode=True jest używany przez live preview podczas przeciągania punktu
+        # lub suwaka. W tym trybie pokazujemy szybki RAW STEP bez ciężkiego filtra
+        # ADRR. Pełna HARMONIA RUCHU liczy się dopiero po zakończeniu operacji
+        # operatora, czyli przy fast_mode=False.
+        if tuning.adrr_strength > 0.0 and not fast_mode:
             adrr_result = filter_axis_rows_with_diagnostics(
                 rows,
                 AdrrSettings(
@@ -668,13 +675,14 @@ class AxisCurveModel:
                     preserve_pulse_count=tuning.adrr_strength < 0.55,
                     hard_cleanup=tuning.adrr_strength >= 0.55,
                 ),
+                fast_mode=False,
             )
             rows = adrr_result.rows
             self.last_adrr_dirt = list(adrr_result.dirt)
             self.last_adrr_chaos = getattr(adrr_result, "chaos", None)
 
-        self._step_cache[duration] = tuple(dict(r) for r in rows)
-        return [dict(r) for r in self._step_cache[duration]]
+        self._step_cache[cache_key] = tuple(dict(r) for r in rows)
+        return [dict(r) for r in self._step_cache[cache_key]]
 
     def _format_adrr_chaos_lines(self) -> str:
         chaos = getattr(self, "last_adrr_chaos", None)
@@ -700,8 +708,8 @@ class AxisCurveModel:
         rows = self.build_step_rows(duration_ms=duration_ms)
         return int(rows[-1]["count"]) if rows else 0
 
-    def metrics_summary(self, duration_ms: int | None = None) -> str:
-        rows = self.build_step_rows(duration_ms=duration_ms)
+    def metrics_summary(self, duration_ms: int | None = None, fast_mode: bool = False) -> str:
+        rows = self.build_step_rows(duration_ms=duration_ms, fast_mode=fast_mode)
         pulse_count = int(rows[-1]["count"]) if rows else 0
         budget = self.mechanics.full_cycle_pulses
         ratio = (pulse_count / budget) if budget else 0.0

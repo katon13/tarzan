@@ -1571,6 +1571,7 @@ class AxisSettingsDialog(tk.Toplevel):
         self._step_redraw_after_id = None
         self._axis_dialog_fire_seq = 0
         self._is_switching_axis = False
+        self._is_live_preview = False
 
         self.tarzan_snajper = create_default_tarzan_snajper()
         self.axis_dialog_snajper_adapter = AxisDialogSnajperAdapter(self)
@@ -1790,6 +1791,7 @@ class AxisSettingsDialog(tk.Toplevel):
         scale = tk.Scale(wrap, variable=var, from_=from_, to=to, resolution=resolution, orient="horizontal",
                          command=lambda _v: command(), bg=self.master_window.PANEL, fg=self.master_window.FG,
                          troughcolor="#39424E", highlightthickness=0, bd=0, length=240)
+        scale.bind("<ButtonRelease-1>", lambda _: self._on_scale_release())
         scale.pack(fill="x")
 
     def _scale_row_grid(self, parent, row, col, label, var, from_, to, resolution, command):
@@ -1801,6 +1803,7 @@ class AxisSettingsDialog(tk.Toplevel):
         scale = tk.Scale(wrap, variable=var, from_=from_, to=to, resolution=resolution, orient="horizontal",
                          command=lambda _v: command(), bg=self.master_window.PANEL, fg=self.master_window.FG,
                          troughcolor="#39424E", highlightthickness=0, bd=0, length=300)
+        scale.bind("<ButtonRelease-1>", lambda _: self._on_scale_release())
         scale.pack(fill="x")
 
     def _btn(self, parent, text, cmd, color):
@@ -1894,9 +1897,70 @@ class AxisSettingsDialog(tk.Toplevel):
     def _apply_step_tuning_live(self) -> None:
         if getattr(self, "_is_switching_axis", False):
             return
+        self._is_live_preview = True
         if self._step_tuning_after_id is not None:
             self.after_cancel(self._step_tuning_after_id)
         self._step_tuning_after_id = self.after(100, self._flush_step_tuning_live)
+
+    def _on_scale_release(self) -> None:
+        """Po puszczeniu suwaka liczy pełny ADRR i odświeża wynik osi."""
+        self._apply_adrr_after_axis_edit(
+            curve=False,
+            apply_step_tuning=True,
+            status="ADRR przeliczony po puszczeniu suwaka.",
+        )
+
+    def _apply_adrr_after_axis_edit(
+        self,
+        *,
+        curve: bool = False,
+        apply_step_tuning: bool = False,
+        status: str | None = None,
+    ) -> None:
+        """Finalizuje operację operatora: pełny ADRR, markery i matrix osi.
+
+        Live preview używa RAW STEP bez pełnego ADRR. Ta metoda jest jedyną
+        ścieżką finalną po puszczeniu kropki/suwaka albo po dodaniu/usunięciu
+        punktu. Najpierw liczy build_step_rows(..., fast_mode=False), aby
+        last_adrr_dirt był gotowy przed rysowaniem czerwonych markerów.
+        """
+        self._is_live_preview = False
+
+        if self._step_redraw_after_id is not None:
+            self.after_cancel(self._step_redraw_after_id)
+            self._step_redraw_after_id = None
+        if self._step_tuning_after_id is not None:
+            self.after_cancel(self._step_tuning_after_id)
+            self._step_tuning_after_id = None
+
+        if apply_step_tuning:
+            old_dead_zone = float(self.model.step_tuning.dead_zone_y)
+            tuning = self._read_step_tuning_from_ui()
+            self.model.set_step_tuning(tuning)
+            curve = curve or abs(float(tuning.dead_zone_y) - old_dead_zone) > 1e-9
+
+        if self._nodes_dirty:
+            self.model.sort_and_fix_nodes()
+            self._nodes_dirty = False
+
+        self.model._invalidate_cache()
+        self.model.build_step_rows(
+            duration_ms=self.master_window.global_take_duration_ms,
+            fast_mode=False,
+        )
+
+        self._curve_needs_redraw = self._curve_needs_redraw or bool(curve)
+        self._step_needs_redraw = True
+        self._metrics_cache_key = None
+        self._metrics_cache_text = ""
+
+        self._snajper_refresh_targets(
+            curve=bool(curve),
+            step=True,
+            metrics=True,
+            status=status,
+        )
+        self.master_window._request_dialog_axis_final_preview(self.axis_index)
 
     def _flush_step_tuning_live(self) -> None:
         self._step_tuning_after_id = None
@@ -1930,7 +1994,11 @@ class AxisSettingsDialog(tk.Toplevel):
             getattr(self.model.step_tuning, "adrr_strength", 0.0),
         )
         if cache_key != self._metrics_cache_key:
-            self._metrics_cache_text = self.model.metrics_summary(duration_ms=self.master_window.global_take_duration_ms)
+            is_live = self._is_live_preview or (self._step_redraw_after_id is not None) or (self._step_tuning_after_id is not None)
+            self._metrics_cache_text = self.model.metrics_summary(
+                duration_ms=self.master_window.global_take_duration_ms,
+                fast_mode=is_live,
+            )
             self._metrics_cache_key = cache_key
         
         if self.metrics_var.get() != self._metrics_cache_text:
@@ -2125,7 +2193,10 @@ class AxisSettingsDialog(tk.Toplevel):
         c.delete("all")
         left, top, right, bottom = self._step_rect()
         c.create_rectangle(left, top, right, bottom, fill="#1A1E24", outline="#303A45")
-        rows = self.model.build_step_rows(duration_ms=self.master_window.global_take_duration_ms)
+
+        # Wymuszamy fast_mode=True podczas jakiejkolwiek interakcji live (drag punktu lub suwaka).
+        is_live = self._is_live_preview or (self._step_redraw_after_id is not None) or (self._step_tuning_after_id is not None)
+        rows = self.model.build_step_rows(duration_ms=self.master_window.global_take_duration_ms, fast_mode=is_live)
         if not rows:
             return
         tuning = self.model.step_tuning
@@ -2251,10 +2322,11 @@ class AxisSettingsDialog(tk.Toplevel):
             self._snajper_refresh_targets(status=status)
 
     def _request_step_redraw(self) -> None:
+        self._is_live_preview = True
         self._step_needs_redraw = True
         if self._step_redraw_after_id is not None:
             return
-        self._step_redraw_after_id = self.after(60, self._flush_step_redraw)
+        self._step_redraw_after_id = self.after(100, self._flush_step_redraw)
 
     def _flush_step_redraw(self) -> None:
         self._step_redraw_after_id = None
@@ -2299,6 +2371,7 @@ class AxisSettingsDialog(tk.Toplevel):
     def _on_curve_press(self, event) -> None:
         idx = self._hit_node(event.x, event.y)
         if idx is not None:
+            self._is_live_preview = True
             self.selected_index = idx
             self.selected_node_ref = self.model.nodes[idx]
             self.drag_mode = "node"
@@ -2322,6 +2395,7 @@ class AxisSettingsDialog(tk.Toplevel):
             return
         self.selected_index = None
         self.drag_mode = "pan"
+        self._is_live_preview = True
         self.drag_anchor_x = event.x
         
         # Ghost assist cache for PAN
@@ -2416,6 +2490,16 @@ class AxisSettingsDialog(tk.Toplevel):
 
     def _on_curve_release(self, _event) -> None:
         self.is_ghost_snapped = False
+        self._is_live_preview = False
+        
+        # Anulujemy planowane odświeżenia live, aby wymusić pełny FINAL refresh
+        if self._step_redraw_after_id is not None:
+            self.after_cancel(self._step_redraw_after_id)
+            self._step_redraw_after_id = None
+        if self._step_tuning_after_id is not None:
+            self.after_cancel(self._step_tuning_after_id)
+            self._step_tuning_after_id = None
+
         if self.drag_mode == "node" and self.selected_index is not None:
             # Dopiero przy release stosujemy snap do zera
             left, top, right, bottom = self._curve_rect()
@@ -2431,11 +2515,11 @@ class AxisSettingsDialog(tk.Toplevel):
         self.drag_anchor_x = 0
         self.drag_anchor_y = 0
         self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
-        self._snajper_refresh_targets(curve=True, step=True, metrics=True)
-        self.master_window._request_dialog_axis_live_preview(self.axis_index)
+        self._apply_adrr_after_axis_edit(
+            curve=True,
+            apply_step_tuning=False,
+            status="ADRR przeliczony po puszczeniu punktu.",
+        )
 
     def _on_curve_double_click(self, event) -> None:
         left, top, right, bottom = self._curve_rect()
@@ -2443,12 +2527,12 @@ class AxisSettingsDialog(tk.Toplevel):
         y = self._canvas_to_logical_y(event.y, top, bottom)
         self.model.add_node(t, y)
         self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
         self._nodes_dirty = True
-        self._snajper_refresh_targets(curve=True, step=True, metrics=True)
-        self.master_window._request_dialog_axis_live_preview(self.axis_index)
+        self._apply_adrr_after_axis_edit(
+            curve=True,
+            apply_step_tuning=False,
+            status="ADRR przeliczony po dodaniu punktu.",
+        )
 
     def _on_curve_right_click(self, event) -> None:
         idx = self._hit_node(event.x, event.y)
@@ -2458,12 +2542,12 @@ class AxisSettingsDialog(tk.Toplevel):
         self.selected_index = None
         self.selected_node_ref = None
         self._curve_needs_redraw = True
-        self._step_needs_redraw = True
-        self._metrics_cache_key = None
-        self._metrics_cache_text = ""
         self._nodes_dirty = True
-        self._snajper_refresh_targets(curve=True, step=True, metrics=True)
-        self.master_window._request_dialog_axis_live_preview(self.axis_index)
+        self._apply_adrr_after_axis_edit(
+            curve=True,
+            apply_step_tuning=False,
+            status="ADRR przeliczony po usunięciu punktu.",
+        )
 
     def _on_close(self) -> None:
         # Zamknięcie okna pojedynczej osi nie synchronizuje MAIN TAKE.
@@ -2488,6 +2572,9 @@ class EhrMainSnajperAdapter:
         if str(target.target) == "page_full":
             self.window._snajper_draw_ehr_page_full()
             return
+        if str(target.target) == "active_axis_changed":
+            self.window._refresh_axis_context(refresh_axis_info=True, refresh_protocol=True)
+            return
         if str(target.target) == "page_init":
             self.window._snajper_draw_ehr_page_init()
             return
@@ -2510,6 +2597,10 @@ class EhrMainSnajperAdapter:
 
         if str(target.target).endswith("_live_matrix"):
             self.window._snajper_draw_ehr_axis_live_matrix(axis_index)
+            return
+
+        if str(target.target).endswith("_final_matrix"):
+            self.window._snajper_draw_ehr_axis_final_matrix(axis_index)
             return
 
 
@@ -2615,11 +2706,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
         self.tarzan_snajper.register_target("ehr_init", T("ehr_main", "page", "page_init", "refresh"))
         self.tarzan_snajper.register_target("ehr_page_full", T("ehr_main", "page", "page_full", "refresh"))
+        self.tarzan_snajper.register_target("ehr_active_axis_changed", T("ehr_main", "page", "active_axis_changed", "refresh"))
 
         self._ehr_axis_fire_seq = 0
-        self._live_matrix_after_id = None
-        self._live_matrix_pending_axis_index = None
-        self._live_matrix_interval_ms = 100
 
         self._build_ui()
         self._load_axis_activity()
@@ -2909,14 +2998,22 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._protocol_dirty = True
 
     def _set_active_axis(self, axis_index: int) -> bool:
-        changed = (axis_index != self.active_axis_index)
+        old_axis_index = self.active_axis_index
+        changed = (axis_index != old_axis_index)
         self.active_axis_index = axis_index
         if changed:
             self._axis_selection_version += 1
             self._update_selected_point_time_indicator()
             self._mark_axis_metrics_dirty()
             self._mark_protocol_dirty()
-            self._main_canvas_needs_redraw = True
+            
+            # Odśwież tylko starą i nową oś, aby zaktualizować podświetlenie (highlight)
+            if old_axis_index is not None:
+                self._request_main_canvas_redraw(only_axis_index=old_axis_index)
+            self._request_main_canvas_redraw(only_axis_index=axis_index)
+
+            # Powiadomienie Snajpera o zmianie aktywnej osi
+            self._snajper_fire_ehr("ehr_active_axis_changed")
 
         if self.axis_detail_dialog is not None:
             try:
@@ -2972,10 +3069,20 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             return axis_index
         return None
 
-    def _snajper_fire_ehr(self, logical_signal: str) -> None:
-        """Wymusza celowany strzał Snajpera mimo cache identycznych wartości."""
+    def _snajper_fire_ehr(self, logical_signal: str, policy: str = "IMMEDIATE") -> None:
+        """Wymusza celowany strzał Snajpera mimo cache identycznych wartości.
+
+        Polityka odświeżania należy do Snajpera. EHR zgłasza tylko typ
+        strzału: IMMEDIATE/FINAL idą od razu, LIVE_MATRIX jest throttlowany
+        centralnie w Snajperze.
+        """
         self._ehr_axis_fire_seq += 1
-        self.tarzan_snajper.fire(logical_signal, self._ehr_axis_fire_seq)
+        self.tarzan_snajper.fire_with_policy(
+            logical_signal,
+            self._ehr_axis_fire_seq,
+            policy=policy,
+            scheduler=self.after,
+        )
 
     def _restore_selected_index_from_ref(self) -> None:
         ref = getattr(self, "selected_node_ref", None)
@@ -3061,28 +3168,16 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._protocol_dirty = False
 
     def _request_live_matrix_refresh(self, axis_index: int) -> None:
+        """Zgłasza live matrix do Snajpera.
+
+        Interwał i koaleskowanie nie są już lokalnym timerem EHR.
+        Snajper trzyma politykę LIVE_MATRIX, a EHR dostarcza tylko zdarzenie.
+        """
         if not (0 <= axis_index < len(self.axis_models)):
             return
+        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_live_matrix", policy="LIVE_MATRIX")
 
-        self._live_matrix_pending_axis_index = axis_index
-        if self._live_matrix_after_id is not None:
-            return
-
-        self._live_matrix_after_id = self.after(
-            self._live_matrix_interval_ms,
-            self._flush_live_matrix_refresh,
-        )
-
-    def _flush_live_matrix_refresh(self) -> None:
-        self._live_matrix_after_id = None
-        axis_index = self._live_matrix_pending_axis_index
-        self._live_matrix_pending_axis_index = None
-
-        if axis_index is None:
-            return
-
-        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_live_matrix")
-
+    @profile_method('EHR_MAIN._snajper_draw_ehr_axis_live_matrix')
     def _snajper_draw_ehr_axis_live_matrix(self, axis_index: int) -> None:
         if not (0 <= axis_index < len(self.axis_models)):
             return
@@ -3095,17 +3190,31 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         model = self.axis_models[axis_index]
         model._invalidate_cache()
 
-        # Przeliczenie modelu (STEP/ADRR)
-        try:
-            model.build_step_rows(duration_ms=self.global_take_duration_ms)
-        except AttributeError:
-            model.protocol_rows(duration_ms=self.global_take_duration_ms)
-
-        # Wyczyszczenie kluczy cache i odświeżenie UI
+        # Wyczyszczenie kluczy cache i odświeżenie UI w trybie FAST.
+        # fast_mode=True = RAW STEP bez pełnego ADRR.
         self.protocol_cache_key = None
         self.axis_info_cache_key = None
-        self._refresh_protocol_preview(force=True)
-        self._refresh_axis_info(force=True)
+        self._refresh_protocol_preview(force=True, fast_mode=True)
+        self._refresh_axis_info(force=True, fast_mode=True)
+        self._protocol_dirty = False
+        self._axis_info_dirty = False
+
+    @profile_method('EHR_MAIN._snajper_draw_ehr_axis_final_matrix')
+    def _snajper_draw_ehr_axis_final_matrix(self, axis_index: int) -> None:
+        if not (0 <= axis_index < len(self.axis_models)):
+            return
+
+        if axis_index != self.active_axis_index:
+            self._set_active_axis(axis_index)
+
+        # Finalny strzał po puszczeniu elementu: pełny ADRR już jest policzony
+        # w modelu osi, a tutaj odświeżamy matrix/protocol i metryki bez fast_mode.
+        self.protocol_cache_key = None
+        self.axis_info_cache_key = None
+        self._protocol_dirty = True
+        self._axis_info_dirty = True
+        self._refresh_protocol_preview(force=True, fast_mode=False)
+        self._refresh_axis_info(force=True, fast_mode=False)
         self._protocol_dirty = False
         self._axis_info_dirty = False
 
@@ -3115,12 +3224,13 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self._set_status(status)
         self._snajper_fire_ehr("ehr_init")
 
-    def _snajper_refresh_ehr_page_full(self, status: str | None = None, rebuild_take_model: bool = True) -> None:
+    def _snajper_refresh_ehr_page_full(self, status: str | None = None) -> None:
         """Pełne odświeżenie strony EHR przez Snajpera (Canvas, Info, Protocol)."""
         if status is not None:
             self._set_status(status)
         self._snajper_fire_ehr("ehr_page_full")
 
+    @profile_method('EHR_MAIN._snajper_draw_ehr_page_full')
     def _snajper_draw_ehr_page_full(self) -> None:
         """Realizacja strzału Snajpera: pełne odświeżenie strony."""
         self.protocol_cache_key = None
@@ -3164,11 +3274,30 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.axis_detail_dialog.focus_force()
 
     def _request_dialog_axis_live_preview(self, axis_index: int) -> None:
-        """Throttlowane odświeżenie MAIN EHR wywołane z okna dialogowego."""
+        """Throttlowane odświeżenie MAIN EHR podczas ruchu operatora.
+
+        Ten tor zostaje szybki i używa fast_mode=True, więc pokazuje RAW STEP
+        bez pełnego ADRR. Pełna HARMONIA RUCHU idzie dopiero przez
+        _request_dialog_axis_final_preview().
+        """
         # Wykorzystujemy istniejący mechanizm live matrix
         self._request_live_matrix_refresh(axis_index)
         # Dodatkowo krzywa
         self._snajper_fire_ehr(f"ehr_axis_{axis_index}_curve")
+
+    def _request_dialog_axis_final_preview(self, axis_index: int) -> None:
+        """Finalne odświeżenie MAIN EHR po puszczeniu elementu w oknie osi.
+
+        Tu nie używamy 100 ms live matrix. Po pełnym ADRR odświeżamy aktywną
+        oś w trybie finalnym: protocol preview/matrix i metryki z fast_mode=False.
+        """
+        if not (0 <= axis_index < len(self.axis_models)):
+            return
+        if axis_index != self.active_axis_index:
+            self._set_active_axis(axis_index)
+
+        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_curve", policy="FINAL")
+        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_final_matrix", policy="FINAL")
 
     def _open_take_settings(self) -> None:
         dlg = MainTakeSettingsDialog(
@@ -3196,7 +3325,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
         self._snajper_refresh_ehr_page_full(
             status="Zastosowano ustawienia MAIN TAKE.",
-            rebuild_take_model=True,
         )
 
         if self.axis_detail_dialog is not None and self.axis_detail_dialog.winfo_exists():
@@ -3319,10 +3447,16 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         passes = int(getattr(self.main_take_settings, "smooth_passes_default", 2))
         model.smooth_all(strength=strength, passes=passes)
 
-        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_curve")
-        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_live_matrix")
+        # Inwalidacja cache przed sygnałem Snajpera
+        model._invalidate_cache()
+        self.protocol_cache_key = None
+        self.axis_info_cache_key = None
 
+        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_curve", policy="FINAL")
+        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_final_matrix", policy="FINAL")
         self._set_status(f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.")
+
+        self._refresh_axis_dialog_if_needed(axis_index)
 
     def _schedule_configure_refresh(self) -> None:
         if self._configure_after_id is not None:
@@ -3746,7 +3880,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
         self.selected_point_time_var.set(self._format_take_time(int(time_ms) if time_ms is not None else None))
 
-    def _refresh_axis_info(self, force: bool = False) -> None:
+    def _refresh_axis_info(self, force: bool = False, fast_mode: bool = False) -> None:
         model = self._active_model()
         self.active_axis_name_var.set(model.axis_def.axis_name)
         if not self.main_take_settings.show_axis_metrics:
@@ -3758,6 +3892,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self._axis_selection_version,
             self._axis_data_versions[self.active_axis_index],
             self.global_take_duration_ms,
+            fast_mode,
             model.step_tuning.dead_zone_y,
             model.step_tuning.input_max_y,
             model.step_tuning.input_gamma,
@@ -3766,7 +3901,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             model.step_tuning.preview_rate_smoothing,
         )
         if force or self._axis_info_dirty or cache_key != self.axis_info_cache_key:
-            self.axis_info_cache_text = model.metrics_summary(duration_ms=self.global_take_duration_ms)
+            self.axis_info_cache_text = model.metrics_summary(duration_ms=self.global_take_duration_ms, fast_mode=fast_mode)
             self.axis_info_cache_key = cache_key
             self._axis_info_dirty = False
         
@@ -3775,7 +3910,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.axis_info_var.set(self.axis_info_cache_text)
 
     @profile_method('EHR_MAIN._refresh_protocol_preview')
-    def _refresh_protocol_preview(self, force: bool = False) -> None:
+    def _refresh_protocol_preview(self, force: bool = False, fast_mode: bool = False) -> None:
         if not self.main_take_settings.show_protocol_preview:
             return
         model = self._active_model()
@@ -3784,6 +3919,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self._axis_selection_version,
             self._axis_data_versions[self.active_axis_index],
             self.global_take_duration_ms,
+            fast_mode,
         )
         
         title = f"STEP MATRIX — {model.axis_def.axis_name}"
@@ -3793,7 +3929,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if (not force) and cache_key == self.protocol_cache_key:
             return
 
-        rows = model.protocol_rows(duration_ms=self.global_take_duration_ms)
+        rows = model.protocol_rows(duration_ms=self.global_take_duration_ms, fast_mode=fast_mode)
         if not rows:
             text = "Brak danych protokołu.\n"
         else:
@@ -4187,14 +4323,21 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
     def _smooth_active(self) -> None:
         model = self._active_model()
+        axis_index = self.active_axis_index
         strength = max(0.0, min(1.0, float(getattr(self.main_take_settings, "smooth_strength_default", 0.35))))
         passes = max(1, min(8, int(getattr(self.main_take_settings, "smooth_passes_default", 2))))
         model.smooth_all(strength=strength, passes=passes)
 
-        self._snajper_fire_ehr(f"ehr_axis_{self.active_axis_index}_curve")
-        self._snajper_fire_ehr(f"ehr_axis_{self.active_axis_index}_live_matrix")
+        # Inwalidacja cache przed sygnałem Snajpera
+        model._invalidate_cache()
+        self.protocol_cache_key = None
+        self.axis_info_cache_key = None
 
+        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_curve", policy="FINAL")
+        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_final_matrix", policy="FINAL")
         self._set_status(f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.")
+
+        self._refresh_axis_dialog_if_needed(axis_index)
 
 
 
@@ -4219,7 +4362,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
         self._snajper_refresh_ehr_page_full(
             status=f"Zapisano TAKE TXT: {saved_path.name}",
-            rebuild_take_model=False,
         )
 
         return saved_path
@@ -4245,7 +4387,6 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._mark_axis_metrics_dirty()
         self._snajper_refresh_ehr_page_full(
             status=f"Wczytano TAKE TXT: {path.name}",
-            rebuild_take_model=True,
         )
 
     def _save_take_slot(self, slot_index: int, current_path: Path | None) -> Path:

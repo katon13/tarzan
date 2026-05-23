@@ -16,7 +16,7 @@ Podział warstw:
     SignalBus
 """
 
-from typing import Any, Dict, Iterable, List, Protocol, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Protocol, Tuple
 
 from core.tarzanSnajperBullet import dir_int as bullet_dir_int, format_nextion_bullet
 from core.tarzanSnajperCaliber import DEFAULT_TARZAN_SNAJPER_SIGNAL_MAP, resolve_caliber
@@ -35,6 +35,21 @@ class TarzanSnajperAdapter(Protocol):
         ...
 
 
+# Centralne polityki odświeżania Snajpera.
+# Snajper nie liczy ADRR i nie zna algorytmów EHR; decyduje tylko,
+# jak często wolno strzelać w dany typ cięższego celu.
+TARZAN_SNAJPER_REFRESH_POLICIES_MS: Dict[str, int] = {
+    "IMMEDIATE": 0,
+    "FINAL": 0,
+    "LIVE_FAST": 50,
+    "LIVE_MATRIX": 300,
+    "PAGE_RESYNC": 0,
+    "SLOW_RESYNC": 2000,
+}
+
+TarzanSnajperScheduler = Callable[[int, Callable[[], None]], Any]
+
+
 class TarzanSnajper:
     def __init__(self) -> None:
         self.signal_map: Dict[str, str] = {}
@@ -46,6 +61,10 @@ class TarzanSnajper:
             "p1": "",
             "p2": "",
         }
+        self.refresh_policies_ms: Dict[str, int] = dict(TARZAN_SNAJPER_REFRESH_POLICIES_MS)
+        self._policy_pending: Dict[str, Tuple[str, Any]] = {}
+        self._policy_scheduled: Dict[str, bool] = {}
+        self._policy_generation: Dict[str, int] = {}
 
     def register_adapter(self, name: str, adapter: TarzanSnajperAdapter) -> None:
         self.adapters[name] = adapter
@@ -127,6 +146,123 @@ class TarzanSnajper:
     def fire_many(self, updates: Dict[str, Any]) -> None:
         for logical_signal, value in updates.items():
             self.fire(logical_signal, value)
+
+    def refresh_policy_interval_ms(self, policy: str) -> int:
+        """Zwraca interwał polityki odświeżania zarządzanej przez Snajpera."""
+        return max(0, int(self.refresh_policies_ms.get(str(policy or "IMMEDIATE"), 0)))
+
+    def set_refresh_policy(self, policy: str, interval_ms: int) -> None:
+        """Pozwala modułowi ustawić interwał bez rozlewania stałych po UI."""
+        self.refresh_policies_ms[str(policy)] = max(0, int(interval_ms))
+
+    def _policy_key(self, policy: str, logical_signal: str | None = None) -> str:
+        """Buduje klucz harmonogramu Snajpera.
+
+        LIVE_MATRIX jest ciężkim celem EHR i musi być rozdzielony per konkretny
+        matrix/sygnał. Nie może być globalnym kubełkiem, bo wtedy jedna oś albo
+        jeden FINAL mógłby skasować/nadpisać oczekujący live refresh innej osi.
+        Pozostałe polityki zostają globalne dopóki nie dostaną własnego
+        precyzyjnego kontraktu.
+        """
+        policy_name = str(policy or "IMMEDIATE")
+        signal = str(logical_signal or "").strip()
+        if policy_name == "LIVE_MATRIX" and signal:
+            return f"{policy_name}:{signal}"
+        return policy_name
+
+    @staticmethod
+    def _live_matrix_signal_for_final(logical_signal: str) -> str | None:
+        """Zwraca odpowiadający live matrix dla finalnego matrixa osi EHR."""
+        signal = str(logical_signal or "").strip()
+        if signal.startswith("ehr_axis_") and signal.endswith("_final_matrix"):
+            return signal[:-len("_final_matrix")] + "_live_matrix"
+        return None
+
+    def cancel_refresh_policy(self, policy: str, logical_signal: str | None = None) -> None:
+        """Kasuje oczekujące zgłoszenie polityki i unieważnia stare callbacki.
+
+        Gdy logical_signal jest podany, kasowany jest tylko dokładny cel
+        polityki, np. LIVE_MATRIX:ehr_axis_0_live_matrix. Bez logical_signal
+        kasowane są wszystkie klucze tej polityki; to zostaje jako narzędzie
+        awaryjne, ale FINAL używa wariantu celowanego.
+        """
+        policy_name = str(policy or "")
+        if not policy_name:
+            return
+
+        if logical_signal is not None:
+            keys = [self._policy_key(policy_name, logical_signal)]
+        else:
+            prefix = f"{policy_name}:"
+            keys = [
+                key
+                for key in set(self._policy_generation) | set(self._policy_pending) | set(self._policy_scheduled)
+                if key == policy_name or key.startswith(prefix)
+            ]
+            if not keys:
+                keys = [policy_name]
+
+        for key in keys:
+            self._policy_generation[key] = self._policy_generation.get(key, 0) + 1
+            self._policy_pending.pop(key, None)
+            self._policy_scheduled.pop(key, None)
+
+    def fire_with_policy(
+        self,
+        logical_signal: str,
+        value: Any,
+        *,
+        policy: str = "IMMEDIATE",
+        scheduler: TarzanSnajperScheduler | None = None,
+    ) -> None:
+        """Strzela zgodnie z centralną polityką odświeżania Snajpera.
+
+        IMMEDIATE/FINAL strzelają od razu.
+        LIVE_MATRIX i inne polityki z interwałem większym od zera są
+        koaleskowane: wiele zgłoszeń w czasie ruchu operatora daje jeden
+        strzał z ostatnią wartością po upływie interwału. Snajper trzyma
+        zasadę częstotliwości; zewnętrzny moduł dostarcza tylko mechanizm
+        harmonogramu, np. Tk.after.
+        """
+        if not self.enabled:
+            return
+
+        policy_name = str(policy or "IMMEDIATE")
+        # Finalny strzał po puszczeniu elementu ma pierwszeństwo nad
+        # odpowiadającym mu LIVE_MATRIX. Kasujemy wyłącznie live matrix tej
+        # samej osi, nie globalną politykę LIVE_MATRIX.
+        if policy_name == "FINAL":
+            live_matrix_signal = self._live_matrix_signal_for_final(logical_signal)
+            if live_matrix_signal:
+                self.cancel_refresh_policy("LIVE_MATRIX", logical_signal=live_matrix_signal)
+
+        interval_ms = self.refresh_policy_interval_ms(policy_name)
+        if interval_ms <= 0 or scheduler is None:
+            self.fire(logical_signal, value)
+            return
+
+        policy_key = self._policy_key(policy_name, logical_signal)
+        self._policy_pending[policy_key] = (logical_signal, value)
+        if self._policy_scheduled.get(policy_key):
+            return
+
+        self._policy_scheduled[policy_key] = True
+        generation = self._policy_generation.get(policy_key, 0)
+
+        def _flush() -> None:
+            self._flush_policy(policy_key, generation)
+
+        scheduler(interval_ms, _flush)
+
+    def _flush_policy(self, policy_key: str, generation: int) -> None:
+        if generation != self._policy_generation.get(policy_key, 0):
+            return
+        self._policy_scheduled.pop(policy_key, None)
+        item = self._policy_pending.pop(policy_key, None)
+        if item is None:
+            return
+        logical_signal, value = item
+        self.fire(logical_signal, value)
 
     def fire(self, logical_signal: str, value: Any) -> None:
         if not self.enabled:
@@ -490,6 +626,7 @@ TARZAN_SNAJPER_USAGE_CONTRACT = """
 2. TarzanSnajper nie jest SignalBus i nie przechowuje prawdy systemu.
 3. TarzanSnajper nie ma własnej pętli i nie skanuje celów.
 4. TarzanSnajper jest aktywowany przez zmianę sygnału lub realną akcję.
+4a. Cięższe odświeżenia live, np. LIVE_MATRIX, są koaleskowane polityką Snajpera.
 5. Caliber ujednolica nazwę sygnału.
 6. Bullet przygotowuje wartość/payload.
 7. Target wskazuje cel.

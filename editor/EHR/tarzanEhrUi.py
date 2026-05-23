@@ -3186,16 +3186,19 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if axis_index != self.active_axis_index:
             self._set_active_axis(axis_index)
 
-        # Inwalidacja cache modelu osi
-        model = self.axis_models[axis_index]
-        model._invalidate_cache()
-
-        # Wyczyszczenie kluczy cache i odświeżenie UI w trybie FAST.
-        # fast_mode=True = RAW STEP bez pełnego ADRR.
-        self.protocol_cache_key = None
-        self.axis_info_cache_key = None
-        self._refresh_protocol_preview(force=True, fast_mode=True)
-        self._refresh_axis_info(force=True, fast_mode=True)
+        # LIVE_MATRIX jest lekkim strzałem roboczym.
+        # Nie czyścimy tutaj cache modelu osi i nie wymuszamy force=True,
+        # bo model został już unieważniony w miejscu realnej zmiany
+        # (drag punktu / suwak). Snajper ma celować w aktualną oś,
+        # a _refresh_protocol_preview ma użyć cache, jeśli dane nie zmieniły się.
+        self._mark_axis_data_changed(
+            axis_index,
+            mark_protocol=True,
+            mark_axis_info=True,
+            notify_ui=False,
+        )
+        self._refresh_protocol_preview(force=False, fast_mode=True)
+        self._refresh_axis_info(force=False, fast_mode=True)
         self._protocol_dirty = False
         self._axis_info_dirty = False
 
@@ -3914,6 +3917,12 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if not self.main_take_settings.show_protocol_preview:
             return
         model = self._active_model()
+
+        # Nie zmieniamy zakresu/wyglądu matrixa dla operatora.
+        # Optymalizacja live działa wyłącznie systemowo: cache, RAW fast rows
+        # i brak zbędnego przepisywania identycznego tekstu do widgetu.
+        chunk_size = PROTOCOL_STREAM_CHUNK_SIZE
+
         cache_key = (
             self.active_axis_index,
             self._axis_selection_version,
@@ -3929,35 +3938,41 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         if (not force) and cache_key == self.protocol_cache_key:
             return
 
+        # Zachowujemy tę samą ścieżkę danych co wcześniej, żeby nie zmienić obsługi
+        # ani wyglądu matrixa. fast_mode=True nadal przechodzi do modelu, gdzie
+        # oznacza RAW STEP bez pełnego ADRR.
         rows = model.protocol_rows(duration_ms=self.global_take_duration_ms, fast_mode=fast_mode)
+
         if not rows:
             text = "Brak danych protokołu.\n"
         else:
             first_active_idx = 0
             for idx, row in enumerate(rows):
-                if int(row['step']) == 1 or str(row['event']).strip():
+                if int(row.get('step', 0)) == 1 or str(row.get('event', '')).strip():
                     first_active_idx = idx
                     break
             pre_roll = PROTOCOL_STREAM_PRE_ROLL_ROWS
             sample_ms = max(1, int(getattr(model, "sample_ms", 10) or 10))
-            # Ilość próbek podglądu wynika z czasu MAIN TAKE.
-            # Przykład: 3 min = 180000 ms / 10 ms = 18000 próbek.
+            # Zakres matrixa pozostaje taki sam jak przed optymalizacją.
+            # Nie skracamy podglądu w live, żeby nie zmieniać obsługi ani wyglądu.
             main_window = max(1, int(round(self.global_take_duration_ms / sample_ms)))
             start_idx = max(0, first_active_idx - pre_roll)
             end_idx = min(len(rows), start_idx + main_window)
             window_rows = rows[start_idx:end_idx]
 
             bit_chunks = []
-            chunk_size = PROTOCOL_STREAM_CHUNK_SIZE
             for i in range(0, len(window_rows), chunk_size):
                 chunk_rows = window_rows[i:i + chunk_size]
-                chunk_bits = ''.join(str(int(r['step'])) for r in chunk_rows)
-                chunk_time = chunk_rows[0]['time_ms'] if chunk_rows else 0
-                bit_chunks.append(f"{chunk_time:7d} ms | {chunk_bits}\n")
+                chunk_bits = ''.join(str(int(r.get('step', 0))) for r in chunk_rows)
+                chunk_time = chunk_rows[0].get('time_ms', 0) if chunk_rows else 0
+                bit_chunks.append(f"{int(chunk_time):7d} ms | {chunk_bits}\n")
 
             text = ''.join(bit_chunks)
 
         self.protocol_cache_key = cache_key
+        if text == getattr(self, 'protocol_cache_text', ''):
+            return
+
         self.protocol_cache_text = text
         self.protocol_text.configure(state='normal')
         self.protocol_text.delete('1.0', 'end')

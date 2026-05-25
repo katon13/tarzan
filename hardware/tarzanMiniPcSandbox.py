@@ -21,6 +21,7 @@ Przykłady:
     python -m hardware.tarzanMiniPcSandbox report --board PLAY
     python -m hardware.tarzanMiniPcSandbox lcd-test --board PLAY --line1 "TARZAN PLAY" --line2 "LCD OK" --confirm YES_TARZAN_LCD_TEST
     python -m hardware.tarzanMiniPcSandbox lcd-scroll --board PLAY --text "TARZAN LCD SCROLL TEST" --confirm YES_TARZAN_LCD_SCROLL
+    python -m hardware.tarzanMiniPcSandbox matrix-test --board REC --text "TARZAN" --confirm YES_TARZAN_MATRIX_TEST
 
 UWAGA:
 - Na Windows może działać z hardware/pokeys/PoKeyslib.dll.
@@ -743,6 +744,150 @@ def cmd_lcd_scroll(args: argparse.Namespace) -> int:
     return 0
 
 
+
+_MATRIX_FONT_5X7 = {
+    "A": [0x1E, 0x05, 0x05, 0x1E, 0x00],
+    "C": [0x0E, 0x11, 0x11, 0x11, 0x00],
+    "E": [0x1F, 0x15, 0x15, 0x11, 0x00],
+    "I": [0x11, 0x1F, 0x11, 0x00, 0x00],
+    "K": [0x1F, 0x04, 0x0A, 0x11, 0x00],
+    "L": [0x1F, 0x10, 0x10, 0x10, 0x00],
+    "N": [0x1F, 0x02, 0x04, 0x1F, 0x00],
+    "O": [0x0E, 0x11, 0x11, 0x0E, 0x00],
+    "P": [0x1F, 0x05, 0x05, 0x02, 0x00],
+    "R": [0x1F, 0x05, 0x0D, 0x12, 0x00],
+    "S": [0x12, 0x15, 0x15, 0x09, 0x00],
+    "T": [0x01, 0x01, 0x1F, 0x01, 0x01],
+    "Y": [0x03, 0x04, 0x18, 0x04, 0x03],
+    "Z": [0x19, 0x15, 0x13, 0x00, 0x00],
+    "0": [0x0E, 0x11, 0x11, 0x0E, 0x00],
+    "1": [0x12, 0x1F, 0x10, 0x00, 0x00],
+    "2": [0x19, 0x15, 0x15, 0x12, 0x00],
+    "3": [0x11, 0x15, 0x15, 0x0A, 0x00],
+    "4": [0x07, 0x04, 0x1F, 0x04, 0x00],
+    "5": [0x17, 0x15, 0x15, 0x09, 0x00],
+    "6": [0x0E, 0x15, 0x15, 0x08, 0x00],
+    "7": [0x01, 0x01, 0x1D, 0x03, 0x00],
+    "8": [0x0A, 0x15, 0x15, 0x0A, 0x00],
+    "9": [0x02, 0x15, 0x15, 0x0E, 0x00],
+    " ": [0x00, 0x00, 0x00],
+}
+
+
+def _matrix_rows_from_columns(columns: Sequence[int], invert: bool = False) -> List[int]:
+    rows = []
+    for y in range(8):
+        value = 0
+        for x in range(8):
+            if x < len(columns):
+                bit = (int(columns[x]) >> y) & 0x01
+                if bit:
+                    value |= (1 << x)
+        if invert:
+            value ^= 0xFF
+        rows.append(value & 0xFF)
+    return rows
+
+
+def _matrix_text_columns(text_value: str) -> List[int]:
+    safe = _lcd_text(text_value.upper(), width=64)
+    columns: List[int] = []
+    for ch in safe:
+        columns.extend(_MATRIX_FONT_5X7.get(ch, _MATRIX_FONT_5X7[" "]))
+        columns.append(0x00)
+    if not columns:
+        columns = [0x00] * 8
+    return columns
+
+
+def _matrix_write_frame(session: PoKeysReadOnlySession, rows: Sequence[int], rows_count: int = 8, cols_count: int = 8) -> None:
+    matrix_ptr = session.device.device.contents.MatrixLED
+    if not matrix_ptr:
+        raise RuntimeError("PoKeysLib nie udostępnił struktury MatrixLED")
+
+    matrix = matrix_ptr[0]
+    matrix.displayEnabled = 1
+    matrix.rows = rows_count
+    matrix.columns = cols_count
+    matrix.RefreshFlag = 1
+
+    for i in range(8):
+        matrix.data[i] = int(rows[i]) & 0xFF if i < len(rows) else 0
+
+    rc = session.device.PK_MatrixLEDConfigurationSet()
+    if rc != 0:
+        raise RuntimeError(f"PK_MatrixLEDConfigurationSet zwróciło {rc}")
+
+    rc = session.device.PK_MatrixLEDUpdate()
+    if rc != 0:
+        raise RuntimeError(f"PK_MatrixLEDUpdate zwróciło {rc}")
+
+
+def cmd_matrix_test(args: argparse.Namespace) -> int:
+    if args.confirm != "YES_TARZAN_MATRIX_TEST":
+        raise RuntimeError("Brak potwierdzenia. Użyj: --confirm YES_TARZAN_MATRIX_TEST")
+
+    board = args.board.upper()
+    if board != "REC":
+        raise RuntimeError("Matrix LED w aktualnej mapie TARZANA jest tylko na REC / RECK")
+
+    lib_path = _find_pokeys_library(args.lib_path)
+    if not lib_path:
+        raise RuntimeError("Nie znaleziono biblioteki PoKeysLib. Ustaw --lib-path albo TARZAN_POKEYS_LIB.")
+
+    matrix_rows = _filter_rows(_iter_rows(board), pins=[9, 10, 11], include_skipped=True)
+    if len(matrix_rows) != 3 or any((row.signal.hardware_function or "").upper() != HW_MATRIX_LED for row in matrix_rows):
+        raise RuntimeError("Mapa TARZANA nie potwierdza Matrix LED na REC P09-P11")
+
+    text_value = args.text or "TARZAN"
+    delay = max(0.05, float(args.delay))
+    repeat = max(1, int(args.repeat))
+    mode = args.mode.lower()
+
+    print("MATRIX LED TEST REC / RECK")
+    print("Piny z mapy TARZANA: REC P09-P11")
+    print(f"Mode: {mode}")
+    print(f"Text: {text_value!r}")
+
+    with PoKeysReadOnlySession(board, lib_path) as session:
+        print(session.identity_text())
+
+        # Najpierw pobieramy aktualną konfigurację; potem wysyłamy test jako peryferium Matrix LED.
+        try:
+            session.device.PK_MatrixLEDConfigurationGet()
+        except Exception:
+            pass
+
+        frames: List[List[int]] = []
+
+        if mode == "blink":
+            frames = [[0xFF] * 8, [0x00] * 8] * repeat
+        elif mode == "checker":
+            frames = [[0xAA, 0x55] * 4, [0x55, 0xAA] * 4] * repeat
+        elif mode == "box":
+            frames = [[0xFF, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0xFF]] * repeat
+        else:
+            columns = ([0x00] * 8) + _matrix_text_columns(text_value) + ([0x00] * 8)
+            for _ in range(repeat):
+                for pos in range(0, len(columns) - 7):
+                    window = columns[pos:pos + 8]
+                    frames.append(_matrix_rows_from_columns(window, invert=args.invert))
+
+        for rows in frames:
+            if mode in {"blink", "checker", "box"}:
+                out_rows = [(r ^ 0xFF) & 0xFF for r in rows] if args.invert else rows
+            else:
+                out_rows = rows
+            _matrix_write_frame(session, out_rows, rows_count=8, cols_count=8)
+            time.sleep(delay)
+
+        if args.clear_end:
+            _matrix_write_frame(session, [0x00] * 8, rows_count=8, cols_count=8)
+
+    print("OK: Matrix LED wysłany przez funkcje MatrixLED PoKeys.")
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     identity, values = _read_values(args)
     reports_dir = _ensure_reports_dir()
@@ -829,6 +974,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_lcd_scroll.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
     p_lcd_scroll.add_argument("--confirm", default="")
     p_lcd_scroll.set_defaults(func=cmd_lcd_scroll)
+
+
+
+    p_matrix = sub.add_parser("matrix-test", help="Test Matrix LED na REC / RECK przez funkcje MatrixLED PoKeys")
+    p_matrix.add_argument("--board", choices=["REC"], required=True)
+    p_matrix.add_argument("--text", default="TARZAN")
+    p_matrix.add_argument("--mode", choices=["scroll", "blink", "checker", "box"], default="scroll")
+    p_matrix.add_argument("--delay", type=float, default=0.18)
+    p_matrix.add_argument("--repeat", type=int, default=1)
+    p_matrix.add_argument("--invert", action="store_true")
+    p_matrix.add_argument("--clear-end", action="store_true")
+    p_matrix.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
+    p_matrix.add_argument("--confirm", default="")
+    p_matrix.set_defaults(func=cmd_matrix_test)
 
 
     p_out = sub.add_parser("output", help="Ręczny test bezpiecznego wyjścia")

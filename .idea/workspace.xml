@@ -11,7 +11,13 @@
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanSnajperCaliber.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanSnajperCaliber.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tarzanSnajperTarget.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/tarzanSnajperTarget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v42.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v42.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrMultiAxisModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrMultiAxisModel.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrUi.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrUi.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanTakeTxtCore.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanTakeTxtCore.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -187,6 +193,28 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="tarzanKHR" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="tarzan" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/tarzanKHR.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="tarzanPAR" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="tarzan" />
       <option name="ENV_FILES" value="" />
@@ -209,35 +237,13 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="tarzanParPanels" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="tarzan" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/editor/PAR" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/editor/PAR/tarzanParPanels.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <recent_temporary>
       <list>
         <item itemvalue="Python.tarzanEHR" />
+        <item itemvalue="Python.tarzanKHR" />
+        <item itemvalue="Python.tarzanPAR" />
         <item itemvalue="Python.tarzanEhrUi" />
         <item itemvalue="Python.tarzanAxisSandbox" />
-        <item itemvalue="Python.tarzanPAR" />
-        <item itemvalue="Python.tarzanParPanels" />
       </list>
     </recent_temporary>
   </component>

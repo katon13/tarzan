@@ -200,7 +200,15 @@ class TarzanTspServer:
     # ------------------------------------------------------------------
 
     def mark_lks_dirty(self, reason: str = "event") -> None:
-        if self.lks:
+        if not self.lks:
+            return
+
+        # Filtrujemy zbyt częste zdarzenia, które nie są krytyczne dla LKS.
+        # Budzimy LKS (odświeżamy ekran) natychmiast tylko dla błędów, urgent, connect/disconnect.
+        # "rx" i zwykłe "tx" nie muszą budzić LKS natychmiast, bo on i tak odświeża się co 1 s.
+        important = {"error", "urgent", "connect", "disconnect", "health", "urgent_event"}
+        reason_low = reason.lower()
+        if any(word in reason_low for word in important):
             self.lks.mark_dirty(reason)
 
     def mark_lks_for_message(self, message: Dict[str, Any], direction: str = "tx") -> None:
@@ -397,58 +405,129 @@ class TarzanTspServer:
     # ------------------------------------------------------------------
 
     def _lane_loop(self) -> None:
+        # Stabilne czasy pasm
         last_fast = last_normal = last_slow = last_health = monotonic_ms()
+        self._last_stats_ms = last_fast
+
         while self.running:
             now = monotonic_ms()
+
+            # Pobieramy listę klientów raz na obieg pętli
             clients = self.clients()
-            self.provider.tick(client_count=len(clients))
+            client_count = len(clients)
 
+            # Tick providera wykonujemy przed pasmami, żeby dane były świeże
+            self.provider.tick(client_count=client_count)
+
+            # 1. Obsługa URGENT — najwyższy priorytet, bez celowego opóźniania
             urgent_items = self.provider.pop_urgent_events()
+            has_urgent = len(urgent_items) > 0
             for item in urgent_items:
-                self.broadcast(item, lane=LANE_URGENT, immediate=True)
+                self.broadcast(item, lane=LANE_URGENT, immediate=True, clients=clients)
 
+            # 2. Pasma regularne (FAST, NORMAL, SLOW, HEALTH)
+            # FAST ~10ms
             if now - last_fast >= TSP_FAST_INTERVAL_MS:
+                dt = now - last_fast
                 last_fast = now
-                self.broadcast_lane(LANE_FAST, TSP_FAST_INTERVAL_MS)
+                self.broadcast_lane(LANE_FAST, dt, clients=clients)
 
+            # NORMAL ~50ms
             if now - last_normal >= TSP_NORMAL_INTERVAL_MS:
+                dt = now - last_normal
                 last_normal = now
-                self.broadcast_lane(LANE_NORMAL, TSP_NORMAL_INTERVAL_MS)
+                self.broadcast_lane(LANE_NORMAL, dt, clients=clients)
 
+            # SLOW ~500ms
             if now - last_slow >= TSP_SLOW_INTERVAL_MS:
+                dt = now - last_slow
                 last_slow = now
-                self.broadcast_lane(LANE_SLOW, TSP_SLOW_INTERVAL_MS)
+                self.broadcast_lane(LANE_SLOW, dt, clients=clients)
 
+            # HEALTH ~1000ms
             if now - last_health >= TSP_HEALTH_INTERVAL_MS:
                 last_health = now
                 health = health_packet(
                     node=self.node_name,
-                    clients=len(clients),
+                    clients=client_count,
                     stats=self.debug.stats.as_dict(),
                     state=self.provider.state_summary(),
                 )
-                self.broadcast(health, lane=LANE_HEALTH)
+                self.broadcast(health, lane=LANE_HEALTH, clients=clients)
 
+            # 3. Logi statystyk
             if now - self._last_stats_ms >= TSP_STATS_LOG_INTERVAL_MS:
                 self._last_stats_ms = now
                 stats = self.debug.stats.as_dict()
                 self.logger.info(
                     "TSP_STATS clients=%s tx=%s rx=%s errors=%s dropped=%s lanes=%s",
-                    len(clients), stats["packets_tx"], stats["packets_rx"], stats["errors"], stats["dropped"], stats["lane_packets"],
+                    client_count, stats["packets_tx"], stats["packets_rx"], stats["errors"], stats["dropped"], stats["lane_packets"],
                 )
 
-            self._emit_traces()
-            time.sleep(0.001)
+            # 4. Traces
+            self._emit_traces(clients=clients, now=now)
 
-    def broadcast_lane(self, lane: str, dt_ms: int) -> None:
+            # 5. Adaptacyjne usypianie pętli
+            self._sleep_until_next_lane(
+                now_ms=monotonic_ms(),
+                last_fast=last_fast,
+                last_normal=last_normal,
+                last_slow=last_slow,
+                last_health=last_health,
+                has_urgent=has_urgent
+            )
+
+    def _sleep_until_next_lane(
+        self,
+        now_ms: int,
+        last_fast: int,
+        last_normal: int,
+        last_slow: int,
+        last_health: int,
+        has_urgent: bool = False,
+    ) -> None:
+        # Jeśli właśnie wysłaliśmy pilne zdarzenia, śpimy bardzo krótko (1ms),
+        # żeby sprawdzić czy nie ma kolejnych w buforze providera.
+        if has_urgent:
+            time.sleep(0.001)
+            return
+
+        # Obliczamy czas do najbliższego wymaganego pasma
+        next_due_ms = min(
+            last_fast + TSP_FAST_INTERVAL_MS,
+            last_normal + TSP_NORMAL_INTERVAL_MS,
+            last_slow + TSP_SLOW_INTERVAL_MS,
+            last_health + TSP_HEALTH_INTERVAL_MS,
+            self._last_stats_ms + TSP_STATS_LOG_INTERVAL_MS,
+        )
+
+        remaining_ms = next_due_ms - now_ms
+
+        # Jeśli już czas na pasmo (lub spóźnienie), nie śpimy długo.
+        if remaining_ms <= 0:
+            time.sleep(0.001)
+            return
+
+        # Adaptacyjny sleep: śpimy do najbliższego pasma, ale nie więcej niż 10ms (FAST),
+        # aby zachować responsywność na nowe URGENT z providera.
+        sleep_s = min(0.010, remaining_ms / 1000.0)
+
+        # Zgodnie z wymaganiem: sleep zazwyczaj w zakresie kilku ms.
+        if sleep_s < 0.002:
+            sleep_s = 0.002
+
+        time.sleep(sleep_s)
+
+    def broadcast_lane(self, lane: str, dt_ms: int, clients: Optional[list[TarzanTspClientSession]] = None) -> None:
         values = self.provider.get_lane_values(lane, None)
         if not values:
             return
         packet = snajper_packet(lane, values, dt_ms=dt_ms)
-        self.broadcast(packet, lane=lane)
+        self.broadcast(packet, lane=lane, clients=clients)
 
-    def broadcast(self, message: Dict[str, Any], lane: str, immediate: bool = False) -> None:
-        for client in self.clients():
+    def broadcast(self, message: Dict[str, Any], lane: str, immediate: bool = False, clients: Optional[list[TarzanTspClientSession]] = None) -> None:
+        target_clients = clients if clients is not None else self.clients()
+        for client in target_clients:
             if not client.wants_lane(lane):
                 continue
             outgoing = message
@@ -460,9 +539,10 @@ class TarzanTspServer:
                 outgoing["values"] = values
             client.send(outgoing)
 
-    def _emit_traces(self) -> None:
-        now = monotonic_ms()
-        for client in self.clients():
+    def _emit_traces(self, clients: Optional[list[TarzanTspClientSession]] = None, now: Optional[int] = None) -> None:
+        now = now or monotonic_ms()
+        target_clients = clients if clients is not None else self.clients()
+        for client in target_clients:
             expired = [name for name, end_ms in client.trace_signals.items() if end_ms <= now]
             for name in expired:
                 client.trace_signals.pop(name, None)

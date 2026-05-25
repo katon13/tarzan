@@ -915,6 +915,102 @@ def cmd_matrix_test(args: argparse.Namespace) -> int:
     return 0
 
 
+
+_BUTTON_TESTS_REC = [
+    ("F1", 45, "rec_p45_sw_f1"),
+    ("F2", 47, "rec_p47_sw_f2"),
+    ("F3", 49, "rec_p49_sw_f3"),
+    ("F4", 51, "rec_p51_sw_f4"),
+]
+
+
+def _find_row_by_pin(rows: Sequence[SandboxSignalRow], pin: int) -> Optional[SandboxSignalRow]:
+    for row in rows:
+        if row.signal.pin == pin:
+            return row
+    return None
+
+
+def cmd_buttons_test(args: argparse.Namespace) -> int:
+    board = args.board.upper()
+    if board != "REC":
+        raise RuntimeError("Test F1-F4 jest w aktualnej mapie TARZANA tylko na REC / RECK")
+
+    lib_path = _find_pokeys_library(args.lib_path)
+    if not lib_path:
+        raise RuntimeError("Nie znaleziono biblioteki PoKeysLib. Ustaw --lib-path albo TARZAN_POKEYS_LIB.")
+
+    selected = [x.strip().upper() for x in (args.buttons or "F1,F2,F3,F4").split(",") if x.strip()]
+    wanted = [item for item in _BUTTON_TESTS_REC if item[0] in selected]
+    if not wanted:
+        raise RuntimeError("Brak przycisków do testu. Użyj np. --buttons F1,F2,F3,F4")
+
+    rows_all = list(_iter_rows(board))
+    print("TARZAN REC / RECK — test przycisków F1-F4")
+    print("Tryb: skrypt czeka na naciśnięcie i sam potwierdza: 'nacisnąłeś F1 — działa'.")
+    print("Ctrl+C kończy test.")
+    print("")
+
+    with PoKeysReadOnlySession(board, lib_path) as session:
+        print(session.identity_text())
+        print("")
+
+        for label, pin, expected_signal in wanted:
+            row = _find_row_by_pin(rows_all, pin)
+            if row is None:
+                print(f"[!] {label}: brak pinu P{pin} w mapie REC — pomijam.")
+                continue
+
+            print(f"Naciśnij {label}  ({row.signal.nazwa}, REC P{pin}) ...", flush=True)
+
+            session.refresh()
+            base_value = session.read_signal(row).digital_value
+            if base_value is None:
+                print(f"[!] {label}: brak odczytu digital — pomijam.")
+                continue
+
+            pressed_value = None
+            started = time.time()
+
+            while True:
+                session.refresh()
+                value = session.read_signal(row).digital_value
+                if value != base_value:
+                    pressed_value = value
+                    print(f"[x] Nacisnąłeś {label} — działa  ({base_value} -> {pressed_value})", flush=True)
+                    break
+
+                if args.timeout > 0 and (time.time() - started) > args.timeout:
+                    print(f"[!] {label}: timeout — nie wykryto naciśnięcia w {args.timeout}s", flush=True)
+                    break
+
+                time.sleep(max(0.03, float(args.interval)))
+
+            if pressed_value is None:
+                continue
+
+            if args.wait_release:
+                print(f"Puść {label} ...", flush=True)
+                release_started = time.time()
+                while True:
+                    session.refresh()
+                    value = session.read_signal(row).digital_value
+                    if value == base_value:
+                        print(f"[x] {label} puszczony — OK", flush=True)
+                        break
+
+                    if args.timeout > 0 and (time.time() - release_started) > args.timeout:
+                        print(f"[!] {label}: nie wykryto puszczenia w {args.timeout}s", flush=True)
+                        break
+
+                    time.sleep(max(0.03, float(args.interval)))
+
+            print("")
+
+    print("Koniec testu przycisków.")
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     identity, values = _read_values(args)
     reports_dir = _ensure_reports_dir()
@@ -972,6 +1068,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_monitor.add_argument("--changes-only", action="store_true", help="Wypisuj tylko zmianę wartości, np. po naciśnięciu przycisku")
     p_monitor.add_argument("--initial", action="store_true", help="W trybie --changes-only wypisz też pierwszy stan")
     p_monitor.set_defaults(func=cmd_monitor)
+
+
+    p_buttons = sub.add_parser("buttons-test", help="Prowadzony test przycisków F1-F4 na REC / RECK")
+    p_buttons.add_argument("--board", choices=["REC"], default="REC")
+    p_buttons.add_argument("--buttons", default="F1,F2,F3,F4", help="Lista przycisków, np. F1,F2,F3,F4")
+    p_buttons.add_argument("--interval", type=float, default=0.12)
+    p_buttons.add_argument("--timeout", type=float, default=30.0)
+    p_buttons.add_argument("--no-wait-release", dest="wait_release", action="store_false")
+    p_buttons.set_defaults(wait_release=True)
+    p_buttons.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
+    p_buttons.set_defaults(func=cmd_buttons_test)
+
 
     p_report = sub.add_parser("report", help="READ ONLY: odczyt i zapis raportu do data/hardware/reports")
     common_board(p_report)

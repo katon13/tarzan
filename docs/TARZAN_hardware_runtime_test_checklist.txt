@@ -1,0 +1,241 @@
+# TARZAN HARDWARE RUNTIME — LISTA TESTÓW
+# Plik roboczy do ręcznego oznaczania testów sprzętu.
+# ŹRÓDŁO PRAWDY:
+# - core/tarzanZmienneSygnalowe.py
+# - dokumentacja PoKeys / PoSensors / PoStep / Nextion
+#
+# ZASADA:
+# [ ]  nie testowane
+# [x]  przetestowane OK
+# [!]  problem / do sprawdzenia
+# [-]  pomijamy na tym etapie
+#
+# FORMAT WPISU:
+# [ ] DATA | PŁYTKA | PIN/KANAŁ | SYGNAŁ | TEST | WYNIK | UWAGI
+#
+# BEZPIECZEŃSTWO:
+# - najpierw READ ONLY
+# - wyjścia tylko po ręcznym potwierdzeniu
+# - STEP / DIR / ENABLE / Pulse Engine bez ruchu na tym etapie
+# - nie zapisujemy konfiguracji PoKeys bez osobnej decyzji
+# - nie zmieniamy mapy pinów poza core/tarzanZmienneSygnalowe.py
+
+
+################################################################################
+# 0. STAN BAZOWY MINI PC / TSP / LKS
+################################################################################
+
+[x] 2026-05-25 | miniPC | system | Debian 13 / SSH / IP 192.168.1.26 | sprawdzone | OK | tarzanMiniPC działa jako node
+[x] 2026-05-25 | TSP | port 7777 | tarzan-tsp.service | smoke test | OK | stacja 192.168.1.12 łączy się z mini PC
+[x] 2026-05-25 | LKS | TTY | Lampka Kontrolna Systemu | podgląd | OK | działa, nie mruga, pokazuje RX/TX/CLIENTS/ERR/DROP
+
+
+################################################################################
+# 1. BIBLIOTEKA / DOSTĘP DO POKEYS
+################################################################################
+
+[ ] ---- | miniPC | USB | lsusb | wykrycie PoKeys | ---- | 
+[ ] ---- | miniPC | USB | /dev/serial/by-id | mapowanie urządzeń | ---- | 
+[ ] ---- | PoKeysLib | Linux | libPoKeys.so | ładowanie biblioteki | ---- | 
+[ ] ---- | PoKeysLib | Windows | PoKeyslib.dll | test lokalny na stacji | ---- | 
+
+
+################################################################################
+# 2. POKEYS PLAY — SERIAL 34238
+################################################################################
+
+[ ] ---- | PLAY | DEVICE | serial 34238 | wykrycie urządzenia | ---- |
+[ ] ---- | PLAY | DEVICE | DeviceData | odczyt nazwy/firmware/build | ---- |
+[ ] ---- | PLAY | DEVICE | PinConfigurationGet | odczyt konfiguracji pinów | ---- |
+[ ] ---- | PLAY | DEVICE | DigitalIOGet | odczyt wejść/wyjść | ---- |
+[ ] ---- | PLAY | DEVICE | AnalogIOGet | odczyt analogów | ---- |
+
+
+# PLAY / KRAŃCÓWKI — READ ONLY
+
+[ ] ---- | PLAY | P01 | play_p01_arm_h_auto_limit / sensor_arm_h_auto_limit | odczyt krańcówki | ---- |
+[ ] ---- | PLAY | P02 | play_p02_arm_h_limit_right / sensor_arm_h_limit_right | odczyt krańcówki | ---- |
+[ ] ---- | PLAY | P03 | play_p03_arm_h_limit_left / sensor_arm_h_limit_left | odczyt krańcówki | ---- |
+[ ] ---- | PLAY | P04 | play_p04_arm_v_limit_up / sensor_arm_v_limit_up | odczyt krańcówki | ---- |
+[ ] ---- | PLAY | P05 | play_p05_cam_h_limit_right / sensor_cam_h_limit_right | odczyt krańcówki | ---- |
+[ ] ---- | PLAY | P06 | play_p06_cam_h_limit_left / sensor_cam_h_limit_left | odczyt krańcówki | ---- |
+[ ] ---- | PLAY | P07 | play_p07_cam_v_limit_up / sensor_cam_v_limit_up | odczyt krańcówki | ---- |
+[ ] ---- | PLAY | P08 | play_p08_cam_v_limit_down / sensor_cam_v_limit_down | odczyt krańcówki | ---- |
+[ ] ---- | PLAY | P09 | play_p09_arm_v_auto_limit / sensor_arm_v_auto_limit | odczyt krańcówki | ---- |
+[ ] ---- | PLAY | P10 | play_p10_cam_tilt_limit / sensor_cam_t_limit | odczyt krańcówki | ---- |
+[ ] ---- | PLAY | P11 | play_p11_cart_limit_end / sensor_cart_limit_end | odczyt krańcówki | ---- |
+[ ] ---- | PLAY | P12 | play_p12_arm_v_limit_down / sensor_arm_v_limit_down | odczyt krańcówki | ---- |
+[ ] ---- | PLAY | P13 | play_p13_mass_reg_limit_add / sensor_mass_reg_limit_add | odczyt krańcówki/regulator masy | ---- |
+[ ] ---- | PLAY | P23 | play_p23_mass_reg_limit_remove / sensor_mass_reg_limit_remove | odczyt krańcówki/regulator masy | ---- |
+
+
+# PLAY / RRP I ANALOGI — READ ONLY
+
+[ ] ---- | PLAY | P45 | play_p45_rrp_pot_h / sensor_rrp_pot_h | odczyt analog RRP H | ---- |
+[ ] ---- | PLAY | P47 | play_p47_rrp_pot_v / sensor_rrp_pot_v | odczyt analog RRP V | ---- |
+
+
+# PLAY / UI / WEJŚCIA / REZERWY — READ ONLY
+
+[ ] ---- | PLAY | P14 | play_p14_drone_release | odczyt stanu | ---- |
+[ ] ---- | PLAY | P15 | play_p15_rrp_dir_h_res | odczyt rezerwy RRP | ---- |
+[ ] ---- | PLAY | P16 | play_p16_action_led / ui_action_led | odczyt/stany UI | ---- |
+[ ] ---- | PLAY | P53 | play_p53_rrp_en_res | odczyt rezerwy RRP enable | ---- |
+
+
+# PLAY / WYJŚCIA BEZPIECZNE — TYLKO MANUALNIE
+
+[ ] ---- | PLAY | P41 | play_p41_mass_reg_enable | test wyjścia manualny | ---- | WYMAGA POTWIERDZENIA
+[ ] ---- | PLAY | P50 | play_p50_step_en_arm_h / axis_arm_h_en | diagnostyka ENABLE bez ruchu | ---- | OSTROŻNIE
+[ ] ---- | PLAY | P51 | play_p51_step_en_arm_v / axis_arm_v_en | diagnostyka ENABLE bez ruchu | ---- | OSTROŻNIE
+[ ] ---- | PLAY | P52 | play_p52_step_en_arm_tilt / axis_arm_t_en | diagnostyka ENABLE bez ruchu | ---- | OSTROŻNIE
+[ ] ---- | PLAY | P55 | play_p55_bridge_rec_enable | test mostka PLAY-REC | ---- | WYMAGA POTWIERDZENIA
+
+
+# PLAY / STEP-DIR-CTR — NA RAZIE BEZ RUCHU
+
+[-] ---- | PLAY | P38 | play_p38_step_dir_arm_h / axis_arm_h_dir | tylko diagnostyka, bez ruchu | POMINIĘTE |
+[-] ---- | PLAY | P39 | play_p39_step_dir_arm_v / axis_arm_v_dir | tylko diagnostyka, bez ruchu | POMINIĘTE |
+[-] ---- | PLAY | P40 | play_p40_step_dir_arm_tilt / axis_arm_t_dir | tylko diagnostyka, bez ruchu | POMINIĘTE |
+[-] ---- | PLAY | P46 | play_p46_step_ctr_arm_h / axis_arm_h_step | zakaz generowania STEP | POMINIĘTE |
+[-] ---- | PLAY | P48 | play_p48_step_ctr_arm_v / axis_arm_v_step | zakaz generowania STEP | POMINIĘTE |
+[-] ---- | PLAY | P49 | play_p49_step_ctr_arm_tilt / axis_arm_t_step | zakaz generowania STEP | POMINIĘTE |
+
+
+# PLAY / LCD / MATRIX / I2C / PoExtBus — OSOBNE TESTY URZĄDZEŃ
+
+[ ] ---- | PLAY | P24-P27 | play_p24_kb4..play_p27_kb1 | test klawiatury matrix | ---- |
+[ ] ---- | PLAY | P28-P34 | LCD PLAY | test LCD 1602 | ---- |
+[ ] ---- | PLAY | P35-P36 | I2C / sensor_light_lux | test I2C / BH1750 | ---- |
+[ ] ---- | PLAY | P37 | PoExtBus latch / step disconnect manual | diagnostyka | ---- |
+[-] ---- | PLAY | P54 | play_p54_reset_do_not_use | NIE TESTOWAĆ | POMINIĘTE | pin systemowy RST
+
+
+################################################################################
+# 3. POKEYS REC — SERIAL 33410
+################################################################################
+
+[ ] ---- | REC | DEVICE | serial 33410 | wykrycie urządzenia | ---- |
+[ ] ---- | REC | DEVICE | DeviceData | odczyt nazwy/firmware/build | ---- |
+[ ] ---- | REC | DEVICE | PinConfigurationGet | odczyt konfiguracji pinów | ---- |
+[ ] ---- | REC | DEVICE | DigitalIOGet | odczyt wejść/wyjść | ---- |
+[ ] ---- | REC | DEVICE | AnalogIOGet | odczyt analogów | ---- |
+
+
+# REC / COPY CAMERA — READ ONLY
+
+[ ] ---- | REC | P01 | rec_p01_copy_ctr_cam_h / axis_cam_h_rec_step | odczyt kopii CTR | ---- |
+[ ] ---- | REC | P02 | rec_p02_copy_ctr_cam_v / axis_cam_v_rec_step | odczyt kopii CTR | ---- |
+[ ] ---- | REC | P03 | rec_p03_copy_dir_cam_h / axis_cam_h_rec_dir | odczyt kopii DIR | ---- |
+[ ] ---- | REC | P04 | rec_p04_copy_dir_cam_v / axis_cam_v_rec_dir | odczyt kopii DIR | ---- |
+[ ] ---- | REC | P05 | rec_p05_copy_ctr_focus / axis_cam_f_rec_step | odczyt kopii CTR | ---- |
+[ ] ---- | REC | P06 | rec_p06_copy_ctr_tilt / axis_cam_t_rec_step | odczyt kopii CTR | ---- |
+[ ] ---- | REC | P07 | rec_p07_copy_dir_focus / axis_cam_f_rec_dir | odczyt kopii DIR | ---- |
+[ ] ---- | REC | P08 | rec_p08_copy_dir_tilt / axis_cam_t_rec_dir | odczyt kopii DIR | ---- |
+[ ] ---- | REC | P53 | rec_p53_copy_cam_v_limit_up | odczyt kopii krańcówki | ---- |
+
+
+# REC / RECORD — READ ONLY
+
+[ ] ---- | REC | P12 | rec_p12_rec_dir_arm_h / axis_arm_h_rec_dir | odczyt REC DIR | ---- |
+[ ] ---- | REC | P13 | rec_p13_rec_dir_arm_v / axis_arm_v_rec_dir | odczyt REC DIR | ---- |
+[ ] ---- | REC | P15 | rec_p15_rec_ctr_arm_h / axis_arm_h_rec_step | odczyt REC CTR | ---- |
+[ ] ---- | REC | P16 | rec_p16_rec_ctr_arm_v / axis_arm_v_rec_step | odczyt REC CTR | ---- |
+
+
+# REC / MOSTEK PLAY-REC — READ ONLY / MANUAL
+
+[ ] ---- | REC | P17 | rec_p17_bridge_play_dir_x | odczyt mostka DIR X | ---- |
+[ ] ---- | REC | P18 | rec_p18_bridge_play_dir_y | odczyt mostka DIR Y | ---- |
+[ ] ---- | REC | P19 | rec_p19_bridge_play_dir_z | odczyt mostka DIR Z | ---- |
+[ ] ---- | REC | P20 | rec_p20_bridge_play_ctr_x | odczyt mostka CTR X | ---- |
+[ ] ---- | REC | P21 | rec_p21_bridge_play_ctr_y | odczyt mostka CTR Y | ---- |
+[ ] ---- | REC | P22 | rec_p22_bridge_play_ctr_z | odczyt mostka CTR Z | ---- |
+[ ] ---- | REC | P37 | rec_p37_bridge_play_rec_in | odczyt mostka REC IN | ---- |
+[ ] ---- | REC | P54 | rec_p54_bridge_play_rec_out | test mostka REC OUT manualny | ---- | WYMAGA POTWIERDZENIA
+
+
+# REC / CZUJNIKI I ANALOGI — READ ONLY
+
+[ ] ---- | REC | P27 | rec_p27_free_limit_res / sensor_laser_set | odczyt laser set | ---- |
+[ ] ---- | REC | P39 | rec_p39_shock_sensor / sensor_shock_state | odczyt czujnika wstrząsu | ---- |
+[ ] ---- | REC | P40 | rec_p40_free_limit_res / sensor_laser_error | odczyt laser error | ---- |
+[ ] ---- | REC | P41 | rec_p41_free_aux_pot / sensor_level_x | odczyt XYZ X | ---- |
+[ ] ---- | REC | P42 | rec_p42_free_keyboard_old / sensor_level_y | odczyt XYZ Y | ---- |
+[ ] ---- | REC | P43 | rec_p43_free_keyboard_old / sensor_level_z | odczyt XYZ Z | ---- |
+[ ] ---- | REC | P44 | rec_p44_free_keyboard_old / sensor_temp_c | odczyt temperatury | ---- |
+
+
+# REC / UI F1-F4 — READ ONLY / WYJŚCIA DO POTWIERDZENIA
+
+[ ] ---- | REC | P45 | rec_p45_sw_f1 / ui_f1_sw | odczyt przycisku F1 | ---- |
+[ ] ---- | REC | P47 | rec_p47_sw_f2 / ui_f2_sw | odczyt przycisku F2 | ---- |
+[ ] ---- | REC | P49 | rec_p49_sw_f3 / ui_f3_sw | odczyt przycisku F3 | ---- |
+[ ] ---- | REC | P51 | rec_p51_sw_f4 / ui_f4_sw | odczyt przycisku F4 | ---- |
+[ ] ---- | REC | P46 | rec_p46_led_f1 / ui_f1_led | test LED F1 | ---- | WYMAGA POTWIERDZENIA
+[ ] ---- | REC | P48 | rec_p48_led_f2 / ui_f2_led | test LED F2 | ---- | WYMAGA POTWIERDZENIA
+[ ] ---- | REC | P50 | rec_p50_led_f3 / ui_f3_led | test LED F3 | ---- | WYMAGA POTWIERDZENIA
+[ ] ---- | REC | P52 | rec_p52_led_f4 / ui_f4_led | test LED F4 | ---- | WYMAGA POTWIERDZENIA
+
+
+# REC / MATRIX LED / LCD / POEXTBUS
+
+[ ] ---- | REC | P09-P11 | Matrix LED REC | test Matrix LED 8x8 | ---- |
+[ ] ---- | REC | P14/P23/P25/P26 | PoExtBus CNC | diagnostyka PoExtBus | ---- |
+[ ] ---- | REC | P28-P34 | LCD REC | test LCD 1602 | ---- |
+[ ] ---- | REC | P36 | rec_p36_mass_reg_enable | test wyjścia regulator masy | ---- | WYMAGA POTWIERDZENIA
+[ ] ---- | REC | P38 | rec_p38_auto_enable / ui_rec_auto_enable | test auto enable | ---- | WYMAGA POTWIERDZENIA
+
+
+################################################################################
+# 4. CNC / PoStep / STEP-DIR — TYLKO DIAGNOSTYKA, BEZ RUCHU
+################################################################################
+
+[-] ---- | CNC | X / ID1 | cnc_x_cam_h_ctr / axis_cam_h_step | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | X / ID1 | cnc_x_cam_h_dir / axis_cam_h_dir | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | Y / ID2 | cnc_y_cam_v_ctr / axis_cam_v_step | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | Y / ID2 | cnc_y_cam_v_dir / axis_cam_v_dir | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | Z / ID3 | cnc_z_focus_ctr / axis_cam_f_step | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | Z / ID3 | cnc_z_focus_dir / axis_cam_f_dir | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | A / ID4 | cnc_a_arm_tilt_ctr / axis_arm_t_auto_step | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | A / ID4 | cnc_a_arm_tilt_dir / axis_arm_t_auto_dir | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | B / ID5 | cnc_b_arm_h_ctr / axis_arm_h_auto_step | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | B / ID5 | cnc_b_arm_h_dir / axis_arm_h_auto_dir | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | C / ID6 | cnc_c_arm_v_ctr / axis_arm_v_auto_step | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | C / ID6 | cnc_c_arm_v_dir / axis_arm_v_auto_dir | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | D | cnc_d_cart_ctr / axis_dron_step | ruch zabroniony | POMINIĘTE |
+[-] ---- | CNC | D | cnc_d_cart_dir / axis_dron_dir | ruch zabroniony | POMINIĘTE |
+
+
+################################################################################
+# 5. CZUJNIK ODLEGŁOŚCI / LASER SERIAL
+################################################################################
+
+[ ] ---- | SENSOR | serial | /dev/ttyUSB? | wykrycie portu | ---- |
+[ ] ---- | SENSOR | serial | 115200 | handshake / start ramki | ---- |
+[ ] ---- | SENSOR | serial | YY frame | odczyt dystansu | ---- |
+[ ] ---- | SENSOR | serial | raport | stabilność odczytu | ---- |
+
+
+################################################################################
+# 6. NEXTION 5 / NEXTION 7 — PÓŹNIEJ, OSOBNY ETAP
+################################################################################
+
+[ ] ---- | NEXTION 5 | serial | port | wykrycie portu | ---- |
+[ ] ---- | NEXTION 5 | serial | connect | handshake | ---- |
+[ ] ---- | NEXTION 5 | HMI | sendme/page | test stron | ---- |
+[ ] ---- | NEXTION 7 | serial | port | wykrycie portu | ---- |
+[ ] ---- | NEXTION 7 | serial | connect | handshake | ---- |
+[ ] ---- | NEXTION 7 | HMI | sendme/page | test stron | ---- |
+
+
+################################################################################
+# 7. NOTATKI Z TESTÓW
+################################################################################
+
+# ---- DOPISUJEMY TU RĘCZNIE ----
+# DATA:
+# CO TESTOWANE:
+# WYNIK:
+# PROBLEM:
+# DECYZJA:

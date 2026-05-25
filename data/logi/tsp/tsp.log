@@ -1,0 +1,12 @@
+2026-05-25 11:31:37,796 [INFO] TSP SERVER START host=127.0.0.1 port=7777 node=tarzanMiniPC
+2026-05-25 11:31:38,797 [INFO] CONNECT client#1 127.0.0.1:49675
+2026-05-25 11:31:38,797 [INFO] SUBSCRIBE client#1 127.0.0.1:49675 lanes=['fast', 'health', 'normal', 'slow', 'urgent'] signals=1
+2026-05-25 11:31:38,798 [INFO] TSP_STATS clients=1 tx=14 rx=8 errors=0 dropped=0 lanes={'hello': 2, 'ping': 1, 'subscribe': 1, 'get_signal_catalog': 1, 'set_signal': 2, 'call_action': 1, 'trace_signal': 1, 'urgent': 3, 'slow': 1, 'health': 1}
+2026-05-25 11:31:39,799 [INFO] TSP_STATS clients=1 tx=229 rx=8 errors=0 dropped=0 lanes={'hello': 2, 'ping': 1, 'subscribe': 1, 'get_signal_catalog': 1, 'set_signal': 2, 'call_action': 1, 'trace_signal': 1, 'urgent': 3, 'slow': 3, 'health': 2, 'trace': 96, 'fast': 96, 'normal': 20}
+2026-05-25 11:31:40,498 [INFO] DISCONNECT client#1 127.0.0.1:49675
+2026-05-25 11:31:55,891 [INFO] TSP SERVER START host=127.0.0.1 port=7777 node=tarzanMiniPC
+2026-05-25 11:31:56,892 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-05-25 11:31:56,893 [INFO] CONNECT client#1 127.0.0.1:49677
+2026-05-25 11:31:56,893 [INFO] SUBSCRIBE client#1 127.0.0.1:49677 lanes=['fast', 'health', 'normal', 'slow', 'urgent'] signals=1
+2026-05-25 11:31:57,893 [INFO] TSP_STATS clients=1 tx=227 rx=8 errors=0 dropped=0 lanes={'hello': 2, 'ping': 1, 'subscribe': 1, 'get_signal_catalog': 1, 'set_signal': 2, 'call_action': 1, 'trace_signal': 1, 'urgent': 3, 'fast': 96, 'normal': 20, 'trace': 96, 'slow': 2, 'health': 1}
+2026-05-25 11:31:58,594 [INFO] DISCONNECT client#1 127.0.0.1:49677

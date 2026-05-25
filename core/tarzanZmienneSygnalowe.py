@@ -40,8 +40,8 @@ from typing import Optional, Dict, List
 # KONFIGURACJA GLOBALNA
 # ======================================================================
 
-POKEYS57U_PLAY_DEVICE_SERIAL = 34238
-POKEYS57U_REC_DEVICE_SERIAL = 33410
+POKEYS57U_PLAY_DEVICE_SERIAL = 36102
+POKEYS57U_REC_DEVICE_SERIAL = 36084
 MIKROKROK_STARTOWY = 32
 
 

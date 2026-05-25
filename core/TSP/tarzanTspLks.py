@@ -42,6 +42,8 @@ class TarzanTspLks:
         self._event = threading.Event()
         self._last_render_monotonic = 0.0
         self._last_reason = "start"
+        self._screen_initialized = False
+        self._last_lines: list[str] = []
 
     def start(self) -> None:
         if not self.enabled or self.running:
@@ -54,6 +56,7 @@ class TarzanTspLks:
     def stop(self) -> None:
         self.running = False
         self._event.set()
+        self._show_cursor_safe()
 
     def mark_dirty(self, reason: str = "event") -> None:
         """Zgłasza ważne zdarzenie do szybszego odświeżenia ekranu.
@@ -90,11 +93,42 @@ class TarzanTspLks:
         if not path.exists():
             return
 
-        # Otwieramy TTY tylko na czas rysowania. To jest lekkie i odporne na restart getty.
+        # Bez migania: NIE czyścimy całego ekranu przy każdym odświeżeniu.
+        # Pierwszy render robi tylko jednorazowe czyszczenie, kolejne rendery
+        # nadpisują zmienione linie w miejscu. Dzięki temu LKS zachowuje się
+        # jak delikatna lampka kontrolna, a nie migający ekran logów.
+        lines = text.splitlines()
         with path.open("w", encoding="utf-8", errors="replace") as f:
-            f.write("\033[2J\033[H")  # clear screen + cursor home
-            f.write(text)
+            if not self._screen_initialized:
+                f.write("\033[?25l")      # hide cursor
+                f.write("\033[2J\033[H")  # one-time clear + home
+                self._screen_initialized = True
+                self._last_lines = []
+
+            max_lines = max(len(lines), len(self._last_lines))
+            for idx in range(max_lines):
+                new_line = lines[idx] if idx < len(lines) else ""
+                old_line = self._last_lines[idx] if idx < len(self._last_lines) else None
+                if new_line == old_line:
+                    continue
+                f.write(f"\033[{idx + 1};1H")
+                f.write(new_line)
+                f.write("\033[K")  # clear to end of line only
+
             f.flush()
+        self._last_lines = lines
+
+    def _show_cursor_safe(self) -> None:
+        if self.tty_path == "-":
+            return
+        try:
+            path = Path(self.tty_path)
+            if path.exists():
+                with path.open("w", encoding="utf-8", errors="replace") as f:
+                    f.write("\033[?25h")
+                    f.flush()
+        except Exception:
+            pass
 
     def build_screen(self) -> str:
         snapshot = self.server.debug.snapshot()

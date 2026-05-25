@@ -19,6 +19,7 @@ Przykłady:
     python -m hardware.tarzanMiniPcSandbox read --board PLAY
     python -m hardware.tarzanMiniPcSandbox monitor --board REC --signals rec_p45_sw_f1,rec_p47_sw_f2
     python -m hardware.tarzanMiniPcSandbox report --board PLAY
+    python -m hardware.tarzanMiniPcSandbox lcd-test --board PLAY --line1 "TARZAN PLAY" --line2 "LCD OK" --confirm YES_TARZAN_LCD_TEST
 
 UWAGA:
 - Na Windows może działać z hardware/pokeys/PoKeyslib.dll.
@@ -569,6 +570,94 @@ def cmd_output(args: argparse.Namespace) -> int:
     return 0
 
 
+
+def _lcd_text(value: str, width: int = 20) -> str:
+    # HD44780 / PoKeys buffer accepts max 20 characters per row.
+    # Polish characters are intentionally stripped/replaced here because many LCD 1602
+    # modules do not have matching glyphs in ROM.
+    table = str.maketrans({
+        "ą": "a", "ć": "c", "ę": "e", "ł": "l", "ń": "n", "ó": "o", "ś": "s", "ź": "z", "ż": "z",
+        "Ą": "A", "Ć": "C", "Ę": "E", "Ł": "L", "Ń": "N", "Ó": "O", "Ś": "S", "Ź": "Z", "Ż": "Z",
+    })
+    return value.translate(table)[:width]
+
+
+def cmd_lcd_test(args: argparse.Namespace) -> int:
+    if args.confirm != "YES_TARZAN_LCD_TEST":
+        raise RuntimeError("Brak potwierdzenia. Użyj: --confirm YES_TARZAN_LCD_TEST")
+
+    board = args.board.upper()
+    if board not in {"PLAY", "REC"}:
+        raise RuntimeError("LCD test obsługuje tylko PLAY albo REC")
+
+    lib_path = _find_pokeys_library(args.lib_path)
+    if not lib_path:
+        raise RuntimeError("Nie znaleziono biblioteki PoKeysLib. Ustaw --lib-path albo TARZAN_POKEYS_LIB.")
+
+    # LCD w mapie TARZANA jest na pinach 28-34 i ma być testowany jako urządzenie,
+    # nie przez ręczne ustawianie gołych pinów.
+    lcd_rows = _filter_rows(_iter_rows(board), pins=list(range(28, 35)), include_skipped=True)
+    if not lcd_rows or any((row.signal.hardware_function or "").upper() != HW_LCD for row in lcd_rows):
+        raise RuntimeError(f"Mapa TARZANA nie potwierdza pełnego LCD na {board} P28-P34")
+
+    line1 = _lcd_text(args.line1)
+    line2 = _lcd_text(args.line2)
+
+    print(f"LCD TEST {board}")
+    print("Piny z mapy TARZANA: P28-P34")
+    print(f"Line1: {line1!r}")
+    print(f"Line2: {line2!r}")
+
+    with PoKeysReadOnlySession(board, lib_path) as session:
+        print(session.identity_text())
+
+        lcd = session.device.device.contents.LCD
+
+        # PoKeys LCD:
+        # Configuration: 0 disabled, 1 primary pins, 2 secondary pins.
+        # TARZAN ma LCD na P28-P34, czyli układ secondary z dokumentacji PoKeys.
+        lcd.Configuration = 2
+        lcd.Rows = int(args.rows)
+        lcd.Columns = int(args.columns)
+
+        rc = session.device.PK_LCDConfigurationSet()
+        if rc != 0:
+            raise RuntimeError(f"PK_LCDConfigurationSet zwróciło {rc}")
+
+        rc = session.device.PK_LCDChangeMode(0)  # PK_LCD_MODE_DIRECT
+        if rc != 0:
+            raise RuntimeError(f"PK_LCDChangeMode(DIRECT) zwróciło {rc}")
+
+        rc = session.device.PK_LCDInit()
+        if rc != 0:
+            raise RuntimeError(f"PK_LCDInit zwróciło {rc}")
+
+        time.sleep(0.05)
+
+        rc = session.device.PK_LCDClear()
+        if rc != 0:
+            raise RuntimeError(f"PK_LCDClear zwróciło {rc}")
+
+        time.sleep(0.05)
+
+        rc = session.device.PK_LCDMoveCursor(1, 1)
+        if rc != 0:
+            raise RuntimeError(f"PK_LCDMoveCursor(1,1) zwróciło {rc}")
+        rc = session.device.PK_LCDPrint(line1)
+        if rc != 0:
+            raise RuntimeError(f"PK_LCDPrint(line1) zwróciło {rc}")
+
+        rc = session.device.PK_LCDMoveCursor(2, 1)
+        if rc != 0:
+            raise RuntimeError(f"PK_LCDMoveCursor(2,1) zwróciło {rc}")
+        rc = session.device.PK_LCDPrint(line2)
+        if rc != 0:
+            raise RuntimeError(f"PK_LCDPrint(line2) zwróciło {rc}")
+
+    print("OK: komenda LCD wysłana przez funkcje LCD PoKeys.")
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     identity, values = _read_values(args)
     reports_dir = _ensure_reports_dir()
@@ -629,6 +718,18 @@ def build_parser() -> argparse.ArgumentParser:
     common_board(p_report)
     p_report.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
     p_report.set_defaults(func=cmd_report)
+
+
+    p_lcd = sub.add_parser("lcd-test", help="Test LCD HD44780 przez funkcje LCD PoKeys")
+    p_lcd.add_argument("--board", choices=["PLAY", "REC"], required=True)
+    p_lcd.add_argument("--line1", default="TARZAN")
+    p_lcd.add_argument("--line2", default="LCD OK")
+    p_lcd.add_argument("--rows", type=int, default=2)
+    p_lcd.add_argument("--columns", type=int, default=16)
+    p_lcd.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
+    p_lcd.add_argument("--confirm", default="")
+    p_lcd.set_defaults(func=cmd_lcd_test)
+
 
     p_out = sub.add_parser("output", help="Ręczny test bezpiecznego wyjścia")
     p_out.add_argument("--board", choices=["PLAY", "REC"], required=True)

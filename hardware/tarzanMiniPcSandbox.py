@@ -532,21 +532,48 @@ def cmd_monitor(args: argparse.Namespace) -> int:
         include_skipped=args.include_skipped,
     )
     rows = [row for row in rows if row.signal.plytka.upper() == args.board.upper()]
-    print(f"MONITOR {args.board} co {args.interval}s. Ctrl+C kończy.")
+    if not rows:
+        raise RuntimeError("Brak sygnałów do monitorowania dla podanych filtrów.")
+
+    interval = max(0.05, float(args.interval))
+    print(f"MONITOR {args.board} co {interval}s. Ctrl+C kończy.")
+    if args.changes_only:
+        print("Tryb: changes-only — wypisuję tylko po zmianie wartości, czyli po naciśnięciu/zwolnieniu przycisku.")
+    if args.initial:
+        print("Tryb: initial — pierwszy stan zostanie wypisany od razu.")
+
+    previous: Dict[str, str] = {}
+
     with PoKeysReadOnlySession(args.board, lib_path) as session:
         print(session.identity_text())
         while True:
             session.refresh()
             stamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            parts = []
+            current: Dict[str, str] = {}
             for row in rows:
                 value = session.read_signal(row)
                 if value.analog_raw is not None:
-                    parts.append(f"{row.signal.nazwa}=A{value.analog_raw}/{value.analog_v}V")
+                    current[row.signal.nazwa] = f"A{value.analog_raw}/{value.analog_v}V"
                 else:
-                    parts.append(f"{row.signal.nazwa}=D{value.digital_value}")
-            print(f"{stamp} | " + " | ".join(parts), flush=True)
-            time.sleep(args.interval)
+                    current[row.signal.nazwa] = f"D{value.digital_value}"
+
+            if args.changes_only:
+                changed = []
+                for name, val in current.items():
+                    old = previous.get(name)
+                    if old is None:
+                        if args.initial:
+                            changed.append(f"{name}={val}")
+                    elif old != val:
+                        changed.append(f"{name}: {old} -> {val}")
+                if changed:
+                    print(f"{stamp} | " + " | ".join(changed), flush=True)
+            else:
+                parts = [f"{name}={val}" for name, val in current.items()]
+                print(f"{stamp} | " + " | ".join(parts), flush=True)
+
+            previous = current
+            time.sleep(interval)
 
 
 def cmd_output(args: argparse.Namespace) -> int:
@@ -941,7 +968,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_monitor = sub.add_parser("monitor", help="READ ONLY: monitorowanie sygnałów w pętli")
     common_board(p_monitor)
     p_monitor.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
-    p_monitor.add_argument("--interval", type=float, default=0.2)
+    p_monitor.add_argument("--interval", type=float, default=0.8)
+    p_monitor.add_argument("--changes-only", action="store_true", help="Wypisuj tylko zmianę wartości, np. po naciśnięciu przycisku")
+    p_monitor.add_argument("--initial", action="store_true", help="W trybie --changes-only wypisz też pierwszy stan")
     p_monitor.set_defaults(func=cmd_monitor)
 
     p_report = sub.add_parser("report", help="READ ONLY: odczyt i zapis raportu do data/hardware/reports")

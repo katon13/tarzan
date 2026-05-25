@@ -1378,6 +1378,60 @@ def cmd_bus_scan(args: argparse.Namespace) -> int:
         return 0
 
 
+
+def _bh1750_read_lux(session: PoKeysReadOnlySession, address: int, mode: int = 0x20, delay: float = 0.18) -> Tuple[int, float]:
+    # BH1750 / GY-302:
+    # 0x01 = power on
+    # 0x07 = reset
+    # 0x20 = one-time high resolution mode
+    # wynik = raw / 1.2 lux
+    session.device.PK_I2CWrite(address, [0x01])
+    time.sleep(0.02)
+    session.device.PK_I2CWrite(address, [0x07])
+    time.sleep(0.02)
+    session.device.PK_I2CWrite(address, [mode])
+    time.sleep(max(0.12, float(delay)))
+
+    data = session.device.PK_I2CRead(address, 2)
+    if data is None or len(data) < 2:
+        raise RuntimeError(f"BH1750: brak 2 bajtów z adresu 0x{address:02X}")
+
+    raw = (int(data[0]) << 8) | int(data[1])
+    lux = raw / 1.2
+    return raw, lux
+
+
+def cmd_bh1750_bus_test(args: argparse.Namespace) -> int:
+    board = args.board.upper()
+    if board != "PLAY":
+        raise RuntimeError("Aktualny czujnik światła na BUS testujemy teraz na PLAY / PLAYER")
+
+    lib_path = _find_pokeys_library(args.lib_path)
+    if not lib_path:
+        raise RuntimeError("Nie znaleziono biblioteki PoKeysLib. Ustaw --lib-path albo TARZAN_POKEYS_LIB.")
+
+    address = int(str(args.address), 0)
+
+    print(f"TARZAN BH1750 / GY-302 BUS TEST — {board}")
+    print("To jest test czujnika światła na BUS/I2C przez PoKeysLib.")
+    print("Nie jest to COM/UART i nie jest to odczyt zwykłych pinów PLAY.")
+    print(f"Adres I2C: 0x{address:02X} ({address})")
+    print("")
+
+    with PoKeysReadOnlySession(board, lib_path) as session:
+        print(session.identity_text())
+        print("")
+
+        for i in range(max(1, int(args.repeat))):
+            raw, lux = _bh1750_read_lux(session, address=address, mode=int(str(args.mode), 0), delay=float(args.delay))
+            print(f"{i+1:02d}. raw={raw:5d}  lux={lux:9.2f}")
+            time.sleep(max(0.0, float(args.interval)))
+
+    print("")
+    print("Koniec testu BH1750 / GY-302.")
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     identity, values = _read_values(args)
     reports_dir = _ensure_reports_dir()
@@ -1491,6 +1545,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_bus_scan.add_argument("--wait", type=float, default=1.0, help="Czas oczekiwania na wynik skanu I2C")
     p_bus_scan.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
     p_bus_scan.set_defaults(func=cmd_bus_scan)
+
+
+
+    p_bh1750 = sub.add_parser("bh1750-bus-test", help="Test czujnika światła BH1750/GY-302 na BUS/I2C przez PoKeysLib")
+    p_bh1750.add_argument("--board", choices=["PLAY"], default="PLAY")
+    p_bh1750.add_argument("--address", default="0x5C", help="Adres I2C czujnika, domyślnie 0x5C z bus-scan")
+    p_bh1750.add_argument("--mode", default="0x20", help="Tryb pomiaru BH1750, domyślnie 0x20 one-time high resolution")
+    p_bh1750.add_argument("--delay", type=float, default=0.18, help="Czas pomiaru po komendzie trybu")
+    p_bh1750.add_argument("--repeat", type=int, default=10)
+    p_bh1750.add_argument("--interval", type=float, default=0.25)
+    p_bh1750.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
+    p_bh1750.set_defaults(func=cmd_bh1750_bus_test)
 
 
     p_report = sub.add_parser("report", help="READ ONLY: odczyt i zapis raportu do data/hardware/reports")

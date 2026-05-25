@@ -1,0 +1,300 @@
+===== TARZAN MINIPC SYSTEM REPORT =====
+pon, 25 maj 2026, 10:21:09 CEST
+
+===== HOSTNAME =====
+tarzan
+ Static hostname: tarzan
+       Icon name: computer-desktop
+         Chassis: desktop 🖥️
+      Machine ID: 4553564bcf344e4cb8ebb9e3efe389d2
+         Boot ID: b4fb15bd529e4969a8207df6dd7d5fac
+    Product UUID: 3b903780-4f79-1018-816e-aeb2724778a7
+Operating System: Debian GNU/Linux 13 (trixie)
+          Kernel: Linux 6.12.90+deb13-amd64
+    Architecture: x86-64
+ Hardware Vendor: NP93
+  Hardware Model: NP93
+ Hardware Serial: SSN
+Firmware Version: BAR3AA11
+   Firmware Date: Mon 2021-03-29
+    Firmware Age: 5y 1month 3w 5d
+
+===== KERNEL / OS =====
+Linux tarzan 6.12.90+deb13-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.12.90-1 (2026-05-22) x86_64 GNU/Linux
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+NAME="Debian GNU/Linux"
+VERSION_ID="13"
+VERSION="13 (trixie)"
+VERSION_CODENAME=trixie
+DEBIAN_VERSION_FULL=13.5
+ID=debian
+HOME_URL="https://www.debian.org/"
+SUPPORT_URL="https://www.debian.org/support"
+BUG_REPORT_URL="https://bugs.debian.org/"
+
+===== CPU =====
+Architektura:                        x86_64
+Tryb(y) pracy CPU:                   32-bit, 64-bit
+Rozmiary adresów:                    36 bits physical, 48 bits virtual
+Kolejność bajtów:                    Little Endian
+CPU:                                 4
+Lista aktywnych CPU:                 0-3
+ID producenta:                       GenuineIntel
+Nazwa modelu:                        Intel(R) Celeron(R) CPU  N2930  @ 1.83GHz
+Rodzina CPU:                         6
+Model:                               55
+Wątków na rdzeń:                     1
+Rdzeni na gniazdo:                   4
+Gniazd:                              1
+Wersja:                              8
+Skalowanie MHz CPU:                  60%
+CPU max MHz:                         2165,8000
+CPU min MHz:                         499,8000
+BogoMIPS:                            3666,66
+Flagi:                               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology tsc_reliable nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx est tm2 ssse3 cx16 xtpr pdcm sse4_1 sse4_2 movbe popcnt tsc_deadline_timer rdrand lahf_lm 3dnowprefetch epb pti ibrs ibpb stibp tpr_shadow flexpriority ept vpid tsc_adjust smep erms dtherm ida arat vnmi md_clear
+Wirtualizacja:                       VT-x
+Cache L1d:                           96 KiB (4 instancje)
+Cache L1i:                           128 KiB (4 instancje)
+Cache L2:                            2 MiB (2 instancje)
+Węzłów NUMA:                         1
+Procesory węzła NUMA 0:              0-3
+Podatność Gather data sampling:      Not affected
+Podatność Indirect target selection: Not affected
+Podatność Itlb multihit:             Not affected
+Podatność L1tf:                      Not affected
+Podatność Mds:                       Mitigation; Clear CPU buffers; SMT disabled
+Podatność Meltdown:                  Mitigation; PTI
+Podatność Mmio stale data:           Unknown: No mitigations
+Podatność Reg file data sampling:    Not affected
+Podatność Retbleed:                  Not affected
+Podatność Spec rstack overflow:      Not affected
+Podatność Spec store bypass:         Not affected
+Podatność Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Podatność Spectre v2:                Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected
+Podatność Srbds:                     Not affected
+Podatność Tsa:                       Not affected
+Podatność Tsx async abort:           Not affected
+Podatność Vmscape:                   Not affected
+
+===== RAM =====
+               razem       użyte       wolne    dzielone   buf/cache    dostępne
+Pamięć:        1,8Gi       288Mi       1,5Gi       1,3Mi       146Mi       1,5Gi
+Wymiana:       1,9Gi          0B       1,9Gi
+
+===== DISK =====
+System plików  rozm. użyte dost. %uż. zamont. na
+udev            773M     0  773M   0% /dev
+tmpfs           186M  1,2M  185M   1% /run
+/dev/sda2       115G  7,7G  101G   8% /
+tmpfs           927M     0  927M   0% /dev/shm
+efivarfs        128K   96K   28K  78% /sys/firmware/efi/efivars
+tmpfs           5,0M     0  5,0M   0% /run/lock
+tmpfs           1,0M     0  1,0M   0% /run/credentials/systemd-journald.service
+tmpfs           927M   12K  927M   1% /tmp
+/dev/sda1       975M  8,8M  966M   1% /boot/efi
+tmpfs           1,0M     0  1,0M   0% /run/credentials/getty@tty1.service
+tmpfs           186M   52K  186M   1% /run/user/0
+
+===== BLOCK DEVICES =====
+NAME   MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+sda      8:0    0 119,2G  0 disk 
+├─sda1   8:1    0   976M  0 part /boot/efi
+├─sda2   8:2    0 116,4G  0 part /
+└─sda3   8:3    0   1,9G  0 part [SWAP]
+
+===== NETWORK IP =====
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host noprefixroute 
+       valid_lft forever preferred_lft forever
+2: enp2s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 00:30:18:c5:06:35 brd ff:ff:ff:ff:ff:ff
+    altname enx003018c50635
+    inet 192.168.1.26/24 brd 192.168.1.255 scope global dynamic noprefixroute enp2s0
+       valid_lft 86053sec preferred_lft 75253sec
+    inet6 fe80::9d11:e507:e703:3e70/64 scope link 
+       valid_lft forever preferred_lft forever
+3: wlp3s0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
+    link/ether fa:7c:4e:3a:0a:db brd ff:ff:ff:ff:ff:ff permaddr 44:85:00:01:9d:d9
+    altname wlx448500019dd9
+
+===== NETWORK ROUTES =====
+default via 192.168.1.1 dev enp2s0 proto dhcp src 192.168.1.26 metric 1002 
+192.168.1.0/24 dev enp2s0 proto dhcp scope link src 192.168.1.26 metric 1002 
+
+===== NMCLI DEVICE STATUS =====
+DEVICE  TYPE      STATE                   CONNECTION 
+lo      loopback  connected (externally)  lo         
+wlp3s0  wifi      niedostępne             --         
+enp2s0  ethernet  niezarządzane           --         
+
+===== WIFI RADIO =====
+disabled
+
+===== RFKILL =====
+0: hci0: Bluetooth
+	Soft blocked: no
+	Hard blocked: no
+1: phy0: Wireless LAN
+	Soft blocked: yes
+	Hard blocked: no
+
+===== ENABLED SERVICES =====
+UNIT FILE                          STATE   PRESET
+apparmor.service                   enabled enabled
+console-setup.service              enabled enabled
+cron.service                       enabled enabled
+e2scrub_reap.service               enabled enabled
+getty@.service                     enabled enabled
+grub-common.service                enabled enabled
+keyboard-setup.service             enabled enabled
+networking.service                 enabled enabled
+NetworkManager-dispatcher.service  enabled enabled
+NetworkManager-wait-online.service enabled enabled
+NetworkManager.service             enabled enabled
+smartmontools.service              enabled enabled
+ssh.service                        enabled enabled
+sshd-keygen.service                enabled enabled
+systemd-pstore.service             enabled enabled
+systemd-timesyncd.service          enabled enabled
+wpa_supplicant.service             enabled enabled
+wtmpdb-update-boot.service         enabled enabled
+remote-fs.target                   enabled enabled
+apt-daily-upgrade.timer            enabled enabled
+apt-daily.timer                    enabled enabled
+dpkg-db-backup.timer               enabled enabled
+e2scrub_all.timer                  enabled enabled
+fstrim.timer                       enabled enabled
+fwupd-refresh.timer                enabled enabled
+logrotate.timer                    enabled enabled
+man-db.timer                       enabled enabled
+
+27 unit files listed.
+
+===== FAILED SERVICES =====
+  UNIT LOAD ACTIVE SUB DESCRIPTION
+
+0 loaded units listed.
+
+===== SSH STATUS =====
+● ssh.service - OpenBSD Secure Shell server
+     Loaded: loaded (/usr/lib/systemd/system/ssh.service; enabled; preset: enabled)
+     Active: active (running) since Mon 2026-05-25 10:15:10 CEST; 6min ago
+ Invocation: 640b7d67a50443b795160b5241189c2a
+       Docs: man:sshd(8)
+             man:sshd_config(5)
+   Main PID: 756 (sshd)
+      Tasks: 1 (limit: 1854)
+     Memory: 8M (peak: 26M)
+        CPU: 578ms
+     CGroup: /system.slice/ssh.service
+             └─756 "sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups"
+
+maj 25 10:15:10 tarzan systemd[1]: Starting ssh.service - OpenBSD Secure Shell server...
+maj 25 10:15:10 tarzan sshd[756]: Server listening on 0.0.0.0 port 22.
+maj 25 10:15:10 tarzan sshd[756]: Server listening on :: port 22.
+maj 25 10:15:10 tarzan systemd[1]: Started ssh.service - OpenBSD Secure Shell server.
+maj 25 10:15:31 tarzan unix_chkpwd[798]: password check failed for user (root)
+maj 25 10:15:31 tarzan sshd-session[770]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.168.1.12  user=root
+maj 25 10:15:33 tarzan sshd-session[770]: Failed password for root from 192.168.1.12 port 64276 ssh2
+maj 25 10:15:42 tarzan sshd-session[770]: Accepted password for root from 192.168.1.12 port 64276 ssh2
+maj 25 10:15:42 tarzan sshd-session[770]: pam_unix(sshd:session): session opened for user root(uid=0) by root(uid=0)
+
+===== TSP STATUS =====
+● tarzan-tsp.service - TARZAN TSP Server on tarzanMiniPC
+     Loaded: loaded (/etc/systemd/system/tarzan-tsp.service; disabled; preset: enabled)
+     Active: active (running) since Mon 2026-05-25 10:19:23 CEST; 1min 49s ago
+ Invocation: 50c1127953294c35960060e57fc742fb
+   Main PID: 893 (python)
+      Tasks: 3 (limit: 1854)
+     Memory: 9.7M (peak: 12M)
+        CPU: 32.431s
+     CGroup: /system.slice/tarzan-tsp.service
+             └─893 python -m core.TSP.tarzanTsp server
+
+maj 25 10:21:03 tarzan run_tsp.sh[893]: 2026-05-25 10:21:03,321 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+maj 25 10:21:04 tarzan run_tsp.sh[893]: 2026-05-25 10:21:04,323 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+maj 25 10:21:05 tarzan run_tsp.sh[893]: 2026-05-25 10:21:05,323 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+maj 25 10:21:06 tarzan run_tsp.sh[893]: 2026-05-25 10:21:06,324 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+maj 25 10:21:07 tarzan run_tsp.sh[893]: 2026-05-25 10:21:07,325 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+maj 25 10:21:08 tarzan run_tsp.sh[893]: 2026-05-25 10:21:08,325 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+maj 25 10:21:09 tarzan run_tsp.sh[893]: 2026-05-25 10:21:09,325 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+maj 25 10:21:10 tarzan run_tsp.sh[893]: 2026-05-25 10:21:10,324 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+maj 25 10:21:11 tarzan run_tsp.sh[893]: 2026-05-25 10:21:11,325 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+maj 25 10:21:12 tarzan run_tsp.sh[893]: 2026-05-25 10:21:12,326 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+
+===== TSP PORT 7777 =====
+LISTEN 0      10           0.0.0.0:7777      0.0.0.0:*    users:(("python",pid=893,fd=4))
+
+===== PYTHON =====
+Python 3.13.5
+TSP COMPILE OK
+
+===== TEMPERATURE =====
+sensors not installed
+
+===== LAST BOOT ERRORS =====
+maj 25 10:15:06 tarzan kernel: ACPI BIOS Warning (bug): 32/64X length mismatch in FADT/Gpe0Block: 128/32 (20240827/tbfadt-560)
+maj 25 10:15:07 tarzan kernel: ACPI BIOS Error (bug): Could not resolve symbol [\_SB._OSC.CDW1], AE_NOT_FOUND (20240827/psargs-332)
+maj 25 10:15:07 tarzan kernel: ACPI Error: Aborting method \_SB._OSC due to previous error (AE_NOT_FOUND) (20240827/psparse-529)
+maj 25 10:15:07 tarzan kernel: hpet: number irqs doesn't agree with number of timers
+maj 25 10:15:07 tarzan kernel: ENERGY_PERF_BIAS: Set to 'normal', was 'performance'
+maj 25 10:15:07 tarzan kernel: r8169 0000:02:00.0: can't disable ASPM; OS doesn't have ASPM control
+maj 25 10:15:08 tarzan kernel: mei_txe 0000:00:1a.0: can't derive routing for PCI INT A
+maj 25 10:15:08 tarzan kernel: mei_txe 0000:00:1a.0: PCI INT A: not connected
+maj 25 10:15:08 tarzan kernel: at24 0-0050: supply vcc not found, using dummy regulator
+maj 25 10:15:09 tarzan (smartd)[641]: smartmontools.service: Referenced but unset environment variable evaluates to an empty string: smartd_opts
+maj 25 10:15:09 tarzan kernel: iwlwifi 0000:03:00.0: can't disable ASPM; OS doesn't have ASPM control
+maj 25 10:15:26 tarzan dhcpcd[655]: enp2s0: no IPv6 Routers available
+maj 25 10:15:43 tarzan systemd[807]: Dependency failed for filter-chain.service - PipeWire filter chain daemon.
+maj 25 10:15:43 tarzan systemd[807]: Dependency failed for wireplumber.service - Multimedia Service Session Manager.
+maj 25 10:15:43 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:15:53 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:16:03 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:16:13 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:16:24 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:16:34 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:16:44 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:16:54 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:17:05 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:17:15 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:17:25 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:17:35 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:17:46 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:17:56 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:18:06 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:18:16 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:18:27 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:18:37 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:18:47 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:18:57 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:19:08 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:19:18 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:19:28 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:19:38 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:19:49 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:19:59 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:20:09 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:20:19 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:20:30 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:20:40 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:20:50 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:21:00 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+maj 25 10:21:11 tarzan systemd[807]: drkonqi-coredump-launcher.socket: Unit needs to be started because active unit sockets.target upholds it, but not starting since we tried this too often recently. Will retry later.
+
+===== IWLWIFI LAST LOG =====
+[   11.587018] iwlwifi 0000:03:00.0: enabling device (0000 -> 0002)
+[   11.587198] iwlwifi 0000:03:00.0: can't disable ASPM; OS doesn't have ASPM control
+[   11.627819] iwlwifi 0000:03:00.0: Detected crf-id 0xa5a5a5a1, cnv-id 0xa5a5a5a1 wfpm id 0xa5a5a5a1
+[   11.627846] iwlwifi 0000:03:00.0: PCI dev 088e/4060, rev=0xb0, rfid=0xd55555d5
+[   11.627856] iwlwifi 0000:03:00.0: Detected Intel(R) Centrino(R) Advanced-N 6235 AGN
+[   11.653399] iwlwifi 0000:03:00.0: loaded firmware version 18.168.6.1 6000g2b-6.ucode op_mode iwldvm
+[   12.274436] iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_DEBUG disabled
+[   12.274449] iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_DEBUGFS disabled
+[   12.274453] iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_DEVICE_TRACING enabled
+[   12.274457] iwlwifi 0000:03:00.0: Detected Intel(R) Centrino(R) Advanced-N 6235 AGN, REV=0xB0
+[   12.337335] iwlwifi 0000:03:00.0 wlp3s0: renamed from wlan0
+
+===== END REPORT =====

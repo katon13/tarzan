@@ -53,10 +53,12 @@ from .tarzanTspProtocol import (
     health_packet,
     hello_response,
     monotonic_ms,
+    now_ms,
     ok_response,
     snajper_packet,
 )
 from .tarzanTspSignals import TarzanTspSignalProvider
+from .tarzanTspLks import TarzanTspLks
 
 
 @dataclass
@@ -103,6 +105,7 @@ class TarzanTspClientSession:
                 self.sock.sendall(raw)
             self.last_tx_ms = monotonic_ms()
             self.server.debug.record_tx(message, len(raw))
+            self.server.mark_lks_for_message(message, direction="tx")
             return True
         except OSError as exc:
             self.server.debug.record_error("send_failed", {"client": self.name, "error": str(exc)})
@@ -140,13 +143,16 @@ class TarzanTspClientSession:
                     self.server.debug.record_rx({"raw": line.decode("utf-8", errors="replace")}, len(line) + 1)
                     try:
                         message = decode_jsonl_line(line)
-                        self.server.debug.rx.append({"ts": monotonic_ms(), "client": self.name, "message": message})
+                        self.server.debug.rx.append({"ts": now_ms(), "client": self.name, "message": message})
+                        self.server.mark_lks_dirty("rx")
                         response = self.server.handle_message(self, message)
                     except TspProtocolError as exc:
                         self.server.debug.record_error("protocol_error", {"client": self.name, "error": str(exc)})
+                        self.server.mark_lks_dirty("error")
                         response = error_response("unknown", "protocol_error", detail=str(exc))
                     except Exception as exc:  # bezpieczeństwo serwera
                         self.server.debug.record_error("handler_error", {"client": self.name, "error": str(exc)})
+                        self.server.mark_lks_dirty("error")
                         response = error_response("unknown", "handler_error", detail=str(exc))
                     if response is not None:
                         self.send(response)
@@ -156,6 +162,7 @@ class TarzanTspClientSession:
                 break
             except Exception as exc:
                 self.server.debug.record_error("rx_loop_error", {"client": self.name, "error": str(exc)})
+                self.server.mark_lks_dirty("error")
                 break
 
         self.active = False
@@ -169,6 +176,8 @@ class TarzanTspServer:
         port: int = TSP_PORT,
         node_name: str = "tarzanMiniPC",
         provider: Optional[TarzanTspSignalProvider] = None,
+        enable_lks: bool = True,
+        lks_tty: str = "/dev/tty1",
     ) -> None:
         self.host = host
         self.port = port
@@ -184,6 +193,27 @@ class TarzanTspServer:
         self._accept_thread: Optional[threading.Thread] = None
         self._lane_thread: Optional[threading.Thread] = None
         self._last_stats_ms = monotonic_ms()
+        self.lks = TarzanTspLks(self, tty_path=lks_tty, enabled=enable_lks)
+
+    # ------------------------------------------------------------------
+    # LKS — LAMPKA KONTROLNA SYSTEMU
+    # ------------------------------------------------------------------
+
+    def mark_lks_dirty(self, reason: str = "event") -> None:
+        if self.lks:
+            self.lks.mark_dirty(reason)
+
+    def mark_lks_for_message(self, message: Dict[str, Any], direction: str = "tx") -> None:
+        lane = str(message.get("lane") or "").lower()
+        event = str(message.get("event") or "").lower()
+        cmd = str(message.get("cmd") or "").lower()
+
+        # FAST nie wymusza natychmiastowego rysowania. LKS pokaże go w rytmie 1 s.
+        if lane == LANE_FAST and event == "snajper_packet":
+            return
+
+        if lane in {LANE_URGENT, LANE_HEALTH} or event in {"urgent", "health"} or cmd:
+            self.mark_lks_dirty(f"{direction}:{lane or event or cmd}")
 
     # ------------------------------------------------------------------
     # START / STOP
@@ -199,6 +229,7 @@ class TarzanTspServer:
         self._sock.listen(10)
         self._sock.settimeout(0.5)
         self.logger.info("TSP SERVER START host=%s port=%s node=%s", self.host, self.port, self.node_name)
+        self.lks.start()
         self._accept_thread = threading.Thread(target=self._accept_loop, name="TSP-ACCEPT", daemon=True)
         self._lane_thread = threading.Thread(target=self._lane_loop, name="TSP-LANES", daemon=True)
         self._accept_thread.start()
@@ -227,6 +258,7 @@ class TarzanTspServer:
             self._clients.clear()
         for client in clients:
             client.close()
+        self.lks.stop()
         self.logger.info("TSP SERVER STOPPED")
 
     # ------------------------------------------------------------------
@@ -245,6 +277,7 @@ class TarzanTspServer:
                     session = TarzanTspClientSession(client_id, sock, address, self)
                     self._clients[client_id] = session
                 self.logger.info("CONNECT %s", session.name)
+                self.mark_lks_dirty("connect")
                 session.start()
                 session.send(hello_response(self.node_name, "server", self.provider.signal_count()))
             except socket.timeout:
@@ -261,6 +294,7 @@ class TarzanTspServer:
             self._clients.pop(client.client_id, None)
         client.close()
         self.logger.info("DISCONNECT %s", client.name)
+        self.mark_lks_dirty("disconnect")
 
     def clients(self) -> list[TarzanTspClientSession]:
         with self._clients_lock:
@@ -451,9 +485,12 @@ def main() -> None:
     parser.add_argument("--host", default=TSP_BIND_HOST)
     parser.add_argument("--port", type=int, default=TSP_PORT)
     parser.add_argument("--node", default="tarzanMiniPC")
+    parser.add_argument("--lks", dest="lks", action="store_true", default=True, help="Włącz LKS na lokalnym TTY")
+    parser.add_argument("--no-lks", dest="lks", action="store_false", help="Wyłącz LKS")
+    parser.add_argument("--lks-tty", default="/dev/tty1", help="Ścieżka TTY dla LKS, np. /dev/tty1 albo -")
     args = parser.parse_args()
 
-    server = TarzanTspServer(host=args.host, port=args.port, node_name=args.node)
+    server = TarzanTspServer(host=args.host, port=args.port, node_name=args.node, enable_lks=args.lks, lks_tty=args.lks_tty)
     server.serve_forever()
 
 

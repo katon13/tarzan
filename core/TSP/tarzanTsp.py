@@ -24,6 +24,9 @@ def main() -> None:
     p_server.add_argument("--host", default=TSP_BIND_HOST)
     p_server.add_argument("--port", type=int, default=TSP_PORT)
     p_server.add_argument("--node", default="tarzanMiniPC")
+    p_server.add_argument("--lks", dest="lks", action="store_true", default=True, help="Włącz LKS na lokalnym TTY")
+    p_server.add_argument("--no-lks", dest="lks", action="store_false", help="Wyłącz LKS")
+    p_server.add_argument("--lks-tty", default="/dev/tty1", help="Ścieżka TTY dla LKS, np. /dev/tty1 albo -")
 
     p_client = sub.add_parser("client", help="Uruchom TSP Client")
     p_client.add_argument("--host", default=TSP_MINI_PC_HOST)
@@ -34,7 +37,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.mode == "server":
-        server = TarzanTspServer(host=args.host, port=args.port, node_name=args.node)
+        server = TarzanTspServer(host=args.host, port=args.port, node_name=args.node, enable_lks=args.lks, lks_tty=args.lks_tty)
         server.serve_forever()
     elif args.mode == "client":
         if args.smoke:

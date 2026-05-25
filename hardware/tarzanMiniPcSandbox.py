@@ -8,6 +8,8 @@ Rola:
 - źródłem prawdy jest core/tarzanZmienneSygnalowe.py,
 - nie ma ręcznej mapy pinów,
 - domyślnie działa READ ONLY,
+- v2: rozdziela w komunikatach seriale oczekiwane z mapy od wykrytych przez USB,
+- v2: odczyt analogowy pokazuje tylko dla sygnałów typu ANALOG z mapy TARZANA,
 - wyjścia są możliwe wyłącznie w trybie ręcznym z potwierdzeniem,
 - nie generuje ruchu osi, nie uruchamia Pulse Engine Move, nie wykonuje homingu.
 
@@ -367,7 +369,10 @@ class PoKeysReadOnlySession:
             pin_data = self.device.device.contents.Pins[pin_index]
             result.pin_function = int(pin_data.PinFunction)
             result.digital_value = int(pin_data.DigitalValueGet)
-            if sig.typ == "ANALOG" or sig.hardware_function == HW_ANALOG:
+            # Analog pokazujemy tylko wtedy, gdy typ sygnału TARZANA jest ANALOG.
+            # Nie wystarczy hardware_function == HW_ANALOG, bo część pinów analog-capable
+            # może być świadomie użyta jako LH/IN w mapie TARZANA.
+            if (sig.typ or "").upper() == "ANALOG":
                 raw = int(pin_data.AnalogValue)
                 result.analog_raw = raw
                 result.analog_v = round(3.3 * raw / 4096.0, 4)
@@ -429,8 +434,10 @@ def cmd_scan(args: argparse.Namespace) -> int:
     lib_path = _find_pokeys_library(args.lib_path)
     print("TARZAN Mini PC Sandbox — SCAN")
     print(f"repo={REPO_ROOT}")
-    print(f"PLAY serial={POKEYS57U_PLAY_DEVICE_SERIAL}")
-    print(f"REC  serial={POKEYS57U_REC_DEVICE_SERIAL}")
+    print("OCZEKIWANE Z MAPY TARZANA:")
+    print(f"  PLAY serial={POKEYS57U_PLAY_DEVICE_SERIAL}")
+    print(f"  REC  serial={POKEYS57U_REC_DEVICE_SERIAL}")
+    print("WYKRYTE NA USB / PoKeysLib:")
 
     if not lib_path:
         print("[!] Nie znaleziono biblioteki PoKeysLib. Na Debianie dołóż libPoKeys.so.")

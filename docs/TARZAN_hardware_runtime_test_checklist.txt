@@ -34,21 +34,21 @@
 # 1. BIBLIOTEKA / DOSTĘP DO POKEYS
 ################################################################################
 
-[ ] ---- | miniPC | USB | lsusb | wykrycie PoKeys | ---- | 
-[ ] ---- | miniPC | USB | /dev/serial/by-id | mapowanie urządzeń | ---- | 
-[ ] ---- | PoKeysLib | Linux | libPoKeys.so | ładowanie biblioteki | ---- | 
-[ ] ---- | PoKeysLib | Windows | PoKeyslib.dll | test lokalny na stacji | ---- | 
+[X] ---- | miniPC | USB | lsusb | wykrycie PoKeys | ---- | 
+[X] ---- | miniPC | USB | /dev/serial/by-id | mapowanie urządzeń | ---- | 
+[X] ---- | PoKeysLib | Linux | libPoKeys.so | ładowanie biblioteki | ---- | 
+[X] ---- | PoKeysLib | Windows | PoKeyslib.dll | test lokalny na stacji | ---- | 
 
 
 ################################################################################
 # 2. POKEYS PLAY — SERIAL 34238
 ################################################################################
 
-[ ] ---- | PLAY | DEVICE | serial 34238 | wykrycie urządzenia | ---- |
-[ ] ---- | PLAY | DEVICE | DeviceData | odczyt nazwy/firmware/build | ---- |
-[ ] ---- | PLAY | DEVICE | PinConfigurationGet | odczyt konfiguracji pinów | ---- |
-[ ] ---- | PLAY | DEVICE | DigitalIOGet | odczyt wejść/wyjść | ---- |
-[ ] ---- | PLAY | DEVICE | AnalogIOGet | odczyt analogów | ---- |
+[X] ---- | PLAY | DEVICE | serial 34238 | wykrycie urządzenia | ---- |
+[X] ---- | PLAY | DEVICE | DeviceData | odczyt nazwy/firmware/build | ---- |
+[X] ---- | PLAY | DEVICE | PinConfigurationGet | odczyt konfiguracji pinów | ---- |
+[X] ---- | PLAY | DEVICE | DigitalIOGet | odczyt wejść/wyjść | ---- |
+[X] ---- | PLAY | DEVICE | AnalogIOGet | odczyt analogów | ---- |
 
 
 # PLAY / KRAŃCÓWKI — READ ONLY
@@ -104,10 +104,10 @@
 
 # PLAY / LCD / MATRIX / I2C / PoExtBus — OSOBNE TESTY URZĄDZEŃ
 
-[ ] ---- | PLAY | P24-P27 | play_p24_kb4..play_p27_kb1 | test klawiatury matrix | ---- |
-[ ] ---- | PLAY | P28-P34 | LCD PLAY | test LCD 1602 | ---- |
-[ ] ---- | PLAY | P35-P36 | I2C / sensor_light_lux | test I2C / BH1750 | ---- |
-[ ] ---- | PLAY | P37 | PoExtBus latch / step disconnect manual | diagnostyka | ---- |
+[X] ---- | PLAY | P24-P27 | play_p24_kb4..play_p27_kb1 | test klawiatury matrix | ---- |
+[X] ---- | PLAY | P28-P34 | LCD PLAY | test LCD 1602 | ---- |
+[X] ---- | PLAY | P35-P36 | I2C / sensor_light_lux | test I2C / BH1750 | ---- |
+[X] ---- | PLAY | P37 | PoExtBus latch / step disconnect manual | diagnostyka | ---- |
 [-] ---- | PLAY | P54 | play_p54_reset_do_not_use | NIE TESTOWAĆ | POMINIĘTE | pin systemowy RST
 
 
@@ -168,21 +168,21 @@
 
 # REC / UI F1-F4 — READ ONLY / WYJŚCIA DO POTWIERDZENIA
 
-[ ] ---- | REC | P45 | rec_p45_sw_f1 / ui_f1_sw | odczyt przycisku F1 | ---- |
-[ ] ---- | REC | P47 | rec_p47_sw_f2 / ui_f2_sw | odczyt przycisku F2 | ---- |
-[ ] ---- | REC | P49 | rec_p49_sw_f3 / ui_f3_sw | odczyt przycisku F3 | ---- |
-[ ] ---- | REC | P51 | rec_p51_sw_f4 / ui_f4_sw | odczyt przycisku F4 | ---- |
-[ ] ---- | REC | P46 | rec_p46_led_f1 / ui_f1_led | test LED F1 | ---- | WYMAGA POTWIERDZENIA
-[ ] ---- | REC | P48 | rec_p48_led_f2 / ui_f2_led | test LED F2 | ---- | WYMAGA POTWIERDZENIA
-[ ] ---- | REC | P50 | rec_p50_led_f3 / ui_f3_led | test LED F3 | ---- | WYMAGA POTWIERDZENIA
-[ ] ---- | REC | P52 | rec_p52_led_f4 / ui_f4_led | test LED F4 | ---- | WYMAGA POTWIERDZENIA
+[X] ---- | REC | P45 | rec_p45_sw_f1 / ui_f1_sw | odczyt przycisku F1 | ---- |
+[X] ---- | REC | P47 | rec_p47_sw_f2 / ui_f2_sw | odczyt przycisku F2 | ---- |
+[X] ---- | REC | P49 | rec_p49_sw_f3 / ui_f3_sw | odczyt przycisku F3 | ---- |
+[X] ---- | REC | P51 | rec_p51_sw_f4 / ui_f4_sw | odczyt przycisku F4 | ---- |
+[X] ---- | REC | P46 | rec_p46_led_f1 / ui_f1_led | test LED F1 | ---- | WYMAGA POTWIERDZENIA
+[X] ---- | REC | P48 | rec_p48_led_f2 / ui_f2_led | test LED F2 | ---- | WYMAGA POTWIERDZENIA
+[X] ---- | REC | P50 | rec_p50_led_f3 / ui_f3_led | test LED F3 | ---- | WYMAGA POTWIERDZENIA
+[X] ---- | REC | P52 | rec_p52_led_f4 / ui_f4_led | test LED F4 | ---- | WYMAGA POTWIERDZENIA
 
 
 # REC / MATRIX LED / LCD / POEXTBUS
 
-[ ] ---- | REC | P09-P11 | Matrix LED REC | test Matrix LED 8x8 | ---- |
+[X] ---- | REC | P09-P11 | Matrix LED REC | test Matrix LED 8x8 | ---- |
 [ ] ---- | REC | P14/P23/P25/P26 | PoExtBus CNC | diagnostyka PoExtBus | ---- |
-[ ] ---- | REC | P28-P34 | LCD REC | test LCD 1602 | ---- |
+[X] ---- | REC | P28-P34 | LCD REC | test LCD 1602 | ---- |
 [ ] ---- | REC | P36 | rec_p36_mass_reg_enable | test wyjścia regulator masy | ---- | WYMAGA POTWIERDZENIA
 [ ] ---- | REC | P38 | rec_p38_auto_enable / ui_rec_auto_enable | test auto enable | ---- | WYMAGA POTWIERDZENIA
 
@@ -191,20 +191,20 @@
 # 4. CNC / PoStep / STEP-DIR — TYLKO DIAGNOSTYKA, BEZ RUCHU
 ################################################################################
 
-[-] ---- | CNC | X / ID1 | cnc_x_cam_h_ctr / axis_cam_h_step | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | X / ID1 | cnc_x_cam_h_dir / axis_cam_h_dir | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | Y / ID2 | cnc_y_cam_v_ctr / axis_cam_v_step | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | Y / ID2 | cnc_y_cam_v_dir / axis_cam_v_dir | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | Z / ID3 | cnc_z_focus_ctr / axis_cam_f_step | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | Z / ID3 | cnc_z_focus_dir / axis_cam_f_dir | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | A / ID4 | cnc_a_arm_tilt_ctr / axis_arm_t_auto_step | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | A / ID4 | cnc_a_arm_tilt_dir / axis_arm_t_auto_dir | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | B / ID5 | cnc_b_arm_h_ctr / axis_arm_h_auto_step | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | B / ID5 | cnc_b_arm_h_dir / axis_arm_h_auto_dir | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | C / ID6 | cnc_c_arm_v_ctr / axis_arm_v_auto_step | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | C / ID6 | cnc_c_arm_v_dir / axis_arm_v_auto_dir | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | D | cnc_d_cart_ctr / axis_dron_step | ruch zabroniony | POMINIĘTE |
-[-] ---- | CNC | D | cnc_d_cart_dir / axis_dron_dir | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | X / ID1 | cnc_x_cam_h_ctr / axis_cam_h_step | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | X / ID1 | cnc_x_cam_h_dir / axis_cam_h_dir | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | Y / ID2 | cnc_y_cam_v_ctr / axis_cam_v_step | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | Y / ID2 | cnc_y_cam_v_dir / axis_cam_v_dir | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | Z / ID3 | cnc_z_focus_ctr / axis_cam_f_step | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | Z / ID3 | cnc_z_focus_dir / axis_cam_f_dir | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | A / ID4 | cnc_a_arm_tilt_ctr / axis_arm_t_auto_step | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | A / ID4 | cnc_a_arm_tilt_dir / axis_arm_t_auto_dir | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | B / ID5 | cnc_b_arm_h_ctr / axis_arm_h_auto_step | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | B / ID5 | cnc_b_arm_h_dir / axis_arm_h_auto_dir | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | C / ID6 | cnc_c_arm_v_ctr / axis_arm_v_auto_step | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | C / ID6 | cnc_c_arm_v_dir / axis_arm_v_auto_dir | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | D | cnc_d_cart_ctr / axis_dron_step | ruch zabroniony | POMINIĘTE |
+[X] ---- | CNC | D | cnc_d_cart_dir / axis_dron_dir | ruch zabroniony | POMINIĘTE |
 
 
 ################################################################################

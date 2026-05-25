@@ -1117,6 +1117,95 @@ def cmd_led_test(args: argparse.Namespace) -> int:
     return 0
 
 
+
+_KEYBOARD_TESTS_PLAY = [
+    ("KB1", 27, "play_p27_kb1"),
+    ("KB2", 26, "play_p26_kb2"),
+    ("KB3", 25, "play_p25_kb3"),
+    ("KB4", 24, "play_p24_kb4"),
+]
+
+
+def cmd_keyboard_test(args: argparse.Namespace) -> int:
+    board = args.board.upper()
+    if board != "PLAY":
+        raise RuntimeError("Klawiatura KB1-KB4 jest w aktualnej mapie TARZANA tylko na PLAY / PLAYER")
+
+    lib_path = _find_pokeys_library(args.lib_path)
+    if not lib_path:
+        raise RuntimeError("Nie znaleziono biblioteki PoKeysLib. Ustaw --lib-path albo TARZAN_POKEYS_LIB.")
+
+    selected = [x.strip().upper() for x in (args.keys or "KB1,KB2,KB3,KB4").split(",") if x.strip()]
+    wanted = [item for item in _KEYBOARD_TESTS_PLAY if item[0] in selected]
+    if not wanted:
+        raise RuntimeError("Brak klawiszy do testu. Użyj np. --keys KB1,KB2,KB3,KB4")
+
+    rows_all = list(_iter_rows(board))
+    print("TARZAN PLAY / PLAYER — test klawiatury KB1-KB4")
+    print("Tryb: skrypt czeka na naciśnięcie i sam potwierdza: 'nacisnąłeś KB1 — działa'.")
+    print("Ctrl+C kończy test.")
+    print("")
+
+    with PoKeysReadOnlySession(board, lib_path) as session:
+        print(session.identity_text())
+        print("")
+
+        for label, pin, expected_signal in wanted:
+            row = _find_row_by_pin(rows_all, pin)
+            if row is None:
+                print(f"[!] {label}: brak pinu P{pin} w mapie PLAY — pomijam.")
+                continue
+
+            print(f"Naciśnij {label}  ({row.signal.nazwa}, PLAY P{pin}) ...", flush=True)
+
+            session.refresh()
+            base_value = session.read_signal(row).digital_value
+            if base_value is None:
+                print(f"[!] {label}: brak odczytu digital — pomijam.")
+                continue
+
+            pressed_value = None
+            started = time.time()
+
+            while True:
+                session.refresh()
+                value = session.read_signal(row).digital_value
+                if value != base_value:
+                    pressed_value = value
+                    print(f"[x] Nacisnąłeś {label} — działa  ({base_value} -> {pressed_value})", flush=True)
+                    break
+
+                if args.timeout > 0 and (time.time() - started) > args.timeout:
+                    print(f"[!] {label}: timeout — nie wykryto naciśnięcia w {args.timeout}s", flush=True)
+                    break
+
+                time.sleep(max(0.03, float(args.interval)))
+
+            if pressed_value is None:
+                continue
+
+            if args.wait_release:
+                print(f"Puść {label} ...", flush=True)
+                release_started = time.time()
+                while True:
+                    session.refresh()
+                    value = session.read_signal(row).digital_value
+                    if value == base_value:
+                        print(f"[x] {label} puszczony — OK", flush=True)
+                        break
+
+                    if args.timeout > 0 and (time.time() - release_started) > args.timeout:
+                        print(f"[!] {label}: nie wykryto puszczenia w {args.timeout}s", flush=True)
+                        break
+
+                    time.sleep(max(0.03, float(args.interval)))
+
+            print("")
+
+    print("Koniec testu klawiatury.")
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     identity, values = _read_values(args)
     reports_dir = _ensure_reports_dir()
@@ -1198,6 +1287,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_led.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
     p_led.add_argument("--confirm", default="")
     p_led.set_defaults(func=cmd_led_test)
+
+
+
+    p_keyboard = sub.add_parser("keyboard-test", help="Prowadzony test klawiatury KB1-KB4 na PLAY / PLAYER")
+    p_keyboard.add_argument("--board", choices=["PLAY"], default="PLAY")
+    p_keyboard.add_argument("--keys", default="KB1,KB2,KB3,KB4", help="Lista klawiszy, np. KB1,KB2,KB3,KB4")
+    p_keyboard.add_argument("--interval", type=float, default=0.12)
+    p_keyboard.add_argument("--timeout", type=float, default=30.0)
+    p_keyboard.add_argument("--no-wait-release", dest="wait_release", action="store_false")
+    p_keyboard.set_defaults(wait_release=True)
+    p_keyboard.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
+    p_keyboard.set_defaults(func=cmd_keyboard_test)
 
 
     p_report = sub.add_parser("report", help="READ ONLY: odczyt i zapis raportu do data/hardware/reports")

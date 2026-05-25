@@ -1011,6 +1011,112 @@ def cmd_buttons_test(args: argparse.Namespace) -> int:
     return 0
 
 
+
+_LED_TESTS_REC = {
+    "F1": ("rec_p46_led_f1", "ui_f1_led", 46),
+    "F2": ("rec_p48_led_f2", "ui_f2_led", 48),
+    "F3": ("rec_p50_led_f3", "ui_f3_led", 50),
+    "F4": ("rec_p52_led_f4", "ui_f4_led", 52),
+}
+
+
+def _find_led_row(board: str, led: str) -> SandboxSignalRow:
+    board = board.upper()
+    led = led.upper()
+    if board != "REC":
+        raise RuntimeError("LED F1-F4 są w aktualnej mapie TARZANA tylko na REC / RECK")
+    if led not in _LED_TESTS_REC:
+        raise RuntimeError("Nieznany LED. Użyj F1, F2, F3 albo F4.")
+
+    signal_name, canonical_name, pin = _LED_TESTS_REC[led]
+    rows = list(_iter_rows(board))
+    for row in rows:
+        sig = row.signal
+        if sig.pin == pin and (sig.nazwa == signal_name or sig.kanoniczna_nazwa == canonical_name):
+            return row
+
+    raise RuntimeError(f"Nie znaleziono LED {led} w mapie REC jako {signal_name} / {canonical_name} na P{pin}")
+
+
+def _set_led_pin_runtime(session: PoKeysReadOnlySession, pin: int, value: int) -> None:
+    # LED test jest ręczny i chwilowy. Nie zapisujemy konfiguracji do flash.
+    # Dla pinów LED ustawiamy tylko runtime PinFunction=digitalOutput i DigitalValueSet.
+    _, ePK_PinCap = _import_pokeys()
+    pin_index = pin - 1
+    pin_data = session.device.device.contents.Pins[pin_index]
+
+    try:
+        pin_data.PinFunction = int(ePK_PinCap.PK_PinCap_digitalOutput)
+        pin_data.DigitalValueSet = 1 if value else 0
+        rc = session.device.PK_PinConfigurationSet()
+        if rc != 0:
+            raise RuntimeError(f"PK_PinConfigurationSet zwróciło {rc}")
+    except Exception as exc:
+        raise RuntimeError(f"Nie udało się ustawić P{pin} jako digital output runtime: {exc}") from exc
+
+    rc = session.device.PK_DigitalIOSetSingle(pin_index, 1 if value else 0)
+    if rc != 0:
+        raise RuntimeError(f"PK_DigitalIOSetSingle(P{pin}, {value}) zwróciło {rc}")
+
+    session.device.PK_DigitalIOGet()
+
+
+def cmd_led_test(args: argparse.Namespace) -> int:
+    if args.confirm != "YES_TARZAN_LED_TEST":
+        raise RuntimeError("Brak potwierdzenia. Użyj: --confirm YES_TARZAN_LED_TEST")
+
+    board = args.board.upper()
+    if board != "REC":
+        raise RuntimeError("LED F1-F4 są w aktualnej mapie TARZANA tylko na REC / RECK")
+
+    lib_path = _find_pokeys_library(args.lib_path)
+    if not lib_path:
+        raise RuntimeError("Nie znaleziono biblioteki PoKeysLib. Ustaw --lib-path albo TARZAN_POKEYS_LIB.")
+
+    leds = [x.strip().upper() for x in (args.led or "F1,F2,F3,F4").split(",") if x.strip()]
+    if not leds:
+        leds = ["F1", "F2", "F3", "F4"]
+
+    rows = [(led, _find_led_row(board, led)) for led in leds]
+
+    print("TARZAN REC / RECK — test LED F1-F4")
+    print("Tryb: ręczny, tylko whitelist ui_f1_led..ui_f4_led.")
+    print("Nie uruchamiam Pulse Engine, STEP, DIR ani ruchu osi.")
+    print("Nie zapisuję konfiguracji PoKeys do flash.")
+    print("")
+
+    on_time = max(0.05, float(args.on_time))
+    off_time = max(0.05, float(args.off_time))
+    repeat = max(1, int(args.repeat))
+
+    with PoKeysReadOnlySession(board, lib_path) as session:
+        print(session.identity_text())
+        print("")
+
+        # Zgaś wszystkie znane LED na starcie testu.
+        for _, row in rows:
+            _set_led_pin_runtime(session, int(row.signal.pin), 0)
+        time.sleep(off_time)
+
+        for _ in range(repeat):
+            for led, row in rows:
+                pin = int(row.signal.pin)
+                print(f"[TEST] {led} ON  ({row.signal.nazwa}, REC P{pin})", flush=True)
+                _set_led_pin_runtime(session, pin, 1)
+                time.sleep(on_time)
+
+                print(f"[TEST] {led} OFF ({row.signal.nazwa}, REC P{pin})", flush=True)
+                _set_led_pin_runtime(session, pin, 0)
+                time.sleep(off_time)
+
+        if args.leave_off:
+            for _, row in rows:
+                _set_led_pin_runtime(session, int(row.signal.pin), 0)
+
+    print("OK: test LED zakończony.")
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     identity, values = _read_values(args)
     reports_dir = _ensure_reports_dir()
@@ -1079,6 +1185,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_buttons.set_defaults(wait_release=True)
     p_buttons.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
     p_buttons.set_defaults(func=cmd_buttons_test)
+
+
+
+    p_led = sub.add_parser("led-test", help="Ręczny test LED F1-F4 na REC / RECK")
+    p_led.add_argument("--board", choices=["REC"], default="REC")
+    p_led.add_argument("--led", default="F1,F2,F3,F4", help="F1,F2,F3,F4 albo pojedynczy LED, np. F1")
+    p_led.add_argument("--on-time", type=float, default=0.7)
+    p_led.add_argument("--off-time", type=float, default=0.25)
+    p_led.add_argument("--repeat", type=int, default=1)
+    p_led.add_argument("--leave-off", action="store_true", default=True)
+    p_led.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
+    p_led.add_argument("--confirm", default="")
+    p_led.set_defaults(func=cmd_led_test)
 
 
     p_report = sub.add_parser("report", help="READ ONLY: odczyt i zapis raportu do data/hardware/reports")

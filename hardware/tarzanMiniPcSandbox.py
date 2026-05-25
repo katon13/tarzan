@@ -1206,6 +1206,125 @@ def cmd_keyboard_test(args: argparse.Namespace) -> int:
     return 0
 
 
+
+_KEYPAD_4X3_SEQUENCE = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"]
+
+
+def _matrix_kb_values(session: PoKeysReadOnlySession) -> List[int]:
+    rc = session.device.PK_MatrixKBStatusGet()
+    if rc != 0:
+        raise RuntimeError(f"PK_MatrixKBStatusGet zwróciło {rc}")
+    kb = session.device.device.contents.matrixKB
+    return [int(kb.matrixKBvalues[i]) for i in range(128)]
+
+
+def _matrix_kb_config_text(session: PoKeysReadOnlySession) -> str:
+    try:
+        rc = session.device.PK_MatrixKBConfigurationGet()
+    except Exception as exc:
+        return f"[!] PK_MatrixKBConfigurationGet exception: {exc}"
+    if rc != 0:
+        return f"[!] PK_MatrixKBConfigurationGet zwróciło {rc}"
+
+    kb = session.device.device.contents.matrixKB
+    width = int(kb.matrixKBwidth)
+    height = int(kb.matrixKBheight)
+    enabled = int(kb.matrixKBconfiguration)
+    dec = int(kb.matrixKBScanningDecimation)
+    rows = [int(kb.matrixKBrowsPins[i]) for i in range(min(16, max(0, height or 4)))]
+    cols = [int(kb.matrixKBcolumnsPins[i]) for i in range(min(8, max(0, width or 3)))]
+    return (
+        f"MatrixKB enabled={enabled} width={width} height={height} decimation={dec} "
+        f"rowsPins={rows} columnsPins={cols}"
+    )
+
+
+def _first_matrix_change(base: Sequence[int], current: Sequence[int]) -> Optional[Tuple[int, int, int]]:
+    for idx, (a, b) in enumerate(zip(base, current)):
+        if int(a) != int(b):
+            return idx, int(a), int(b)
+    return None
+
+
+def cmd_keypad_map(args: argparse.Namespace) -> int:
+    board = args.board.upper()
+    if board != "PLAY":
+        raise RuntimeError("Klawiatura 4x3 jest w aktualnej mapie TARZANA na PLAY / PLAYER")
+
+    lib_path = _find_pokeys_library(args.lib_path)
+    if not lib_path:
+        raise RuntimeError("Nie znaleziono biblioteki PoKeysLib. Ustaw --lib-path albo TARZAN_POKEYS_LIB.")
+
+    sequence = [x.strip() for x in (args.sequence or ",".join(_KEYPAD_4X3_SEQUENCE)).split(",") if x.strip()]
+    if not sequence:
+        sequence = list(_KEYPAD_4X3_SEQUENCE)
+
+    print("TARZAN PLAY / PLAYER — mapowanie klawiatury matrix 4x3")
+    print("To nie jest test KB1-KB4. Ten test prosi o naciśnięcie realnych klawiszy: 1 2 3 ... * 0 #.")
+    print("Skrypt czyta PoKeys Matrix Keyboard status i zapamiętuje wykryty indeks/wiersz/kolumnę.")
+    print("Ctrl+C kończy test.")
+    print("")
+
+    results: List[Tuple[str, int, int, int, int, int]] = []
+
+    with PoKeysReadOnlySession(board, lib_path) as session:
+        print(session.identity_text())
+        print(_matrix_kb_config_text(session))
+        print("")
+
+        for label in sequence:
+            print(f"Naciśnij klawisz [{label}] ...", flush=True)
+            base = _matrix_kb_values(session)
+            started = time.time()
+            detected: Optional[Tuple[int, int, int]] = None
+
+            while True:
+                current = _matrix_kb_values(session)
+                detected = _first_matrix_change(base, current)
+                if detected is not None:
+                    idx, old, new = detected
+                    row = idx // 8
+                    col = idx % 8
+                    print(f"[x] Klawisz [{label}] wykryty: index={idx}, row={row}, col={col}, {old}->{new}", flush=True)
+                    results.append((label, idx, row, col, old, new))
+                    break
+
+                if args.timeout > 0 and (time.time() - started) > args.timeout:
+                    print(f"[!] Klawisz [{label}]: timeout — nie wykryto naciśnięcia w {args.timeout}s", flush=True)
+                    break
+
+                time.sleep(max(0.03, float(args.interval)))
+
+            if detected is None:
+                print("")
+                continue
+
+            if args.wait_release:
+                print(f"Puść klawisz [{label}] ...", flush=True)
+                release_started = time.time()
+                while True:
+                    current = _matrix_kb_values(session)
+                    idx, old, new = detected
+                    if int(current[idx]) == int(base[idx]):
+                        print(f"[x] Klawisz [{label}] puszczony — OK", flush=True)
+                        break
+
+                    if args.timeout > 0 and (time.time() - release_started) > args.timeout:
+                        print(f"[!] Klawisz [{label}]: nie wykryto puszczenia w {args.timeout}s", flush=True)
+                        break
+
+                    time.sleep(max(0.03, float(args.interval)))
+
+            print("")
+
+    print("MAPA WYKRYTA:")
+    for label, idx, row, col, old, new in results:
+        print(f"  {label}: index={idx}, row={row}, col={col}, transition={old}->{new}")
+
+    print("Koniec mapowania klawiatury.")
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     identity, values = _read_values(args)
     reports_dir = _ensure_reports_dir()
@@ -1299,6 +1418,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_keyboard.set_defaults(wait_release=True)
     p_keyboard.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
     p_keyboard.set_defaults(func=cmd_keyboard_test)
+
+
+
+    p_keypad_map = sub.add_parser("keypad-map", help="Prowadzone mapowanie klawiatury matrix 4x3 na PLAY / PLAYER")
+    p_keypad_map.add_argument("--board", choices=["PLAY"], default="PLAY")
+    p_keypad_map.add_argument("--sequence", default="1,2,3,4,5,6,7,8,9,*,0,#", help="Kolejność klawiszy do naciśnięcia")
+    p_keypad_map.add_argument("--interval", type=float, default=0.08)
+    p_keypad_map.add_argument("--timeout", type=float, default=30.0)
+    p_keypad_map.add_argument("--no-wait-release", dest="wait_release", action="store_false")
+    p_keypad_map.set_defaults(wait_release=True)
+    p_keypad_map.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
+    p_keypad_map.set_defaults(func=cmd_keypad_map)
 
 
     p_report = sub.add_parser("report", help="READ ONLY: odczyt i zapis raportu do data/hardware/reports")

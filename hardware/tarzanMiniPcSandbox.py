@@ -1325,6 +1325,59 @@ def cmd_keypad_map(args: argparse.Namespace) -> int:
     return 0
 
 
+
+def _i2c_address_note(address: int) -> str:
+    # To są tylko podpowiedzi diagnostyczne, nie identyfikacja modelu na siłę.
+    notes = {
+        0x23: "możliwy czujnik światła BH1750/GY-302 albo inne urządzenie I2C pod tym adresem",
+        0x5C: "możliwy alternatywny adres BH1750/GY-302 albo inne urządzenie I2C pod tym adresem",
+        0x48: "częsty adres czujników/ADC/temp I2C",
+        0x40: "częsty adres urządzeń I2C",
+    }
+    return notes.get(address, "")
+
+
+def cmd_bus_scan(args: argparse.Namespace) -> int:
+    board = args.board.upper()
+    if board not in {"PLAY", "REC"}:
+        raise RuntimeError("bus-scan obsługuje teraz tylko płytki PLAY albo REC")
+
+    lib_path = _find_pokeys_library(args.lib_path)
+    if not lib_path:
+        raise RuntimeError("Nie znaleziono biblioteki PoKeysLib. Ustaw --lib-path albo TARZAN_POKEYS_LIB.")
+
+    print(f"TARZAN BUS / I2C SCAN — {board}")
+    print("To jest skan magistrali BUS/I2C przez PoKeysLib, nie test zwykłych pinów i nie COM/UART.")
+    print("")
+
+    with PoKeysReadOnlySession(board, lib_path) as session:
+        print(session.identity_text())
+        print("Start skanowania BUS/I2C...")
+        session.device.PK_I2CBusScanStart()
+        time.sleep(max(0.1, float(args.wait)))
+        devices = session.device.PK_I2CBusScanGetResults()
+
+        found = [addr for addr in range(0, min(128, len(devices))) if int(devices[addr]) == 1]
+
+        if not found:
+            print("BRAK urządzeń na BUS/I2C.")
+            print("")
+            print("Jeżeli czujnik jest fizycznie podłączony, sprawdź: VCC, GND, SDA, SCL oraz czy jest na właściwym złączu BUS tej płytki.")
+            return 0
+
+        print("WYKRYTE ADRESY BUS/I2C:")
+        for addr in found:
+            note = _i2c_address_note(addr)
+            if note:
+                print(f"  0x{addr:02X} ({addr}) — {note}")
+            else:
+                print(f"  0x{addr:02X} ({addr})")
+
+        print("")
+        print("Koniec skanu BUS/I2C.")
+        return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     identity, values = _read_values(args)
     reports_dir = _ensure_reports_dir()
@@ -1430,6 +1483,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_keypad_map.set_defaults(wait_release=True)
     p_keypad_map.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
     p_keypad_map.set_defaults(func=cmd_keypad_map)
+
+
+
+    p_bus_scan = sub.add_parser("bus-scan", help="Skan magistrali BUS/I2C przez PoKeysLib")
+    p_bus_scan.add_argument("--board", choices=["PLAY", "REC"], default="PLAY")
+    p_bus_scan.add_argument("--wait", type=float, default=1.0, help="Czas oczekiwania na wynik skanu I2C")
+    p_bus_scan.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
+    p_bus_scan.set_defaults(func=cmd_bus_scan)
 
 
     p_report = sub.add_parser("report", help="READ ONLY: odczyt i zapis raportu do data/hardware/reports")

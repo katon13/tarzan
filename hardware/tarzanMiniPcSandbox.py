@@ -20,6 +20,7 @@ Przykłady:
     python -m hardware.tarzanMiniPcSandbox monitor --board REC --signals rec_p45_sw_f1,rec_p47_sw_f2
     python -m hardware.tarzanMiniPcSandbox report --board PLAY
     python -m hardware.tarzanMiniPcSandbox lcd-test --board PLAY --line1 "TARZAN PLAY" --line2 "LCD OK" --confirm YES_TARZAN_LCD_TEST
+    python -m hardware.tarzanMiniPcSandbox lcd-scroll --board PLAY --text "TARZAN LCD SCROLL TEST" --confirm YES_TARZAN_LCD_SCROLL
 
 UWAGA:
 - Na Windows może działać z hardware/pokeys/PoKeyslib.dll.
@@ -658,6 +659,90 @@ def cmd_lcd_test(args: argparse.Namespace) -> int:
     return 0
 
 
+
+def cmd_lcd_scroll(args: argparse.Namespace) -> int:
+    if args.confirm != "YES_TARZAN_LCD_SCROLL":
+        raise RuntimeError("Brak potwierdzenia. Użyj: --confirm YES_TARZAN_LCD_SCROLL")
+
+    board = args.board.upper()
+    if board not in {"PLAY", "REC"}:
+        raise RuntimeError("LCD scroll obsługuje tylko PLAY albo REC")
+
+    lib_path = _find_pokeys_library(args.lib_path)
+    if not lib_path:
+        raise RuntimeError("Nie znaleziono biblioteki PoKeysLib. Ustaw --lib-path albo TARZAN_POKEYS_LIB.")
+
+    lcd_rows = _filter_rows(_iter_rows(board), pins=list(range(28, 35)), include_skipped=True)
+    if not lcd_rows or any((row.signal.hardware_function or "").upper() != HW_LCD for row in lcd_rows):
+        raise RuntimeError(f"Mapa TARZANA nie potwierdza pełnego LCD na {board} P28-P34")
+
+    columns = max(8, int(args.columns))
+    delay = max(0.03, float(args.delay))
+    repeat = max(1, int(args.repeat))
+
+    base = _lcd_text(args.text, width=120)
+    if not base:
+        base = "TARZAN LCD SCROLL TEST"
+
+    # Puste pola z obu stron dają łagodne wejście i zejście tekstu.
+    scroll_source = (" " * columns) + base + (" " * columns)
+
+    print(f"LCD SCROLL {board}")
+    print("Piny z mapy TARZANA: P28-P34")
+    print(f"Text: {base!r}")
+    print(f"Columns: {columns}, delay={delay}s, repeat={repeat}")
+
+    with PoKeysReadOnlySession(board, lib_path) as session:
+        print(session.identity_text())
+
+        lcd = session.device.device.contents.LCD
+        lcd.Configuration = 2
+        lcd.Rows = int(args.rows)
+        lcd.Columns = columns
+
+        rc = session.device.PK_LCDConfigurationSet()
+        if rc != 0:
+            raise RuntimeError(f"PK_LCDConfigurationSet zwróciło {rc}")
+
+        rc = session.device.PK_LCDChangeMode(0)  # PK_LCD_MODE_DIRECT
+        if rc != 0:
+            raise RuntimeError(f"PK_LCDChangeMode(DIRECT) zwróciło {rc}")
+
+        rc = session.device.PK_LCDInit()
+        if rc != 0:
+            raise RuntimeError(f"PK_LCDInit zwróciło {rc}")
+
+        time.sleep(0.05)
+        session.device.PK_LCDClear()
+        time.sleep(0.05)
+
+        for _ in range(repeat):
+            for pos in range(0, len(scroll_source) - columns + 1):
+                window = scroll_source[pos:pos + columns]
+                rc = session.device.PK_LCDMoveCursor(1, 1)
+                if rc != 0:
+                    raise RuntimeError(f"PK_LCDMoveCursor(1,1) zwróciło {rc}")
+                rc = session.device.PK_LCDPrint(window)
+                if rc != 0:
+                    raise RuntimeError(f"PK_LCDPrint(scroll) zwróciło {rc}")
+
+                if args.line2:
+                    rc = session.device.PK_LCDMoveCursor(2, 1)
+                    if rc != 0:
+                        raise RuntimeError(f"PK_LCDMoveCursor(2,1) zwróciło {rc}")
+                    rc = session.device.PK_LCDPrint(_lcd_text(args.line2, width=columns).ljust(columns))
+                    if rc != 0:
+                        raise RuntimeError(f"PK_LCDPrint(line2) zwróciło {rc}")
+
+                time.sleep(delay)
+
+        if args.clear_end:
+            session.device.PK_LCDClear()
+
+    print("OK: przewijanie tekstu LCD wysłane przez funkcje LCD PoKeys.")
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     identity, values = _read_values(args)
     reports_dir = _ensure_reports_dir()
@@ -729,6 +814,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_lcd.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
     p_lcd.add_argument("--confirm", default="")
     p_lcd.set_defaults(func=cmd_lcd_test)
+
+
+
+    p_lcd_scroll = sub.add_parser("lcd-scroll", help="Przewijanie tekstu na LCD HD44780 przez funkcje LCD PoKeys")
+    p_lcd_scroll.add_argument("--board", choices=["PLAY", "REC"], required=True)
+    p_lcd_scroll.add_argument("--text", default="TARZAN LCD SCROLL TEST")
+    p_lcd_scroll.add_argument("--line2", default="")
+    p_lcd_scroll.add_argument("--rows", type=int, default=2)
+    p_lcd_scroll.add_argument("--columns", type=int, default=16)
+    p_lcd_scroll.add_argument("--delay", type=float, default=0.18)
+    p_lcd_scroll.add_argument("--repeat", type=int, default=2)
+    p_lcd_scroll.add_argument("--clear-end", action="store_true")
+    p_lcd_scroll.add_argument("--lib-path", help="Ścieżka do libPoKeys.so albo PoKeyslib.dll")
+    p_lcd_scroll.add_argument("--confirm", default="")
+    p_lcd_scroll.set_defaults(func=cmd_lcd_scroll)
 
 
     p_out = sub.add_parser("output", help="Ręczny test bezpiecznego wyjścia")

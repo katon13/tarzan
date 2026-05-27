@@ -2,15 +2,7 @@ Program.s
 	0    Component(s)
 	9    Line(s) of event code
 	9    Unique line(s) of event code
-boot_linux
-	1    Component(s)
-	0    Line(s) of event code
-	0    Unique line(s) of event code
 boot_test
-	1    Component(s)
-	0    Line(s) of event code
-	0    Unique line(s) of event code
-boot_services
 	1    Component(s)
 	0    Line(s) of event code
 	0    Unique line(s) of event code
@@ -26,10 +18,6 @@ error_main
 	1    Component(s)
 	0    Line(s) of event code
 	0    Unique line(s) of event code
-boot_hardware
-	1    Component(s)
-	0    Line(s) of event code
-	0    Unique line(s) of event code
 ready_main
 	1    Component(s)
 	0    Line(s) of event code
@@ -42,13 +30,25 @@ boot_intro
 	4    Component(s)
 	36   Line(s) of event code
 	28   Unique line(s) of event code
+boot_services
+	12   Component(s)
+	1    Line(s) of event code
+	1    Unique line(s) of event code
+boot_linux
+	12   Component(s)
+	1    Line(s) of event code
+	1    Unique line(s) of event code
 boot_loading
 	14   Component(s)
-	12   Line(s) of event code
+	13   Line(s) of event code
 	11   Unique line(s) of event code
+boot_hardware
+	14   Component(s)
+	1    Line(s) of event code
+	1    Unique line(s) of event code
 
 Total
 	11   Page(s)
-	27   Component(s)
-	57   Line(s) of event code
+	62   Component(s)
+	61   Line(s) of event code
 	45   Unique line(s) of event code

@@ -10,12 +10,12 @@ Page boot_loading
     
     Events
         Postinitialize Event
+            sendme
             va_load.val=10
+            n_progress.val=va_load.val
             j_progress.val=va_load.val
-            cov va_load.val,n_progress.txt,0
             tm_load.tim=500
             tm_load.en=1
-            sendme
         
 Variable (int32) va_load
     Attributes
@@ -52,10 +52,10 @@ Number n_level
         ID                      : 11
         Scope                   : local
         Send Component ID       : disabled
-        x coordinate            : 132
-        y coordinate            : 111
-        Width                   : 50
-        Height                  : 35
+        x coordinate            : 670
+        y coordinate            : 70
+        Width                   : 40
+        Height                  : 34
         Fill                    : solid color
         Style                   : flat
         Associated Keyboard     : none
@@ -76,9 +76,9 @@ Number n_test_idx
         ID                      : 12
         Scope                   : local
         Send Component ID       : disabled
-        x coordinate            : 518
-        y coordinate            : 113
-        Width                   : 100
+        x coordinate            : 630
+        y coordinate            : 70
+        Width                   : 40
         Height                  : 35
         Fill                    : solid color
         Style                   : flat
@@ -113,7 +113,7 @@ Text t_title
         Horizontal Alignment: center
         Vertical Alignment  : center
         Input Type          : character
-        Text                : INTALIZING MODE
+        Text                : INITIALIZING MODULES
         Max. Text Size      : 100
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -124,9 +124,9 @@ Text t_subtitle
         ID                  : 3
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 430
+        x coordinate        : 459
         y coordinate        : 175
-        Width               : 300
+        Width               : 250
         Height              : 30
         Fill                : solid color
         Style               : flat
@@ -148,9 +148,9 @@ Text t_line1
         ID                  : 4
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 430
+        x coordinate        : 459
         y coordinate        : 213
-        Width               : 300
+        Width               : 250
         Height              : 30
         Fill                : solid color
         Style               : flat
@@ -181,7 +181,7 @@ Text t_status
         Associated Keyboard : none
         Font ID             : 11
         Back. Color         : 0
-        Font Color          : 65535
+        Font Color          : 50712
         Horizontal Alignment: right
         Vertical Alignment  : center
         Input Type          : character
@@ -196,14 +196,14 @@ Text t_line2
         ID                  : 6
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 430
-        y coordinate        : 243
-        Width               : 300
-        Height              : 30
+        x coordinate        : 459
+        y coordinate        : 241
+        Width               : 250
+        Height              : 25
         Fill                : solid color
         Style               : flat
         Associated Keyboard : none
-        Font ID             : 10
+        Font ID             : 11
         Back. Color         : 0
         Font Color          : 65535
         Horizontal Alignment: left
@@ -220,14 +220,14 @@ Text t_line3
         ID                  : 7
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 430
-        y coordinate        : 273
-        Width               : 300
-        Height              : 30
+        x coordinate        : 458
+        y coordinate        : 266
+        Width               : 250
+        Height              : 20
         Fill                : solid color
         Style               : flat
         Associated Keyboard : none
-        Font ID             : 10
+        Font ID             : 11
         Back. Color         : 0
         Font Color          : 65535
         Horizontal Alignment: left
@@ -294,5 +294,6 @@ Timer tm_load
             {
                 va_load.val=20
             }
+            n_progress.val=va_load.val
             j_progress.val=va_load.val
         

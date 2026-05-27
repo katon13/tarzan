@@ -11,7 +11,12 @@
       <change beforePath="$PROJECT_DIR$/Nextion2Text/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/LICENSE.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Nextion2Text/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/TARZAN_hardware_runtime_test_checklist.txt" beforeDir="false" afterPath="$PROJECT_DIR$/docs/TARZAN_hardware_runtime_test_checklist.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/ehr/main_take_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/main_take_settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/ehr/take_protocol_slots.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/take/TAKE_001_v43.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/take/TAKE_001_v43.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrMainTakeSettings.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrMainTakeSettings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/editor/EHR/tarzanEhrUi.py" beforeDir="false" afterPath="$PROJECT_DIR$/editor/EHR/tarzanEhrUi.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/nextion/sensors_ico_69_active.png" beforeDir="false" afterPath="$PROJECT_DIR$/img/nextion/sensors_ico_69_active.png" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -234,8 +239,8 @@
     <recent_temporary>
       <list>
         <item itemvalue="Python.tarzanEHR" />
-        <item itemvalue="Python.tarzanKHR" />
         <item itemvalue="Python.tarzanPAR" />
+        <item itemvalue="Python.tarzanKHR" />
         <item itemvalue="Python.tarzanEhrUi" />
         <item itemvalue="Python.tarzanAxisSandbox" />
       </list>

@@ -1,0 +1,10 @@
+Page status_main
+    Attributes
+        ID               : 0
+        Scope            : local
+        Send Component ID: disabled
+        Width            : 800
+        Locked           : no
+        Fill             : picture
+        Back. Picture ID : 14
+    

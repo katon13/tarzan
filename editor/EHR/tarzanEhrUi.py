@@ -28,6 +28,7 @@ from editor.EHR.tarzanEhrMultiAxisModel import (
     StepTuning,
 )
 from editor.EHR.tarzanTakeTxtCore import save_take_txt, load_take_txt, next_take_txt_path
+from editor.KRO.tarzanKroEhrAdapter import TarzanKroEhrAdapter
 
 try:
     from core.tarzanProfiler import profile_method
@@ -149,7 +150,8 @@ def select_protocol_desc_font_family() -> str:
 # --- KONFIGURACJA POZYCJI KONTROLEK OSI ---
 GEAR_OFFSET_X = -15
 GEAR_OFFSET_Y = -10
-SMOOTH_OFFSET_X = -100
+# Ikona wygładzania ma stać obok zębatki, a nie daleko w pasie KRO.
+SMOOTH_OFFSET_X = -45
 SMOOTH_OFFSET_Y = -10
 CONTROL_FONT_SIZE = 14
 
@@ -1268,6 +1270,7 @@ class MainTakeSettingsDialog(tk.Toplevel):
         self.ghost_dash_off_var = tk.IntVar(value=getattr(settings, 'ghost_line_dash_off', 4))
         self.ghost_assist_enabled_var = tk.BooleanVar(value=getattr(settings, 'ghost_assist_enabled', False))
         self.ghost_assist_threshold_var = tk.DoubleVar(value=getattr(settings, 'ghost_assist_threshold_y', 4.0))
+        self.kro_enabled_var = tk.BooleanVar(value=getattr(settings, 'kro_enabled', True))
         self.axis_color_vars = {
             axis.axis_id: tk.StringVar(value=settings.axis_color_overrides.get(axis.axis_id, DEFAULT_AXIS_COLORS.get(axis.axis_id, axis.color)))
             for axis in DEFAULT_AXIS_DEFINITIONS
@@ -1326,6 +1329,9 @@ class MainTakeSettingsDialog(tk.Toplevel):
         self._entry_row(s5, "DASH OFF", self.ghost_dash_off_var, 2, 0)
         self._check_row(s5, "GHOST ASSIST / PRZYCIĄGANIE DO GHOST", self.ghost_assist_enabled_var, 3, 0)
         self._entry_row(s5, "PRÓG PRZYCIĄGANIA GHOST ASSIST", self.ghost_assist_threshold_var, 3, 1)
+
+        s6 = self._section_label(frame, "KRO (KONTRAPUNKT RUCHU OSI)")
+        self._check_row(s6, "WŁĄCZ SYSTEM KRO (ON/OFF)", self.kro_enabled_var, 0, 0)
 
         self._section_label(frame, "KOLORY POSZCZEGÓLNYCH OSI")
         color_grid = tk.Frame(frame, bg=self.master_window.PANEL)
@@ -1424,6 +1430,7 @@ class MainTakeSettingsDialog(tk.Toplevel):
             ghost_line_dash_off=int(self.ghost_dash_off_var.get()),
             ghost_assist_enabled=bool(self.ghost_assist_enabled_var.get()),
             ghost_assist_threshold_y=float(self.ghost_assist_threshold_var.get()),
+            kro_enabled=bool(self.kro_enabled_var.get()),
         )
         settings.clamp()
         return settings
@@ -2651,6 +2658,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self.axis_rects: dict[int, AxisViewportRect] = {}
         self.gear_rects: dict[int, GearRect] = {}
         self.wave_rects: dict[int, WaveRect] = {}
+        self.kro_enabled_var = tk.BooleanVar(value=getattr(self.main_take_settings, 'kro_enabled', True))
+        self.kro = TarzanKroEhrAdapter(self)
         self.axis_detail_dialog: AxisSettingsDialog | None = None
         self.drag_release_anchor_time = 0
         self._drag_zero_snap_locked = False
@@ -2842,6 +2851,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         tk.Button(self.panel_a_top, text="⚙", command=self._open_take_settings, bg="#39424E", fg=self.FG,
                   activebackground="#39424E", activeforeground=self.FG, relief="flat", bd=0, padx=10, pady=4,
                   font=("Segoe UI Symbol", 12), cursor="hand2").pack(side="left", padx=(8, 0))
+
         tk.Button(self.panel_a_top, text="CLEAR TAKE", command=self._clear_take_slots_click, bg="#DC2626", fg="white",
                   activebackground="#DC2626", activeforeground="white", relief="flat", bd=0, padx=10, pady=6,
                   font=("Segoe UI Semibold", 9), cursor="hand2").pack(side="right", padx=(0, 6))
@@ -3027,13 +3037,18 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
         return changed
 
-    def _mark_axis_data_changed(self, axis_index: int, *, mark_protocol: bool = True, mark_axis_info: bool = True, notify_ui: bool = True) -> None:
+    def _mark_axis_data_changed(self, axis_index: int, *, mark_protocol: bool = True, mark_axis_info: bool = True, notify_ui: bool = True, skip_kro: bool = False) -> None:
         self._bump_axis_data_version(axis_index)
         if axis_index == self.active_axis_index:
             if mark_protocol:
                 self._mark_protocol_dirty()
             if mark_axis_info:
                 self._mark_axis_metrics_dirty()
+        
+        # Kaskada KRO: jeśli ta oś jest źródłem, aktualizujemy zależne osie
+        if not skip_kro:
+            self.kro.on_axis_changed(axis_index)
+
         if notify_ui and self.take_widget is not None:
             try:
                 self.take_widget.notify_active_take_modified()
@@ -3108,6 +3123,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         step: bool = True,
         status: str | None = None,
         notify_ui: bool = True,
+        change_active: bool = True,
+        skip_kro: bool = False,
     ) -> None:
         """Centralne odświeżenie jednej osi EHR przez Snajpera.
 
@@ -3122,7 +3139,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         axis_index = int(axis_index)
         self.dirty_axis_indices.discard(axis_index)
 
-        self._set_active_axis(axis_index)
+        if change_active:
+            self._set_active_axis(axis_index)
+            
         self._main_canvas_needs_redraw = False
         self._configure_after_id = None
 
@@ -3131,6 +3150,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             mark_protocol=step,
             mark_axis_info=metrics,
             notify_ui=notify_ui,
+            skip_kro=skip_kro
         )
 
         if step or metrics:
@@ -3310,6 +3330,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
     def _apply_take_settings(self, settings: MainTakeSettings) -> None:
         self.main_take_settings = settings
+        self.kro_enabled_var.set(getattr(settings, 'kro_enabled', True))
         new_take_ms = settings.take_duration_ms()
         self.global_take_duration_ms = new_take_ms
         for axis in self.axis_models:
@@ -3383,7 +3404,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
     def _curve_area_rect(self) -> tuple[int, int, int, int]:
         w = max(300, int(self.timeline_canvas.winfo_width() or 1200))
         h = max(300, int(self.timeline_canvas.winfo_height() or 820))
-        return 190, 24, w - 28, h - 38
+        return 290, 24, w - 28, h - 38
 
     def _time_to_x(self, t_ms: int, left: int, right: int) -> float:
         span = max(1, self.global_take_duration_ms)
@@ -3449,12 +3470,9 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
         # Inwalidacja cache przed sygnałem Snajpera
         model._invalidate_cache()
-        self.protocol_cache_key = None
-        self.axis_info_cache_key = None
-
-        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_curve", policy="FINAL")
-        self._snajper_fire_ehr(f"ehr_axis_{axis_index}_final_matrix", policy="FINAL")
-        self._set_status(f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}.")
+        
+        status = f"Wygładzono przebieg osi: {model.axis_def.axis_name}. siła={strength:.2f} przejścia={passes}."
+        self._snajper_refresh_ehr_axis(axis_index, curve=True, metrics=True, step=True, status=status)
 
         self._refresh_axis_dialog_if_needed(axis_index)
 
@@ -3629,7 +3647,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             self.main_take_settings.show_minute_grid,
             self.main_take_settings.show_axis_labels,
             self.main_take_settings.show_axis_gears,
-            self.main_take_settings.show_axis_activity_markers
+            self.main_take_settings.show_axis_activity_markers,
+            self.kro_enabled_var.get() # Dodano KRO ON/OFF do klucza
         )
 
         if only_axis_index is None:
@@ -3658,6 +3677,7 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                     c.create_line(px, top, px, bottom, fill="#36414C", dash=(2, 6), tags="grid")
         else:
             c.delete(f"axis_{only_axis_index}")
+            c.delete("kro")
             total_minutes = max(1, int(self.global_take_duration_ms // 60000))
 
         for axis_index, rect in self._axis_layout():
@@ -3820,6 +3840,10 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                     continue
                 px = self._time_to_x(t_ms, left, right)
                 c.create_text(px, bottom + 8, text=f"{minute}m", fill=self.MUTED, anchor="n", font=("Consolas", 8), tags="time_label")
+
+        if self.kro_enabled_var.get():
+            self.kro.draw(c)
+            c.tag_raise("kro")
 
     def _on_canvas_configure(self, _event=None) -> None:
         self._schedule_configure_refresh()
@@ -4022,6 +4046,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._open_or_switch_axis_detail(axis_index)
 
     def _on_canvas_press(self, event) -> None:
+        if self.kro_enabled_var.get():
+            if self.kro.handle_press(event.x, event.y, event.x_root, event.y_root):
+                self._request_main_canvas_redraw()
+                return
+
         gear_axis = self._gear_axis_from_point(event.x, event.y)
         if gear_axis is not None:
             if not self._is_axis_active(gear_axis):
@@ -4122,6 +4151,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._set_status(f"PAN osi: {model.axis_def.axis_name}.")
 
     def _on_canvas_drag(self, event) -> None:
+        if self.kro_enabled_var.get():
+            if self.kro.handle_drag(event.x, event.y):
+                self._request_main_canvas_redraw()
+                return
+
         axis_index = self.drag_axis_index
         if axis_index is None or axis_index not in self.axis_rects:
             return
@@ -4170,6 +4204,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 self._drag_data_changed = True
                 self._request_main_canvas_redraw(only_axis_index=axis_index)
                 self._request_live_matrix_refresh(axis_index)
+                if self.kro_enabled_var.get():
+                    self.kro.on_axis_changed(axis_index)
         elif self.drag_mode == "release":
             new_time = self._x_to_time(event.x, rect.left, rect.right)
             if model.set_release_time(new_time):
@@ -4177,6 +4213,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 self._drag_data_changed = True
                 self._request_main_canvas_redraw(only_axis_index=axis_index)
                 self._request_live_matrix_refresh(axis_index)
+                if self.kro_enabled_var.get():
+                    self.kro.on_axis_changed(axis_index)
         elif self.drag_mode == "pan":
             new_time = self._x_to_time(event.x, rect.left, rect.right)
             old_time = self._x_to_time(self.drag_anchor_x, rect.left, rect.right)
@@ -4210,8 +4248,15 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
                 self._drag_data_changed = True
                 self._request_main_canvas_redraw(only_axis_index=axis_index)
                 self._request_live_matrix_refresh(axis_index)
+                if self.kro_enabled_var.get():
+                    self.kro.on_axis_changed(axis_index)
 
     def _on_canvas_release(self, _event) -> None:
+        if self.kro_enabled_var.get():
+            if self.kro.handle_release(_event.x, _event.y):
+                self._request_main_canvas_redraw()
+                return
+
         self.is_ghost_snapped = False
         changed_axis_index = self.drag_axis_index
         had_drag_mode = self.drag_mode is not None
@@ -4295,6 +4340,11 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         self._refresh_axis_dialog_if_needed(axis_index)
 
     def _on_canvas_right_click(self, event) -> None:
+        if self.kro_enabled_var.get():
+            if self.kro.handle_right_click(event.x, event.y):
+                self._request_main_canvas_redraw()
+                return
+
         axis_index = self._axis_index_from_point(event.x, event.y)
         if axis_index is None:
             return

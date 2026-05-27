@@ -35,5 +35,6 @@
   "ghost_line_dash_on": 1,
   "ghost_line_dash_off": 1,
   "ghost_assist_enabled": true,
-  "ghost_assist_threshold_y": 10.0
+  "ghost_assist_threshold_y": 10.0,
+  "kro_enabled": true
 }

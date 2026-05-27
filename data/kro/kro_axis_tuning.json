@@ -1,0 +1,150 @@
+{
+  "plugin_defaults": {
+    "KONTRA": {
+      "empirical_gain": 1.0,
+      "damping": 1.0,
+      "max_effect_limit": 100.0,
+      "backlash_weight": 0.1,
+      "inertia_weight": 0.2,
+      "direction_correction": 1.0,
+      "comment": "Domyślne dla KONTRY: odwrócenie 1:1"
+    },
+    "FOLLOW": {
+      "empirical_gain": 1.0,
+      "damping": 1.0,
+      "max_effect_limit": 100.0,
+      "backlash_weight": 0.1,
+      "inertia_weight": 0.1,
+      "direction_correction": 1.0,
+      "comment": "Domyślne dla FOLLOW: śledzenie 1:1"
+    },
+    "COMP": {
+      "empirical_gain": 0.5,
+      "damping": 0.8,
+      "max_effect_limit": 50.0,
+      "backlash_weight": 0.05,
+      "inertia_weight": 0.1,
+      "direction_correction": 1.0,
+      "comment": "Domyślne dla COMP: lekka kompensacja 0.5"
+    },
+    "SYNC": {
+      "empirical_gain": 0.25,
+      "damping": 0.5,
+      "max_effect_limit": 25.0,
+      "backlash_weight": 0.0,
+      "inertia_weight": 0.0,
+      "direction_correction": 1.0,
+      "comment": "Domyślne dla SYNC: delikatne dociąganie"
+    }
+  },
+  "relation_tuning": [
+    {
+      "source_axis_id": "arm_h",
+      "target_axis_id": "cam_h",
+      "plugin_type": "KONTRA",
+      "empirical_gain": 1.0,
+      "damping": 0.95,
+      "max_effect_limit": 100.0,
+      "backlash_weight": 0.15,
+      "start_settle_weight": 0.1,
+      "start_ramp_weight": 0.1,
+      "inertia_weight": 0.25,
+      "cruise_limit_weight": 0.0,
+      "direction_correction": 1.0,
+      "comment": "Główna kontra pozioma: ramię -> kamera"
+    },
+    {
+      "source_axis_id": "arm_v",
+      "target_axis_id": "cam_v",
+      "plugin_type": "KONTRA",
+      "empirical_gain": 1.0,
+      "damping": 0.9,
+      "max_effect_limit": 100.0,
+      "backlash_weight": 0.2,
+      "start_settle_weight": 0.2,
+      "start_ramp_weight": 0.15,
+      "inertia_weight": 0.3,
+      "cruise_limit_weight": 0.0,
+      "direction_correction": 1.0,
+      "comment": "Główna kontra pionowa: ramię -> kamera"
+    },
+    {
+      "source_axis_id": "arm_h",
+      "target_axis_id": "cam_t",
+      "plugin_type": "KONTRA",
+      "empirical_gain": 0.3,
+      "damping": 0.7,
+      "max_effect_limit": 30.0,
+      "backlash_weight": 0.05,
+      "inertia_weight": 0.1,
+      "direction_correction": 1.0,
+      "comment": "Korekta pochyłu przy obrocie ramienia"
+    },
+    {
+      "source_axis_id": "arm_v",
+      "target_axis_id": "cam_t",
+      "plugin_type": "KONTRA",
+      "empirical_gain": 0.8,
+      "damping": 0.8,
+      "max_effect_limit": 80.0,
+      "backlash_weight": 0.1,
+      "inertia_weight": 0.2,
+      "direction_correction": 1.0,
+      "comment": "Korekta pochyłu przy podnoszeniu ramienia"
+    },
+    {
+      "source_axis_id": "arm_h",
+      "target_axis_id": "cam_f",
+      "plugin_type": "FOLLOW",
+      "empirical_gain": 0.5,
+      "damping": 1.0,
+      "max_effect_limit": 100.0,
+      "backlash_weight": 0.0,
+      "inertia_weight": 0.05,
+      "direction_correction": 1.0,
+      "comment": "Śledzenie ostrości przy ruchu ramienia"
+    },
+    {
+      "source_axis_id": "arm_v",
+      "target_axis_id": "cam_f",
+      "plugin_type": "FOLLOW",
+      "empirical_gain": 0.4,
+      "damping": 1.0,
+      "max_effect_limit": 100.0,
+      "backlash_weight": 0.0,
+      "inertia_weight": 0.05,
+      "direction_correction": 1.0,
+      "comment": "Śledzenie ostrości przy zmianie wysokości"
+    },
+    {
+      "source_axis_id": "cam_h",
+      "target_axis_id": "cam_t",
+      "plugin_type": "COMP",
+      "empirical_gain": 0.2,
+      "damping": 0.5,
+      "max_effect_limit": 20.0,
+      "backlash_weight": 0.02,
+      "inertia_weight": 0.05,
+      "direction_correction": 1.0,
+      "comment": "Mała kompensacja pochyłu przy obrocie kamery"
+    },
+    {
+      "source_axis_id": "arm_h",
+      "target_axis_id": "cam_v",
+      "plugin_type": "KONTRA",
+      "empirical_gain": 0.2,
+      "damping": 0.5,
+      "direction_correction": 1.0,
+      "comment": "Korekta pionu przy obrocie poziomym (rzadkie)"
+    },
+    {
+      "source_axis_id": "arm_v",
+      "target_axis_id": "cam_h",
+      "plugin_type": "KONTRA",
+      "empirical_gain": 0.2,
+      "damping": 0.5,
+      "direction_correction": 1.0,
+      "comment": "Korekta poziomu przy ruchu pionowym (rzadkie)"
+    }
+  ]
+}

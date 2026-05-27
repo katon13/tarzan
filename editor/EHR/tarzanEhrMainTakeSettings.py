@@ -47,6 +47,7 @@ class MainTakeSettings:
     ghost_line_dash_off: int = 4
     ghost_assist_enabled: bool = False
     ghost_assist_threshold_y: float = 4.0
+    kro_enabled: bool = True
 
     def clamp(self) -> None:
         self.take_duration_minutes = max(0.1, min(240.0, float(self.take_duration_minutes)))

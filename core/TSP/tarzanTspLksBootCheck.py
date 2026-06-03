@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional
 
 from core.TSP.tarzanTspLksStatusMap import REQUIRED_BUS_DEVICES, empty_statuses, bus_ok_from_statuses
+from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
 
 
 @dataclass
@@ -255,15 +256,35 @@ class TarzanTspLksBootCheck:
         )
         self._pause()
 
-        safe = self.check_safe_devices()
-        safe_total = max(1, len(safe))
-        safe_ok = sum(1 for item in safe if item.ok)
+        # ETAP 10: realne testery nie zgadują. Boot-check używa tej samej
+        # diagnostyki, która później obsługuje kliknięcia punktowe.
+        diagnostics = TarzanTspLksDiagnostics(repo_root=str(self.repo_root))
+        diag_results = diagnostics.run_all()
+        for item in diag_results:
+            self.results.append(
+                LksBootCheckResult(
+                    key=item.key,
+                    component=item.component,
+                    ok=item.ok,
+                    label=item.label,
+                    detail=item.detail,
+                    error=item.error,
+                    duration_ms=item.duration_ms,
+                )
+            )
+        self.statuses = diagnostics.status_map()
+
+        test_total = max(1, len(diag_results))
+        test_ok = sum(1 for item in diag_results if item.ok)
+        lcd = "LCD: OK" if self.statuses.get("lcd_1602") else "LCD: OFF"
+        matrix = "MATRIX: OK" if self.statuses.get("matrix_led") else "MATRIX: OFF"
+        bus = "BUS: OK" if self.statuses.get("i2c_bus") else "BUS: OFF"
         self.n5.show_test(
-            code=f"TEST {safe_ok:02d}/{safe_total:02d}",
-            line1="LCD: WAIT",
-            line2="MATRIX: WAIT",
-            line3="SAFE READ-ONLY",
-            status="ETAP 5 no outputs",
+            code=f"TEST {test_ok:02d}/{test_total:02d}",
+            line1=lcd,
+            line2=matrix,
+            line3=bus,
+            status="real diagnostics",
         )
         self._pause()
 

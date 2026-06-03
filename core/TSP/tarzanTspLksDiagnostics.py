@@ -1,21 +1,27 @@
 from __future__ import annotations
 
-"""TARZAN LKS-N5 — ETAP 6: bezpieczna diagnostyka podzespołów.
+"""TARZAN LKS-N5 — ETAP 10: realne testery urządzeń.
 
-Ten moduł wykonuje wyłącznie diagnostykę read-only / presence-check.
-Nie wysyła STEP, DIR, ENABLE, nie porusza osi i nie steruje wyjściami
-wykonawczymi. Wynikiem jest mapa statusów dla strony ``status_main``.
+Ten moduł zamienia inwentaryzację ETAPU 9 na konserwatywne wyniki
+``status_main``. Zielony status pojawia się tylko wtedy, gdy mamy realny
+fakt z miniPC albo bezpieczny test read-only. Repo marker nie jest już OK.
+
+Zakaz pozostaje bez zmian: zero STEP, zero DIR, zero ENABLE, zero ruchu osi,
+zero nieznanych wyjść wykonawczych.
 """
 
 import argparse
 import glob
 import importlib
+import json
 import os
+import re
+import subprocess
 import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from core.TSP.tarzanTspLksStatusMap import (
     GROUP_AXIS,
@@ -31,14 +37,13 @@ from core.TSP.tarzanTspLksStatusMap import (
     validate_component,
 )
 
+DEFAULT_INVENTORY_PATH = "data/lks_n5/lks_n5_hardware_inventory.json"
+DEFAULT_REQUIREMENTS_PATH = "data/lks_n5/lks_n5_hardware_requirements.json"
+
 
 @dataclass
 class LksCheckResult:
-    """Pojedynczy wynik testu LKS-N5.
-
-    ``component`` musi odpowiadać komponentowi ``status_main`` albo kluczowi
-    logicznemu z mapy. ``ok=True`` oznacza, że kontrolka może zostać zapalona.
-    """
+    """Pojedynczy wynik testu LKS-N5."""
 
     key: str
     component: str
@@ -49,18 +54,66 @@ class LksCheckResult:
     duration_ms: int = 0
 
 
-class TarzanTspLksDiagnostics:
-    """Bezpieczna diagnostyka status_main dla LKS-N5.
+class _InventoryView:
+    """Mały adapter po JSON ETAPU 9."""
 
-    Diagnostyka jest ostrożna: sprawdza obecność modułów, katalogów, portów,
-    węzłów urządzeń i możliwość bezpiecznego odczytu. Nie dotyka ruchu.
+    def __init__(self, data: Mapping[str, Any]) -> None:
+        self.data = dict(data or {})
+        self.items = {str(item.get("key", "")): dict(item) for item in self.data.get("items", [])}
+
+    def item(self, key: str) -> Mapping[str, Any]:
+        return self.items.get(key, {})
+
+    def status(self, key: str) -> str:
+        return str(self.item(key).get("status", "missing"))
+
+    def is_present(self, key: str) -> bool:
+        return self.status(key) == "present"
+
+    def detail(self, key: str) -> str:
+        item = self.item(key)
+        return str(item.get("detail", "") or item.get("error", ""))
+
+    def values(self, key: str) -> Mapping[str, Any]:
+        values = self.item(key).get("values", {})
+        return values if isinstance(values, Mapping) else {}
+
+    def text_blob(self, key: str) -> str:
+        item = self.item(key)
+        return "\n".join(
+            [
+                str(item.get("detail", "")),
+                str(item.get("error", "")),
+                json.dumps(item.get("values", {}), ensure_ascii=False),
+            ]
+        )
+
+
+class TarzanTspLksDiagnostics:
+    """Konserwatywna diagnostyka status_main dla LKS-N5.
+
+    Etap 10 używa pliku inwentaryzacji z ETAPU 9. Jeżeli pliku nie ma, moduł
+    może zebrać inwentaryzację na żywo, ale wynik dalej jest traktowany
+    konserwatywnie: ``unknown`` i ``repo marker only`` nie zapalają zielonego.
     """
 
-    def __init__(self, repo_root: Optional[str] = None, required_bus_devices: Optional[Sequence[str]] = None) -> None:
+    def __init__(
+        self,
+        repo_root: Optional[str] = None,
+        required_bus_devices: Optional[Sequence[str]] = None,
+        inventory_path: Optional[str] = None,
+        requirements_path: Optional[str] = None,
+        collect_inventory_if_missing: bool = True,
+    ) -> None:
         self.repo_root = Path(repo_root or self._detect_repo_root()).resolve()
         self.required_bus_devices = tuple(required_bus_devices or REQUIRED_BUS_DEVICES)
+        self.inventory_path = self._resolve_path(inventory_path or DEFAULT_INVENTORY_PATH)
+        self.requirements_path = self._resolve_path(requirements_path or DEFAULT_REQUIREMENTS_PATH)
+        self.collect_inventory_if_missing = bool(collect_inventory_if_missing)
         self.results: List[LksCheckResult] = []
         self.statuses: Dict[str, bool] = empty_statuses(False)
+        self.inventory = _InventoryView(self._load_or_collect_inventory())
+        self.requirements = self._load_requirements()
 
     def _detect_repo_root(self) -> str:
         here = Path(__file__).resolve()
@@ -68,6 +121,54 @@ class TarzanTspLksDiagnostics:
             return str(here.parents[2])
         except Exception:
             return os.getcwd()
+
+    def _resolve_path(self, path: str | Path) -> Path:
+        p = Path(path)
+        return p if p.is_absolute() else self.repo_root / p
+
+    def _load_or_collect_inventory(self) -> Mapping[str, Any]:
+        if self.inventory_path.exists():
+            return json.loads(self.inventory_path.read_text(encoding="utf-8"))
+        if not self.collect_inventory_if_missing:
+            return {"items": []}
+        try:
+            from core.TSP.tarzanTspLksInventory import TarzanTspLksInventory
+
+            return TarzanTspLksInventory(repo_root=str(self.repo_root)).collect()
+        except Exception as exc:
+            return {
+                "schema": "tarzan-lks-n5-inventory-missing",
+                "items": [
+                    {
+                        "key": "inventory_load",
+                        "status": "error",
+                        "label": "Inventory load/collect",
+                        "error": str(exc),
+                    }
+                ],
+            }
+
+    def _load_requirements(self) -> Mapping[str, Any]:
+        if not self.requirements_path.exists():
+            return {}
+        try:
+            return json.loads(self.requirements_path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+
+    def _run(self, command: Sequence[str], timeout: float = 1.0) -> Mapping[str, Any]:
+        try:
+            proc = subprocess.run(
+                list(command),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=timeout,
+                check=False,
+            )
+            return {"ok": proc.returncode == 0, "returncode": proc.returncode, "stdout": proc.stdout.strip(), "stderr": proc.stderr.strip()}
+        except Exception as exc:
+            return {"ok": False, "returncode": None, "stdout": "", "stderr": str(exc)}
 
     def _result(
         self,
@@ -92,21 +193,17 @@ class TarzanTspLksDiagnostics:
         )
         self.results.append(item)
         if component_name:
+            # Tymczasowo wpisujemy ostatni wynik; po grupie i po run_all robimy finalizację ALL().
             self.statuses[component_name] = bool(ok)
         return item
 
-    def _check_import(self, module_name: str, key: str, component: str, label: str) -> LksCheckResult:
+    def _check_import(self, module_name: str, key: str, component: str, label: str, required: bool = True) -> LksCheckResult:
         start = time.time()
         try:
             importlib.import_module(module_name)
             return self._result(key, component, True, label, detail=module_name, start=start)
         except Exception as exc:
-            return self._result(key, component, False, label, detail=module_name, error=str(exc), start=start)
-
-    def _check_path(self, path: Path, key: str, component: str, label: str) -> LksCheckResult:
-        start = time.time()
-        ok = path.exists()
-        return self._result(key, component, ok, label, detail=str(path), error="" if ok else "not found", start=start)
+            return self._result(key, component, False if required else True, label, detail=module_name, error=str(exc), start=start)
 
     def _glob_any(self, patterns: Iterable[str]) -> List[str]:
         found: List[str] = []
@@ -114,115 +211,177 @@ class TarzanTspLksDiagnostics:
             found.extend(glob.glob(pattern))
         return sorted(set(found))
 
+    def _finalize_statuses_for(self, components: Optional[Iterable[str]] = None) -> None:
+        selected = set(validate_component(c) for c in components) if components is not None else None
+        by_component: Dict[str, List[LksCheckResult]] = {}
+        for item in self.results:
+            if not item.component:
+                continue
+            if selected is not None and item.component not in selected:
+                continue
+            by_component.setdefault(item.component, []).append(item)
+        for component, items in by_component.items():
+            self.statuses[component] = bool(items) and all(item.ok for item in items)
+        self.statuses["i2c_bus"] = bus_ok_from_statuses(self.statuses)
+
+    # ------------------------------------------------------------------
+    # Testery realne / konserwatywne
+    # ------------------------------------------------------------------
     def check_system(self) -> List[LksCheckResult]:
         before = len(self.results)
-        self._result("python_runtime", "linux_sys", sys.version_info.major >= 3, "Python runtime", detail=sys.version.split()[0])
-        self._check_import("core.TSP.tarzanTsp", "tsp_module", "linux_sys", "TSP module")
-        self._check_import("core.TSP.tarzanTspLks", "lks_tty_module", "linux_sys", "LKS-TTY module")
-        self._check_import("core.TSP.tarzanTspSignals", "signals_module", "snajper_sys", "Signal/Snajper layer")
-        self._check_path(self.repo_root / "data" / "take", "take_dir", "take_sys", "TAKE data directory")
-        self._check_path(self.repo_root / "editor" / "PAR", "par_dir", "par_sys", "PAR module directory")
-        self._check_path(self.repo_root / "editor" / "EHR", "ehr_dir", "ehr_sys", "EHR module directory")
+        inv = self.inventory
+        self._result("system_identity", "linux_sys", inv.is_present("system_identity"), "Linux/Python identity", detail=inv.detail("system_identity"), error="inventory missing" if not inv.is_present("system_identity") else "")
+        self._result("repo_structure", "linux_sys", inv.is_present("repo_structure"), "TARZAN repo structure", detail=inv.detail("repo_structure"), error="repo structure not confirmed" if not inv.is_present("repo_structure") else "")
+        self._result("system_time", "linux_sys", inv.is_present("system_time"), "System time synchronized/available", detail=inv.detail("system_time"), error="time not confirmed" if not inv.is_present("system_time") else "")
+        self._result("service_lks_n5", "linux_sys", inv.is_present("service_lks_n5"), "LKS-N5 systemd service", detail=inv.detail("service_lks_n5"), error="service not active" if not inv.is_present("service_lks_n5") else "")
+
+        self._check_import("core.TSP.tarzanTspSignals", "snajper_import", "snajper_sys", "Snajper/signal layer import")
+
+        take_ok = inv.is_present("process_tsp") and inv.is_present("repo_marker_take")
+        self._result("take_runtime", "take_sys", take_ok, "TAKE runtime marker + TSP process", detail=f"{inv.detail('process_tsp')} | {inv.detail('repo_marker_take')}", error="TSP process or TAKE data not confirmed" if not take_ok else "")
+
+        # PAR/EHR: repo marker nie wystarcza. Do zielonego potrzebny proces/heartbeat/klient TSP.
+        proc_text = inv.detail("process_tsp").lower()
+        network_text = inv.detail("network_links")
+        par_runtime = "par" in proc_text or "par_sys=1" in proc_text
+        ehr_runtime = "ehr" in proc_text or "ehr_sys=1" in proc_text
+        self._result("par_runtime", "par_sys", par_runtime, "PAR runtime/heartbeat", detail=network_text, error="repo marker only or no PAR heartbeat" if not par_runtime else "")
+        self._result("ehr_runtime", "ehr_sys", ehr_runtime, "EHR runtime/heartbeat", detail=network_text, error="repo marker only or no EHR heartbeat" if not ehr_runtime else "")
+
+        self._finalize_statuses_for(GROUP_SYSTEM)
         return self.results[before:]
 
     def check_pokeys(self) -> List[LksCheckResult]:
         before = len(self.results)
-        candidates = []
-        candidates.extend(str(p) for p in (self.repo_root / "hardware" / "pokeys").glob("PoKeys*"))
-        candidates.extend(str(p) for p in self.repo_root.glob("**/libPoKeys.so*"))
-        candidates.extend(str(p) for p in self.repo_root.glob("**/PoKeyslib.dll"))
-        ok = bool(candidates)
-        detail = ", ".join(candidates[:4])
-        self._result("pokeys_play_presence", "pok_play", ok, "PoKeys PLAY presence", detail=detail, error="PoKeys lib/module not found" if not ok else "")
-        self._result("pokeys_rec_presence", "pok_rec", ok, "PoKeys REC presence", detail=detail or "same source", error="PoKeys lib/module not found" if not ok else "")
+        text = self.inventory.text_blob("usb_lsusb")
+        lib_seen = self.inventory.is_present("repo_marker_pokeys_lib") or self.inventory.is_present("usb_pokeys_hint")
+        play_seen = bool(re.search(r"PoLabs\s+PLAYER|PLAYER|PLAY", text, re.IGNORECASE))
+        # W realnym lsusb użytkownika REC widnieje jako PoLabs RECK.
+        rec_seen = bool(re.search(r"PoLabs\s+RECK|RECK|REC", text, re.IGNORECASE))
+        self._result("pokeys_play_usb", "pok_play", bool(lib_seen and play_seen), "PoKeys PLAY USB identity", detail=text[:500], error="PoKeys PLAY not identified" if not (lib_seen and play_seen) else "")
+        self._result("pokeys_rec_usb", "pok_rec", bool(lib_seen and rec_seen), "PoKeys REC USB identity", detail=text[:500], error="PoKeys REC/RECK not identified" if not (lib_seen and rec_seen) else "")
+        self._finalize_statuses_for(GROUP_POKEYS)
         return self.results[before:]
+
+    def _configured_i2c_addresses(self) -> Mapping[str, Any]:
+        return self.requirements.get("i2c_addresses", {}) if isinstance(self.requirements.get("i2c_addresses", {}), Mapping) else {}
+
+    def _i2c_scan_text(self) -> str:
+        return self.inventory.text_blob("i2c_scan")
+
+    def _i2c_has_address(self, raw: Any) -> bool:
+        if raw in (None, "", []):
+            return False
+        values = raw if isinstance(raw, list) else [raw]
+        scan = self._i2c_scan_text().lower()
+        if not scan:
+            return False
+        for value in values:
+            token = str(value).strip().lower().replace("0x", "")
+            if not token:
+                continue
+            token = token.zfill(2)[-2:]
+            if re.search(rf"\b{re.escape(token)}\b", scan):
+                return True
+        return False
 
     def check_bus(self) -> List[LksCheckResult]:
         before = len(self.results)
-        i2c_nodes = self._glob_any(["/dev/i2c-*"])
-        serial_nodes = self._glob_any(["/dev/serial/by-id/*", "/dev/ttyUSB*", "/dev/ttyACM*"])
-        has_i2c = bool(i2c_nodes)
-        has_serial = bool(serial_nodes)
+        inv = self.inventory
+        has_i2c_nodes = inv.is_present("i2c_nodes")
+        has_i2c_scan = inv.is_present("i2c_scan") or inv.status("i2c_scan") == "unknown"
+        self._result("i2c_nodes", "i2c_bus", has_i2c_nodes, "I2C device nodes", detail=inv.detail("i2c_nodes"), error="no /dev/i2c-*" if not has_i2c_nodes else "")
 
-        # Safe presence/read-only checks. Szczegółowe adresy I2C można dopiąć później
-        # w konfiguracji, bez zmiany kontraktu .val=0/1.
-        self._result("bus_serial", "i2c_bus", has_serial, "UART/USB serial bus", detail=", ".join(serial_nodes[:4]), error="no serial ports" if not has_serial else "")
-        self._result("bus_i2c_node", "i2c_bus", has_i2c, "I2C device node", detail=", ".join(i2c_nodes[:4]), error="no /dev/i2c-*" if not has_i2c else "")
-
-        bus_detail = ", ".join(i2c_nodes[:3]) or ", ".join(serial_nodes[:3])
-        bus_error = "no safe bus node" if not (has_i2c or has_serial) else ""
-        for component, label in (
-            ("lcd_1602", "LCD 1602 communication path"),
-            ("matrix_led", "Matrix LED communication path"),
-            ("keypad", "Keypad read path"),
-            ("light_bh1750", "BH1750 read path"),
-            ("level_xyz", "LEVEL XYZ read path"),
-            ("shock_alarm", "Shock/alarm read path"),
-            ("light_laser", "Laser/light module path"),
-        ):
-            # Elementy I2C wymagają I2C; laser/light zostaje OK przy dowolnej magistrali.
-            if component == "light_laser":
-                ok = has_i2c or has_serial
+        addresses = self._configured_i2c_addresses()
+        component_labels = {
+            "lcd_1602": "LCD 1602 real bus test",
+            "matrix_led": "Matrix LED real bus test",
+            "keypad": "Keypad real bus test",
+            "light_bh1750": "BH1750 real bus test",
+            "level_xyz": "LEVEL XYZ real bus test",
+            "shock_alarm": "Shock/alarm real bus test",
+            "light_laser": "Laser/light module real bus test",
+        }
+        for component, label in component_labels.items():
+            configured = component in addresses
+            ok = bool(has_i2c_nodes and configured and self._i2c_has_address(addresses.get(component)))
+            if not has_i2c_nodes:
+                error = "no /dev/i2c-*"
+            elif not configured:
+                error = "no configured I2C address/test path"
+            elif not has_i2c_scan:
+                error = "no i2c scan result"
             else:
-                ok = has_i2c
-            self._result(f"bus_{component}", component, ok, label, detail=bus_detail, error="no I2C node" if not ok else "")
+                error = "configured address not detected"
+            self._result(
+                f"real_{component}",
+                component,
+                ok,
+                label,
+                detail=f"configured={addresses.get(component, '')} scan={inv.detail('i2c_scan')}",
+                error="" if ok else error,
+            )
 
-        # Agregat i2c_bus: prawdziwy dopiero gdy wymagane elementy są OK.
-        self.statuses["i2c_bus"] = bus_ok_from_statuses(self.statuses)
+        self._finalize_statuses_for(GROUP_BUS)
         return self.results[before:]
 
     def check_io(self) -> List[LksCheckResult]:
         before = len(self.results)
-        # Read-only/presence. Bez zapalania LED i bez ustawiania outputów.
-        gpio_paths = self._glob_any(["/sys/class/gpio/*", "/sys/class/leds/*"])
-        has_gpio_or_leds = bool(gpio_paths)
-        self._result("f_buttons_read_path", "f_button", has_gpio_or_leds, "F1-F4 buttons read path", detail=", ".join(gpio_paths[:4]), error="no GPIO/LED sysfs path" if not has_gpio_or_leds else "")
-        self._result("f_led_whitelist_path", "f_led", has_gpio_or_leds, "F1-F4 LED whitelist path", detail="read-only presence, no output toggled", error="no GPIO/LED sysfs path" if not has_gpio_or_leds else "")
-        self._result("limits_read_path", "kranc", has_gpio_or_leds, "Limit switches read path", detail="read-only presence", error="no GPIO path" if not has_gpio_or_leds else "")
+        io_cfg = self.requirements.get("io_paths", {}) if isinstance(self.requirements.get("io_paths", {}), Mapping) else {}
+        for component, label in (
+            ("f_button", "F1-F4 buttons read path"),
+            ("f_led", "F1-F4 LED whitelist path"),
+            ("kranc", "Limit switches read path"),
+        ):
+            paths = io_cfg.get(component, [])
+            if isinstance(paths, str):
+                paths = [paths]
+            existing = [p for p in paths if Path(str(p)).exists()]
+            ok = bool(paths and existing)
+            self._result(f"real_{component}", component, ok, label, detail=", ".join(existing), error="no configured real read path" if not ok else "")
+        self._finalize_statuses_for(GROUP_IO)
         return self.results[before:]
 
     def check_cameras(self) -> List[LksCheckResult]:
         before = len(self.results)
-        video_nodes = self._glob_any(["/dev/video*"])
-        has_camera = bool(video_nodes)
-        detail = ", ".join(video_nodes[:4])
-        self._result("cam_main_presence", "cam_main", has_camera, "Main camera device", detail=detail, error="no /dev/video*" if not has_camera else "")
-        # Tracking camera wymaga drugiego urządzenia albo zostaje OFF.
-        self._result("cam_track_presence", "cam_track", len(video_nodes) >= 2, "Tracking camera device", detail=detail, error="less than two cameras" if len(video_nodes) < 2 else "")
+        values = self.inventory.values("video_nodes")
+        nodes = list(values.get("nodes", [])) if isinstance(values.get("nodes", []), list) else []
+        self._result("cam_main_video", "cam_main", len(nodes) >= 1, "Main camera /dev/video", detail=", ".join(nodes), error="no /dev/video*" if len(nodes) < 1 else "")
+        self._result("cam_track_video", "cam_track", len(nodes) >= 2, "Tracking camera /dev/video", detail=", ".join(nodes), error="second camera not confirmed" if len(nodes) < 2 else "")
+        self._finalize_statuses_for(GROUP_CAMERA)
         return self.results[before:]
 
     def check_axes_and_sok_read_only(self) -> List[LksCheckResult]:
         before = len(self.results)
-        # ETAP 6 nadal nie robi ruchu. Sterowniki osi/SOK oznaczamy tylko, jeśli
-        # znajdziemy bezpieczne ślady konfiguracji/modułów. Nie wysyłamy nic do driverów.
-        axis_markers = list(self.repo_root.glob("**/*step*")) + list(self.repo_root.glob("**/*axis*"))
-        has_axis_config = bool(axis_markers)
+        # ETAP 10: repo marker nie wystarcza. Zielone dopiero po jawnej konfiguracji
+        # read-only status path albo po przyszłym driver status API. Nie ruszamy osi.
+        axis_cfg = self.requirements.get("axis_status_paths", {}) if isinstance(self.requirements.get("axis_status_paths", {}), Mapping) else {}
         for component in GROUP_AXIS:
-            self._result(f"axis_{component}_config", component, has_axis_config, f"{component} driver/config presence", detail="read-only config scan", error="no axis config marker" if not has_axis_config else "")
+            path = str(axis_cfg.get(component, "") or "")
+            ok = bool(path and Path(path).exists())
+            self._result(f"axis_{component}_readonly_status", component, ok, f"{component} read-only driver status", detail=path, error="repo marker only; no read-only driver status path" if not ok else "")
 
-        sok_markers = [p for p in self.repo_root.glob("**/*sok*") if p.is_file()]
-        has_sok = bool(sok_markers)
+        sok_cfg = self.requirements.get("sok_status_paths", {}) if isinstance(self.requirements.get("sok_status_paths", {}), Mapping) else {}
         for component in GROUP_SOK:
-            self._result(f"sok_{component}_presence", component, has_sok, f"{component} presence", detail=", ".join(str(p) for p in sok_markers[:3]), error="no SOK marker" if not has_sok else "")
+            path = str(sok_cfg.get(component, "") or "")
+            ok = bool(path and Path(path).exists())
+            self._result(f"sok_{component}_readonly_status", component, ok, f"{component} real module status", detail=path, error="repo marker only; no real SOK mapping" if not ok else "")
 
-        # RRP jako obecność modułu/struktury, bez sterowania.
-        rrp_markers = [p for p in self.repo_root.glob("**/*rrp*") if p.is_file()]
-        self._result("rrp_presence", "rrp", bool(rrp_markers), "RRP module presence", detail=", ".join(str(p) for p in rrp_markers[:3]), error="no RRP marker" if not rrp_markers else "")
+        rrp_runtime = "rrp" in self.inventory.detail("process_tsp").lower()
+        self._result("rrp_runtime", "rrp", rrp_runtime, "RRP runtime/heartbeat", detail=self.inventory.detail("process_tsp"), error="repo marker only; no runtime heartbeat" if not rrp_runtime else "")
 
-        # Nextion 7 jako obecność eksportu/konfiguracji, bez komunikacji z panelem operatora.
-        n7_markers = [p for p in self.repo_root.glob("**/*nextion*7*") if p.is_file()]
-        self._result("nextion7_presence", "next_7", bool(n7_markers), "Nextion 7 config/export presence", detail=", ".join(str(p) for p in n7_markers[:3]), error="no Nextion 7 marker" if not n7_markers else "")
+        n7_candidates = self.inventory.values("nextion7_candidates").get("candidates", [])
+        n7_ok = bool(n7_candidates and self.requirements.get("nextion7_port"))
+        self._result("nextion7_mapping", "next_7", n7_ok, "Nextion 7 explicit serial mapping", detail=str(n7_candidates), error="no explicit Nextion 7 mapping on miniPC" if not n7_ok else "")
+
+        self._finalize_statuses_for(tuple(GROUP_AXIS) + tuple(GROUP_SOK) + ("rrp", "next_7"))
         return self.results[before:]
 
-
+    # ------------------------------------------------------------------
+    # Tryby uruchamiania
+    # ------------------------------------------------------------------
     def run_component(self, component: str) -> List[LksCheckResult]:
-        """Uruchamia diagnostykę punktową tylko dla wybranego ogniwa.
-
-        To jest tryb kliknięcia z Nextiona 5. Nie wykonuje pełnego ``run_all``
-        i nie resetuje całej tablicy status_main. Sprawdza tylko najbliższą
-        logiczną grupę potrzebną do ustalenia wyniku wskazanego komponentu.
-        Nadal obowiązuje zakaz STEP/DIR/ENABLE i zakaz ruchu osi.
-        """
+        """Uruchamia diagnostykę punktową tylko dla wskazanego ogniwa."""
         name = validate_component(component)
         self.results.clear()
         self.statuses = empty_statuses(False)
@@ -240,30 +399,16 @@ class TarzanTspLksDiagnostics:
         elif name in GROUP_AXIS or name in GROUP_SOK or name in {"rrp", "next_7"}:
             self.check_axes_and_sok_read_only()
         else:
-            self._result(
-                key=f"{name}_diagnostic_missing",
-                component=name,
-                ok=False,
-                label=f"{name} diagnostic",
-                error="no point diagnostic assigned",
-            )
+            self._result(f"{name}_diagnostic_missing", name, False, f"{name} diagnostic", error="no point diagnostic assigned")
 
-        if name == "i2c_bus" or name in GROUP_BUS:
-            self.statuses["i2c_bus"] = bus_ok_from_statuses(self.statuses)
-
+        self._finalize_statuses_for([name])
         selected = [item for item in self.results if item.component == name]
         if not selected:
-            self._result(
-                key=f"{name}_not_checked",
-                component=name,
-                ok=False,
-                label=f"{name} point diagnostic",
-                error="component was not checked",
-            )
+            self._result(f"{name}_not_checked", name, False, f"{name} point diagnostic", error="component was not checked")
             selected = [item for item in self.results if item.component == name]
-
-        # Wynik końcowy przycisku: OK tylko gdy wszystkie wyniki tego elementu są OK.
         self.statuses[name] = all(item.ok for item in selected)
+        if name == "i2c_bus" or name in GROUP_BUS:
+            self.statuses["i2c_bus"] = bus_ok_from_statuses(self.statuses)
         return selected
 
     def run_all(self) -> List[LksCheckResult]:
@@ -275,7 +420,7 @@ class TarzanTspLksDiagnostics:
         self.check_io()
         self.check_cameras()
         self.check_axes_and_sok_read_only()
-        self.statuses["i2c_bus"] = bus_ok_from_statuses(self.statuses)
+        self._finalize_statuses_for()
         return list(self.results)
 
     def status_map(self) -> Dict[str, bool]:
@@ -292,7 +437,7 @@ class DryRunLksN5:
         for key, ok in statuses.items():
             print(f"DRY-RUN LKS-N5 DIAG: {key}.val={1 if ok else 0}")
 
-    def show_warn(self, **kwargs) -> None:
+    def show_warn(self, **kwargs: Any) -> None:
         print(f"DRY-RUN LKS-N5 DIAG WARN: {kwargs}")
 
 
@@ -318,14 +463,22 @@ def _print_results(results: Iterable[LksCheckResult]) -> None:
     for item in results:
         mark = "OK" if item.ok else "OFF"
         extra = item.detail or item.error
-        print(f"{mark:3} {item.component:14} {item.key:24} {item.label} {extra}")
+        print(f"{mark:3} {item.component:14} {item.key:34} {item.label} {extra}")
+
+
+def _print_statuses(statuses: Mapping[str, bool]) -> None:
+    for key in sorted(statuses):
+        print(f"{key:14}={1 if statuses[key] else 0}")
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="TARZAN LKS-N5 ETAP 6 diagnostics")
+    parser = argparse.ArgumentParser(description="TARZAN LKS-N5 ETAP 10 real diagnostics")
     parser.add_argument("--repo-root", default="")
+    parser.add_argument("--inventory", default="", help=f"Inventory JSON from ETAP 9, default {DEFAULT_INVENTORY_PATH}")
+    parser.add_argument("--requirements", default="", help=f"Optional requirements JSON, default {DEFAULT_REQUIREMENTS_PATH}")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--print-results", action="store_true")
+    parser.add_argument("--print-statuses", action="store_true")
     parser.add_argument("--component", default="", help="Test punktowy jednego komponentu status_main")
     return parser
 
@@ -333,7 +486,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[List[str]] = None) -> int:
     args = _build_arg_parser().parse_args(argv)
     try:
-        diagnostics = TarzanTspLksDiagnostics(repo_root=args.repo_root or None)
+        diagnostics = TarzanTspLksDiagnostics(
+            repo_root=args.repo_root or None,
+            inventory_path=args.inventory or None,
+            requirements_path=args.requirements or None,
+        )
         if args.component:
             results = diagnostics.run_component(args.component)
         elif args.dry_run:
@@ -343,6 +500,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             results = diagnostics.run_all()
         if args.print_results:
             _print_results(results)
+        if args.print_statuses:
+            _print_statuses(diagnostics.status_map())
         print(summarize_results(results))
     except Exception as exc:
         print(f"BŁĄD LKS-N5 DIAGNOSTICS: {exc}", file=sys.stderr)

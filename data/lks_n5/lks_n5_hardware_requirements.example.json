@@ -1,0 +1,30 @@
+{
+  "description": "Opcjonalna mapa wymagań dla ETAPU 10. Skopiuj jako lks_n5_hardware_requirements.json dopiero gdy znasz realne adresy/ścieżki.",
+  "nextion7_port": "",
+  "i2c_addresses": {
+    "lcd_1602": "",
+    "matrix_led": "",
+    "keypad": "",
+    "light_bh1750": "",
+    "level_xyz": "",
+    "shock_alarm": "",
+    "light_laser": ""
+  },
+  "io_paths": {
+    "f_button": [],
+    "f_led": [],
+    "kranc": []
+  },
+  "axis_status_paths": {
+    "kam_poz": "",
+    "kam_pion": "",
+    "kam_ostr": "",
+    "kam_poch": "",
+    "ram_poziom": "",
+    "ram_pion": ""
+  },
+  "sok_status_paths": {
+    "sok_poz": "",
+    "sok_pion": ""
+  }
+}

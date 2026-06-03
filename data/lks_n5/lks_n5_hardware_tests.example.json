@@ -1,0 +1,24 @@
+{
+  "schema": "tarzan-lks-n5-hardware-tests-v1",
+  "runtime_dependency": "sovereign_lks_n5_tests_not_sandbox",
+  "pokeys": {
+    "lib_path": "auto",
+    "play_serial": 36102,
+    "rec_serial": 36084
+  },
+  "visible_operator_tests": {
+    "lcd_1602": true,
+    "matrix_led": true,
+    "f_led": true,
+    "f_button": true,
+    "keypad": true,
+    "light_bh1750": false
+  },
+  "safety": {
+    "step": false,
+    "dir": false,
+    "enable": false,
+    "motion": false,
+    "unknown_outputs": false
+  }
+}

@@ -36,6 +36,8 @@ from core.TSP.tarzanTspLksStatusMap import (
     empty_statuses,
     validate_component,
 )
+from core.TSP.tarzanTspLksHardwareTests import TarzanTspLksHardwareTests, LksHardwareTestResult
+
 
 DEFAULT_INVENTORY_PATH = "data/lks_n5/lks_n5_hardware_inventory.json"
 DEFAULT_REQUIREMENTS_PATH = "data/lks_n5/lks_n5_hardware_requirements.json"
@@ -114,6 +116,7 @@ class TarzanTspLksDiagnostics:
         self.statuses: Dict[str, bool] = empty_statuses(False)
         self.inventory = _InventoryView(self._load_or_collect_inventory())
         self.requirements = self._load_requirements()
+        self.hardware_tests = TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
 
     def _detect_repo_root(self) -> str:
         here = Path(__file__).resolve()
@@ -197,6 +200,25 @@ class TarzanTspLksDiagnostics:
             self.statuses[component_name] = bool(ok)
         return item
 
+    def _hardware_result(self, key: str, probe: LksHardwareTestResult, start: Optional[float] = None) -> LksCheckResult:
+        """Zamienia wynik suwerennego testera sprzętu na LksCheckResult."""
+        return self._result(
+            key=key,
+            component=probe.component,
+            ok=bool(probe.ok),
+            label=probe.label,
+            detail=probe.detail or probe.visible_action,
+            error=probe.error,
+            start=start,
+        )
+
+    def _try_hardware_probe(self, component: str, visible: bool = False) -> Optional[LksHardwareTestResult]:
+        try:
+            probe = self.hardware_tests.test_component(component, visible=visible)
+        except Exception as exc:
+            return LksHardwareTestResult(component=component, ok=False, supported=True, label=f"{component} sovereign hardware test", error=str(exc))
+        return probe if probe.supported else None
+
     def _check_import(self, module_name: str, key: str, component: str, label: str, required: bool = True) -> LksCheckResult:
         start = time.time()
         try:
@@ -255,11 +277,25 @@ class TarzanTspLksDiagnostics:
         before = len(self.results)
         text = self.inventory.text_blob("usb_lsusb")
         lib_seen = self.inventory.is_present("repo_marker_pokeys_lib") or self.inventory.is_present("usb_pokeys_hint")
-        play_seen = bool(re.search(r"PoLabs\s+PLAYER|PLAYER|PLAY", text, re.IGNORECASE))
-        # W realnym lsusb użytkownika REC widnieje jako PoLabs RECK.
-        rec_seen = bool(re.search(r"PoLabs\s+RECK|RECK|REC", text, re.IGNORECASE))
-        self._result("pokeys_play_usb", "pok_play", bool(lib_seen and play_seen), "PoKeys PLAY USB identity", detail=text[:500], error="PoKeys PLAY not identified" if not (lib_seen and play_seen) else "")
-        self._result("pokeys_rec_usb", "pok_rec", bool(lib_seen and rec_seen), "PoKeys REC USB identity", detail=text[:500], error="PoKeys REC/RECK not identified" if not (lib_seen and rec_seen) else "")
+
+        for component, board, pattern in (
+            ("pok_play", "PLAY", r"PoLabs\s+PLAYER|PLAYER|PLAY"),
+            ("pok_rec", "REC", r"PoLabs\s+RECK|RECK|REC"),
+        ):
+            probe = self._try_hardware_probe(component, visible=False)
+            if probe is not None:
+                self._hardware_result(f"{component}_sovereign_pokeys", probe)
+                continue
+            seen = bool(lib_seen and re.search(pattern, text, re.IGNORECASE))
+            self._result(
+                f"{component}_usb_identity",
+                component,
+                seen,
+                f"PoKeys {board} USB identity",
+                detail=text[:500],
+                error=f"PoKeys {board} not identified or no real PoKeys wrapper" if not seen else "",
+            )
+
         self._finalize_statuses_for(GROUP_POKEYS)
         return self.results[before:]
 
@@ -303,10 +339,14 @@ class TarzanTspLksDiagnostics:
             "light_laser": "Laser/light module real bus test",
         }
         for component, label in component_labels.items():
+            probe = self._try_hardware_probe(component, visible=False)
+            if probe is not None:
+                self._hardware_result(f"real_{component}_sovereign", probe)
+                continue
             configured = component in addresses
             ok = bool(has_i2c_nodes and configured and self._i2c_has_address(addresses.get(component)))
             if not has_i2c_nodes:
-                error = "no /dev/i2c-*"
+                error = "no /dev/i2c-* and no sovereign PoKeys tester confirmed"
             elif not configured:
                 error = "no configured I2C address/test path"
             elif not has_i2c_scan:
@@ -333,6 +373,10 @@ class TarzanTspLksDiagnostics:
             ("f_led", "F1-F4 LED whitelist path"),
             ("kranc", "Limit switches read path"),
         ):
+            probe = self._try_hardware_probe(component, visible=False)
+            if probe is not None:
+                self._hardware_result(f"real_{component}_sovereign", probe)
+                continue
             paths = io_cfg.get(component, [])
             if isinstance(paths, str):
                 paths = [paths]
@@ -380,13 +424,16 @@ class TarzanTspLksDiagnostics:
     # ------------------------------------------------------------------
     # Tryby uruchamiania
     # ------------------------------------------------------------------
-    def run_component(self, component: str) -> List[LksCheckResult]:
+    def run_component(self, component: str, operator_visible: bool = True) -> List[LksCheckResult]:
         """Uruchamia diagnostykę punktową tylko dla wskazanego ogniwa."""
         name = validate_component(component)
         self.results.clear()
         self.statuses = empty_statuses(False)
 
-        if name in GROUP_SYSTEM:
+        probe = self._try_hardware_probe(name, visible=bool(operator_visible))
+        if probe is not None:
+            self._hardware_result(f"{name}_sovereign_point_test", probe)
+        elif name in GROUP_SYSTEM:
             self.check_system()
         elif name in GROUP_POKEYS:
             self.check_pokeys()

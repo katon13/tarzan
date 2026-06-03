@@ -157,7 +157,7 @@ class TarzanTspLksNextion5:
         base = bool(self.last_status.get(name, False))
         self.blink_component(name, base_value=base)
         diag = diagnostics or TarzanTspLksDiagnostics()
-        diag.run_component(name)
+        diag.run_component(name, operator_visible=True)
         ok = bool(diag.status_map().get(name, False))
         self.set_status(name, ok)
         return ok

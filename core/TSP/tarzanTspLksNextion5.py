@@ -343,6 +343,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--delay", type=float, default=0.03, help="Opóźnienie między komendami")
     parser.add_argument("--test-scenes", action="store_true", help="Demo ETAPU 3 po scenach")
     parser.add_argument("--boot-check", action="store_true", help="ETAP 5: realny, bezpieczny boot-check miniPC")
+    parser.add_argument("--diagnostics", action="store_true", help="ETAP 6: diagnostyka podzespołów status_main")
+    parser.add_argument("--print-results", action="store_true", help="Wypisz wyniki diagnostyki ETAPU 6")
     parser.add_argument(
         "--scene",
         choices=["linux", "services", "hardware", "test", "ready", "status", "warn", "error", "take"],
@@ -382,6 +384,19 @@ def main(argv: Optional[List[str]] = None) -> int:
                 from core.TSP.tarzanTspLksBootCheck import TarzanTspLksBootCheck
 
                 TarzanTspLksBootCheck(n5).run()
+            elif args.diagnostics:
+                from core.TSP.tarzanTspLksDiagnostics import (
+                    TarzanTspLksDiagnostics,
+                    apply_diagnostics_to_n5,
+                    summarize_results,
+                    _print_results,
+                )
+
+                diagnostics = TarzanTspLksDiagnostics()
+                results = apply_diagnostics_to_n5(n5, diagnostics)
+                if args.print_results:
+                    _print_results(results)
+                print(summarize_results(results))
             elif args.test_scenes:
                 n5.run_scene_demo()
             elif args.scene == "linux":

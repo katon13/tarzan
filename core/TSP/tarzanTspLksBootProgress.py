@@ -199,27 +199,28 @@ class TarzanTspLksBootProgress:
         self._pause()
 
     def _show_status_intro(self) -> None:
-        """Ostatnia plansza przejściowa bezpośrednio przed status_main.
+        """Włącza fizyczną stronę intro_status i oddaje jej sterowanie.
 
-        intro_status jest częścią globalnego procesu startu. To nie jest
-        osobny test i nie wolno go pomijać przy spokojnym pasku postępu.
-        Operator ma zobaczyć: testy zakończone, gotowe, za chwilę tablica
-        status_main. Pasek zostaje na 100% i nie cofa się do 98%.
+        Aktualny HMI Nextion 5 ma na stronie intro_status tylko p_anim,
+        va_anim i tm_anim. Nie ma tam pól t_title/t_line/j_progress.
+        Dlatego Python NIE wysyła na tę stronę żadnych tekstów ani numerów.
+
+        intro_status ma własny timer i na końcu sam wykonuje:
+            page status_main
+
+        Python ma tylko wejść na intro_status, poczekać aż animacja się
+        zakończy, a potem wysłać wartości 30 kontrolek już na status_main.
+        Nie wolno wymuszać page status_main z Pythona, bo to przerywa intro.
         """
-        green = sum(1 for value in self.statuses.values() if value)
-        total = len(self.statuses)
-        final_note = "BEZ BLEDOW" if green == total else "SPRAWDZ STATUS"
-        self._show_step(
-            SCENE_INTRO_STATUS,
-            "INTRO STATUS",
-            "TESTY ZAKONCZONE",
-            f"GOTOWE {green}/{total}",
-            final_note,
-            "przejscie",
-            "100%",
-            100,
-        )
-        self._pause()
+        self.n5.page(SCENE_INTRO_STATUS)
+        self._current_scene = SCENE_INTRO_STATUS
+        self._global_progress = max(self._global_progress, 100)
+
+        # FIZYCZNY KONTRAKT HMI:
+        # intro_status: tm_anim.tim=150, 8 klatek, ostatnia klatka robi
+        # page status_main. Dajemy zapas, żeby Python nie zaczął ustawiać
+        # kontrolek zanim Nextion realnie przejdzie na status_main.
+        time.sleep(max(self.pause_s, 1.6))
 
     def _step(
         self,
@@ -353,11 +354,16 @@ class TarzanTspLksBootProgress:
         for scene, progress, key, component, label, fn in steps:
             self._step(scene=scene, progress=progress, key=key, component=component, label=label, fn=fn)
 
-        # Końcówka ma iść zgodnie z układem stron operatora:
+        # Końcówka ma iść zgodnie z fizycznym układem stron operatora:
         # boot_test -> ready_main -> intro_status -> status_main.
+        # Uwaga: intro_status sam przełącza na status_main timerem Nextiona.
+        # Python nie robi tutaj page status_main, żeby nie przerywać animacji.
         self._show_ready_main()
         self._show_status_intro()
-        self.n5.show_status(reset=True)
+
+        # Po zakończeniu intro Nextion jest już na status_main, więc ustawiamy
+        # wyłącznie wartości kontrolek. Nie robimy resetu całej strony ani
+        # ponownego page status_main.
         self.n5.set_many_statuses(self.statuses)
         self._write_last_report()
         return list(self.results)

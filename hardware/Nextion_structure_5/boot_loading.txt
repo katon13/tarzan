@@ -11,11 +11,14 @@ Page boot_loading
     Events
         Postinitialize Event
             sendme
-            va_load.val=10
+            // boot_loading jest tylko ekranem oczekiwania na Linux/systemd.
+            // Nie udaje realnego postępu, bo prawdziwy progress zaczyna się
+            // dopiero gdy Python przejmie Nextion i pokaże boot_linux.
+            va_load.val=8
             n_progress.val=va_load.val
             j_progress.val=va_load.val
-            tm_load.tim=500
-            tm_load.en=1
+            tm_load.tim=1000
+            tm_load.en=0
         
 Variable (int32) va_load
     Attributes
@@ -285,15 +288,10 @@ Timer tm_load
         ID         : 9
         Scope      : local
         Period (ms): 400
-        Enabled    : yes
+        Enabled    : no
     
     Events
         Timer Event
-            va_load.val+=5
-            if(va_load.val>90)
-            {
-                va_load.val=20
-            }
-            n_progress.val=va_load.val
-            j_progress.val=va_load.val
+            // Timer świadomie pusty. Pasek nie może się zapętlać przed startem Linuxa.
+            // Realne wartości j_progress/n_progress wysyła dopiero Python w ETAPIE 13.
         

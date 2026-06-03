@@ -214,6 +214,58 @@ class TarzanTspLksDiagnostics:
         self._result("nextion7_presence", "next_7", bool(n7_markers), "Nextion 7 config/export presence", detail=", ".join(str(p) for p in n7_markers[:3]), error="no Nextion 7 marker" if not n7_markers else "")
         return self.results[before:]
 
+
+    def run_component(self, component: str) -> List[LksCheckResult]:
+        """Uruchamia diagnostykę punktową tylko dla wybranego ogniwa.
+
+        To jest tryb kliknięcia z Nextiona 5. Nie wykonuje pełnego ``run_all``
+        i nie resetuje całej tablicy status_main. Sprawdza tylko najbliższą
+        logiczną grupę potrzebną do ustalenia wyniku wskazanego komponentu.
+        Nadal obowiązuje zakaz STEP/DIR/ENABLE i zakaz ruchu osi.
+        """
+        name = validate_component(component)
+        self.results.clear()
+        self.statuses = empty_statuses(False)
+
+        if name in GROUP_SYSTEM:
+            self.check_system()
+        elif name in GROUP_POKEYS:
+            self.check_pokeys()
+        elif name in GROUP_BUS:
+            self.check_bus()
+        elif name in GROUP_IO:
+            self.check_io()
+        elif name in GROUP_CAMERA:
+            self.check_cameras()
+        elif name in GROUP_AXIS or name in GROUP_SOK or name in {"rrp", "next_7"}:
+            self.check_axes_and_sok_read_only()
+        else:
+            self._result(
+                key=f"{name}_diagnostic_missing",
+                component=name,
+                ok=False,
+                label=f"{name} diagnostic",
+                error="no point diagnostic assigned",
+            )
+
+        if name == "i2c_bus" or name in GROUP_BUS:
+            self.statuses["i2c_bus"] = bus_ok_from_statuses(self.statuses)
+
+        selected = [item for item in self.results if item.component == name]
+        if not selected:
+            self._result(
+                key=f"{name}_not_checked",
+                component=name,
+                ok=False,
+                label=f"{name} point diagnostic",
+                error="component was not checked",
+            )
+            selected = [item for item in self.results if item.component == name]
+
+        # Wynik końcowy przycisku: OK tylko gdy wszystkie wyniki tego elementu są OK.
+        self.statuses[name] = all(item.ok for item in selected)
+        return selected
+
     def run_all(self) -> List[LksCheckResult]:
         self.results.clear()
         self.statuses = empty_statuses(False)
@@ -274,6 +326,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repo-root", default="")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--print-results", action="store_true")
+    parser.add_argument("--component", default="", help="Test punktowy jednego komponentu status_main")
     return parser
 
 
@@ -281,7 +334,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = _build_arg_parser().parse_args(argv)
     try:
         diagnostics = TarzanTspLksDiagnostics(repo_root=args.repo_root or None)
-        if args.dry_run:
+        if args.component:
+            results = diagnostics.run_component(args.component)
+        elif args.dry_run:
             n5 = DryRunLksN5()
             results = apply_diagnostics_to_n5(n5, diagnostics)
         else:

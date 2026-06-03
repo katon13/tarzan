@@ -52,6 +52,43 @@ LKS_STATUS_COMPONENTS: Dict[str, str] = {
     "ehr_sys": "ehr_sys",
 }
 
+
+# ID komponentów Dual-state Button na stronie status_main z eksportu Nextion 5.
+# Używane do obsługi kliknięcia operatora: event 0x65 page_id component_id touch_event.
+# touch_event=1 oznacza release i dopiero wtedy uruchamiamy test punktowy.
+LKS_STATUS_COMPONENT_IDS: Dict[int, str] = {
+    1: "linux_sys",
+    2: "snajper_sys",
+    3: "pok_play",
+    4: "sok_poz",
+    5: "pok_rec",
+    6: "rrp",
+    7: "sok_pion",
+    8: "next_7",
+    9: "lcd_1602",
+    10: "matrix_led",
+    11: "keypad",
+    12: "f_button",
+    13: "shock_alarm",
+    14: "level_xyz",
+    15: "light_laser",
+    16: "light_bh1750",
+    17: "kranc",
+    18: "f_led",
+    19: "kam_poz",
+    20: "kam_pion",
+    21: "kam_ostr",
+    22: "kam_poch",
+    23: "ram_poziom",
+    24: "ram_pion",
+    25: "cam_main",
+    26: "cam_track",
+    27: "i2c_bus",
+    28: "take_sys",
+    29: "par_sys",
+    30: "ehr_sys",
+}
+
 # Grupy logiczne pod diagnostykę ETAPU 5/6.
 GROUP_SYSTEM: Tuple[str, ...] = ("linux_sys", "snajper_sys", "take_sys", "par_sys", "ehr_sys")
 GROUP_POKEYS: Tuple[str, ...] = ("pok_play", "pok_rec")
@@ -154,6 +191,23 @@ def bus_ok_from_statuses(statuses: Dict[str, bool]) -> bool:
     """
     return all(bool(statuses.get(name, False)) for name in REQUIRED_BUS_DEVICES)
 
+
+
+def component_from_nextion_id(component_id: int) -> str:
+    """Zwraca nazwę komponentu status_main po ID z eventu touch Nextiona."""
+    cid = int(component_id)
+    if cid not in LKS_STATUS_COMPONENT_IDS:
+        raise KeyError(f"Unknown LKS-N5 status_main component id: {cid}")
+    return validate_component(LKS_STATUS_COMPONENT_IDS[cid])
+
+
+def nextion_id_from_component(name: str) -> int:
+    """Zwraca ID komponentu status_main po nazwie/kluczu logicznym."""
+    component = validate_component(name)
+    for cid, mapped in LKS_STATUS_COMPONENT_IDS.items():
+        if validate_component(mapped) == component:
+            return cid
+    raise KeyError(f"LKS-N5 component has no Nextion ID: {component}")
 
 def assert_unique_components() -> None:
     """Sprawdza, czy mapa nie ma zdublowanych nazw komponentów."""

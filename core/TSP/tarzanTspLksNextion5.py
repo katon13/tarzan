@@ -47,6 +47,7 @@ from core.TSP.tarzanTspLksMessages import (
 )
 
 from core.TSP.tarzanTspLksStatusMap import all_components, validate_component
+from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
 
 
 class TarzanTspLksNextion5:
@@ -125,6 +126,41 @@ class TarzanTspLksNextion5:
     def bkcmd(self, level: int = 3) -> None:
         getattr(self.device, "bkcmd")(int(level))
         self._sleep()
+
+
+    def read_events(self) -> List[object]:
+        """Odczytuje dostępne eventy z Nextiona bez blokowania pętli TSP."""
+        poll = getattr(self.device, "poll_events", None)
+        if callable(poll):
+            return list(poll())
+        return []
+
+    def blink_component(self, component: str, base_value: Optional[bool] = None, cycles: int = 3, delay_s: float = 0.12) -> None:
+        """Krótko mruga jednym elementem podczas testu punktowego operatora."""
+        name = validate_component(component)
+        if base_value is None:
+            base_value = bool(self.last_status.get(name, False))
+        for _ in range(max(1, int(cycles))):
+            self.val(name, 0 if base_value else 1)
+            time.sleep(max(0.02, float(delay_s)))
+            self.val(name, 1 if base_value else 0)
+            time.sleep(max(0.02, float(delay_s)))
+
+    def test_component(self, component: str, diagnostics: Optional[TarzanTspLksDiagnostics] = None) -> bool:
+        """Testuje jedno ogniwo po kliknięciu przycisku na status_main.
+
+        W czasie testu mruga tylko kliknięty element. Po teście wraca:
+        - ``.val=1`` gdy test OK,
+        - ``.val=0`` gdy test niepotwierdzony albo FAIL.
+        """
+        name = validate_component(component)
+        base = bool(self.last_status.get(name, False))
+        self.blink_component(name, base_value=base)
+        diag = diagnostics or TarzanTspLksDiagnostics()
+        diag.run_component(name)
+        ok = bool(diag.status_map().get(name, False))
+        self.set_status(name, ok)
+        return ok
 
     def show_boot_linux(self) -> None:
         self.page(SCENE_BOOT_LINUX)

@@ -59,6 +59,8 @@ from .tarzanTspProtocol import (
 )
 from .tarzanTspSignals import TarzanTspSignalProvider
 from .tarzanTspLks import TarzanTspLks
+from .tarzanTspLksStatusMap import component_from_nextion_id, validate_component
+from .tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
 
 try:
     from .tarzanTspLksNextion5 import TarzanTspLksNextion5
@@ -217,6 +219,13 @@ class TarzanTspServer:
         self._lks_n5_last_refresh_ms = 0
         self._lks_n5_dirty = False
         self._lks_n5_dirty_reason = ""
+        # Antymruganie Nextiona 5:
+        # - page status_main i reset kontrolek wykonujemy tylko raz, gdy trzeba wejść na stronę,
+        # - cykl pracy wysyła potem wyłącznie zmienione .val, bez page i bez resetowania całej tablicy.
+        self._lks_n5_status_page_ready = False
+        self._lks_n5_status_cache: Dict[str, bool] = {}
+        self._lks_n5_last_poll_ms = 0
+        self._lks_n5_last_point_test_ms = 0
 
     # ------------------------------------------------------------------
     # LKS — LAMPKA KONTROLNA SYSTEMU
@@ -280,7 +289,10 @@ class TarzanTspServer:
             self.lks_n5.connect()
             self.lks_n5.bkcmd(3)
             self.lks_n5.show_boot_linux()
-            self.lks_n5.set_many_statuses({"linux_sys": True, "take_sys": True})
+            self._lks_n5_status_page_ready = False
+            self._lks_n5_status_cache = {}
+            self._lks_n5_dirty = True
+            self._lks_n5_dirty_reason = "startup"
             self._lks_n5_last_refresh_ms = monotonic_ms()
             self.logger.info("LKS-N5 START port=%s baudrate=%s dry_run=%s", self._lks_n5_port, self._lks_n5_baudrate, self._lks_n5_dry_run)
         except Exception as exc:
@@ -297,6 +309,8 @@ class TarzanTspServer:
         """
         self._lks_n5_dirty = False
         self._lks_n5_dirty_reason = ""
+        self._lks_n5_status_page_ready = False
+        self._lks_n5_status_cache = {}
         device = self.lks_n5
         self.lks_n5 = None
         if device is None:
@@ -327,28 +341,118 @@ class TarzanTspServer:
         self.mark_lks_dirty(reason)
         self.mark_lks_n5_dirty(reason, immediate=immediate_n5)
 
+
+    def _decode_lks_n5_touch_event(self, event: object) -> Optional[str]:
+        """Dekoduje kliknięcie status_main z Nextiona 5.
+
+        Obsługiwany format Nextion: 0x65 page_id component_id touch_event.
+        Test punktowy uruchamiamy tylko na release, czyli touch_event=1.
+        """
+        raw = bytes(getattr(event, "raw", b"") or b"")
+        if len(raw) < 4 or raw[0] != 0x65:
+            return None
+        _page_id = int(raw[1])
+        component_id = int(raw[2])
+        touch_event = int(raw[3])
+        if touch_event != 1:
+            return None
+        try:
+            return component_from_nextion_id(component_id)
+        except Exception as exc:
+            self.debug.record_error("lks_n5_unknown_touch", {"component_id": component_id, "error": str(exc)})
+            return None
+
+    def _poll_lks_n5_events(self) -> None:
+        """Czyta kliknięcia operatora z LKS-N5.
+
+        Praca ciągła jest spokojna: samo czytanie RX jest lekkie, a pełniejszy test
+        uruchamiamy dopiero po kliknięciu konkretnego elementu status_main.
+        """
+        if self._stopping or self.lks_n5 is None:
+            return
+        try:
+            for event in self.lks_n5.read_events():
+                component = self._decode_lks_n5_touch_event(event)
+                if component:
+                    self._run_lks_n5_point_test(component)
+        except Exception as exc:
+            self.debug.record_error("lks_n5_event_poll_failed", {"error": str(exc)})
+            self.logger.warning("LKS-N5 event poll failed: %s", exc)
+
+    def _run_lks_n5_point_test(self, component: str) -> None:
+        """Testuje jeden kliknięty komponent i aktualizuje tylko jego kontrolkę."""
+        if self._stopping or self.lks_n5 is None:
+            return
+        now = monotonic_ms()
+        if now - self._lks_n5_last_point_test_ms < 300:
+            return
+        self._lks_n5_last_point_test_ms = now
+        name = validate_component(component)
+        try:
+            if not self._lks_n5_status_page_ready:
+                self.lks_n5.show_status(reset=True)
+                self._lks_n5_status_page_ready = True
+                self._lks_n5_status_cache = {}
+
+            base = bool(self._lks_n5_status_cache.get(name, False))
+            self.logger.info("LKS-N5 POINT TEST component=%s", name)
+            self.lks_n5.blink_component(name, base_value=base)
+            diagnostics = TarzanTspLksDiagnostics()
+            diagnostics.run_component(name)
+            ok = bool(diagnostics.status_map().get(name, False))
+            self.lks_n5.set_status(name, ok)
+            self._lks_n5_status_cache[name] = ok
+            self.logger.info("LKS-N5 POINT TEST DONE component=%s ok=%s", name, ok)
+        except Exception as exc:
+            self.debug.record_error("lks_n5_point_test_failed", {"component": name, "error": str(exc)})
+            self.logger.warning("LKS-N5 point test failed component=%s error=%s", name, exc)
+            try:
+                self.lks_n5.set_status(name, False)
+                self._lks_n5_status_cache[name] = False
+            except Exception:
+                pass
+
     def _refresh_lks_n5(self, reason: str = "cycle", immediate: bool = False) -> None:
         if self._stopping or self.lks_n5 is None:
             return
         now = monotonic_ms()
         if not immediate and now - self._lks_n5_last_refresh_ms < int(self._lks_n5_refresh_interval_s * 1000):
             return
+
         try:
             clients = self.clients()
             client_count = len(clients)
-            state = self.provider.state_summary()
-            self.lks_n5.show_status(reset=True)
-            self.lks_n5.set_many_statuses(
-                {
-                    "linux_sys": True,
-                    "snajper_sys": True if reason.lower().startswith("health") else False,
-                    "take_sys": True,
-                    "par_sys": client_count > 0,
-                    "ehr_sys": client_count > 0,
-                    "pok_play": True,
-                    "pok_rec": True,
-                }
-            )
+            reason_low = reason.lower()
+
+            desired_statuses: Dict[str, bool] = {
+                "linux_sys": True,
+                "snajper_sys": reason_low.startswith("health"),
+                "take_sys": True,
+                "par_sys": client_count > 0,
+                "ehr_sys": client_count > 0,
+                "pok_play": True,
+                "pok_rec": True,
+            }
+
+            # WAŻNE: antymruganie.
+            # Nie wolno w cyklu robić show_status(reset=True), bo to wysyła page + reset 30 kontrolek
+            # i fizyczny Nextion wygląda jakby mrugał. Stronę ustawiamy tylko raz, a dalej lecą
+            # wyłącznie zmienione wartości .val.
+            if not self._lks_n5_status_page_ready:
+                self.lks_n5.show_status(reset=True)
+                self._lks_n5_status_page_ready = True
+                self._lks_n5_status_cache = {}
+
+            changed_statuses = {
+                name: value
+                for name, value in desired_statuses.items()
+                if self._lks_n5_status_cache.get(name) != value
+            }
+
+            if changed_statuses:
+                self.lks_n5.set_many_statuses(changed_statuses)
+                self._lks_n5_status_cache.update(changed_statuses)
+
             self._lks_n5_last_refresh_ms = now
             self._lks_n5_dirty = False
             self._lks_n5_dirty_reason = ""
@@ -614,9 +718,15 @@ class TarzanTspServer:
                     client_count, stats["packets_tx"], stats["packets_rx"], stats["errors"], stats["dropped"], stats["lane_packets"],
                 )
 
-            # 4. LKS-N5 — lekki cykl kontrolny, bez reakcji na każdy FAST
-            if not self._stopping and (self._lks_n5_dirty or now - self._lks_n5_last_refresh_ms >= int(self._lks_n5_refresh_interval_s * 1000)):
-                self._refresh_lks_n5(reason=self._lks_n5_dirty_reason or "cycle", immediate=False)
+            # 4. LKS-N5 — spokojna praca:
+            # - nie robimy pełnych testów w pętli,
+            # - nie resetujemy status_main cyklicznie,
+            # - czytamy tylko lekkie eventy dotyku,
+            # - status odświeżamy wyłącznie, gdy stan został oznaczony jako dirty.
+            if not self._stopping and self.lks_n5 is not None:
+                self._poll_lks_n5_events()
+                if self._lks_n5_dirty:
+                    self._refresh_lks_n5(reason=self._lks_n5_dirty_reason or "event", immediate=False)
 
             # 5. Traces
             self._emit_traces(clients=clients, now=now)

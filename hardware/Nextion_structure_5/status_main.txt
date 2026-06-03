@@ -16,7 +16,7 @@ Dual-state Button linux_sys
     Attributes
         ID                               : 1
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 133
         y coordinate                     : 0
         Width                            : 133
@@ -38,7 +38,7 @@ Dual-state Button snajper_sys
     Attributes
         ID                               : 2
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 266
         y coordinate                     : 0
         Width                            : 133
@@ -60,7 +60,7 @@ Dual-state Button pok_play
     Attributes
         ID                               : 3
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 399
         y coordinate                     : 0
         Width                            : 133
@@ -82,7 +82,7 @@ Dual-state Button sok_poz
     Attributes
         ID                               : 4
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 665
         y coordinate                     : 0
         Width                            : 133
@@ -104,7 +104,7 @@ Dual-state Button pok_rec
     Attributes
         ID                               : 5
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 532
         y coordinate                     : 0
         Width                            : 133
@@ -126,7 +126,7 @@ Dual-state Button rrp
     Attributes
         ID                               : 6
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 266
         y coordinate                     : 290
         Width                            : 133
@@ -148,7 +148,7 @@ Dual-state Button sok_pion
     Attributes
         ID                               : 7
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 0
         y coordinate                     : 96
         Width                            : 133
@@ -170,7 +170,7 @@ Dual-state Button next_7
     Attributes
         ID                               : 8
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 133
         y coordinate                     : 96
         Width                            : 133
@@ -192,7 +192,7 @@ Dual-state Button lcd_1602
     Attributes
         ID                               : 9
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 266
         y coordinate                     : 96
         Width                            : 133
@@ -214,7 +214,7 @@ Dual-state Button matrix_led
     Attributes
         ID                               : 10
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 399
         y coordinate                     : 96
         Width                            : 133
@@ -236,7 +236,7 @@ Dual-state Button keypad
     Attributes
         ID                               : 11
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 532
         y coordinate                     : 96
         Width                            : 133
@@ -258,7 +258,7 @@ Dual-state Button f_button
     Attributes
         ID                               : 12
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 665
         y coordinate                     : 96
         Width                            : 133
@@ -280,7 +280,7 @@ Dual-state Button shock_alarm
     Attributes
         ID                               : 13
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 665
         y coordinate                     : 193
         Width                            : 133
@@ -302,7 +302,7 @@ Dual-state Button level_xyz
     Attributes
         ID                               : 14
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 532
         y coordinate                     : 193
         Width                            : 133
@@ -324,7 +324,7 @@ Dual-state Button light_laser
     Attributes
         ID                               : 15
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 399
         y coordinate                     : 193
         Width                            : 133
@@ -346,7 +346,7 @@ Dual-state Button light_bh1750
     Attributes
         ID                               : 16
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 266
         y coordinate                     : 193
         Width                            : 133
@@ -368,7 +368,7 @@ Dual-state Button kranc
     Attributes
         ID                               : 17
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 133
         y coordinate                     : 193
         Width                            : 133
@@ -390,7 +390,7 @@ Dual-state Button f_led
     Attributes
         ID                               : 18
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 0
         y coordinate                     : 193
         Width                            : 133
@@ -412,7 +412,7 @@ Dual-state Button kam_poz
     Attributes
         ID                               : 19
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 0
         y coordinate                     : 383
         Width                            : 133
@@ -434,7 +434,7 @@ Dual-state Button kam_pion
     Attributes
         ID                               : 20
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 133
         y coordinate                     : 383
         Width                            : 133
@@ -456,7 +456,7 @@ Dual-state Button kam_ostr
     Attributes
         ID                               : 21
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 266
         y coordinate                     : 383
         Width                            : 133
@@ -478,7 +478,7 @@ Dual-state Button kam_poch
     Attributes
         ID                               : 22
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 399
         y coordinate                     : 383
         Width                            : 133
@@ -500,7 +500,7 @@ Dual-state Button ram_poziom
     Attributes
         ID                               : 23
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 532
         y coordinate                     : 383
         Width                            : 133
@@ -522,7 +522,7 @@ Dual-state Button ram_pion
     Attributes
         ID                               : 24
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 665
         y coordinate                     : 383
         Width                            : 133
@@ -544,7 +544,7 @@ Dual-state Button cam_main
     Attributes
         ID                               : 25
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 0
         y coordinate                     : 290
         Width                            : 133
@@ -566,7 +566,7 @@ Dual-state Button cam_track
     Attributes
         ID                               : 26
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 133
         y coordinate                     : 290
         Width                            : 133
@@ -588,7 +588,7 @@ Dual-state Button i2c_bus
     Attributes
         ID                               : 27
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 0
         y coordinate                     : 0
         Width                            : 133
@@ -610,7 +610,7 @@ Dual-state Button take_sys
     Attributes
         ID                               : 28
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 399
         y coordinate                     : 290
         Width                            : 133
@@ -632,7 +632,7 @@ Dual-state Button par_sys
     Attributes
         ID                               : 29
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 532
         y coordinate                     : 290
         Width                            : 133
@@ -654,7 +654,7 @@ Dual-state Button ehr_sys
     Attributes
         ID                               : 30
         Scope                            : local
-        Send Component ID                : disabled
+        Send Component ID                : enabled
         x coordinate                     : 665
         y coordinate                     : 290
         Width                            : 133

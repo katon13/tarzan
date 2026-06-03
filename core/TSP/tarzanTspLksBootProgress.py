@@ -64,6 +64,8 @@ class TarzanTspLksBootProgress:
         self.nextion5_port = str(nextion5_port or "")
         self.results: List[LksBootProgressResult] = []
         self.statuses: Dict[str, bool] = empty_statuses(False)
+        self._current_scene: str = ""
+        self._global_progress: int = 0
 
     def _detect_repo_root(self) -> str:
         here = Path(__file__).resolve()
@@ -124,7 +126,21 @@ class TarzanTspLksBootProgress:
         return item
 
     def _show_step(self, scene: str, title: str, line1: str, line2: str, line3: str, status: str, code: str, progress: int) -> None:
-        self.n5.page(scene)
+        """Aktualizuje teksty i globalny postęp bez migania strony.
+
+        Dla operatora pasek j_progress/n_progress oznacza postęp całego
+        startu systemu, nie lokalny postęp pojedynczego testu. Dlatego:
+        - strona Nextiona jest przełączana tylko przy zmianie sceny,
+        - procent jest monotoniczny i nigdy się nie cofa,
+        - wynik pojedynczego kroku zmienia tylko napisy, a nie restartuje strony.
+        """
+        if self._current_scene != scene:
+            self.n5.page(scene)
+            self._current_scene = scene
+
+        safe_progress = max(self._global_progress, int(progress))
+        self._global_progress = safe_progress
+
         self.n5.set_texts(
             {
                 "t_title": title,
@@ -136,7 +152,7 @@ class TarzanTspLksBootProgress:
                 "t_code": code,
             }
         )
-        self.n5.set_numbers({"j_progress": int(progress), "n_progress": int(progress)})
+        self.n5.set_numbers({"j_progress": safe_progress, "n_progress": safe_progress})
 
     def _mark_running(self, scene: str, progress: int, label: str, detail: str = "") -> None:
         if scene == SCENE_BOOT_LINUX:
@@ -279,6 +295,8 @@ class TarzanTspLksBootProgress:
     def run(self) -> List[LksBootProgressResult]:
         self.results.clear()
         self.statuses = empty_statuses(False)
+        self._current_scene = ""
+        self._global_progress = 0
         self.n5.bkcmd(3)
 
         steps = [

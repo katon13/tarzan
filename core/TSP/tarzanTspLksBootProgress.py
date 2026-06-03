@@ -340,7 +340,10 @@ class TarzanTspLksBootProgress:
 
     def _check_diagnostics(self) -> Tuple[bool, str, str]:
         diagnostics = TarzanTspLksDiagnostics(repo_root=str(self.repo_root))
-        results = diagnostics.run_all()
+        # Boot startowy ma pokazać operatorowi realną relację z podzespołami
+        # wyjściowymi: LCD 1602, Matrix LED i F1-F4 LED dostają krótkie wzorce.
+        # Diagnostyka osi pozostaje wyłącznie odczytowa: zero STEP/DIR/ENABLE.
+        results = diagnostics.run_all(operator_visible=True)
         self.statuses.update(diagnostics.status_map())
         ok_count = sum(1 for item in results if item.ok)
         fail_count = sum(1 for item in results if not item.ok)

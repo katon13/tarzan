@@ -117,6 +117,9 @@ class TarzanTspLksDiagnostics:
         self.inventory = _InventoryView(self._load_or_collect_inventory())
         self.requirements = self._load_requirements()
         self.hardware_tests = TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
+        # Domyślnie pełna diagnostyka jest cicha. Boot może świadomie włączyć
+        # krótkie, widoczne wzorce tylko dla wyjść operatorskich: LCD, Matrix, LED.
+        self._operator_visible_run_all = False
 
     def _detect_repo_root(self) -> str:
         here = Path(__file__).resolve()
@@ -338,8 +341,10 @@ class TarzanTspLksDiagnostics:
             "shock_alarm": "Shock/alarm real bus test",
             "light_laser": "Laser/light module real bus test",
         }
+        visible_output_components = {"lcd_1602", "matrix_led"}
         for component, label in component_labels.items():
-            probe = self._try_hardware_probe(component, visible=False)
+            visible = bool(self._operator_visible_run_all and component in visible_output_components)
+            probe = self._try_hardware_probe(component, visible=visible)
             if probe is not None:
                 self._hardware_result(f"real_{component}_sovereign", probe)
                 continue
@@ -373,7 +378,10 @@ class TarzanTspLksDiagnostics:
             ("f_led", "F1-F4 LED whitelist path"),
             ("kranc", "Limit switches read path"),
         ):
-            probe = self._try_hardware_probe(component, visible=False)
+            # W boot nie czekamy na przyciski ani krańcówki. Widoczny wzorzec
+            # dotyczy tylko LED F1-F4, bo to wyjście operatorskie.
+            visible = bool(self._operator_visible_run_all and component == "f_led")
+            probe = self._try_hardware_probe(component, visible=visible)
             if probe is not None:
                 self._hardware_result(f"real_{component}_sovereign", probe)
                 continue
@@ -458,17 +466,30 @@ class TarzanTspLksDiagnostics:
             self.statuses["i2c_bus"] = bus_ok_from_statuses(self.statuses)
         return selected
 
-    def run_all(self) -> List[LksCheckResult]:
+    def run_all(self, operator_visible: bool = False) -> List[LksCheckResult]:
+        """Uruchamia pełną diagnostykę.
+
+        ``operator_visible=False`` zachowuje dotychczasowy, cichy tryb.
+        ``operator_visible=True`` jest przeznaczone dla bootu LKS-N5 i włącza
+        krótkie wzorce tylko na bezpiecznych wyjściach operatorskich:
+        LCD 1602, Matrix LED i F1-F4 LED. Nie dotyka osi, STEP/DIR/ENABLE,
+        homingu ani Pulse Engine. Nie czeka też na ręczne naciskanie przycisków.
+        """
         self.results.clear()
         self.statuses = empty_statuses(False)
-        self.check_system()
-        self.check_pokeys()
-        self.check_bus()
-        self.check_io()
-        self.check_cameras()
-        self.check_axes_and_sok_read_only()
-        self._finalize_statuses_for()
-        return list(self.results)
+        previous_visible = self._operator_visible_run_all
+        self._operator_visible_run_all = bool(operator_visible)
+        try:
+            self.check_system()
+            self.check_pokeys()
+            self.check_bus()
+            self.check_io()
+            self.check_cameras()
+            self.check_axes_and_sok_read_only()
+            self._finalize_statuses_for()
+            return list(self.results)
+        finally:
+            self._operator_visible_run_all = previous_visible
 
     def status_map(self) -> Dict[str, bool]:
         return dict(self.statuses)

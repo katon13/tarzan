@@ -288,11 +288,30 @@ class TarzanTspServer:
             )
             self.lks_n5.connect()
             self.lks_n5.bkcmd(3)
-            self.lks_n5.show_boot_linux()
-            self._lks_n5_status_page_ready = False
-            self._lks_n5_status_cache = {}
-            self._lks_n5_dirty = True
-            self._lks_n5_dirty_reason = "startup"
+
+            # ETAP 13: od momentu startu usługi systemd Linux przejmuje ekran
+            # i pokazuje realne kroki bootu. boot_loading pozostaje wyłącznie
+            # ekranem oczekiwania przed startem usługi.
+            try:
+                from .tarzanTspLksBootCheck import TarzanTspLksBootCheck
+
+                boot = TarzanTspLksBootCheck(self.lks_n5, pause_s=0.12)
+                boot.run()
+                self._lks_n5_status_page_ready = True
+                self._lks_n5_status_cache = dict(getattr(boot, "statuses", {}) or {})
+                self._lks_n5_dirty = False
+                self._lks_n5_dirty_reason = ""
+            except Exception as boot_exc:
+                # Błąd boot progress nie może zatrzymać TSP. Wtedy pokazujemy
+                # minimalny Linux OK i pozwalamy pętli spokojnie przejąć status.
+                self.debug.record_error("lks_n5_boot_progress_failed", {"error": str(boot_exc)})
+                self.logger.warning("LKS-N5 boot progress failed: %s", boot_exc)
+                self.lks_n5.show_boot_linux()
+                self._lks_n5_status_page_ready = False
+                self._lks_n5_status_cache = {}
+                self._lks_n5_dirty = True
+                self._lks_n5_dirty_reason = "startup"
+
             self._lks_n5_last_refresh_ms = monotonic_ms()
             self.logger.info("LKS-N5 START port=%s baudrate=%s dry_run=%s", self._lks_n5_port, self._lks_n5_baudrate, self._lks_n5_dry_run)
         except Exception as exc:

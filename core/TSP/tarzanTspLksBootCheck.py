@@ -228,68 +228,34 @@ class TarzanTspLksBootCheck:
         }
 
     def run(self) -> List[LksBootCheckResult]:
-        """Wykonuje sekwencję boot-check i pokazuje wynik na Nextion 5."""
-        self.results.clear()
-        self.statuses = empty_statuses(False)
+        """Wykonuje realny boot progress ETAPU 13 i pokazuje wynik na Nextion 5.
 
-        self.n5.bkcmd(3)
-        self.n5.show_boot_linux()
-        self._pause()
+        Starsze metody check_services/check_hardware_presence pozostają w pliku jako
+        kompatybilne testy pomocnicze, ale właściwa sekwencja startu jest teraz
+        prowadzona przez TarzanTspLksBootProgress: każdy procent wynika z realnego
+        kroku Linux/systemd/sprzęt/diagnostyka.
+        """
+        from core.TSP.tarzanTspLksBootProgress import TarzanTspLksBootProgress
 
-        services = self.check_services()
-        lines = self._service_lines(services)
-        self.n5.show_services(
-            ssh=lines["ssh"],
-            tsp=lines["tsp"],
-            lks=lines["lks"],
-            status="services checked",
+        progress = TarzanTspLksBootProgress(
+            self.n5,
+            repo_root=str(self.repo_root),
+            pause_s=self.pause_s,
         )
-        self._pause()
-
-        hardware = self.check_hardware_presence()
-        hw_lines = self._hardware_lines(hardware)
-        self.n5.show_hardware(
-            line1=hw_lines["line1"],
-            line2=hw_lines["line2"],
-            line3=hw_lines["line3"],
-            status="presence checked",
-        )
-        self._pause()
-
-        # ETAP 10: realne testery nie zgadują. Boot-check używa tej samej
-        # diagnostyki, która później obsługuje kliknięcia punktowe.
-        diagnostics = TarzanTspLksDiagnostics(repo_root=str(self.repo_root))
-        diag_results = diagnostics.run_all()
-        for item in diag_results:
-            self.results.append(
-                LksBootCheckResult(
-                    key=item.key,
-                    component=item.component,
-                    ok=item.ok,
-                    label=item.label,
-                    detail=item.detail,
-                    error=item.error,
-                    duration_ms=item.duration_ms,
-                )
+        progress_results = progress.run()
+        self.statuses = dict(progress.statuses)
+        self.results = [
+            LksBootCheckResult(
+                key=item.key,
+                component=item.component,
+                ok=item.ok,
+                label=item.label,
+                detail=item.detail,
+                error=item.error,
+                duration_ms=item.duration_ms,
             )
-        self.statuses = diagnostics.status_map()
-
-        test_total = max(1, len(diag_results))
-        test_ok = sum(1 for item in diag_results if item.ok)
-        lcd = "LCD: OK" if self.statuses.get("lcd_1602") else "LCD: OFF"
-        matrix = "MATRIX: OK" if self.statuses.get("matrix_led") else "MATRIX: OFF"
-        bus = "BUS: OK" if self.statuses.get("i2c_bus") else "BUS: OFF"
-        self.n5.show_test(
-            code=f"TEST {test_ok:02d}/{test_total:02d}",
-            line1=lcd,
-            line2=matrix,
-            line3=bus,
-            status="real diagnostics",
-        )
-        self._pause()
-
-        self.n5.show_status(reset=True)
-        self.n5.set_many_statuses(self.statuses)
+            for item in progress_results
+        ]
         return list(self.results)
 
 

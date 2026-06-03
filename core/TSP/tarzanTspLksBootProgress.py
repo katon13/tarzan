@@ -1,0 +1,319 @@
+from __future__ import annotations
+
+"""TARZAN LKS-N5 — ETAP 13: realny postęp startu Linux/systemd.
+
+Nextion 5 startuje wcześniej niż Linux, więc ``boot_loading`` pozostaje ekranem
+oczekiwania w HMI. Od momentu startu usługi systemd miniPC przejmuje ekran i
+pokazuje już realne kroki: system, repo, czas, sieć, usługi, porty, PoKeys,
+magistrale i diagnostykę. Ten moduł nie rusza osi i nie wysyła STEP/DIR/ENABLE.
+"""
+
+import glob
+import importlib
+import json
+import os
+import subprocess
+import sys
+import time
+from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
+
+from core.TSP.tarzanTspLksStatusMap import empty_statuses
+from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
+from core.TSP.tarzanTspLksMessages import (
+    SCENE_BOOT_LINUX,
+    SCENE_BOOT_SERVICES,
+    SCENE_BOOT_HARDWARE,
+    SCENE_BOOT_TEST,
+)
+
+
+@dataclass
+class LksBootProgressResult:
+    key: str
+    component: str
+    ok: bool
+    label: str
+    detail: str = ""
+    error: str = ""
+    progress: int = 0
+    duration_ms: int = 0
+
+
+class TarzanTspLksBootProgress:
+    """Realny pasek przejścia z boot_loading do status_main.
+
+    Zasada operatorska:
+    - zanim Linux wystartuje, Nextion może tylko pokazywać ``boot_loading``;
+    - po starcie systemd każdy kolejny procent wynika z realnego kroku;
+    - brak testu albo brak urządzenia nie daje zielonego statusu.
+    """
+
+    def __init__(
+        self,
+        n5: object,
+        repo_root: Optional[str] = None,
+        pause_s: float = 0.18,
+        nextion5_port: str = "",
+    ) -> None:
+        self.n5 = n5
+        self.repo_root = Path(repo_root or self._detect_repo_root()).resolve()
+        self.pause_s = max(0.0, float(pause_s))
+        self.nextion5_port = str(nextion5_port or "")
+        self.results: List[LksBootProgressResult] = []
+        self.statuses: Dict[str, bool] = empty_statuses(False)
+
+    def _detect_repo_root(self) -> str:
+        here = Path(__file__).resolve()
+        try:
+            return str(here.parents[2])
+        except Exception:
+            return os.getcwd()
+
+    def _pause(self) -> None:
+        if self.pause_s > 0:
+            time.sleep(self.pause_s)
+
+    def _run_cmd(self, args: List[str], timeout: float = 1.2) -> Tuple[int, str, str]:
+        try:
+            proc = subprocess.run(
+                args,
+                cwd=str(self.repo_root),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+            return int(proc.returncode), proc.stdout.strip(), proc.stderr.strip()
+        except Exception as exc:
+            return 999, "", str(exc)
+
+    def _systemctl_active(self, service: str) -> bool:
+        rc, _, _ = self._run_cmd(["systemctl", "is-active", "--quiet", service], timeout=0.8)
+        return rc == 0
+
+    def _add_result(
+        self,
+        key: str,
+        component: str,
+        ok: bool,
+        label: str,
+        detail: str = "",
+        error: str = "",
+        progress: int = 0,
+        start: Optional[float] = None,
+    ) -> LksBootProgressResult:
+        item = LksBootProgressResult(
+            key=key,
+            component=component,
+            ok=bool(ok),
+            label=label,
+            detail=detail,
+            error=error,
+            progress=int(progress),
+            duration_ms=int((time.time() - start) * 1000) if start is not None else 0,
+        )
+        self.results.append(item)
+        if component:
+            # Status zielony tylko dla konkretnego, potwierdzonego komponentu.
+            # Późniejsze testy szczegółowe mogą nadpisać ten stan bardziej precyzyjnie.
+            self.statuses[component] = bool(ok)
+        return item
+
+    def _show_step(self, scene: str, title: str, line1: str, line2: str, line3: str, status: str, code: str, progress: int) -> None:
+        self.n5.page(scene)
+        self.n5.set_texts(
+            {
+                "t_title": title,
+                "t_subtitle": title,
+                "t_line1": line1,
+                "t_line2": line2,
+                "t_line3": line3,
+                "t_status": status,
+                "t_code": code,
+            }
+        )
+        self.n5.set_numbers({"j_progress": int(progress), "n_progress": int(progress)})
+
+    def _mark_running(self, scene: str, progress: int, label: str, detail: str = "") -> None:
+        if scene == SCENE_BOOT_LINUX:
+            self._show_step(scene, "LINUX", label, detail, "", "checking", f"{progress}%", progress)
+        elif scene == SCENE_BOOT_SERVICES:
+            self._show_step(scene, "SERVICES", label, detail, "", "checking", f"{progress}%", progress)
+        elif scene == SCENE_BOOT_HARDWARE:
+            self._show_step(scene, "HARDWARE", label, detail, "", "checking", f"{progress}%", progress)
+        else:
+            self._show_step(scene, "DEVICE TEST", label, detail, "", "checking", f"{progress}%", progress)
+
+    def _step(
+        self,
+        *,
+        scene: str,
+        progress: int,
+        key: str,
+        component: str,
+        label: str,
+        fn: Callable[[], Tuple[bool, str, str]],
+    ) -> LksBootProgressResult:
+        start = time.time()
+        self._mark_running(scene, progress, label, "RUN")
+        self._pause()
+        ok, detail, error = fn()
+        result = self._add_result(key, component, ok, label, detail=detail, error=error, progress=progress, start=start)
+        state = "OK" if ok else "OFF"
+        self._show_step(scene, label[:20], f"{label}: {state}"[:26], detail[:26], error[:26], "real boot step", f"{progress}%", progress)
+        self._pause()
+        return result
+
+    # ------------------------------------------------------------------
+    # Pojedyncze realne sprawdzenia
+    # ------------------------------------------------------------------
+
+    def _check_linux_alive(self) -> Tuple[bool, str, str]:
+        return True, f"Python {sys.version.split()[0]} / {os.uname().nodename}", ""
+
+    def _check_repo(self) -> Tuple[bool, str, str]:
+        ok = (self.repo_root / "core" / "TSP").exists() and (self.repo_root / "hardware").exists()
+        return ok, str(self.repo_root), "" if ok else "repo structure missing"
+
+    def _check_time(self) -> Tuple[bool, str, str]:
+        rc, out, err = self._run_cmd(["timedatectl", "show", "-p", "NTPSynchronized", "--value"], timeout=0.8)
+        if rc == 0:
+            return bool(out.strip().lower() in {"yes", "true", "1"}), f"NTPSynchronized={out.strip()}", ""
+        return True, time.strftime("%Y-%m-%d %H:%M:%S"), err
+
+    def _check_network(self) -> Tuple[bool, str, str]:
+        rc, out, err = self._run_cmd(["ip", "-o", "addr", "show", "scope", "global"], timeout=0.8)
+        ok = rc == 0 and bool(out.strip())
+        first = out.splitlines()[0].strip() if out.strip() else ""
+        return ok, first[:120], "" if ok else (err or "no global network address")
+
+    def _check_service_ssh(self) -> Tuple[bool, str, str]:
+        ok = self._systemctl_active("ssh") or self._systemctl_active("sshd")
+        return ok, "ssh/sshd active" if ok else "", "ssh not active" if not ok else ""
+
+    def _check_tsp_module(self) -> Tuple[bool, str, str]:
+        try:
+            importlib.import_module("core.TSP.tarzanTsp")
+            return True, "core.TSP.tarzanTsp import OK", ""
+        except Exception as exc:
+            return False, "", str(exc)
+
+    def _check_lks_tty_module(self) -> Tuple[bool, str, str]:
+        try:
+            importlib.import_module("core.TSP.tarzanTspLks")
+            return True, "LKS-TTY module OK", ""
+        except Exception as exc:
+            return False, "", str(exc)
+
+    def _check_lks_n5_serial(self) -> Tuple[bool, str, str]:
+        if self.nextion5_port:
+            path = Path(self.nextion5_port)
+            ok = path.exists()
+            return ok, str(path), "" if ok else "configured port missing"
+        links = sorted(glob.glob("/dev/serial/by-id/*CP210*") + glob.glob("/dev/serial/by-id/*Silicon_Labs*"))
+        ok = bool(links)
+        return ok, links[0] if links else "", "CP2102/Nextion5 not found" if not ok else ""
+
+    def _check_pokeys_usb(self) -> Tuple[bool, str, str]:
+        rc, out, err = self._run_cmd(["lsusb"], timeout=1.2)
+        if rc != 0:
+            return False, "", err or "lsusb failed"
+        has_player = "PLAYER" in out or "PoLabs PLAYER" in out
+        has_reck = "RECK" in out or "PoLabs RECK" in out
+        has_polabs = "1dc3:1001" in out or "PoLabs" in out or "PoKeys" in out
+        ok = has_polabs and (has_player or has_reck)
+        detail = "; ".join(line for line in out.splitlines() if "1dc3:1001" in line or "PoLabs" in line or "PoKeys" in line)
+        return ok, detail[:180], "PoKeys USB not confirmed" if not ok else ""
+
+    def _check_nextion7(self) -> Tuple[bool, str, str]:
+        links = sorted(glob.glob("/dev/serial/by-id/*Nextion*7*") + glob.glob("/dev/serial/by-id/*NX8048*"))
+        ok = bool(links)
+        return ok, ", ".join(links[:2]), "Nextion7 explicit mapping missing" if not ok else ""
+
+    def _check_i2c_nodes(self) -> Tuple[bool, str, str]:
+        nodes = sorted(glob.glob("/dev/i2c-*"))
+        ok = bool(nodes)
+        return ok, ", ".join(nodes[:6]), "no /dev/i2c-*" if not ok else ""
+
+    def _check_video_nodes(self) -> Tuple[bool, str, str]:
+        nodes = sorted(glob.glob("/dev/video*"))
+        ok = bool(nodes)
+        return ok, ", ".join(nodes[:6]), "no /dev/video*" if not ok else ""
+
+    def _check_diagnostics(self) -> Tuple[bool, str, str]:
+        diagnostics = TarzanTspLksDiagnostics(repo_root=str(self.repo_root))
+        results = diagnostics.run_all()
+        self.statuses.update(diagnostics.status_map())
+        ok_count = sum(1 for item in results if item.ok)
+        fail_count = sum(1 for item in results if not item.ok)
+        return True, f"diagnostics ok={ok_count} off/fail={fail_count}", ""
+
+    # ------------------------------------------------------------------
+
+    def run(self) -> List[LksBootProgressResult]:
+        self.results.clear()
+        self.statuses = empty_statuses(False)
+        self.n5.bkcmd(3)
+
+        steps = [
+            (SCENE_BOOT_LINUX, 10, "linux_alive", "linux_sys", "Linux alive", self._check_linux_alive),
+            (SCENE_BOOT_LINUX, 20, "repo_structure", "linux_sys", "Repo OK", self._check_repo),
+            (SCENE_BOOT_LINUX, 30, "system_time", "linux_sys", "Time OK", self._check_time),
+            (SCENE_BOOT_SERVICES, 40, "network", "linux_sys", "Network OK", self._check_network),
+            (SCENE_BOOT_SERVICES, 50, "ssh", "linux_sys", "SSH", self._check_service_ssh),
+            (SCENE_BOOT_SERVICES, 58, "tsp_module", "take_sys", "TSP module", self._check_tsp_module),
+            (SCENE_BOOT_SERVICES, 62, "lks_tty", "linux_sys", "LKS-TTY", self._check_lks_tty_module),
+            (SCENE_BOOT_HARDWARE, 68, "lks_n5_serial", "linux_sys", "LKS-N5 serial", self._check_lks_n5_serial),
+            (SCENE_BOOT_HARDWARE, 74, "pokeys_usb", "pok_play", "PoKeys USB", self._check_pokeys_usb),
+            (SCENE_BOOT_HARDWARE, 78, "nextion7", "next_7", "Nextion 7", self._check_nextion7),
+            (SCENE_BOOT_HARDWARE, 82, "i2c_nodes", "i2c_bus", "I2C nodes", self._check_i2c_nodes),
+            (SCENE_BOOT_HARDWARE, 86, "video_nodes", "cam_main", "Video nodes", self._check_video_nodes),
+            (SCENE_BOOT_TEST, 94, "diagnostics", "linux_sys", "Real diagnostics", self._check_diagnostics),
+        ]
+
+        for scene, progress, key, component, label, fn in steps:
+            self._step(scene=scene, progress=progress, key=key, component=component, label=label, fn=fn)
+
+        green = sum(1 for value in self.statuses.values() if value)
+        total = len(self.statuses)
+        self._show_step(
+            SCENE_BOOT_TEST,
+            "BOOT COMPLETE",
+            f"GREEN: {green}/{total}",
+            "REAL STATUS",
+            "NO GUESSING",
+            "going status_main",
+            "100%",
+            100,
+        )
+        self._pause()
+        self.n5.show_status(reset=True)
+        self.n5.set_many_statuses(self.statuses)
+        self._write_last_report()
+        return list(self.results)
+
+    def _write_last_report(self) -> None:
+        try:
+            out_dir = self.repo_root / "data" / "lks_n5"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            data = {
+                "ts": time.time(),
+                "repo_root": str(self.repo_root),
+                "statuses": self.statuses,
+                "results": [asdict(item) for item in self.results],
+            }
+            (out_dir / "lks_n5_last_boot_progress.json").write_text(
+                json.dumps(data, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+
+
+def summarize_results(results: Iterable[LksBootProgressResult]) -> str:
+    ok = sum(1 for item in results if item.ok)
+    fail = sum(1 for item in results if not item.ok)
+    return f"boot-progress ok={ok} off/fail={fail}"

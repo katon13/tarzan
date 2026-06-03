@@ -26,6 +26,7 @@ from core.TSP.tarzanTspLksMessages import (
     SCENE_BOOT_SERVICES,
     SCENE_BOOT_HARDWARE,
     SCENE_BOOT_TEST,
+    SCENE_INTRO_STATUS,
 )
 
 
@@ -144,8 +145,24 @@ class TarzanTspLksBootProgress:
             self._show_step(scene, "SERVICES", label, detail, "", "checking", f"{progress}%", progress)
         elif scene == SCENE_BOOT_HARDWARE:
             self._show_step(scene, "HARDWARE", label, detail, "", "checking", f"{progress}%", progress)
+        elif scene == SCENE_INTRO_STATUS:
+            self._show_step(scene, "INTRO STATUS", label, detail, "", "ready", f"{progress}%", progress)
         else:
             self._show_step(scene, "DEVICE TEST", label, detail, "", "checking", f"{progress}%", progress)
+
+    def _show_test_intro(self) -> None:
+        """Krótka strona przejściowa przed wejściem w testowanie elementów."""
+        self._show_step(
+            SCENE_INTRO_STATUS,
+            "INTRO STATUS",
+            "WEJSCIE W TEST",
+            "ELEMENTY",
+            "ZA CHWILE TEST",
+            "przejscie",
+            "90%",
+            90,
+        )
+        self._pause()
 
     def _step(
         self,
@@ -275,6 +292,8 @@ class TarzanTspLksBootProgress:
         ]
 
         for scene, progress, key, component, label, fn in steps:
+            if scene == SCENE_BOOT_TEST:
+                self._show_test_intro()
             self._step(scene=scene, progress=progress, key=key, component=component, label=label, fn=fn)
 
         green = sum(1 for value in self.statuses.values() if value)

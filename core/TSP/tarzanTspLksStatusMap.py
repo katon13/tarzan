@@ -185,11 +185,17 @@ def empty_statuses(value: bool = False) -> Dict[str, bool]:
 
 
 def bus_ok_from_statuses(statuses: Dict[str, bool]) -> bool:
-    """Wylicza zbiorczy stan i2c_bus z wymaganych elementów magistrali.
+    """Wylicza stan kontrolki i2c_bus dla LKS-N5.
 
-    Funkcja nie ustawia Nextiona. Tylko liczy wynik dla przyszłej diagnostyki.
+    W fizycznym TARZANIE magistrala operatora idzie przez PoKeys BUS/I2C,
+    więc nie wolno uzależniać zielonego i2c_bus wyłącznie od /dev/i2c-*
+    ani od tego, czy wszystkie peryferia pomocnicze są już podpięte.
+
+    Zielone wystarcza, gdy:
+    - punktowy tester i2c_bus potwierdził skan PoKeys BUS/I2C, albo
+    - BH1750 potwierdził realną komunikację po tej magistrali.
     """
-    return all(bool(statuses.get(name, False)) for name in REQUIRED_BUS_DEVICES)
+    return bool(statuses.get("i2c_bus", False) or statuses.get("light_bh1750", False))
 
 
 

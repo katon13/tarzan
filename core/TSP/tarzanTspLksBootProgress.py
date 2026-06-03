@@ -21,6 +21,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from core.TSP.tarzanTspLksStatusMap import empty_statuses
 from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
+from core.TSP.tarzanTspLksHardwareTests import TarzanTspLksHardwareTests
 from core.TSP.tarzanTspLksMessages import (
     SCENE_BOOT_LINUX,
     SCENE_BOOT_SERVICES,
@@ -217,10 +218,12 @@ class TarzanTspLksBootProgress:
         self._global_progress = max(self._global_progress, 100)
 
         # FIZYCZNY KONTRAKT HMI:
-        # intro_status: tm_anim.tim=150, 8 klatek, ostatnia klatka robi
-        # page status_main. Dajemy zapas, żeby Python nie zaczął ustawiać
-        # kontrolek zanim Nextion realnie przejdzie na status_main.
-        time.sleep(max(self.pause_s, 1.6))
+        # intro_status ma tylko p_anim/va_anim/tm_anim i sam wykonuje
+        # page status_main. W eksporcie Timer ma bazowo 250 ms, a PostInit
+        # ustawia tm_anim.tim=150; przyjmujemy bezpieczny zapas 2.4 s.
+        # Dzięki temu Python nie wysyła wartości status_main podczas intra,
+        # co mogło dawać artefakty/ikony nakładające się w lewym górnym rogu.
+        time.sleep(max(self.pause_s, 2.4))
 
     def _step(
         self,
@@ -309,9 +312,26 @@ class TarzanTspLksBootProgress:
         return ok, ", ".join(links[:2]), "Nextion7 explicit mapping missing" if not ok else ""
 
     def _check_i2c_nodes(self) -> Tuple[bool, str, str]:
-        nodes = sorted(glob.glob("/dev/i2c-*"))
-        ok = bool(nodes)
-        return ok, ", ".join(nodes[:6]), "no /dev/i2c-*" if not ok else ""
+        # W TARZANIE LKS-N5 podstawowa magistrala I2C/BUS dla operatora
+        # jest testowana przez PoKeys, nie przez kernelowe /dev/i2c-*.
+        # Dlatego status i2c_bus ma być zielony, gdy realny PoKeys BUS/I2C
+        # odpowiada albo gdy BH1750 potwierdza komunikację po tej magistrali.
+        try:
+            tester = TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
+            probe = tester.test_i2c_bus(visible=False)
+            if probe.ok:
+                return True, probe.detail[:180], ""
+            bh = tester.test_bh1750(visible=False)
+            if bh.ok:
+                return True, ("BH1750 OK via PoKeys BUS/I2C; " + bh.detail)[:180], ""
+            nodes = sorted(glob.glob("/dev/i2c-*"))
+            if nodes:
+                return True, ", ".join(nodes[:6]), ""
+            return False, probe.detail[:120], probe.error or bh.error or "PoKeys BUS/I2C not confirmed"
+        except Exception as exc:
+            nodes = sorted(glob.glob("/dev/i2c-*"))
+            ok = bool(nodes)
+            return ok, ", ".join(nodes[:6]), "" if ok else f"PoKeys BUS/I2C error: {exc}"
 
     def _check_video_nodes(self) -> Tuple[bool, str, str]:
         nodes = sorted(glob.glob("/dev/video*"))
@@ -346,7 +366,7 @@ class TarzanTspLksBootProgress:
             (SCENE_BOOT_HARDWARE, 68, "lks_n5_serial", "linux_sys", "LKS-N5 serial", self._check_lks_n5_serial),
             (SCENE_BOOT_HARDWARE, 74, "pokeys_usb", "pok_play", "PoKeys USB", self._check_pokeys_usb),
             (SCENE_BOOT_HARDWARE, 78, "nextion7", "next_7", "Nextion 7", self._check_nextion7),
-            (SCENE_BOOT_HARDWARE, 82, "i2c_nodes", "i2c_bus", "I2C nodes", self._check_i2c_nodes),
+            (SCENE_BOOT_HARDWARE, 82, "pokeys_i2c_bus", "i2c_bus", "PoKeys BUS/I2C", self._check_i2c_nodes),
             (SCENE_BOOT_HARDWARE, 86, "video_nodes", "cam_main", "Video nodes", self._check_video_nodes),
             (SCENE_BOOT_TEST, 94, "diagnostics", "linux_sys", "Real diagnostics", self._check_diagnostics),
         ]

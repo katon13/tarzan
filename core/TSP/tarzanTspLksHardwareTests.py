@@ -223,36 +223,80 @@ class TarzanTspLksHardwareTests:
 
     # ------------------------------------------------------------------
     # LCD 1602 — widoczny test po kliknięciu, konfiguracja bez ruchu osi
+    #
+    # TARZAN ma dwa LCD 1602. Jedna kontrolka status_main ``lcd_1602``
+    # oznacza stan zbiorczy: oba wyświetlacze muszą przejść test.
+    # Podczas testu na LCD wolno pokazać napis TEST. Po teście wyświetlacz
+    # ma zostać w spokojnym stanie końcowym: BEZ BLEDOW / GOTOWE.
     # ------------------------------------------------------------------
-    def test_lcd_1602(self, visible: bool = False, board: str = "PLAY") -> LksHardwareTestResult:
+    def _lcd_init(self, session: _PoKeysSession) -> None:
+        lcd = session.device.device.contents.LCD
+        lcd.Configuration = 2
+        lcd.Rows = 2
+        lcd.Columns = 16
+        for call, name in (
+            (session.device.PK_LCDConfigurationSet, "PK_LCDConfigurationSet"),
+            (lambda: session.device.PK_LCDChangeMode(0), "PK_LCDChangeMode"),
+            (session.device.PK_LCDInit, "PK_LCDInit"),
+            (session.device.PK_LCDClear, "PK_LCDClear"),
+        ):
+            rc = call()
+            if rc != 0:
+                raise RuntimeError(f"{name} zwróciło {rc}")
+
+    def _lcd_write_lines(self, session: _PoKeysSession, line1: str, line2: str) -> None:
+        if session.device.PK_LCDMoveCursor(1, 1) != 0:
+            raise RuntimeError("PK_LCDMoveCursor(1,1) failed")
+        if session.device.PK_LCDPrint(_lcd_text(line1, 16).ljust(16)) != 0:
+            raise RuntimeError("PK_LCDPrint line1 failed")
+        if session.device.PK_LCDMoveCursor(2, 1) != 0:
+            raise RuntimeError("PK_LCDMoveCursor(2,1) failed")
+        if session.device.PK_LCDPrint(_lcd_text(line2, 16).ljust(16)) != 0:
+            raise RuntimeError("PK_LCDPrint line2 failed")
+
+    def _test_lcd_board(self, board: str, visible: bool = False) -> LksHardwareTestResult:
+        board = board.upper()
         try:
             with self._session(board) as session:
                 if visible:
-                    lcd = session.device.device.contents.LCD
-                    lcd.Configuration = 2
-                    lcd.Rows = 2
-                    lcd.Columns = 16
-                    for call, name in (
-                        (session.device.PK_LCDConfigurationSet, "PK_LCDConfigurationSet"),
-                        (lambda: session.device.PK_LCDChangeMode(0), "PK_LCDChangeMode"),
-                        (session.device.PK_LCDInit, "PK_LCDInit"),
-                        (session.device.PK_LCDClear, "PK_LCDClear"),
-                    ):
-                        rc = call()
-                        if rc != 0:
-                            raise RuntimeError(f"{name} zwróciło {rc}")
-                    if session.device.PK_LCDMoveCursor(1, 1) != 0:
-                        raise RuntimeError("PK_LCDMoveCursor(1,1) failed")
-                    if session.device.PK_LCDPrint(_lcd_text("LKS-N5 TEST", 16)) != 0:
-                        raise RuntimeError("PK_LCDPrint line1 failed")
-                    if session.device.PK_LCDMoveCursor(2, 1) != 0:
-                        raise RuntimeError("PK_LCDMoveCursor(2,1) failed")
-                    if session.device.PK_LCDPrint(_lcd_text("LCD OK", 16)) != 0:
-                        raise RuntimeError("PK_LCDPrint line2 failed")
-                    return self._res("lcd_1602", True, True, "LCD 1602 PoKeys visible test", detail=session.identity_text(), visible_action="LCD pokazuje LKS-N5 TEST / LCD OK")
-                return self._res("lcd_1602", True, True, "LCD 1602 PoKeys session", detail=session.identity_text())
+                    try:
+                        self._lcd_init(session)
+                        self._lcd_write_lines(session, f"LKS-N5 {board}", "TEST LCD")
+                        time.sleep(0.55)
+                        session.device.PK_LCDClear()
+                        self._lcd_write_lines(session, "BEZ BLEDOW", "GOTOWE")
+                    except Exception:
+                        # Jeśli LCD już odpowiedział i błąd pojawił się później,
+                        # próbujemy zostawić na nim czytelny komunikat awaryjny.
+                        try:
+                            session.device.PK_LCDClear()
+                            self._lcd_write_lines(session, "BLAD TESTU", board)
+                        except Exception:
+                            pass
+                        raise
+                    return self._res(
+                        "lcd_1602",
+                        True,
+                        True,
+                        f"LCD 1602 {board} visible test",
+                        detail=session.identity_text(),
+                        visible_action=f"LCD {board}: TEST -> BEZ BLEDOW / GOTOWE",
+                    )
+                return self._res("lcd_1602", True, True, f"LCD 1602 {board} PoKeys session", detail=session.identity_text())
         except Exception as exc:
-            return self._res("lcd_1602", False, True, "LCD 1602 PoKeys test", error=str(exc))
+            return self._res("lcd_1602", False, True, f"LCD 1602 {board} PoKeys test", error=str(exc))
+
+    def test_lcd_1602(self, visible: bool = False, board: str = "BOTH") -> LksHardwareTestResult:
+        board = board.upper()
+        boards = ["PLAY", "REC"] if board in {"BOTH", "ALL"} else [board]
+        results = [self._test_lcd_board(item, visible=visible) for item in boards]
+        ok = all(item.ok for item in results)
+        details = "; ".join(f"{item.label}: {'OK' if item.ok else 'OFF'} {item.detail or item.error}" for item in results)
+        visible_action = "LCD PLAY + LCD REC: TEST -> BEZ BLEDOW / GOTOWE" if visible and ok and len(boards) > 1 else ""
+        if not ok:
+            errors = "; ".join(f"{item.label}: {item.error}" for item in results if not item.ok)
+            return self._res("lcd_1602", False, True, "LCD 1602 dual display test", detail=details, error=errors, visible_action=visible_action)
+        return self._res("lcd_1602", True, True, "LCD 1602 dual display test", detail=details, visible_action=visible_action)
 
     # ------------------------------------------------------------------
     # Matrix LED 8x8 — widoczny wzór/test po kliknięciu
@@ -280,17 +324,25 @@ class TarzanTspLksHardwareTests:
             with self._session(board) as session:
                 if visible:
                     try:
-                        session.device.PK_MatrixLEDConfigurationGet()
-                    except Exception:
-                        pass
-                    columns = _matrix_text_columns("OK")
-                    rows = _matrix_rows_from_columns(columns[:8])
-                    self._matrix_write_frame(session, rows)
-                    time.sleep(0.25)
-                    self._matrix_write_frame(session, [0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55])
-                    time.sleep(0.25)
-                    self._matrix_write_frame(session, [0] * 8)
-                    return self._res("matrix_led", True, True, "Matrix LED visible test", detail=session.identity_text(), visible_action="Matrix pokazuje OK/wzór i gaśnie")
+                        try:
+                            session.device.PK_MatrixLEDConfigurationGet()
+                        except Exception:
+                            pass
+                        columns = _matrix_text_columns("TEST")
+                        self._matrix_write_frame(session, _matrix_rows_from_columns(columns[:8]))
+                        time.sleep(0.25)
+                        columns = _matrix_text_columns("OK")
+                        self._matrix_write_frame(session, _matrix_rows_from_columns(columns[:8]))
+                        time.sleep(0.25)
+                        self._matrix_write_frame(session, [0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55])
+                        time.sleep(0.20)
+                    finally:
+                        # Po teście wyświetlacz matrix ma zgasnąć.
+                        try:
+                            self._matrix_write_frame(session, [0] * 8)
+                        except Exception:
+                            pass
+                    return self._res("matrix_led", True, True, "Matrix LED visible test", detail=session.identity_text(), visible_action="Matrix pokazuje TEST/OK i gaśnie")
                 return self._res("matrix_led", True, True, "Matrix LED PoKeys session", detail=session.identity_text())
         except Exception as exc:
             return self._res("matrix_led", False, True, "Matrix LED PoKeys test", error=str(exc))
@@ -338,14 +390,22 @@ class TarzanTspLksHardwareTests:
         try:
             with self._session("REC") as session:
                 if visible:
-                    for pin in pins:
-                        self._set_led_pin_runtime(session, pin, 0)
-                    for pin in pins:
-                        self._set_led_pin_runtime(session, pin, 1)
-                        time.sleep(0.12)
-                        self._set_led_pin_runtime(session, pin, 0)
-                        time.sleep(0.08)
-                    return self._res("f_led", True, True, "F1-F4 LED whitelist visible test", detail=session.identity_text(), visible_action="LED F1-F4 mrugają po kolei")
+                    try:
+                        for pin in pins:
+                            self._set_led_pin_runtime(session, pin, 0)
+                        for pin in pins:
+                            self._set_led_pin_runtime(session, pin, 1)
+                            time.sleep(0.12)
+                            self._set_led_pin_runtime(session, pin, 0)
+                            time.sleep(0.08)
+                    finally:
+                        # Po teście wszystkie LED-y muszą zgasnąć, także przy błędzie w połowie testu.
+                        for pin in pins:
+                            try:
+                                self._set_led_pin_runtime(session, pin, 0)
+                            except Exception:
+                                pass
+                    return self._res("f_led", True, True, "F1-F4 LED whitelist visible test", detail=session.identity_text(), visible_action="LED F1-F4 mrugają i gasną")
                 return self._res("f_led", True, True, "F1-F4 LED whitelist available", detail="REC P46/P48/P50/P52")
         except Exception as exc:
             return self._res("f_led", False, True, "F1-F4 LED whitelist test", error=str(exc))

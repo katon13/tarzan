@@ -150,17 +150,23 @@ class TarzanTspLksBootProgress:
         else:
             self._show_step(scene, "DEVICE TEST", label, detail, "", "checking", f"{progress}%", progress)
 
-    def _show_test_intro(self) -> None:
-        """Krótka strona przejściowa przed wejściem w testowanie elementów."""
+    def _show_status_intro(self) -> None:
+        """Krótka strona przejściowa bezpośrednio przed status_main.
+
+        intro_status nie jest wejściem w diagnostykę. To ostatnia plansza
+        informacyjna po zakończeniu testów i przed pokazaniem tablicy status_main.
+        """
+        green = sum(1 for value in self.statuses.values() if value)
+        total = len(self.statuses)
         self._show_step(
             SCENE_INTRO_STATUS,
             "INTRO STATUS",
-            "WEJSCIE W TEST",
-            "ELEMENTY",
-            "ZA CHWILE TEST",
+            "TESTY ZAKONCZONE",
+            f"GOTOWE {green}/{total}",
+            "BEZ BLEDOW",
             "przejscie",
-            "90%",
-            90,
+            "98%",
+            98,
         )
         self._pause()
 
@@ -292,8 +298,6 @@ class TarzanTspLksBootProgress:
         ]
 
         for scene, progress, key, component, label, fn in steps:
-            if scene == SCENE_BOOT_TEST:
-                self._show_test_intro()
             self._step(scene=scene, progress=progress, key=key, component=component, label=label, fn=fn)
 
         green = sum(1 for value in self.statuses.values() if value)
@@ -309,6 +313,7 @@ class TarzanTspLksBootProgress:
             100,
         )
         self._pause()
+        self._show_status_intro()
         self.n5.show_status(reset=True)
         self.n5.set_many_statuses(self.statuses)
         self._write_last_report()

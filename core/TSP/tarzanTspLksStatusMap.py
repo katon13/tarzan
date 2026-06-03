@@ -1,0 +1,168 @@
+from __future__ import annotations
+
+"""TARZAN LKS-N5 — mapa kontrolek status_main.
+
+Jeden plik prawdy dla nazw komponentów Dual-state Button na stronie
+``status_main`` Nextion 5.
+
+Kontrakt:
+- ``component.val=0`` = OFF / brak potwierdzenia / błąd / szary,
+- ``component.val=1`` = ON / test OK / zielony.
+
+Ten moduł nie dotyka sprzętu, nie diagnozuje hardware, nie steruje ruchem
+ani nie wysyła STEP/DIR/ENABLE. Jest tylko mapą nazw dla warstwy LKS-N5.
+"""
+
+from typing import Dict, Iterable, List, Tuple
+
+# Pełna mapa komponentów HMI status_main.
+# Klucz logiczny i nazwa komponentu Nextion są na razie takie same, ale mapa
+# zostaje celowo jawna, żeby później diagnostyka mogła używać kluczy logicznych
+# bez rozrzucania nazw HMI po kodzie.
+LKS_STATUS_COMPONENTS: Dict[str, str] = {
+    "linux_sys": "linux_sys",
+    "snajper_sys": "snajper_sys",
+    "pok_play": "pok_play",
+    "pok_rec": "pok_rec",
+    "rrp": "rrp",
+    "sok_poz": "sok_poz",
+    "sok_pion": "sok_pion",
+    "next_7": "next_7",
+    "lcd_1602": "lcd_1602",
+    "matrix_led": "matrix_led",
+    "keypad": "keypad",
+    "f_button": "f_button",
+    "f_led": "f_led",
+    "shock_alarm": "shock_alarm",
+    "level_xyz": "level_xyz",
+    "light_laser": "light_laser",
+    "light_bh1750": "light_bh1750",
+    "kranc": "kranc",
+    "kam_poz": "kam_poz",
+    "kam_pion": "kam_pion",
+    "kam_ostr": "kam_ostr",
+    "kam_poch": "kam_poch",
+    "ram_poziom": "ram_poziom",
+    "ram_pion": "ram_pion",
+    "cam_main": "cam_main",
+    "cam_track": "cam_track",
+    "i2c_bus": "i2c_bus",
+    "take_sys": "take_sys",
+    "par_sys": "par_sys",
+    "ehr_sys": "ehr_sys",
+}
+
+# Grupy logiczne pod diagnostykę ETAPU 5/6.
+GROUP_SYSTEM: Tuple[str, ...] = ("linux_sys", "snajper_sys", "take_sys", "par_sys", "ehr_sys")
+GROUP_POKEYS: Tuple[str, ...] = ("pok_play", "pok_rec")
+GROUP_BUS: Tuple[str, ...] = (
+    "i2c_bus",
+    "lcd_1602",
+    "matrix_led",
+    "keypad",
+    "light_bh1750",
+    "level_xyz",
+    "shock_alarm",
+    "light_laser",
+)
+GROUP_IO: Tuple[str, ...] = ("f_button", "f_led", "kranc")
+GROUP_CAMERA: Tuple[str, ...] = ("cam_main", "cam_track")
+GROUP_AXIS: Tuple[str, ...] = (
+    "kam_poz",
+    "kam_pion",
+    "kam_ostr",
+    "kam_poch",
+    "ram_poziom",
+    "ram_pion",
+)
+GROUP_SOK: Tuple[str, ...] = ("sok_poz", "sok_pion")
+
+# Elementy wymagane do zbiorczego OK magistrali komunikacji.
+# Nazwa komponentu zostaje i2c_bus, ale znaczenie jest szersze: UART / USB / I2C / BUS.
+REQUIRED_BUS_DEVICES: Tuple[str, ...] = (
+    "lcd_1602",
+    "matrix_led",
+    "keypad",
+    "light_bh1750",
+    "level_xyz",
+    "shock_alarm",
+)
+
+ALL_GROUPS: Dict[str, Tuple[str, ...]] = {
+    "system": GROUP_SYSTEM,
+    "pokeys": GROUP_POKEYS,
+    "bus": GROUP_BUS,
+    "io": GROUP_IO,
+    "camera": GROUP_CAMERA,
+    "axis": GROUP_AXIS,
+    "sok": GROUP_SOK,
+}
+
+
+def all_components() -> List[str]:
+    """Zwraca wszystkie nazwy komponentów Nextion status_main w stałej kolejności."""
+    return list(LKS_STATUS_COMPONENTS.values())
+
+
+def all_keys() -> List[str]:
+    """Zwraca wszystkie klucze logiczne statusów LKS-N5."""
+    return list(LKS_STATUS_COMPONENTS.keys())
+
+
+def validate_component(name: str) -> str:
+    """Waliduje klucz logiczny albo nazwę komponentu i zwraca nazwę Nextion.
+
+    Akceptuje:
+    - klucz z ``LKS_STATUS_COMPONENTS``;
+    - bezpośrednią nazwę komponentu, jeżeli znajduje się w wartościach mapy.
+    """
+    key = str(name or "").strip()
+    if not key:
+        raise KeyError("Unknown LKS-N5 status component: <empty>")
+    if key in LKS_STATUS_COMPONENTS:
+        return LKS_STATUS_COMPONENTS[key]
+    if key in LKS_STATUS_COMPONENTS.values():
+        return key
+    raise KeyError(f"Unknown LKS-N5 status component: {key}")
+
+
+def group_components(group_name: str) -> List[str]:
+    """Zwraca komponenty wskazanej grupy logicznej."""
+    group = str(group_name or "").strip().lower()
+    if group not in ALL_GROUPS:
+        raise KeyError(f"Unknown LKS-N5 status group: {group}")
+    return [validate_component(name) for name in ALL_GROUPS[group]]
+
+
+def validate_many(names: Iterable[str]) -> List[str]:
+    """Waliduje listę nazw/kluczy i zwraca nazwy komponentów Nextion."""
+    return [validate_component(name) for name in names]
+
+
+def empty_statuses(value: bool = False) -> Dict[str, bool]:
+    """Buduje słownik statusów dla wszystkich kontrolek.
+
+    Używane przez reset i testy na sucho.
+    """
+    return {component: bool(value) for component in all_components()}
+
+
+def bus_ok_from_statuses(statuses: Dict[str, bool]) -> bool:
+    """Wylicza zbiorczy stan i2c_bus z wymaganych elementów magistrali.
+
+    Funkcja nie ustawia Nextiona. Tylko liczy wynik dla przyszłej diagnostyki.
+    """
+    return all(bool(statuses.get(name, False)) for name in REQUIRED_BUS_DEVICES)
+
+
+def assert_unique_components() -> None:
+    """Sprawdza, czy mapa nie ma zdublowanych nazw komponentów."""
+    values = all_components()
+    duplicates = sorted({name for name in values if values.count(name) > 1})
+    if duplicates:
+        raise AssertionError(f"Duplicate LKS-N5 components: {', '.join(duplicates)}")
+
+
+# Szybka walidacja przy imporcie. Jeżeli HMI/mapa zostaną zepsute, błąd ma być
+# widoczny od razu w testach, a nie dopiero na fizycznym ekranie.
+assert_unique_components()

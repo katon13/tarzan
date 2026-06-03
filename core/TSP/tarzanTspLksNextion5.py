@@ -10,7 +10,7 @@ Diagnostyka będzie w osobnym etapie. Tu jest tylko wyświetlanie.
 import argparse
 import sys
 import time
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 
 try:
     from hardware.tarzanNextion.lks_n5_device import TarzanLksN5Device
@@ -46,40 +46,7 @@ from core.TSP.tarzanTspLksMessages import (
     SCENE_WARN,
 )
 
-# Tymczasowy fallback dla ETAPU 3. W ETAPIE 4 źródłem prawdy stanie się
-# core/TSP/tarzanTspLksStatusMap.py.
-_FALLBACK_STATUS_COMPONENTS: Tuple[str, ...] = (
-    "linux_sys",
-    "snajper_sys",
-    "pok_play",
-    "pok_rec",
-    "rrp",
-    "sok_poz",
-    "sok_pion",
-    "next_7",
-    "lcd_1602",
-    "matrix_led",
-    "keypad",
-    "f_button",
-    "f_led",
-    "shock_alarm",
-    "level_xyz",
-    "light_laser",
-    "light_bh1750",
-    "kranc",
-    "kam_poz",
-    "kam_pion",
-    "kam_ostr",
-    "kam_poch",
-    "ram_poziom",
-    "ram_pion",
-    "cam_main",
-    "cam_track",
-    "i2c_bus",
-    "take_sys",
-    "par_sys",
-    "ehr_sys",
-)
+from core.TSP.tarzanTspLksStatusMap import all_components, validate_component
 
 
 class TarzanTspLksNextion5:
@@ -328,9 +295,7 @@ class TarzanTspLksNextion5:
         )
 
     def set_status(self, component: str, ok: bool) -> None:
-        name = str(component or "").strip()
-        if not name:
-            raise ValueError("Pusta nazwa kontrolki LKS-N5")
+        name = validate_component(str(component or "").strip())
         self.val(name, 1 if ok else 0)
         self.last_status[name] = bool(ok)
 
@@ -338,16 +303,8 @@ class TarzanTspLksNextion5:
         for component, ok in statuses.items():
             self.set_status(component, bool(ok))
 
-    def _status_components(self) -> Sequence[str]:
-        try:
-            from core.TSP.tarzanTspLksStatusMap import all_components  # type: ignore
-
-            return tuple(all_components())
-        except Exception:
-            return _FALLBACK_STATUS_COMPONENTS
-
     def reset_status_main(self, components: Optional[Iterable[str]] = None) -> None:
-        for component in components or self._status_components():
+        for component in components or all_components():
             self.set_status(str(component), False)
 
     def run_scene_demo(self, include_status: bool = True) -> None:

@@ -60,6 +60,14 @@ from .tarzanTspProtocol import (
 from .tarzanTspSignals import TarzanTspSignalProvider
 from .tarzanTspLks import TarzanTspLks
 
+try:
+    from .tarzanTspLksNextion5 import TarzanTspLksNextion5
+except Exception as exc:  # pragma: no cover - LKS-N5 ma nie blokować TSP
+    TarzanTspLksNextion5 = None  # type: ignore
+    _LKS_N5_IMPORT_ERROR = exc
+else:
+    _LKS_N5_IMPORT_ERROR = None
+
 
 @dataclass
 class TarzanTspClientSession:
@@ -178,6 +186,11 @@ class TarzanTspServer:
         provider: Optional[TarzanTspSignalProvider] = None,
         enable_lks: bool = True,
         lks_tty: str = "/dev/tty1",
+        enable_lks_n5: bool = False,
+        lks_n5_port: str = "",
+        lks_n5_baudrate: int = 9600,
+        lks_n5_dry_run: bool = False,
+        lks_n5_refresh_interval_s: float = 2.0,
     ) -> None:
         self.host = host
         self.port = port
@@ -194,6 +207,15 @@ class TarzanTspServer:
         self._lane_thread: Optional[threading.Thread] = None
         self._last_stats_ms = monotonic_ms()
         self.lks = TarzanTspLks(self, tty_path=lks_tty, enabled=enable_lks)
+        self.lks_n5 = None
+        self._lks_n5_enabled = bool(enable_lks_n5)
+        self._lks_n5_port = lks_n5_port
+        self._lks_n5_baudrate = int(lks_n5_baudrate)
+        self._lks_n5_dry_run = bool(lks_n5_dry_run)
+        self._lks_n5_refresh_interval_s = max(0.5, float(lks_n5_refresh_interval_s))
+        self._lks_n5_last_refresh_ms = 0
+        self._lks_n5_dirty = False
+        self._lks_n5_dirty_reason = ""
 
     # ------------------------------------------------------------------
     # LKS — LAMPKA KONTROLNA SYSTEMU
@@ -221,7 +243,109 @@ class TarzanTspServer:
             return
 
         if lane in {LANE_URGENT, LANE_HEALTH} or event in {"urgent", "health"} or cmd:
-            self.mark_lks_dirty(f"{direction}:{lane or event or cmd}")
+            reason = f"{direction}:{lane or event or cmd}"
+            immediate_n5 = lane == LANE_URGENT or event == "urgent" or "error" in reason
+            self.mark_lks_outputs_dirty(reason, immediate_n5=immediate_n5)
+
+    # ------------------------------------------------------------------
+    # LKS-N5 — NEXTION 5, WYJŚCIE RÓWNOLEGŁE DO LKS-TTY
+    # ------------------------------------------------------------------
+
+    def _init_lks_n5(self) -> None:
+        """Uruchamia opcjonalne wyjście LKS-N5.
+
+        Błąd Nextiona 5 nie może zatrzymać TSP ani LKS-TTY.
+        FAST/Snajper nie odświeża ekranu natychmiast; ekran ma cykl kontrolny.
+        """
+        if not self._lks_n5_enabled:
+            return
+        if self.lks_n5 is not None:
+            return
+        if TarzanTspLksNextion5 is None:
+            self.debug.record_error("lks_n5_import_error", {"error": str(_LKS_N5_IMPORT_ERROR)})
+            self.logger.warning("LKS-N5 disabled: import error=%s", _LKS_N5_IMPORT_ERROR)
+            return
+        if not self._lks_n5_dry_run and not self._lks_n5_port:
+            self.debug.record_error("lks_n5_missing_port")
+            self.logger.warning("LKS-N5 disabled: missing --lks-n5-port")
+            return
+        try:
+            self.lks_n5 = TarzanTspLksNextion5(
+                port=self._lks_n5_port,
+                baudrate=self._lks_n5_baudrate,
+                dry_run=self._lks_n5_dry_run,
+                command_delay_s=0.02,
+            )
+            self.lks_n5.connect()
+            self.lks_n5.bkcmd(3)
+            self.lks_n5.show_boot_linux()
+            self.lks_n5.set_many_statuses({"linux_sys": True, "take_sys": True})
+            self._lks_n5_last_refresh_ms = monotonic_ms()
+            self.logger.info("LKS-N5 START port=%s baudrate=%s dry_run=%s", self._lks_n5_port, self._lks_n5_baudrate, self._lks_n5_dry_run)
+        except Exception as exc:
+            self.debug.record_error("lks_n5_start_failed", {"error": str(exc)})
+            self.logger.warning("LKS-N5 start failed: %s", exc)
+            self.lks_n5 = None
+
+    def _stop_lks_n5(self) -> None:
+        if self.lks_n5 is None:
+            return
+        try:
+            self.lks_n5.close()
+        except Exception as exc:
+            self.debug.record_error("lks_n5_stop_failed", {"error": str(exc)})
+        finally:
+            self.lks_n5 = None
+
+    def mark_lks_n5_dirty(self, reason: str = "event", immediate: bool = False) -> None:
+        """Oznacza LKS-N5 do lekkiego odświeżenia.
+
+        Ten mechanizm celowo nie budzi ekranu po każdym pakiecie FAST.
+        Natychmiastowe odświeżanie zostaje tylko dla URGENT/ERROR/connect/disconnect.
+        """
+        if not self._lks_n5_enabled:
+            return
+        self._lks_n5_dirty = True
+        self._lks_n5_dirty_reason = reason
+        if immediate:
+            self._refresh_lks_n5(reason=reason, immediate=True)
+
+    def mark_lks_outputs_dirty(self, reason: str = "event", immediate_n5: bool = False) -> None:
+        """Wspólny dyspozytor: LKS-TTY + LKS-N5.
+
+        LKS-TTY zostaje bez zmian, LKS-N5 dochodzi równolegle.
+        """
+        self.mark_lks_dirty(reason)
+        self.mark_lks_n5_dirty(reason, immediate=immediate_n5)
+
+    def _refresh_lks_n5(self, reason: str = "cycle", immediate: bool = False) -> None:
+        if self.lks_n5 is None:
+            return
+        now = monotonic_ms()
+        if not immediate and now - self._lks_n5_last_refresh_ms < int(self._lks_n5_refresh_interval_s * 1000):
+            return
+        try:
+            clients = self.clients()
+            client_count = len(clients)
+            state = self.provider.state_summary()
+            self.lks_n5.show_status(reset=True)
+            self.lks_n5.set_many_statuses(
+                {
+                    "linux_sys": True,
+                    "snajper_sys": True if reason.lower().startswith("health") else False,
+                    "take_sys": True,
+                    "par_sys": client_count > 0,
+                    "ehr_sys": client_count > 0,
+                    "pok_play": True,
+                    "pok_rec": True,
+                }
+            )
+            self._lks_n5_last_refresh_ms = now
+            self._lks_n5_dirty = False
+            self._lks_n5_dirty_reason = ""
+        except Exception as exc:
+            self.debug.record_error("lks_n5_refresh_failed", {"reason": reason, "error": str(exc)})
+            self.logger.warning("LKS-N5 refresh failed reason=%s error=%s", reason, exc)
 
     # ------------------------------------------------------------------
     # START / STOP
@@ -238,6 +362,7 @@ class TarzanTspServer:
         self._sock.settimeout(0.5)
         self.logger.info("TSP SERVER START host=%s port=%s node=%s", self.host, self.port, self.node_name)
         self.lks.start()
+        self._init_lks_n5()
         self._accept_thread = threading.Thread(target=self._accept_loop, name="TSP-ACCEPT", daemon=True)
         self._lane_thread = threading.Thread(target=self._lane_loop, name="TSP-LANES", daemon=True)
         self._accept_thread.start()
@@ -266,6 +391,7 @@ class TarzanTspServer:
             self._clients.clear()
         for client in clients:
             client.close()
+        self._stop_lks_n5()
         self.lks.stop()
         self.logger.info("TSP SERVER STOPPED")
 
@@ -285,7 +411,7 @@ class TarzanTspServer:
                     session = TarzanTspClientSession(client_id, sock, address, self)
                     self._clients[client_id] = session
                 self.logger.info("CONNECT %s", session.name)
-                self.mark_lks_dirty("connect")
+                self.mark_lks_outputs_dirty("connect", immediate_n5=True)
                 session.start()
                 session.send(hello_response(self.node_name, "server", self.provider.signal_count()))
             except socket.timeout:
@@ -302,7 +428,7 @@ class TarzanTspServer:
             self._clients.pop(client.client_id, None)
         client.close()
         self.logger.info("DISCONNECT %s", client.name)
-        self.mark_lks_dirty("disconnect")
+        self.mark_lks_outputs_dirty("disconnect", immediate_n5=True)
 
     def clients(self) -> list[TarzanTspClientSession]:
         with self._clients_lock:
@@ -464,7 +590,11 @@ class TarzanTspServer:
                     client_count, stats["packets_tx"], stats["packets_rx"], stats["errors"], stats["dropped"], stats["lane_packets"],
                 )
 
-            # 4. Traces
+            # 4. LKS-N5 — lekki cykl kontrolny, bez reakcji na każdy FAST
+            if self._lks_n5_dirty or now - self._lks_n5_last_refresh_ms >= int(self._lks_n5_refresh_interval_s * 1000):
+                self._refresh_lks_n5(reason=self._lks_n5_dirty_reason or "cycle", immediate=False)
+
+            # 5. Traces
             self._emit_traces(clients=clients, now=now)
 
             # 5. Adaptacyjne usypianie pętli
@@ -568,9 +698,25 @@ def main() -> None:
     parser.add_argument("--lks", dest="lks", action="store_true", default=True, help="Włącz LKS na lokalnym TTY")
     parser.add_argument("--no-lks", dest="lks", action="store_false", help="Wyłącz LKS")
     parser.add_argument("--lks-tty", default="/dev/tty1", help="Ścieżka TTY dla LKS, np. /dev/tty1 albo -")
+    parser.add_argument("--lks-n5", dest="lks_n5", action="store_true", default=False, help="Włącz równoległe wyjście LKS-N5 / Nextion 5")
+    parser.add_argument("--lks-n5-port", default="", help="Port Nextion 5, najlepiej /dev/serial/by-id/...")
+    parser.add_argument("--lks-n5-baudrate", type=int, default=9600)
+    parser.add_argument("--lks-n5-dry-run", action="store_true", help="Test integracji LKS-N5 bez portu serial")
+    parser.add_argument("--lks-n5-refresh", type=float, default=2.0, help="Lekki interwał odświeżania LKS-N5 w sekundach")
     args = parser.parse_args()
 
-    server = TarzanTspServer(host=args.host, port=args.port, node_name=args.node, enable_lks=args.lks, lks_tty=args.lks_tty)
+    server = TarzanTspServer(
+        host=args.host,
+        port=args.port,
+        node_name=args.node,
+        enable_lks=args.lks,
+        lks_tty=args.lks_tty,
+        enable_lks_n5=args.lks_n5,
+        lks_n5_port=args.lks_n5_port,
+        lks_n5_baudrate=args.lks_n5_baudrate,
+        lks_n5_dry_run=args.lks_n5_dry_run,
+        lks_n5_refresh_interval_s=args.lks_n5_refresh,
+    )
     server.serve_forever()
 
 

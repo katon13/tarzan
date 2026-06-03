@@ -27,6 +27,11 @@ def main() -> None:
     p_server.add_argument("--lks", dest="lks", action="store_true", default=True, help="Włącz LKS na lokalnym TTY")
     p_server.add_argument("--no-lks", dest="lks", action="store_false", help="Wyłącz LKS")
     p_server.add_argument("--lks-tty", default="/dev/tty1", help="Ścieżka TTY dla LKS, np. /dev/tty1 albo -")
+    p_server.add_argument("--lks-n5", dest="lks_n5", action="store_true", default=False, help="Włącz równoległe wyjście LKS-N5 / Nextion 5")
+    p_server.add_argument("--lks-n5-port", default="", help="Port Nextion 5, najlepiej /dev/serial/by-id/...")
+    p_server.add_argument("--lks-n5-baudrate", type=int, default=9600)
+    p_server.add_argument("--lks-n5-dry-run", action="store_true", help="Test integracji LKS-N5 bez portu serial")
+    p_server.add_argument("--lks-n5-refresh", type=float, default=2.0, help="Lekki interwał odświeżania LKS-N5 w sekundach")
 
     p_client = sub.add_parser("client", help="Uruchom TSP Client")
     p_client.add_argument("--host", default=TSP_MINI_PC_HOST)
@@ -37,7 +42,18 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.mode == "server":
-        server = TarzanTspServer(host=args.host, port=args.port, node_name=args.node, enable_lks=args.lks, lks_tty=args.lks_tty)
+        server = TarzanTspServer(
+            host=args.host,
+            port=args.port,
+            node_name=args.node,
+            enable_lks=args.lks,
+            lks_tty=args.lks_tty,
+            enable_lks_n5=args.lks_n5,
+            lks_n5_port=args.lks_n5_port,
+            lks_n5_baudrate=args.lks_n5_baudrate,
+            lks_n5_dry_run=args.lks_n5_dry_run,
+            lks_n5_refresh_interval_s=args.lks_n5_refresh,
+        )
         server.serve_forever()
     elif args.mode == "client":
         if args.smoke:

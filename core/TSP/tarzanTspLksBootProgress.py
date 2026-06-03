@@ -26,6 +26,7 @@ from core.TSP.tarzanTspLksMessages import (
     SCENE_BOOT_SERVICES,
     SCENE_BOOT_HARDWARE,
     SCENE_BOOT_TEST,
+    SCENE_READY,
     SCENE_INTRO_STATUS,
 )
 
@@ -166,23 +167,57 @@ class TarzanTspLksBootProgress:
         else:
             self._show_step(scene, "DEVICE TEST", label, detail, "", "checking", f"{progress}%", progress)
 
-    def _show_status_intro(self) -> None:
-        """Krótka strona przejściowa bezpośrednio przed status_main.
 
-        intro_status nie jest wejściem w diagnostykę. To ostatnia plansza
-        informacyjna po zakończeniu testów i przed pokazaniem tablicy status_main.
+    def _show_ready_main(self) -> None:
+        """Plansza gotowości po testach, przed intro_status i status_main.
+
+        Kolejność operatorska po pełnym boot-checku:
+        boot_test -> ready_main -> intro_status -> status_main.
+        ready_main jest spokojnym ekranem GOTOWE po diagnostyce, jeszcze bez
+        tablicy 30 kontrolek. Nie uruchamia żadnego testu i nie resetuje
+        statusów.
         """
         green = sum(1 for value in self.statuses.values() if value)
         total = len(self.statuses)
+        self.n5.page(SCENE_READY)
+        self._current_scene = SCENE_READY
+        self._global_progress = max(self._global_progress, 100)
+        self.n5.set_texts(
+            {
+                "t_title": "SYSTEM READY",
+                "t_subtitle": "LKS-N5 GOTOWE",
+                "t_line1": "TESTY ZAKONCZONE",
+                "t_line2": f"GOTOWE {green}/{total}",
+                "t_line3": "PRZEJSCIE DO STATUSU",
+                "t_status": "READY MAIN",
+                "t_code": "100%",
+            }
+        )
+        # ready_main ma własne pola liczbowe, nie ma klasycznego j_progress.
+        # Nie wysyłamy tu j_progress/n_progress, żeby nie wywoływać Invalid Variable.
+        self.n5.set_numbers({"n_test_idx": green, "n_level": 100})
+        self._pause()
+
+    def _show_status_intro(self) -> None:
+        """Ostatnia plansza przejściowa bezpośrednio przed status_main.
+
+        intro_status jest częścią globalnego procesu startu. To nie jest
+        osobny test i nie wolno go pomijać przy spokojnym pasku postępu.
+        Operator ma zobaczyć: testy zakończone, gotowe, za chwilę tablica
+        status_main. Pasek zostaje na 100% i nie cofa się do 98%.
+        """
+        green = sum(1 for value in self.statuses.values() if value)
+        total = len(self.statuses)
+        final_note = "BEZ BLEDOW" if green == total else "SPRAWDZ STATUS"
         self._show_step(
             SCENE_INTRO_STATUS,
             "INTRO STATUS",
             "TESTY ZAKONCZONE",
             f"GOTOWE {green}/{total}",
-            "BEZ BLEDOW",
+            final_note,
             "przejscie",
-            "98%",
-            98,
+            "100%",
+            100,
         )
         self._pause()
 
@@ -318,19 +353,9 @@ class TarzanTspLksBootProgress:
         for scene, progress, key, component, label, fn in steps:
             self._step(scene=scene, progress=progress, key=key, component=component, label=label, fn=fn)
 
-        green = sum(1 for value in self.statuses.values() if value)
-        total = len(self.statuses)
-        self._show_step(
-            SCENE_BOOT_TEST,
-            "BOOT COMPLETE",
-            f"GREEN: {green}/{total}",
-            "REAL STATUS",
-            "NO GUESSING",
-            "going status_main",
-            "100%",
-            100,
-        )
-        self._pause()
+        # Końcówka ma iść zgodnie z układem stron operatora:
+        # boot_test -> ready_main -> intro_status -> status_main.
+        self._show_ready_main()
         self._show_status_intro()
         self.n5.show_status(reset=True)
         self.n5.set_many_statuses(self.statuses)

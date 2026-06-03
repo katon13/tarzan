@@ -1,0 +1,299 @@
+Page boot_loading
+    Attributes
+        ID               : 0
+        Scope            : local
+        Send Component ID: disabled
+        Width            : 800
+        Locked           : no
+        Fill             : picture
+        Back. Picture ID : 8
+    
+    Events
+        Postinitialize Event
+            sendme
+            va_load.val=10
+            n_progress.val=va_load.val
+            j_progress.val=va_load.val
+            tm_load.tim=500
+            tm_load.en=1
+        
+Variable (int32) va_load
+    Attributes
+        ID   : 13
+        Scope: local
+        Value: 0
+    
+Number n_progress
+    Attributes
+        ID                      : 10
+        Scope                   : local
+        Send Component ID       : disabled
+        x coordinate            : 397
+        y coordinate            : 363
+        Width                   : 80
+        Height                  : 35
+        Fill                    : solid color
+        Style                   : flat
+        Associated Keyboard     : none
+        Font ID                 : 5
+        Back. Color             : 0
+        Font Color              : 2016
+        Horizontal Alignment    : center
+        Vertical Alignment      : center
+        Value                   : 0
+        Significant digits shown: all
+        Format                  : decimal
+        Word wrap               : enabled
+        Horizontal Spacing      : 0
+        Vertical Spacing        : 0
+    
+Number n_level
+    Attributes
+        ID                      : 11
+        Scope                   : local
+        Send Component ID       : disabled
+        x coordinate            : 670
+        y coordinate            : 70
+        Width                   : 40
+        Height                  : 34
+        Fill                    : solid color
+        Style                   : flat
+        Associated Keyboard     : none
+        Font ID                 : 6
+        Back. Color             : 0
+        Font Color              : 2016
+        Horizontal Alignment    : center
+        Vertical Alignment      : center
+        Value                   : 0
+        Significant digits shown: all
+        Format                  : decimal
+        Word wrap               : enabled
+        Horizontal Spacing      : 0
+        Vertical Spacing        : 0
+    
+Number n_test_idx
+    Attributes
+        ID                      : 12
+        Scope                   : local
+        Send Component ID       : disabled
+        x coordinate            : 630
+        y coordinate            : 70
+        Width                   : 40
+        Height                  : 35
+        Fill                    : solid color
+        Style                   : flat
+        Associated Keyboard     : none
+        Font ID                 : 6
+        Back. Color             : 0
+        Font Color              : 2016
+        Horizontal Alignment    : center
+        Vertical Alignment      : center
+        Value                   : 0
+        Significant digits shown: all
+        Format                  : decimal
+        Word wrap               : enabled
+        Horizontal Spacing      : 0
+        Vertical Spacing        : 0
+    
+Text t_title
+    Attributes
+        ID                  : 2
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 178
+        y coordinate        : 114
+        Width               : 350
+        Height              : 30
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 10
+        Back. Color         : 0
+        Font Color          : 2016
+        Horizontal Alignment: center
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : INITIALIZING MODULES
+        Max. Text Size      : 100
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t_subtitle
+    Attributes
+        ID                  : 3
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 459
+        y coordinate        : 175
+        Width               : 250
+        Height              : 30
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 10
+        Back. Color         : 0
+        Font Color          : 2016
+        Horizontal Alignment: left
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : LOADING...
+        Max. Text Size      : 100
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t_line1
+    Attributes
+        ID                  : 4
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 459
+        y coordinate        : 213
+        Width               : 250
+        Height              : 25
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 11
+        Back. Color         : 0
+        Font Color          : 65535
+        Horizontal Alignment: left
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : LINUX SYSTEM
+        Max. Text Size      : 100
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t_status
+    Attributes
+        ID                  : 5
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 500
+        y coordinate        : 320
+        Width               : 230
+        Height              : 25
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 11
+        Back. Color         : 0
+        Font Color          : 50712
+        Horizontal Alignment: right
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : waiting for LKS-N5 service...
+        Max. Text Size      : 100
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t_line2
+    Attributes
+        ID                  : 6
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 459
+        y coordinate        : 239
+        Width               : 250
+        Height              : 25
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 11
+        Back. Color         : 0
+        Font Color          : 65535
+        Horizontal Alignment: left
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : PLEASE WAIT
+        Max. Text Size      : 100
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t_line3
+    Attributes
+        ID                  : 7
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 458
+        y coordinate        : 266
+        Width               : 250
+        Height              : 20
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 11
+        Back. Color         : 0
+        Font Color          : 65535
+        Horizontal Alignment: left
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : 
+        Max. Text Size      : 100
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Text t_code
+    Attributes
+        ID                  : 8
+        Scope               : local
+        Send Component ID   : disabled
+        x coordinate        : 629
+        y coordinate        : 31
+        Width               : 60
+        Height              : 30
+        Fill                : solid color
+        Style               : flat
+        Associated Keyboard : none
+        Font ID             : 10
+        Back. Color         : 0
+        Font Color          : 63488
+        Horizontal Alignment: left
+        Vertical Alignment  : center
+        Input Type          : character
+        Text                : 
+        Max. Text Size      : 100
+        Word wrap           : disabled
+        Horizontal Spacing  : 0
+        Vertical Spacing    : 0
+    
+Progress Bar j_progress
+    Attributes
+        ID                   : 1
+        Scope                : local
+        Send Component ID    : disabled
+        x coordinate         : 479
+        y coordinate         : 363
+        Width                : 230
+        Height               : 40
+        Fill                 : image
+        Direction            : horizontal
+        Value                : 10
+        Back. Color          : 48631
+        Background Picture ID: 17
+        Font Color           : 1024
+        Foreground Picture ID: 18
+    
+Timer tm_load
+    Attributes
+        ID         : 9
+        Scope      : local
+        Period (ms): 400
+        Enabled    : yes
+    
+    Events
+        Timer Event
+            va_load.val+=5
+            if(va_load.val>90)
+            {
+                va_load.val=20
+            }
+            n_progress.val=va_load.val
+            j_progress.val=va_load.val
+        

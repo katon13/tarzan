@@ -1,0 +1,10 @@
+Program.s
+    //The following code is only run once when power on, and is generally used for global variable definition and power on initialization data
+    int sys0=0,sys1=0,sys2=0
+    baud=9600
+    dim=100
+    recmod=0
+    printh 00 00 00 ff ff ff 88 ff ff ff
+    bauds=115200
+    bkcmd=3
+    page boot_intro

@@ -1,0 +1,18 @@
+[Unit]
+Description=TARZAN TSP Server with LKS-N5 Nextion 5 status lamp
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/tarzan
+ExecStart=/usr/bin/python3 -m core.TSP.tarzanTsp server --host 0.0.0.0 --port 7777 --lks --lks-n5 --lks-n5-port /dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0 --lks-n5-baudrate 9600 --lks-n5-refresh 2
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGINT
+TimeoutStopSec=8
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

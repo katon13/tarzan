@@ -199,6 +199,7 @@ class TarzanTspServer:
         self.debug = TarzanTspDebug()
         self.logger = setup_tsp_logger("TSP.SERVER")
         self.running = False
+        self._stopping = False
         self._sock: Optional[socket.socket] = None
         self._clients: Dict[int, TarzanTspClientSession] = {}
         self._clients_lock = threading.Lock()
@@ -288,14 +289,22 @@ class TarzanTspServer:
             self.lks_n5 = None
 
     def _stop_lks_n5(self) -> None:
-        if self.lks_n5 is None:
+        """Zamyka LKS-N5 po zatrzymaniu pętli serwera.
+
+        Najpierw gasimy flagi odświeżania, potem zamykamy port.
+        Dzięki temu przy CTRL+C/systemd stop nie powstaje fałszywy warning
+        typu "Bad file descriptor" z ostatniego cyklu refresh.
+        """
+        self._lks_n5_dirty = False
+        self._lks_n5_dirty_reason = ""
+        device = self.lks_n5
+        self.lks_n5 = None
+        if device is None:
             return
         try:
-            self.lks_n5.close()
+            device.close()
         except Exception as exc:
             self.debug.record_error("lks_n5_stop_failed", {"error": str(exc)})
-        finally:
-            self.lks_n5 = None
 
     def mark_lks_n5_dirty(self, reason: str = "event", immediate: bool = False) -> None:
         """Oznacza LKS-N5 do lekkiego odświeżenia.
@@ -303,7 +312,7 @@ class TarzanTspServer:
         Ten mechanizm celowo nie budzi ekranu po każdym pakiecie FAST.
         Natychmiastowe odświeżanie zostaje tylko dla URGENT/ERROR/connect/disconnect.
         """
-        if not self._lks_n5_enabled:
+        if not self._lks_n5_enabled or self._stopping:
             return
         self._lks_n5_dirty = True
         self._lks_n5_dirty_reason = reason
@@ -319,7 +328,7 @@ class TarzanTspServer:
         self.mark_lks_n5_dirty(reason, immediate=immediate_n5)
 
     def _refresh_lks_n5(self, reason: str = "cycle", immediate: bool = False) -> None:
-        if self.lks_n5 is None:
+        if self._stopping or self.lks_n5 is None:
             return
         now = monotonic_ms()
         if not immediate and now - self._lks_n5_last_refresh_ms < int(self._lks_n5_refresh_interval_s * 1000):
@@ -354,6 +363,7 @@ class TarzanTspServer:
     def start(self) -> None:
         if self.running:
             return
+        self._stopping = False
         self.running = True
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -379,18 +389,32 @@ class TarzanTspServer:
             self.stop()
 
     def stop(self) -> None:
+        # Kolejność jest ważna dla LKS-N5:
+        # 1) zatrzymać pętle,
+        # 2) poczekać aż lane-loop przestanie odświeżać,
+        # 3) dopiero zamknąć port serial.
+        self._stopping = True
         self.running = False
+        self._lks_n5_dirty = False
+        self._lks_n5_dirty_reason = ""
+
         if self._sock is not None:
             try:
                 self._sock.close()
             except OSError:
                 pass
             self._sock = None
+
         with self._clients_lock:
             clients = list(self._clients.values())
             self._clients.clear()
         for client in clients:
             client.close()
+
+        for thread in (self._accept_thread, self._lane_thread):
+            if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+                thread.join(timeout=1.0)
+
         self._stop_lks_n5()
         self.lks.stop()
         self.logger.info("TSP SERVER STOPPED")
@@ -591,7 +615,7 @@ class TarzanTspServer:
                 )
 
             # 4. LKS-N5 — lekki cykl kontrolny, bez reakcji na każdy FAST
-            if self._lks_n5_dirty or now - self._lks_n5_last_refresh_ms >= int(self._lks_n5_refresh_interval_s * 1000):
+            if not self._stopping and (self._lks_n5_dirty or now - self._lks_n5_last_refresh_ms >= int(self._lks_n5_refresh_interval_s * 1000)):
                 self._refresh_lks_n5(reason=self._lks_n5_dirty_reason or "cycle", immediate=False)
 
             # 5. Traces

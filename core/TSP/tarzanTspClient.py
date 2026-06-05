@@ -51,8 +51,6 @@ class TarzanTspClient:
         self.normal_count = 0
         self.slow_count = 0
         self.health_count = 0
-        self._tx_queue: deque[Dict[str, Any]] = deque(maxlen=2000)
-        self._tx_cv = threading.Condition()
 
     def is_connected(self) -> bool:
         return self.running and self.sock is not None
@@ -68,13 +66,17 @@ class TarzanTspClient:
         sock.settimeout(timeout)
         sock.connect((self.host, self.port))
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        # ETAP 1G: PAR LIVE ma trzymać jeden socket. Włączamy systemowy keepalive,
+        # ale nie opieramy stabilności na agresywnym reconnect.
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        except OSError:
+            pass
         sock.settimeout(0.5)
         self.sock = sock
         self.running = True
         self._rx_thread = threading.Thread(target=self._rx_loop, name="TSP-CLIENT-RX", daemon=True)
         self._rx_thread.start()
-        self._tx_thread = threading.Thread(target=self._tx_loop, name="TSP-CLIENT-TX", daemon=True)
-        self._tx_thread.start()
 
     def close(self) -> None:
         self.running = False
@@ -93,35 +95,13 @@ class TarzanTspClient:
     # KOMENDY
     # ------------------------------------------------------------------
 
-    def send(self, message: Dict[str, Any]) -> bool:
-        if not self.running:
-            return False
-        with self._tx_cv:
-            self._tx_queue.append(message)
-            self._tx_cv.notify()
-        return True
-
-    def _tx_loop(self) -> None:
-        while self.running:
-            message = None
-            with self._tx_cv:
-                while self.running and not self._tx_queue:
-                    self._tx_cv.wait(timeout=0.1)
-                if not self.running:
-                    break
-                if self._tx_queue:
-                    message = self._tx_queue.popleft()
-            
-            if message and self.sock:
-                try:
-                    raw = encode_jsonl(message)
-                    with self._send_lock:
-                        self.sock.sendall(raw)
-                    self.tx_count += 1
-                except Exception as e:
-                    print(f"TSP_CLIENT_ERROR: Send failed: {e}", file=sys.stderr)
-                    # Przy błędzie wysyłania nie zamykamy klienta tutaj, 
-                    # pętla RX to wykryje lub konektor w PAR Bridge.
+    def send(self, message: Dict[str, Any]) -> None:
+        if self.sock is None:
+            raise RuntimeError("TSP client is not connected")
+        raw = encode_jsonl(message)
+        with self._send_lock:
+            self.sock.sendall(raw)
+        self.tx_count += 1
 
     def hello(self) -> None:
         self.send({"cmd": CMD_HELLO, "node": self.name, "version": "1"})
@@ -173,13 +153,23 @@ class TarzanTspClient:
                     message = decode_jsonl_line(line)
                     self._record_message(message)
                     if self.on_message:
-                        self.on_message(message)
+                        try:
+                            self.on_message(message)
+                        except Exception as exc:
+                            # ETAP 1G: błąd obsługi wiadomości w PAR/UI nie może zamykać
+                            # socketu TSP. Rejestrujemy go lokalnie i czytamy dalej.
+                            self._record_message({
+                                "ok": False,
+                                "event": "client_callback_error",
+                                "error": str(exc),
+                            })
             except socket.timeout:
                 continue
             except OSError:
                 break
             except Exception as exc:
                 self._record_message({"ok": False, "event": "client_error", "error": str(exc)})
+                continue
         self.running = False
 
     def _record_message(self, message: Dict[str, Any]) -> None:

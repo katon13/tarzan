@@ -27,8 +27,8 @@
 - **Zrealizowano**: Filtrowanie identycznych wartości w `SignalBus.apply_snapshot` i `force_signal`.
 - **Zrealizowano**: TSP Server zwraca czytelne statusy zapisu (`OK`, `UNKNOWN_SIGNAL`, `WRITE_DENIED`).
 
-### Etap 8: PAR jako Pełna Administracja (ZAMKNIĘTY LOGICZNIE)
-- **Status**: PAR w trybie LIVE kontroluje runtime przez TSP/SignalBus.
+### Etap 8: PAR jako Pełna Administracja (ZAMKNIĘTY)
+- **Status**: PAR w trybie LIVE w pełni kontroluje runtime przez TSP/SignalBus.
 - **Zrealizowano**: Ujednolicone wywołania administracyjne przez `bridge.call_action(...)` i `bridge.write_output(...)`.
 - **Zrealizowano**: Panel SYSTEM wyświetla stan hardware LKS, statystyki TSP i pozwala na akcje: `Diagnostyka`, `Take Control`, `Reboot`.
 - **Zrealizowano**: Zdalne sterowanie modułami EHR/KHR (Start/Stop).

@@ -2720,9 +2720,17 @@ class TarzanParPanels:
             tk.Label(st_frame, text=label, bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 8)).grid(row=row, column=0, sticky="w", padx=(5, 10))
             led = Led(st_frame, size=14)
             led.grid(row=row, column=1, sticky="w", pady=2)
-            self.rows[sig] = _ParValueProxy(led.set)
-            # Ustawiamy stan początkowy
-            led.set(self.bus.get(sig, 0))
+            
+            # Mapowanie stanów tekstowych na 0/1 dla LED
+            def _set_led(v, led_ref=led):
+                if isinstance(v, str):
+                    state = 1 if v in ("CONNECTED", "READY", "ACTIVE", "BOOTING") else 0
+                    led_ref.set(state)
+                else:
+                    led_ref.set(v)
+
+            self.rows[sig] = _ParValueProxy(_set_led)
+            _set_led(self.bus.get(sig, 0))
 
         # ACTIONS PANEL (ETAP 8)
         act_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
@@ -2774,12 +2782,50 @@ class TarzanParPanels:
         row_ehr = tk.Frame(ehr_khr_frame, bg=COLORS["panel"])
         row_ehr.pack(fill="x", pady=2)
         tk.Label(row_ehr, text="EHR:", bg=COLORS["panel"], fg=COLORS["muted"], width=6, anchor="w").pack(side="left")
+        
+        ehr_led = Led(row_ehr, size=14)
+        ehr_led.pack(side="left", padx=2)
+
+        ehr_st_label = tk.Label(row_ehr, text="OFF", bg="#050810", fg=COLORS["muted"], font=("Consolas", 8, "bold"), width=10)
+        ehr_st_label.pack(side="left", padx=5)
+        
+        def update_ehr_st(v):
+            # Update Text
+            color = COLORS["green"] if v in ("READY", "ACTIVE") else COLORS["muted"]
+            if v == "ERROR": color = COLORS["red"]
+            ehr_st_label.configure(text=str(v).upper(), fg=color)
+            # Update LED
+            state = 1 if v in ("CONNECTED", "READY", "ACTIVE") else 0
+            ehr_led.set(state)
+
+        self.rows["ehr_state"] = _ParValueProxy(update_ehr_st)
+        update_ehr_st(self.bus.get("ehr_state", "OFF"))
+
         tk.Button(row_ehr, text="START", command=lambda: ehr_cmd("start"), **btn_opts).pack(side="left", padx=2)
         tk.Button(row_ehr, text="STOP", command=lambda: ehr_cmd("stop"), **btn_opts).pack(side="left", padx=2)
 
         row_khr = tk.Frame(ehr_khr_frame, bg=COLORS["panel"])
         row_khr.pack(fill="x", pady=2)
         tk.Label(row_khr, text="KHR:", bg=COLORS["panel"], fg=COLORS["muted"], width=6, anchor="w").pack(side="left")
+        
+        khr_led = Led(row_khr, size=14)
+        khr_led.pack(side="left", padx=2)
+
+        khr_st_label = tk.Label(row_khr, text="OFF", bg="#050810", fg=COLORS["muted"], font=("Consolas", 8, "bold"), width=10)
+        khr_st_label.pack(side="left", padx=5)
+
+        def update_khr_st(v):
+            # Update Text
+            color = COLORS["green"] if v in ("READY", "ACTIVE") else COLORS["muted"]
+            if v == "ERROR": color = COLORS["red"]
+            khr_st_label.configure(text=str(v).upper(), fg=color)
+            # Update LED
+            state = 1 if v in ("CONNECTED", "READY", "ACTIVE") else 0
+            khr_led.set(state)
+
+        self.rows["khr_state"] = _ParValueProxy(update_khr_st)
+        update_khr_st(self.bus.get("khr_state", "OFF"))
+
         tk.Button(row_khr, text="START", command=lambda: khr_cmd("start"), **btn_opts).pack(side="left", padx=2)
         tk.Button(row_khr, text="STOP", command=lambda: khr_cmd("stop"), **btn_opts).pack(side="left", padx=2)
 

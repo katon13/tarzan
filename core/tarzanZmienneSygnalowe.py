@@ -799,6 +799,66 @@ khr_arm_v_offset = _sygnal(
     klasa_wykonawcza="tarzanKhr.py",
 )
 
+khr_arm_t_offset = _sygnal(
+    nazwa="khr_arm_t_offset",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Korekta offsetu osi pochyłu ramienia.",
+    zrodlo="KHR",
+    hardware_function=HW_SYSTEM,
+    hardware_label="KHR Offset ARM_T",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanKhr.py",
+)
+
+khr_cam_f_offset = _sygnal(
+    nazwa="khr_cam_f_offset",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Korekta offsetu osi ostrości kamery.",
+    zrodlo="KHR",
+    hardware_function=HW_SYSTEM,
+    hardware_label="KHR Offset CAM_F",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanKhr.py",
+)
+
+khr_dron_offset = _sygnal(
+    nazwa="khr_dron_offset",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Korekta offsetu osi DRON.",
+    zrodlo="KHR",
+    hardware_function=HW_SYSTEM,
+    hardware_label="KHR Offset DRON",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanKhr.py",
+)
+
 transport_state = _sygnal(
     nazwa="transport_state",
     plytka="SYSTEM",
@@ -864,10 +924,19 @@ rrp_p2_axis_index = _sygnal(
 rrp_p1_speed_mul = _sygnal(
     nazwa="rrp_p1_speed_mul",
     plytka="SYSTEM",
+    pin=None,
+    kanal=None,
     typ="ANALOG",
     kierunek="IN",
     default="1",
     opis="Mnożnik szybkości generatora RRP P1 (X1..X4).",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="RRP P1 Speed",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
     grupa="SYSTEM",
     klasa_wykonawcza="tarzanParPanels.py",
 )
@@ -875,10 +944,19 @@ rrp_p1_speed_mul = _sygnal(
 rrp_p2_speed_mul = _sygnal(
     nazwa="rrp_p2_speed_mul",
     plytka="SYSTEM",
+    pin=None,
+    kanal=None,
     typ="ANALOG",
     kierunek="IN",
     default="1",
     opis="Mnożnik szybkości generatora RRP P2 (X1..X4).",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="RRP P2 Speed",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
     grupa="SYSTEM",
     klasa_wykonawcza="tarzanParPanels.py",
 )
@@ -894,6 +972,13 @@ axis_inventory_ok = _sygnal(
     kierunek="IN",
     default="0",
     opis="Status pomyślnego zakończenia inwentaryzacji osi.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Axis Inventory OK",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
     grupa="STATUS",
     klasa_wykonawcza="tarzanTspLksDiagnostics.py",
 )
@@ -904,27 +989,37 @@ def _gen_axis_status_signals(axes_list: List[str]) -> List[TarzanSygnal]:
         out.append(_sygnal(
             nazwa=f"axis_{ax}_ready",
             plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
-            opis=f"Gotowość sprzętowa osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+            opis=f"Gotowość sprzętowa osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py",
+            zrodlo="RUNTIME", hardware_function=HW_SYSTEM, hardware_label=f"Axis {ax} Ready",
+            pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None
         ))
         out.append(_sygnal(
             nazwa=f"axis_{ax}_alarm",
             plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
-            opis=f"Alarm / błąd sterownika osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+            opis=f"Alarm / błąd sterownika osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py",
+            zrodlo="RUNTIME", hardware_function=HW_SYSTEM, hardware_label=f"Axis {ax} Alarm",
+            pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None
         ))
         out.append(_sygnal(
             nazwa=f"axis_{ax}_enabled",
             plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
-            opis=f"Status sygnału ENABLE dla osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+            opis=f"Status sygnału ENABLE dla osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py",
+            zrodlo="RUNTIME", hardware_function=HW_SYSTEM, hardware_label=f"Axis {ax} Enabled",
+            pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None
         ))
         out.append(_sygnal(
             nazwa=f"axis_{ax}_owner",
             plytka="SYSTEM", pin=None, kanal=None, typ="TEXT", kierunek="IN", default="NONE",
-            opis=f"Aktualny właściciel logiczny osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanMode.py"
+            opis=f"Aktualny właściciel logiczny osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanMode.py",
+            zrodlo="RUNTIME", hardware_function=HW_SYSTEM, hardware_label=f"Axis {ax} Owner",
+            pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None
         ))
         out.append(_sygnal(
             nazwa=f"axis_{ax}_last_error",
             plytka="SYSTEM", pin=None, kanal=None, typ="TEXT", kierunek="IN", default="",
-            opis=f"Ostatni błąd zgłoszony przez oś {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+            opis=f"Ostatni błąd zgłoszony przez oś {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py",
+            zrodlo="RUNTIME", hardware_function=HW_SYSTEM, hardware_label=f"Axis {ax} Last Error",
+            pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None
         ))
     return out
 

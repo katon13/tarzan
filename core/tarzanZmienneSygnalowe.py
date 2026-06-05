@@ -418,16 +418,42 @@ par_state = _sygnal(
 
 par_last_error = _sygnal(
     nazwa="par_last_error",
-    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="",
     opis="Ostatni błąd komunikacji lub odmowy zapisu w PAR.",
-    zrodlo="RUNTIME", grupa="SYSTEM"
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="PAR Last Error",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanParBridge.py",
 )
 
 par_write_denied_event = _sygnal(
     nazwa="par_write_denied_event",
-    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
     opis="Flaga zdarzenia odmowy zapisu (miga na czerwono).",
-    zrodlo="RUNTIME", grupa="SYSTEM"
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="PAR Write Denied Event",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanParBridge.py",
 )
 
 ehr_state = _sygnal(
@@ -1230,6 +1256,8 @@ SYGNALY_SYSTEMOWE: Dict[str, TarzanSygnal] = {
         runtime_state,
         tsp_state,
         par_state,
+        par_last_error,
+        par_write_denied_event,
         ehr_state,
         khr_state,
         lks_state,
@@ -4145,3 +4173,4 @@ WSZYSTKIE_SYGNALY.update(SYGNALY_CNC)
 WSZYSTKIE_SYGNALY.update(SYGNALY_UI)
 WSZYSTKIE_SYGNALY.update(SYGNALY_CZUJNIKI)
 WSZYSTKIE_SYGNALY.update(SYGNALY_REZERWOWE)
+TARZAN_ZMIENNE_SYGNALOWE = WSZYSTKIE_SYGNALY

@@ -4,7 +4,7 @@ import time
 import threading
 import os
 import platform
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Sequence
 
 from core.tarzanZmienneSygnalowe import (
     WSZYSTKIE_SYGNALY,
@@ -16,11 +16,12 @@ from core.TSP.tarzanTspLog import setup_tsp_logger
 
 # Próba importu biblioteki PoKeys
 try:
-    from hardware.pokeys.PoKeys import PoKeysDevice
+    from hardware.pokeys.PoKeys import PoKeysDevice, ePK_PinCap
     LIB_POKEYS_AVAILABLE = True
 except ImportError:
     LIB_POKEYS_AVAILABLE = False
     PoKeysDevice = None
+    ePK_PinCap = None
 
 class TarzanHardwareBridge:
     """
@@ -72,15 +73,15 @@ class TarzanHardwareBridge:
         self.logger.info("Starting Hardware Bridge...")
         
         if not LIB_POKEYS_AVAILABLE:
-            self.logger.error("PoKeys wrapper/library not available!")
-            self.bus.force_signal("hardware_state", "POKEYS_LIB_MISSING", source="HW_BRIDGE")
+            self.logger.error("PoKeys library not available!")
+            self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
             return False
 
         # Ścieżka do biblioteki PoKeys (zależna od platformy)
         lib_path = self._get_lib_path()
         if not lib_path or not os.path.exists(lib_path):
             self.logger.error(f"PoKeys library file not found at: {lib_path}")
-            self.bus.force_signal("hardware_state", "POKEYS_LIB_MISSING", source="HW_BRIDGE")
+            self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
             return False
 
         try:
@@ -99,11 +100,7 @@ class TarzanHardwareBridge:
             return True
         except Exception as exc:
             self.logger.error(f"Hardware Bridge failed to start: {exc}")
-            # Sprawdzamy czy to nie błąd biblioteki (np. brak zależności .so)
-            if "libPoKeys" in str(exc) or "load library" in str(exc).lower():
-                self.bus.force_signal("hardware_state", "POKEYS_LIB_MISSING", source="HW_BRIDGE")
-            else:
-                self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
+            self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
             return False
 
     def stop(self) -> None:
@@ -249,6 +246,324 @@ class TarzanHardwareBridge:
                 
         except Exception as e:
             self.logger.debug(f"Pulse Engine poll error: {e}")
+
+
+    # ------------------------------------------------------------------
+    # LKS-N5 point tests przez aktywny HardwareBridge
+    # ------------------------------------------------------------------
+
+    def _device_ready(self, board: str) -> Optional[Any]:
+        board = str(board).upper()
+        device = self.devices.get(board)
+        return device if self.running and device is not None else None
+
+    def _device_identity_text(self, board: str, device: Any) -> str:
+        try:
+            data = device.device.contents.DeviceData
+            serial = int(getattr(data, "SerialNumber", 0))
+            name = data.DeviceName.decode("ascii", errors="ignore").strip("\x00")
+            typ = data.DeviceTypeName.decode("ascii", errors="ignore").strip("\x00")
+            return f"{board} serial={serial} name='{name}' type='{typ}'"
+        except Exception:
+            return f"{board} connected"
+
+    def _lks_test_result(self, component: str, ok: bool, detail: str = "", error: str = "") -> Dict[str, Any]:
+        return {"component": str(component), "ok": bool(ok), "detail": str(detail or ""), "error": str(error or "")}
+
+    def _lks_refresh_device(self, device: Any) -> None:
+        try:
+            device.PK_PinConfigurationGet()
+        except Exception:
+            pass
+        try:
+            device.PK_DigitalIOGet()
+        except Exception:
+            pass
+        try:
+            device.PK_AnalogIOGet()
+        except Exception:
+            pass
+
+    def _lcd_text(self, value: str, width: int = 16) -> str:
+        repl = str(value)
+        for src, dst in (("ł", "l"), ("Ł", "L"), ("ó", "o"), ("Ó", "O"), ("ą", "a"), ("ę", "e"), ("ś", "s"), ("ż", "z"), ("ź", "z"), ("ń", "n"), ("ć", "c")):
+            repl = repl.replace(src, dst)
+        return repl[:width].ljust(width)
+
+    def _lks_lcd_init(self, device: Any) -> None:
+        lcd = device.device.contents.LCD
+        lcd.Configuration = 2
+        lcd.Rows = 2
+        lcd.Columns = 16
+        for call, name in (
+            (device.PK_LCDConfigurationSet, "PK_LCDConfigurationSet"),
+            (lambda: device.PK_LCDChangeMode(0), "PK_LCDChangeMode"),
+            (device.PK_LCDInit, "PK_LCDInit"),
+            (device.PK_LCDClear, "PK_LCDClear"),
+        ):
+            rc = call()
+            if rc != 0:
+                raise RuntimeError(f"{name} zwróciło {rc}")
+
+    def _lks_lcd_write_lines(self, device: Any, line1: str, line2: str) -> None:
+        if device.PK_LCDMoveCursor(1, 1) != 0:
+            raise RuntimeError("PK_LCDMoveCursor(1,1) failed")
+        if device.PK_LCDPrint(self._lcd_text(line1, 16)) != 0:
+            raise RuntimeError("PK_LCDPrint line1 failed")
+        if device.PK_LCDMoveCursor(2, 1) != 0:
+            raise RuntimeError("PK_LCDMoveCursor(2,1) failed")
+        if device.PK_LCDPrint(self._lcd_text(line2, 16)) != 0:
+            raise RuntimeError("PK_LCDPrint line2 failed")
+
+    def _lks_test_lcd_1602(self, visible: bool = True) -> Dict[str, Any]:
+        details: List[str] = []
+        errors: List[str] = []
+        for board in ("PLAY", "REC"):
+            device = self._device_ready(board)
+            if device is None:
+                errors.append(f"{board}: not connected")
+                continue
+            try:
+                if visible:
+                    self._lks_lcd_init(device)
+                    self._lks_lcd_write_lines(device, f"LKS-N5 {board}", "TEST LCD")
+                    time.sleep(0.35)
+                    try:
+                        device.PK_LCDClear()
+                    except Exception:
+                        pass
+                    self._lks_lcd_write_lines(device, "BEZ BLEDOW", "GOTOWE")
+                details.append(self._device_identity_text(board, device))
+            except Exception as exc:
+                errors.append(f"{board}: {exc}")
+        return self._lks_test_result("lcd_1602", not errors, detail="; ".join(details), error="; ".join(errors))
+
+    _MATRIX_FONT_5X7: Dict[str, List[int]] = {
+        " ": [0, 0, 0, 0, 0],
+        "A": [0x7E, 0x11, 0x11, 0x11, 0x7E], "B": [0x7F, 0x49, 0x49, 0x49, 0x36],
+        "E": [0x7F, 0x49, 0x49, 0x49, 0x41], "K": [0x7F, 0x08, 0x14, 0x22, 0x41],
+        "L": [0x7F, 0x40, 0x40, 0x40, 0x40], "O": [0x3E, 0x41, 0x41, 0x41, 0x3E],
+        "S": [0x46, 0x49, 0x49, 0x49, 0x31], "T": [0x01, 0x01, 0x7F, 0x01, 0x01],
+        "Z": [0x61, 0x51, 0x49, 0x45, 0x43], "0": [0x3E, 0x45, 0x49, 0x51, 0x3E],
+        "1": [0x00, 0x42, 0x7F, 0x40, 0x00], "2": [0x62, 0x51, 0x49, 0x49, 0x46],
+        "3": [0x22, 0x41, 0x49, 0x49, 0x36], "4": [0x18, 0x14, 0x12, 0x7F, 0x10],
+        "5": [0x27, 0x45, 0x45, 0x45, 0x39], "6": [0x3C, 0x4A, 0x49, 0x49, 0x30],
+        "7": [0x01, 0x71, 0x09, 0x05, 0x03], "8": [0x36, 0x49, 0x49, 0x49, 0x36],
+        "9": [0x06, 0x49, 0x49, 0x29, 0x1E],
+    }
+
+    def _matrix_rows_from_text(self, text_value: str) -> List[int]:
+        cols: List[int] = []
+        for ch in str(text_value).upper():
+            cols.extend(self._MATRIX_FONT_5X7.get(ch, self._MATRIX_FONT_5X7[" "]))
+            cols.append(0)
+        cols = (cols + [0] * 8)[:8]
+        rows: List[int] = []
+        for row in range(8):
+            value = 0
+            for col, col_value in enumerate(cols):
+                if int(col_value) & (1 << row):
+                    value |= 1 << col
+            rows.append(value & 0xFF)
+        return rows
+
+    def _lks_matrix_write_frame(self, device: Any, rows: Sequence[int]) -> None:
+        matrix_ptr = device.device.contents.MatrixLED
+        if not matrix_ptr:
+            raise RuntimeError("PoKeysLib nie udostępnił struktury MatrixLED")
+        matrix = matrix_ptr[0]
+        matrix.displayEnabled = 1
+        matrix.rows = 8
+        matrix.columns = 8
+        matrix.RefreshFlag = 1
+        for i in range(8):
+            matrix.data[i] = int(rows[i]) & 0xFF if i < len(rows) else 0
+        rc = device.PK_MatrixLEDConfigurationSet()
+        if rc != 0:
+            raise RuntimeError(f"PK_MatrixLEDConfigurationSet zwróciło {rc}")
+        rc = device.PK_MatrixLEDUpdate()
+        if rc != 0:
+            raise RuntimeError(f"PK_MatrixLEDUpdate zwróciło {rc}")
+
+    def _lks_test_matrix_led(self, visible: bool = True) -> Dict[str, Any]:
+        device = self._device_ready("REC")
+        if device is None:
+            return self._lks_test_result("matrix_led", False, error="REC not connected")
+        try:
+            if visible:
+                try:
+                    try:
+                        device.PK_MatrixLEDConfigurationGet()
+                    except Exception:
+                        pass
+                    self._lks_matrix_write_frame(device, self._matrix_rows_from_text("OK"))
+                    time.sleep(0.25)
+                    self._lks_matrix_write_frame(device, [0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55])
+                    time.sleep(0.20)
+                finally:
+                    try:
+                        self._lks_matrix_write_frame(device, [0] * 8)
+                    except Exception:
+                        pass
+            return self._lks_test_result("matrix_led", True, detail=self._device_identity_text("REC", device))
+        except Exception as exc:
+            return self._lks_test_result("matrix_led", False, error=str(exc))
+
+    def _lks_read_pin(self, device: Any, pin: int) -> int:
+        self._lks_refresh_device(device)
+        return int(device.device.contents.Pins[int(pin) - 1].DigitalValueGet)
+
+    def _lks_set_led_pin(self, device: Any, pin: int, value: int) -> None:
+        if ePK_PinCap is None:
+            raise RuntimeError("ePK_PinCap unavailable")
+        pin_index = int(pin) - 1
+        pin_data = device.device.contents.Pins[pin_index]
+        pin_data.PinFunction = int(ePK_PinCap.PK_PinCap_digitalOutput)
+        pin_data.DigitalValueSet = 1 if value else 0
+        rc = device.PK_PinConfigurationSet()
+        if rc != 0:
+            raise RuntimeError(f"PK_PinConfigurationSet P{pin} zwróciło {rc}")
+        rc = device.PK_DigitalIOSetSingle(pin_index, 1 if value else 0)
+        if rc != 0:
+            raise RuntimeError(f"PK_DigitalIOSetSingle P{pin} zwróciło {rc}")
+        try:
+            device.PK_DigitalIOGet()
+        except Exception:
+            pass
+
+    def _lks_test_f_led(self, visible: bool = True) -> Dict[str, Any]:
+        device = self._device_ready("REC")
+        pins = [46, 48, 50, 52]
+        if device is None:
+            return self._lks_test_result("f_led", False, error="REC not connected")
+        try:
+            if visible:
+                try:
+                    for pin in pins:
+                        self._lks_set_led_pin(device, pin, 0)
+                    for pin in pins:
+                        self._lks_set_led_pin(device, pin, 1)
+                        time.sleep(0.10)
+                        self._lks_set_led_pin(device, pin, 0)
+                finally:
+                    for pin in pins:
+                        try:
+                            self._lks_set_led_pin(device, pin, 0)
+                        except Exception:
+                            pass
+            return self._lks_test_result("f_led", True, detail="REC P46/P48/P50/P52")
+        except Exception as exc:
+            return self._lks_test_result("f_led", False, error=str(exc))
+
+    def _lks_test_f_buttons(self, visible: bool = True) -> Dict[str, Any]:
+        device = self._device_ready("REC")
+        pins = [45, 47, 49, 51]
+        if device is None:
+            return self._lks_test_result("f_button", False, error="REC not connected")
+        try:
+            base = {pin: self._lks_read_pin(device, pin) for pin in pins}
+            if visible:
+                end = time.time() + 2.5
+                while time.time() < end:
+                    for pin in pins:
+                        if self._lks_read_pin(device, pin) != base[pin]:
+                            return self._lks_test_result("f_button", True, detail=f"REC P{pin} changed")
+                    time.sleep(0.05)
+                return self._lks_test_result("f_button", False, detail=str(base), error="nie wykryto naciśnięcia F1-F4")
+            return self._lks_test_result("f_button", True, detail=str(base))
+        except Exception as exc:
+            return self._lks_test_result("f_button", False, error=str(exc))
+
+    def _lks_test_keypad(self, visible: bool = True) -> Dict[str, Any]:
+        device = self._device_ready("PLAY")
+        if device is None:
+            return self._lks_test_result("keypad", False, error="PLAY not connected")
+        try:
+            rc = device.PK_MatrixKBConfigurationGet()
+            if rc != 0:
+                raise RuntimeError(f"PK_MatrixKBConfigurationGet zwróciło {rc}")
+            rc = device.PK_MatrixKBStatusGet()
+            if rc != 0:
+                raise RuntimeError(f"PK_MatrixKBStatusGet zwróciło {rc}")
+            base = [int(device.device.contents.matrixKB.matrixKBvalues[i]) for i in range(128)]
+            if visible:
+                end = time.time() + 2.5
+                while time.time() < end:
+                    device.PK_MatrixKBStatusGet()
+                    cur = [int(device.device.contents.matrixKB.matrixKBvalues[i]) for i in range(128)]
+                    if cur != base:
+                        return self._lks_test_result("keypad", True, detail="matrix value changed")
+                    time.sleep(0.05)
+                return self._lks_test_result("keypad", False, error="nie wykryto klawisza")
+            return self._lks_test_result("keypad", True, detail="PK_MatrixKBStatusGet OK")
+        except Exception as exc:
+            return self._lks_test_result("keypad", False, error=str(exc))
+
+    def _lks_test_i2c_bus(self) -> Dict[str, Any]:
+        device = self._device_ready("PLAY")
+        if device is None:
+            return self._lks_test_result("i2c_bus", False, error="PLAY not connected")
+        try:
+            device.PK_I2CBusScanStart()
+            time.sleep(0.35)
+            devices = device.PK_I2CBusScanGetResults()
+            found = [addr for addr in range(0, min(128, len(devices))) if int(devices[addr]) == 1]
+            if not found:
+                return self._lks_test_result("i2c_bus", False, error="brak adresów BUS/I2C")
+            return self._lks_test_result("i2c_bus", True, detail="addresses=" + ",".join(f"0x{x:02X}" for x in found))
+        except Exception as exc:
+            return self._lks_test_result("i2c_bus", False, error=str(exc))
+
+    def _lks_test_bh1750(self, address: int = 0x5C) -> Dict[str, Any]:
+        device = self._device_ready("PLAY")
+        if device is None:
+            return self._lks_test_result("light_bh1750", False, error="PLAY not connected")
+        try:
+            device.PK_I2CWrite(int(address), [0x01])
+            time.sleep(0.02)
+            device.PK_I2CWrite(int(address), [0x07])
+            time.sleep(0.02)
+            device.PK_I2CWrite(int(address), [0x20])
+            time.sleep(0.18)
+            data = device.PK_I2CRead(int(address), 2)
+            if data is None or len(data) < 2:
+                raise RuntimeError(f"brak 2 bajtów z 0x{address:02X}")
+            raw = (int(data[0]) << 8) | int(data[1])
+            lux = raw / 1.2
+            return self._lks_test_result("light_bh1750", True, detail=f"0x{address:02X} raw={raw} lux={lux:.2f}")
+        except Exception as exc:
+            return self._lks_test_result("light_bh1750", False, error=str(exc))
+
+    def test_lks_component(self, component: str, visible: bool = True) -> Dict[str, Any]:
+        """Punktowy test LKS-N5 bez otwierania drugiej sesji PoKeys.
+
+        Używa urządzeń PLAY/REC już trzymanych przez aktywny HardwareBridge,
+        więc kliknięcie status_main nie dubluje połączeń USB i nie generuje
+        fałszywego "Requested device not found!".
+        """
+        name = str(component)
+        with self._lock:
+            if name == "pok_play":
+                dev = self._device_ready("PLAY")
+                return self._lks_test_result(name, dev is not None, detail=self._device_identity_text("PLAY", dev) if dev else "", error="PLAY not connected" if dev is None else "")
+            if name == "pok_rec":
+                dev = self._device_ready("REC")
+                return self._lks_test_result(name, dev is not None, detail=self._device_identity_text("REC", dev) if dev else "", error="REC not connected" if dev is None else "")
+            if name == "lcd_1602":
+                return self._lks_test_lcd_1602(visible=visible)
+            if name == "matrix_led":
+                return self._lks_test_matrix_led(visible=visible)
+            if name == "f_led":
+                return self._lks_test_f_led(visible=visible)
+            if name == "f_button":
+                return self._lks_test_f_buttons(visible=visible)
+            if name == "keypad":
+                return self._lks_test_keypad(visible=visible)
+            if name == "i2c_bus":
+                return self._lks_test_i2c_bus()
+            if name == "light_bh1750":
+                return self._lks_test_bh1750()
+            return self._lks_test_result(name, False, error="component not handled by active HardwareBridge point test")
 
     # ------------------------------------------------------------------
     # SignalBus LIVE Adapter Interface

@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, Optional
 
 from core.tarzanSignalBus import TarzanSignalBus, get_signal_bus
 from core.TSP.tarzanTspClient import TarzanTspClient
-from core.TSP.tarzanTspConfig import TSP_MINI_PC_HOST
+from core.TSP.tarzanTspConfig import TSP_MINI_PC_HOST, TSP_PORT
 try:
     from editor.PAR.tarzanParProtocolMapper import TarzanParProtocolMapper
 except ModuleNotFoundError:
@@ -66,15 +66,18 @@ class TarzanParBridge:
                     self.tsp_client = None
 
                 try:
+                    print(f"TSP: Attempting connection to {self.tsp_host}:{TSP_PORT}...")
                     self.tsp_client = TarzanTspClient(host=self.tsp_host, name="tarzanPAR")
                     self.tsp_client.on_message = self._handle_tsp_message
                     self.tsp_client.connect()
                     
                     # Handshake
+                    print(f"TSP: Connected to {self.tsp_host}. Sending HELLO...")
                     self.bus.log("TSP", f"Connected to {self.tsp_host}. Sending HELLO...")
                     self.bus.set_input("par_state", "CONNECTED", source="TSP_LIVE")
                     self.tsp_client.hello()
                 except Exception as e:
+                    print(f"TSP: Connection failed to {self.tsp_host}: {e}")
                     if self.tsp_client:
                         self.bus.log("TSP", f"Connection failed: {e}")
                     self.bus.set_input("par_state", "OFFLINE", source="TSP_LIVE")

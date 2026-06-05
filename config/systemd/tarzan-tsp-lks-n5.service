@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+Environment=PYTHONUNBUFFERED=1
 WorkingDirectory=/opt/tarzan
 ExecStart=/usr/bin/python3 /opt/tarzan/main.py
 Restart=on-failure

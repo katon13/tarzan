@@ -625,12 +625,21 @@ class TarzanTspServer:
             command = ["ping", param, "1", TSP_STACJA_HOST]
             
             res = subprocess.call(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            # Pobieramy aktualny stan, żeby nie nadpisywać CONNECTED
+            current_state = bus.read("par_state")
+            
             if res == 0:
-                bus.log("TSP", f"PAR station {TSP_STACJA_HOST} is ONLINE.")
-                bus.set_input("par_state", "AVAILABLE", source="TSP_CHECK")
+                if current_state != "CONNECTED":
+                    bus.set_input("par_state", "AVAILABLE", source="TSP_CHECK")
+                # else: zostawiamy CONNECTED
             else:
-                bus.log("TSP", f"PAR station {TSP_STACJA_HOST} is OFFLINE or unreachable.")
-                bus.set_input("par_state", "OFFLINE", source="TSP_CHECK")
+                if current_state != "CONNECTED":
+                    bus.set_input("par_state", "OFFLINE", source="TSP_CHECK")
+                else:
+                    # Jeśli mamy CONNECTED, ale ping padł, to może być chwilowy problem sieciowy
+                    # lub ICMP blokowane, nie zmieniamy stanu sesji TSP tutaj.
+                    pass
                 
         except Exception as exc:
             self.logger.debug("PAR check failed: %s", exc)

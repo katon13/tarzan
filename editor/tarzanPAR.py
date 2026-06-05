@@ -83,6 +83,18 @@ def launch_par() -> None:
         traceback.print_exc()
 
     app = TarzanParApp()
+    
+    # Obsługa argumentów linii komend (np. --live)
+    # Domyślnie wchodzimy w tryb LIVE, aby spiąć się z miniPC (zgodnie z zasadą automatyzacji)
+    # Wyjątek: jawne podanie --test
+    if "--test" in sys.argv:
+        app.after(100, lambda: app.set_mode("TEST"))
+    elif "--mix" in sys.argv:
+        app.after(100, lambda: app.set_mode("MIX"))
+    else:
+        # Domyślnie LIVE (lub jawne --live)
+        app.after(100, lambda: app.set_mode("LIVE"))
+
     app.mainloop()
 
 

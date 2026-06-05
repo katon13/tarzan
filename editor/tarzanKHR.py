@@ -10,6 +10,10 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk, filedialog
 
+from core.tarzanSignalBus import get_signal_bus
+from core.TSP.tarzanTspClient import TarzanTspClient
+from core.TSP.tarzanTspConfig import TSP_MINI_PC_HOST
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -739,6 +743,7 @@ class TarzanKHRWindow(tk.Tk):
         self.axis_angle = 0.0
         self.step_count = 0
 
+        self._init_runtime_integration()
         self._build_ui()
         self._apply_profile_to_ui(self.profile)
         self._set_source(self.settings.get("active_source", "TEST"))
@@ -746,6 +751,37 @@ class TarzanKHRWindow(tk.Tk):
         autostart = bool(discovery_cfg.get("autostart_camera_on_launch", False))
         if autostart and self.source_var.get() == "KAMERA":
             self.after(250, self._open_last_camera)
+
+    def _init_runtime_integration(self) -> None:
+        """Inicjalizacja spięcia z SignalBus i TSP (Etap 9)."""
+        self.bus = get_signal_bus()
+        self.tsp_client = None
+        
+        # Raportujemy stan początkowy do lokalnego SignalBus
+        self.bus.set_input("khr_state", "READY", source="KHR_INIT")
+        
+        # Jeśli jesteśmy w trybie LIVE, uruchamiamy klienta TSP
+        if self.bus.mode == "LIVE":
+            self._start_tsp_client()
+
+    def _start_tsp_client(self) -> None:
+        """Uruchamia klienta TSP dla raportowania stanu do miniPC."""
+        try:
+            self.tsp_client = TarzanTspClient(host=TSP_MINI_PC_HOST, name="tarzanKHR")
+            self.tsp_client.connect()
+            self.tsp_client.hello()
+            self.bus.log("KHR", "TSP Client connected to miniPC.")
+            self.bus.set_input("khr_state", "CONNECTED", source="KHR_TSP")
+        except Exception as e:
+            self.bus.log("KHR", f"TSP Connection failed: {e}")
+
+    def _update_runtime_state(self, state: str) -> None:
+        """Aktualizuje stan KHR w systemie."""
+        self.bus.set_input("khr_state", state, source="KHR_RUNTIME")
+        if self.tsp_client:
+            try:
+                self.tsp_client.set_signal("khr_state", state)
+            except Exception: pass
 
     def _build_ui(self) -> None:
         top = tk.Frame(self, bg="#111111")

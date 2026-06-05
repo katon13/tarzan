@@ -406,6 +406,39 @@ class TarzanTspSignalProvider:
                 self._signals["transport_state"] = "STOP"
                 self._urgent_queue.append(urgent_event("transport_state", "STOP", "operator_stop", PRIORITY_SAFETY))
                 return {"ok": True, "action": name, "transport_state": "STOP"}
+            
+            # ETAP 8: Akcje administracyjne PAR
+            if name == "run_diagnostics":
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    bus = get_signal_bus()
+                    bus.set_input("cmd_run_diagnostics", 1, source="TSP_ACTION")
+                    bus.log("TSP", "Action: Manual Diagnostics requested by PAR.")
+                    return {"ok": True, "action": name, "status": "requested"}
+                except Exception as e:
+                    return {"ok": False, "error": str(e), "action": name}
+
+            if name == "set_owner":
+                owner = payload.get("owner", "PAR_LIVE")
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    bus = get_signal_bus()
+                    bus.set_input("control_owner", owner, source="TSP_ACTION")
+                    bus.log("TSP", f"Action: Control owner changed to {owner} by PAR.")
+                    return {"ok": True, "action": name, "owner": owner}
+                except Exception as e:
+                    return {"ok": False, "error": str(e), "action": name}
+
+            if name == "reboot":
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    bus = get_signal_bus()
+                    bus.set_input("cmd_system_reboot", 1, source="TSP_ACTION")
+                    bus.log("TSP", "Action: System REBOOT requested by PAR.")
+                    return {"ok": True, "action": name, "status": "requested"}
+                except Exception as e:
+                    return {"ok": False, "error": str(e), "action": name}
+
             return {"ok": False, "error": "unknown_action", "action": name}
 
     def state_summary(self) -> Dict[str, Any]:

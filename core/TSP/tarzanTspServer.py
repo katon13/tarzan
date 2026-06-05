@@ -709,6 +709,30 @@ class TarzanTspServer:
                 bus.set_input("tarzan_ready", 1, source="TSP_DIAG")
             except Exception: pass
 
+    def _poll_system_commands(self) -> None:
+        """Sprawdza i wykonuje komendy systemowe z SignalBus (Etap 8)."""
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            
+            # 1. Diagnostyka
+            if bus.read("cmd_run_diagnostics", 0):
+                bus.set_input("cmd_run_diagnostics", 0, source="TSP_SYSTEM") # Reset flagi
+                diag_thread = threading.Thread(target=self._run_diagnostics, name="TSP-DIAG-MANUAL", daemon=True)
+                diag_thread.start()
+            
+            # 2. Reboot (tylko na Linuxie)
+            if bus.read("cmd_system_reboot", 0):
+                bus.set_input("cmd_system_reboot", 0, source="TSP_SYSTEM")
+                bus.log("TSP", "SYSTEM REBOOT INITIATED!")
+                if platform.system().lower() != "windows":
+                    os.system("sudo reboot")
+                else:
+                    self.logger.warning("REBOOT skipped (Windows Dev Mode)")
+
+        except Exception as exc:
+            self.logger.debug("System commands poll failed: %s", exc)
+
     def serve_forever(self) -> None:
         self.start()
         try:
@@ -996,16 +1020,15 @@ class TarzanTspServer:
                     pass
 
             # 4. LKS-N5 — spokojna praca:
-            # - nie robimy pełnych testów w pętli,
-            # - nie resetujemy status_main cyklicznie,
-            # - czytamy tylko lekkie eventy dotyku,
-            # - status odświeżamy wyłącznie, gdy stan został oznaczony jako dirty.
             if not self._stopping and self.lks_n5 is not None:
                 self._poll_lks_n5_events()
                 if self._lks_n5_dirty:
                     self._refresh_lks_n5(reason=self._lks_n5_dirty_reason or "event", immediate=False)
 
-            # 5. Traces
+            # 5. Komendy systemowe (ETAP 8)
+            self._poll_system_commands()
+
+            # 6. Traces
             self._emit_traces(clients=clients, now=now)
 
             # 5. Adaptacyjne usypianie pętli

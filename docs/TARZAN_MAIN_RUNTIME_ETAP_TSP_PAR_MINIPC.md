@@ -1,45 +1,42 @@
-# TARZAN MAIN RUNTIME — Etap: Fundament MAIN RUNTIME / etap TSP-PAR (Wdrożenie MiniPC)
+# TARZAN MAIN RUNTIME — Zespolenie Systemowe (Etapy 0-16)
 
-**Status:** Gotowy do wdrożenia fundamentu / Próba generalna połączenia
-**Wersja:** 1.0  
+**Status:** Logika zaimplementowana / Gotowy do testów integracyjnych na MiniPC
+**Wersja:** 1.2  
 **Data:** 2026-06-05
 
-## 1. Co zostało wdrożone
-Ten etap stanowi fundament "układu nerwowego" systemu TARZAN, łącząc MiniPC (Runtime) ze Stacją (Administracja PAR).
+## 1. Co zostało wdrożone (Aktualizacja)
+Ten etap stanowi pełne zespolenie "układu nerwowego" i "mózgu" systemu TARZAN.
 
-*   **Zespolenie SignalBus**: Centralna magistrala sygnałów w trybie LIVE synchronizuje się między urządzeniami.
-*   **TSP Server (MiniPC)**: Rozszerzony start w `TarzanTspServer.start()` inicjalizuje `SignalBus`, ustawia stan `BOOTING` i uruchamia diagnostykę LKS przygotowaną do testu na miniPC.
-*   **PAR Bridge (Stacja)**: Zintegrowany klient TSP, który automatycznie łączy się z MiniPC po przełączeniu PAR w tryb LIVE.
-*   **Protokół Komunikacji**: Pełny handshake (HELLO, PING, GET_STATE, SUBSCRIBE) zapewniający spójność danych zaraz po połączeniu.
-*   **Bezpieczeństwo**: Mechanizm `control_owner` przygotowany do blokowania konfliktów sterowania (np. blokada osi podczas pracy EHR).
+*   **Zespolenie SignalBus (Etapy 0-7)**: Centralna magistrala synchronizuje się między MiniPC a Stacją w trybie LIVE.
+*   **PAR jako Administracja (Etap 8)**: Nowy panel SYSTEM w PAR umożliwia:
+    - Podgląd szczegółowego statusu LKS Hardware.
+    - Wywoływanie akcji: Manualna Diagnostyka, Zmiana Właściciela (Take Control), Reboot MiniPC.
+    - Monitorowanie statystyk sieciowych TSP (Etap 16).
+*   **EHR/KHR jako Bloki Systemowe (Etap 9)**: 
+    - EHR i KHR raportują swój stan (`ehr_state`, `khr_state`) do SignalBus.
+    - Automatyczne połączenie z TSP po uruchomieniu w trybie LIVE.
+*   **Logika MODE (Etap 12)**: Moduł `tarzanMode.py` zarządza priorytetami i przełącza źródła sterowania.
+*   **Integracja rRP/SOK (Etap 13)**: Ruch manualny osiami przez rRP jest teraz częścią głównego toru (rRP -> PoKeys -> SignalBus -> ModeLogic -> Osie).
+*   **Bezpieczeństwo**: Pełna izolacja diagnostyki PoKeys (multiprocessing spawn) zapobiegająca crashom całego systemu.
 
 ## 2. Zmienione kluczowe pliki
-*   `core/tarzanZmienneSygnalowe.py`: Dodanie sygnałów systemowych (`system_state`, `runtime_state`, `control_owner` itd.).
-*   `core/tarzanSignalBus.py`: Implementacja `apply_snapshot` z filtrowaniem zmian (brak pętli zwrotnych).
-*   `core/TSP/tarzanTspServer.py`: Nowa logika startu Main Runtime i asynchroniczna diagnostyka.
-*   `core/TSP/tarzanTspSignals.py`: Przepięcie providera TSP na realny `SignalBus`.
-*   `editor/PAR/tarzanParBridge.py`: Implementacja asynchronicznego konektora TSP Client.
+*   `core/tarzanZmienneSygnalowe.py`: Pełny katalog sygnałów systemowych i komend.
+*   `core/TSP/tarzanTspServer.py`: Obsługa komend administracyjnych i statystyk.
+*   `core/tarzanMode.py`: Logika trybów (tM, tAA).
+*   `editor/PAR/tarzanParPanels.py`: Rozbudowa UI o panele statusu i akcji.
+*   `editor/EHR/tarzanEhrUi.py` i `editor/tarzanKHR.py`: Raportowanie stanów modułów.
 
 ## 3. Jak uruchomić na MiniPC
-1.  Pobrać najnowszy kod na MiniPC (`git pull`).
-2.  Zrestartować usługę nadzorczą:
-    ```bash
-    sudo systemctl restart tarzan-tsp-lks-n5.service
-    ```
-3.  Sprawdzić logi serwera:
-    ```bash
-    tail -f data/logi/tsp/tsp.log
-    ```
-    Powinien pojawić się wpis: `TSP Server running on 0.0.0.0:7777` oraz `system_state -> BOOTING`.
+1.  Pobrać najnowszy kod (`git pull`).
+2.  Zrestartować usługę: `sudo systemctl restart tarzan-tsp-lks-n5.service`.
+3.  Upewnić się, że `Tarzan Mode Logic: STARTED` widnieje w logach.
 
-## 4. Jak testować PAR LIVE (Stacja)
-1.  Uruchomić PAR na Stacji.
-2.  W nagłówku kliknąć przycisk **LIVE**.
-3.  Obserwować panel logów w PAR:
-    - Powinno pojawić się: `TSP: Starting TSP connector thread (LIVE)...`
-    - Następnie: `TSP: Connected. Sending HELLO...`
-    - Na końcu: `TSP: Handshake OK: tarzanMiniPC`.
-4.  Sprawdzić, czy stan `system_state` w PAR odzwierciedla stan z MiniPC.
+## 4. Jak testować (Próba Generalna)
+1.  **Handshake**: Połącz PAR w trybie LIVE (Handshake OK).
+2.  **Statusy**: Sprawdź, czy diody w panelu SYSTEM (Linux, TSP, Bus, PoKeys) świecą na zielono.
+3.  **Akcje**: Kliknij "RUN DIAGNOSTICS" w PAR i sprawdź, czy w logach miniPC rusza diagnostyka.
+4.  **Tryby**: Zmień tryb na `tM`. Ruszając rRP (jeśli fizycznie podpięte), sprawdź czy sygnały `axis_..._dir/speed` zmieniają się w SignalBus.
+5.  **Owner**: Sprawdź, czy `control_owner` zmienia się poprawnie (np. na `PAR_LIVE` po połączeniu).
 
 ## 5. Co ma się pojawić w logach (Sukces)
 *   `Handshake OK: tarzanMiniPC` — potwierdzenie dwukierunkowej komunikacji.

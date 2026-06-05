@@ -2715,6 +2715,16 @@ class TarzanParPanels:
         self.status_label.pack(anchor="w", pady=5)
         if tk_adapter: tk_adapter.register_widget("status_panel", "status_label", self.status_label)
 
+        # CONTROL OWNER STATUS (ETAP 8)
+        self.owner_label = tk.Label(b, text="OWNER: UNKNOWN", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 10, "bold"))
+        self.owner_label.pack(anchor="w", pady=(0, 10))
+        def update_owner(v):
+            color = COLORS["green"] if v == "PAR_LIVE" else COLORS["muted"]
+            if v == "EMERGENCY_STOP": color = COLORS["red"]
+            self.owner_label.configure(text=f"CONTROL OWNER: {v}", fg=color)
+        self.rows["control_owner"] = _ParValueProxy(update_owner)
+        update_owner(self.bus.get("control_owner", "TSP_BOOT"))
+
         # LKS DIAGNOSTICS (ETAP 8)
         st_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
         st_frame.pack(fill="x")
@@ -2740,8 +2750,57 @@ class TarzanParPanels:
             # Ustawiamy stan początkowy
             led.set(self.bus.get(sig, 0))
 
+        # ACTIONS PANEL (ETAP 8)
+        act_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
+        act_frame.pack(fill="x")
+        tk.Label(act_frame, text="ADMIN ACTIONS:", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 5))
+        
+        btn_opts = {"bg": COLORS["header"], "fg": COLORS["green"], "font": ("Segoe UI", 8, "bold"), "relief": "flat", "padx": 10, "pady": 5, "cursor": "hand2"}
+        
+        def run_diag():
+            if self.bus.mode != "LIVE":
+                self.bus.log("PAR", "Diagnostics action only available in LIVE mode.")
+                return
+            self.app.bridge.tsp_client.call_action("run_diagnostics")
+            self.bus.log("PAR", "Requested LKS Diagnostics on miniPC.")
+            
+        def take_control():
+            if self.bus.mode != "LIVE":
+                self.bus.log("PAR", "Take control only available in LIVE mode.")
+                return
+            self.app.bridge.tsp_client.call_action("set_owner", {"owner": "PAR_LIVE"})
+            self.bus.log("PAR", "Requested PAR_LIVE control owner.")
+
+        def reboot():
+            if self.bus.mode != "LIVE": return
+            self.app.bridge.tsp_client.call_action("reboot")
+            self.bus.log("PAR", "Requested miniPC REBOOT.")
+
+        tk.Button(act_frame, text="RUN DIAGNOSTICS", command=run_diag, **btn_opts).pack(side="left", padx=2)
+        tk.Button(act_frame, text="TAKE CONTROL", command=take_control, **btn_opts).pack(side="left", padx=2)
+        tk.Button(act_frame, text="REBOOT miniPC", command=reboot, **btn_opts).pack(side="left", padx=2)
+
         tk.Label(b, text="CPU: 12%", bg=COLORS["panel"], fg=COLORS["green"]).pack(anchor="w", pady=(10, 0))
         tk.Label(b, text="IP: 192.168.1.10", bg=COLORS["panel"], fg=COLORS["muted"]).pack(anchor="w")
+
+        # TSP FAST STATS (ETAP 16)
+        tsp_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
+        tsp_frame.pack(fill="x")
+        tk.Label(tsp_frame, text="TSP NETWORK STATS:", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 5))
+        
+        self.tsp_stats_label = tk.Label(tsp_frame, text="RX: 0 | TX: 0 | ERR: 0 | DROP: 0", bg="#050810", fg=COLORS["green"], font=("Consolas", 9), padx=5, pady=5)
+        self.tsp_stats_label.pack(fill="x")
+        
+        def update_tsp_stats(v):
+            try:
+                import json
+                stats = json.loads(v)
+                txt = f"RX: {stats.get('packets_rx', 0)} | TX: {stats.get('packets_tx', 0)} | ERR: {stats.get('errors', 0)} | DROP: {stats.get('dropped', 0)}"
+                self.tsp_stats_label.configure(text=txt)
+            except Exception: pass
+            
+        self.rows["tsp_fast_stats"] = _ParValueProxy(update_tsp_stats)
+
         return panel
 
     def update_log(self):

@@ -1,4 +1,7 @@
 from __future__ import annotations
+from core.tarzanSignalBus import get_signal_bus
+from core.TSP.tarzanTspClient import TarzanTspClient
+from core.TSP.tarzanTspConfig import TSP_MINI_PC_HOST
 from core.tarzanSnajper import create_default_tarzan_snajper, TkCanvasSnajperAdapter, TkWidgetSnajperAdapter
 from core.tarzanSnajperTarget import T
 
@@ -2719,11 +2722,43 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
 
         self._ehr_axis_fire_seq = 0
 
+        self._init_runtime_integration()
         self._build_ui()
         self._load_axis_activity()
         self.update_idletasks()
         self.after_idle(lambda: self._snajper_init_ehr_page(status="Gotowy."))
         self.after_idle(self._load_active_slot_on_start)
+
+    def _init_runtime_integration(self) -> None:
+        """Inicjalizacja spięcia z SignalBus i TSP (Etap 9)."""
+        self.bus = get_signal_bus()
+        self.tsp_client = None
+        
+        # Raportujemy stan początkowy do lokalnego SignalBus
+        self.bus.set_input("ehr_state", "READY", source="EHR_INIT")
+        
+        # Jeśli jesteśmy w trybie LIVE, uruchamiamy klienta TSP
+        if self.bus.mode == "LIVE":
+            self._start_tsp_client()
+
+    def _start_tsp_client(self) -> None:
+        """Uruchamia klienta TSP dla raportowania stanu do miniPC."""
+        try:
+            self.tsp_client = TarzanTspClient(host=TSP_MINI_PC_HOST, name="tarzanEHR")
+            self.tsp_client.connect()
+            self.tsp_client.hello()
+            self.bus.log("EHR", "TSP Client connected to miniPC.")
+            self.bus.set_input("ehr_state", "CONNECTED", source="EHR_TSP")
+        except Exception as e:
+            self.bus.log("EHR", f"TSP Connection failed: {e}")
+
+    def _update_runtime_state(self, state: str) -> None:
+        """Aktualizuje stan EHR w systemie."""
+        self.bus.set_input("ehr_state", state, source="EHR_RUNTIME")
+        if self.tsp_client:
+            try:
+                self.tsp_client.set_signal("ehr_state", state)
+            except Exception: pass
 
     def _load_active_slot_on_start(self) -> None:
         """

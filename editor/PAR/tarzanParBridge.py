@@ -90,7 +90,9 @@ class TarzanParBridge:
 
     def set_mode(self, mode: str) -> None:
         self.bus.set_mode(mode)
-        if mode == "LIVE":
+        # PAR ma tylko dwa robocze tryby TEST/LIVE, ale oba pracują przez miniPC/TSP,
+        # jeżeli połączenie jest dostępne. Różni się rola pracy, nie tor komunikacji.
+        if mode in {"TEST", "LIVE", "MIX"}:
             self._tsp_active = True
             self._start_tsp()
         else:
@@ -126,17 +128,23 @@ class TarzanParBridge:
         self._tsp_subscribed = False
         self._bus_log("TSP", f"Client dropped: {reason}. Reconnect pending...")
 
+    def _par_runtime_state(self) -> str:
+        mode = str(getattr(self.bus, "mode", "TEST") or "TEST").upper()
+        if mode == "LIVE":
+            return "PAR_LIVE"
+        return "PAR_TEST"
+
     def _announce_par_live_to_tsp(self) -> None:
-        """KROK ZERO: jawne potwierdzenie PAR -> TSP bez przejmowania sterowania osiami."""
+        """KROK ZERO: jawne potwierdzenie stanu PAR -> TSP bez obejść lokalnych."""
         client = self.tsp_client
         if client is None or not self._client_is_connected():
             return
         try:
-            client.set_signal("par_state", "PAR_LIVE")
+            client.set_signal("par_state", self._par_runtime_state())
             self._tsp_last_state_sync_ts = time.monotonic()
         except Exception as exc:
-            self._bus_log("TSP_ERROR", f"PAR live announce failed: {exc}")
-            self._drop_tsp_client(reason="par_live_announce_failed")
+            self._bus_log("TSP_ERROR", f"PAR state announce failed: {exc}")
+            self._drop_tsp_client(reason="par_state_announce_failed")
 
     def _sync_zero_state_with_tsp(self) -> None:
         """KROK ZERO: lekki odczyt stanu miniPC + potwierdzenie PAR_LIVE co kilka sekund."""
@@ -148,15 +156,15 @@ class TarzanParBridge:
             return
         try:
             client.get_state()
-            client.set_signal("par_state", "PAR_LIVE")
+            client.set_signal("par_state", self._par_runtime_state())
             self._tsp_last_state_sync_ts = now
         except Exception as exc:
             self._bus_log("TSP_ERROR", f"KROK ZERO state sync failed: {exc}")
             self._drop_tsp_client(reason="krok_zero_state_sync_failed")
 
     def _send_to_tsp_if_ready(self, send_fn: Callable[[TarzanTspClient], Any], action_name: str) -> bool:
-        """Wysyła do TSP tylko po pełnym połączeniu; w fazie LIVE-start nie wolno wywalać UI."""
-        if self.bus.mode != "LIVE" or not self._client_is_connected():
+        """Wysyła do TSP po połączeniu z miniPC. TEST i LIVE używają tego samego toru."""
+        if not self._tsp_active or not self._client_is_connected():
             return False
         try:
             assert self.tsp_client is not None
@@ -339,18 +347,43 @@ class TarzanParBridge:
             return True
         return self.bus.force_signal(name, value, source=source)
 
+
+    def _requires_minipc_connection(self, name: str) -> bool:
+        """Czy zapis z PAR dotyczy realnej elektroniki i nie może udawać lokalnie.
+
+        TEST i LIVE mają pracować przez miniPC/TSP. Gdy miniPC nie jest
+        połączony, PAR może pokazać panel, ale nie ma potwierdzać fizycznych
+        testów lokalnym SignalBus.
+        """
+        n = str(name or "")
+        physical_prefixes = (
+            "play_", "rec_", "axis_", "sok_", "rrp_", "limit_", "sensor_",
+            "par_lcd_", "par_matrix_", "par_f_led_", "par_rrp_", "par_mass_",
+        )
+        physical_names = {
+            "par_manual_disconnect",
+            "sensor_limits_status",
+        }
+        return n.startswith(physical_prefixes) or n in physical_names
+
     def set_signal(self, name: str, value: Any, source: str = "PAR") -> bool:
         """Alias dla ujednoliconego zapisu sygnału w obu trybach (Etap 7-8)."""
         if self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"set_signal {name}"):
             return True
 
+        if self._requires_minipc_connection(name):
+            self.bus.log("MINIPC", f"{name} blocked: miniPC not connected")
+            self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {name}", source="PAR_BRIDGE")
+            return False
+
         m = self.bus.get_meta(name)
         if not m:
             return self.bus.force_signal(name, value, source=source)
-        if m.is_input() or name.startswith("par_"):
-            return self.bus.set_input(name, value, source=source)
-        else:
-            return self.bus.write_output(name, value, source=source)
+        if m.is_output:
+            self.bus.log("MINIPC", f"{name} blocked: miniPC not connected")
+            self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {name}", source="PAR_BRIDGE")
+            return False
+        return self.bus.set_input(name, value, source=source)
 
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> bool:
         """Wysyła komendę administracyjną do TSP (Etap 8)."""
@@ -371,7 +404,7 @@ class TarzanParBridge:
 
     def load_take(self, path: str | Path) -> TarzanTakeData:
         data = self.take_player.load(path)
-        if self._client_is_connected() and self.bus.mode == "LIVE":
+        if self._client_is_connected():
             # ETAP 14: Przesyłanie danych TAKE do MiniPC
             payload = {
                 "name": Path(path).name,
@@ -384,19 +417,19 @@ class TarzanParBridge:
         return data
 
     def play_take(self) -> None:
-        if self._client_is_connected() and self.bus.mode == "LIVE":
+        if self._client_is_connected():
             self.call_action("play_take")
         else:
             self.take_player.play()
 
     def pause_take(self) -> None:
-        if self._client_is_connected() and self.bus.mode == "LIVE":
+        if self._client_is_connected():
             self.call_action("pause_take")
         else:
             self.take_player.pause()
 
     def stop_take(self) -> None:
-        if self._client_is_connected() and self.bus.mode == "LIVE":
+        if self._client_is_connected():
             self.call_action("stop_take")
         else:
             self.take_player.stop()

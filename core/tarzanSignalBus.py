@@ -433,7 +433,9 @@ class TarzanSignalBus:
 
     def write_output(self, name: str, value: Any, *, source: str = "API", forced: bool = False, time_ms: Optional[int] = None) -> bool:
         hw_name = self._resolve_to_hw_name(name)
-        if self.mode == "LIVE" and self.live_adapter is not None:
+        # TEST i LIVE po stronie miniPC używają tego samego wykonawczego adaptera.
+        # Tryb określa rolę pracy PAR, a nie osobny tor do hardware.
+        if self.live_adapter is not None:
             try:
                 self.live_adapter.write(hw_name, value)
             except Exception as exc:

@@ -884,10 +884,10 @@ class TarzanParPanels:
         # Przycisk jest dokładany po zbudowaniu paska aplikacji, bez przebudowy układu PAR.
         self._top_reset_button = None
         try:
-            self.app.after_idle(self._install_top_buttons)
+            self.app.after_idle(self._install_top_reset_button)
         except Exception:
             try:
-                self.app.after(200, self._install_top_buttons)
+                self.app.after(200, self._install_top_reset_button)
             except Exception:
                 pass
 
@@ -911,23 +911,25 @@ class TarzanParPanels:
             except Exception:
                 pass
 
-    def _install_top_buttons(self):
-        """Dodaje przyciski RESET SYGNAŁÓW oraz ODŁĄCZ TSP w prawym górnym rogu PAR."""
-        if getattr(self, "_top_buttons_installed", False):
-            return
+    def _install_top_reset_button(self):
+        """Dodaje jeden przycisk RESET SYGNAŁÓW obok istniejącej ikony ustawień w prawym górnym rogu PAR."""
+        if getattr(self, "_top_reset_button", None) is not None:
+            try:
+                if self._top_reset_button.winfo_exists():
+                    return
+            except Exception:
+                pass
 
         settings_button = self._find_settings_button(getattr(self, "app", None))
         if settings_button is None:
             try:
-                self.app.after(300, self._install_top_buttons)
+                self.app.after(300, self._install_top_reset_button)
             except Exception:
                 pass
             return
 
         parent = settings_button.master
-        
-        # Przycisk RESET
-        btn_reset = tk.Button(
+        btn = tk.Button(
             parent,
             text="RESET SYGNAŁÓW",
             bg="#7a251f",
@@ -938,41 +940,25 @@ class TarzanParPanels:
             font=("Segoe UI", 8, "bold"),
             command=self.reset_signals,
         )
-        
-        # Przycisk ODŁĄCZ TSP
-        btn_disc = tk.Button(
-            parent,
-            text="ODŁĄCZ TSP",
-            bg="#3e4451",
-            fg="white",
-            activebackground="#4b5263",
-            activeforeground="white",
-            relief="flat",
-            font=("Segoe UI", 8, "bold"),
-            command=lambda: self.app.bridge.disconnect_tsp() if hasattr(self.app, 'bridge') else None,
-        )
 
         try:
             pack_info = settings_button.pack_info()
             side = pack_info.get("side", "right")
             pady = pack_info.get("pady", 0)
-            btn_reset.pack(side=side, padx=(0, 6), pady=pady)
-            btn_disc.pack(side=side, padx=(0, 6), pady=pady)
+            btn.pack(side=side, padx=(0, 6), pady=pady)
         except Exception:
             try:
                 grid_info = settings_button.grid_info()
                 row = int(grid_info.get("row", 0))
                 column = int(grid_info.get("column", 0))
-                btn_reset.grid(row=row, column=max(0, column - 1), padx=(0, 6), pady=grid_info.get("pady", 0), sticky=grid_info.get("sticky", ""))
-                btn_disc.grid(row=row, column=max(0, column - 2), padx=(0, 6), pady=grid_info.get("pady", 0), sticky=grid_info.get("sticky", ""))
+                btn.grid(row=row, column=max(0, column - 1), padx=(0, 6), pady=grid_info.get("pady", 0), sticky=grid_info.get("sticky", ""))
             except Exception:
                 try:
-                    btn_reset.place(in_=parent, relx=1.0, rely=0.0, x=-62, y=4, anchor="ne")
-                    btn_disc.place(in_=parent, relx=1.0, rely=0.0, x=-162, y=4, anchor="ne")
+                    btn.place(in_=parent, relx=1.0, rely=0.0, x=-62, y=4, anchor="ne")
                 except Exception:
                     return
 
-        self._top_buttons_installed = True
+        self._top_reset_button = btn
 
     def _find_settings_button(self, root):
         if root is None:
@@ -1858,21 +1844,17 @@ class TarzanParPanels:
 
     def _set_signal(self, name, value, source="PAR_SIM"):
         try:
-            # ETAP 8: Delegacja przez Bridge (który obsłuży LIVE)
+            # Centralna zasada: panel PAR nie rozstrzyga kierunku par_*/IN/OUT.
+            # Wszystkie zapisy idą przez TarzanParBridge; Bridge/TSP/miniPC decydują dalej.
             if hasattr(self.app, "bridge"):
-                m = self.bus.get_meta(name)
-                is_input = getattr(m, "is_input", False) or name.startswith("par_")
-                if is_input:
-                    self.app.bridge.set_input(name, value, source=source)
-                else:
-                    self.app.bridge.write_output(name, value, source=source)
+                self.app.bridge.set_signal(name, value, source=source)
                 return
 
             m = self.bus.get_meta(name)
             if not m:
                 self.bus.force_signal(name, value, source=source)
                 return
-            if getattr(m, "is_input", False) or name.startswith("par_"):
+            if getattr(m, "is_input", False):
                 self.bus.set_input(name, value, source=source)
             else:
                 self.bus.write_output(name, value, source=source)
@@ -2354,9 +2336,19 @@ class TarzanParPanels:
             f_led = tk.Frame(c, bg="#30424f", height=4)
             f_led.pack(fill="x", padx=7, pady=(0, 7))
 
-            b.bind("<ButtonPress-1>", lambda e, s=sw: self._set_signal(s, 1, "PAR_UI"))
-            b.bind("<ButtonRelease-1>", lambda e, s=sw: self._set_signal(s, 0, "PAR_UI"))
-            b.bind("<Leave>", lambda e, s=sw: self._set_signal(s, 0, "PAR_UI"))
+            def _f_press(_e, s=sw, led_sig=ls):
+                # ETAP 1S: test F z PAR idzie fizycznie przez miniPC.
+                # Klik symuluje przycisk i jednocześnie zapala odpowiadającą mu diodę testową.
+                self._set_signal(s, 1, "PAR_UI")
+                self._set_signal(led_sig, 1, "PAR_UI")
+
+            def _f_release(_e, s=sw, led_sig=ls):
+                self._set_signal(s, 0, "PAR_UI")
+                self._set_signal(led_sig, 0, "PAR_UI")
+
+            b.bind("<ButtonPress-1>", _f_press)
+            b.bind("<ButtonRelease-1>", _f_release)
+            b.bind("<Leave>", _f_release)
             
             self.rows[ls] = _ParValueProxy(lambda v, ld=led: ld.set(v))
             self.rows[sw] = _ParValueProxy(lambda v, bt=b, fl=f_led: (
@@ -3181,7 +3173,7 @@ class TarzanParPanels:
             self.bus.log("PAR", f"Safety axis unlock command: {val}")
 
         cb = tk.Checkbutton(f_safety, text="UNLOCK PHYSICAL AXIS (DANGEROUS)", variable=safety_var, command=toggle_safety,
-                          bg=COLORS["panel"], fg=COLORS["amber"], activebackground=COLORS["panel"],
+                          bg=COLORS["panel"], fg=COLORS["orange"], activebackground=COLORS["panel"],
                           selectcolor="#050810", font=("Segoe UI", 9, "bold"))
         cb.pack(side="left")
         self.rows["safety_axis_unlock"] = _ParValueProxy(lambda v: safety_var.set(bool(v)))

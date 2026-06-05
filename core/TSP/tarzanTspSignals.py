@@ -113,7 +113,31 @@ class TarzanTspSignalProvider:
                 ))
             
             # Dodatki specyficzne dla TSP
-            if "node_name" not in self._catalog:
+
+            # PAR -> miniPC: komendy wykonawcze panelu PAR.
+            # To nie są lokalne inputy PAR; TSP przekazuje je do SignalBus/HardwareBridge.
+            par_exec_signals = {
+                "par_lcd_play_line1": "PAR LCD PLAY linia 1",
+                "par_lcd_play_line2": "PAR LCD PLAY linia 2",
+                "par_lcd_rec_line1": "PAR LCD REC linia 1",
+                "par_lcd_rec_line2": "PAR LCD REC linia 2",
+                "par_lcd_line1": "PAR LCD wspólna linia 1",
+                "par_lcd_line2": "PAR LCD wspólna linia 2",
+                "par_matrix_pattern": "PAR Matrix LED 8x8 pattern rows 01010101/...",
+                "par_f_led_f1": "PAR test LED F1",
+                "par_f_led_f2": "PAR test LED F2",
+                "par_f_led_f3": "PAR test LED F3",
+                "par_f_led_f4": "PAR test LED F4",
+            }
+            for sig_name, sig_desc in par_exec_signals.items():
+                if sig_name not in self._catalog:
+                    value_type = "str" if sig_name in {"par_matrix_pattern", "par_lcd_play_line1", "par_lcd_play_line2", "par_lcd_rec_line1", "par_lcd_rec_line2", "par_lcd_line1", "par_lcd_line2"} else "int"
+                    default = "" if value_type == "str" else 0
+                    self._add(TarzanTspSignalDef(sig_name, LANE_NORMAL, value_type, default, "DOZWOLONY", "SYSTEM", sig_desc))
+
+            if 'par_mode' not in self._catalog:
+                self._add(TarzanTspSignalDef('par_mode', LANE_HEALTH, 'int', 1, 'DOZWOLONY', 'SYSTEM', 'Tryb pracy PAR (0=TEST, 1=LIVE, 2=MIX).'))
+            if 'node_name' not in self._catalog:
                 self._add(TarzanTspSignalDef("node_name", LANE_HEALTH, "str", self.node_name, "TYLKO_ODCZYT", "STATUS", "Nazwa node."))
             if "tsp_clients" not in self._catalog:
                 self._add(TarzanTspSignalDef("tsp_clients", LANE_HEALTH, "int", 0, "TYLKO_ODCZYT", "STATUS", "Liczba klientów TSP."))
@@ -208,7 +232,18 @@ class TarzanTspSignalProvider:
         old = bus.read(name)
         
         meta = bus.get_meta(name)
-        if meta and meta.kierunek == "OUT":
+
+        # ETAP 1S: centralny rejestr komend PAR wykonywanych fizycznie na miniPC.
+        # Nie opieramy się już na samym kierunku z katalogu, bo część starych
+        # sygnałów testowych PAR ma historycznie opis IN, mimo że w trybie TEST
+        # ma wykonać zapis na sprzęcie przez HardwareBridge.
+        par_exec_prefixes = ("par_lcd_", "par_matrix_", "par_f_led_")
+        par_exec_names = {
+            "rec_p46_led_f1", "rec_p48_led_f2", "rec_p50_led_f3", "rec_p52_led_f4",
+        }
+        is_par_exec = name.startswith(par_exec_prefixes) or name in par_exec_names
+
+        if (meta and meta.kierunek == "OUT") or is_par_exec:
             bus.write_output(name, value, source=source)
         else:
             bus.set_input(name, value, source=source)

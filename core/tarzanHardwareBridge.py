@@ -51,6 +51,10 @@ class TarzanHardwareBridge:
             "PLAY": None,
             "REC": None
         }
+        self._lcd_lines: Dict[str, List[str]] = {
+            "PLAY": ["", ""],
+            "REC": ["", ""],
+        }
         
         # Liczniki absolutne pozycji (Etap 14/15)
         # Kluczem jest nazwa bazowa osi, np. "axis_cam_h"
@@ -611,8 +615,105 @@ class TarzanHardwareBridge:
         # który jest aktualizowany w _poll_hardware.
         return None
 
+    def _write_par_lcd_signal(self, name: str, value: Any) -> bool:
+        """Wykonuje centralny zapis PAR -> miniPC -> LCD 1602 przez aktywny HardwareBridge."""
+        mapping = {
+            "par_lcd_play_line1": ("PLAY", 0),
+            "par_lcd_play_line2": ("PLAY", 1),
+            "par_lcd_rec_line1": ("REC", 0),
+            "par_lcd_rec_line2": ("REC", 1),
+            "par_lcd_line1": ("PLAY", 0),
+            "par_lcd_line2": ("PLAY", 1),
+        }
+        target = mapping.get(name)
+        if not target:
+            return False
+        board, idx = target
+        text = self._lcd_text(str(value), 16)
+        with self._lock:
+            device = self.devices.get(board)
+            if not device:
+                self.logger.warning("HW LCD WRITE %s skipped: board not connected", board)
+                return True
+            try:
+                self._lcd_lines.setdefault(board, ["", ""])[idx] = text
+                line1, line2 = self._lcd_lines[board]
+                self._lks_lcd_init(device)
+                self._lks_lcd_write_lines(device, line1, line2)
+                self.logger.info("HW LCD WRITE %s line%d='%s'", board, idx + 1, text)
+            except Exception as exc:
+                self.logger.warning("HW LCD WRITE %s line%d failed: %s", board, idx + 1, exc)
+        return True
+
+    def _parse_matrix_pattern_rows(self, value: Any) -> list[int]:
+        """Parsuje pattern z PAR: 8 wierszy binarnych rozdzielonych '/' albo ';'."""
+        text = str(value or "").strip()
+        if not text:
+            return [0] * 8
+        text = text.replace(";", "/").replace(",", "/")
+        parts = [p.strip() for p in text.split("/") if p.strip()]
+        rows: list[int] = []
+        for part in parts[:8]:
+            bits = "".join(ch for ch in part if ch in "01")[:8].ljust(8, "0")
+            rows.append(int(bits, 2))
+        while len(rows) < 8:
+            rows.append(0)
+        return rows
+
+    def _write_par_matrix_signal(self, name: str, value: Any) -> bool:
+        """Wykonuje PAR -> miniPC -> Matrix LED przez aktywny HardwareBridge."""
+        if name != "par_matrix_pattern":
+            return False
+        rows = self._parse_matrix_pattern_rows(value)
+        with self._lock:
+            device = self.devices.get("REC")
+            if not device:
+                self.logger.warning("HW MATRIX WRITE skipped: REC board not connected")
+                return True
+            try:
+                self._lks_matrix_write_frame(device, rows)
+                self.logger.info("HW MATRIX WRITE pattern='%s'", value)
+            except Exception as exc:
+                self.logger.warning("HW MATRIX WRITE failed: %s", exc)
+        return True
+
+    def _write_par_f_led_signal(self, name: str, value: Any) -> bool:
+        """Wykonuje PAR -> miniPC -> diody F1-F4 REC przez aktywny HardwareBridge."""
+        mapping = {
+            "par_f_led_f1": 46,
+            "par_f_led_f2": 48,
+            "par_f_led_f3": 50,
+            "par_f_led_f4": 52,
+            "rec_p46_led_f1": 46,
+            "rec_p48_led_f2": 48,
+            "rec_p50_led_f3": 50,
+            "rec_p52_led_f4": 52,
+        }
+        pin = mapping.get(name)
+        if pin is None:
+            return False
+        state = 1 if str(value).strip().lower() not in {"", "0", "false", "off", "none"} else 0
+        with self._lock:
+            device = self.devices.get("REC")
+            if not device:
+                self.logger.warning("HW F_LED WRITE P%s skipped: REC board not connected", pin)
+                return True
+            try:
+                self._lks_set_led_pin(device, pin, state)
+                self.logger.info("HW F_LED WRITE P%s=%s", pin, state)
+            except Exception as exc:
+                self.logger.warning("HW F_LED WRITE P%s failed: %s", pin, exc)
+        return True
+
     def write(self, name: str, value: Any) -> None:
         """Zapis sygnału bezpośrednio do hardware."""
+        if self._write_par_lcd_signal(name, value):
+            return
+        if self._write_par_matrix_signal(name, value):
+            return
+        if self._write_par_f_led_signal(name, value):
+            return
+
         syg = self._signal_map.get(name)
         if not syg:
             return

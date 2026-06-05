@@ -113,6 +113,7 @@ class TarzanSignalBus:
         self.state: Dict[str, TarzanSignalState] = {}
         self.subscribers: List[SignalCallback] = []
         self.log_lines: List[str] = []
+        self._log_subscribers: List[Callable[[str, str], None]] = []
         self.history: List[Dict[str, Any]] = []
         self.max_history = 5000
         self.take_time_ms: int = 0
@@ -342,11 +343,32 @@ class TarzanSignalBus:
         return list(set(legacy_names))
 
     def log(self, source: str, message: str) -> None:
+        """Dodaje linię do logu systemowego."""
         stamp = time.strftime("%H:%M:%S")
         line = f"{stamp} [{source}] {message}"
-        self.log_lines.append(line)
-        if len(self.log_lines) > 1000:
-            self.log_lines = self.log_lines[-1000:]
+        with self._lock:
+            self.log_lines.append(line)
+            if len(self.log_lines) > 2000:
+                self.log_lines = self.log_lines[-2000:]
+            
+            # ETAP 16: Powiadomienie subskrybentów logu (np. TSP Server)
+            for callback in self._log_subscribers:
+                try:
+                    callback(source, message)
+                except Exception:
+                    pass
+
+    def subscribe_log(self, callback: Callable[[str, str], None]) -> None:
+        """Subskrybuje zdarzenia logowania."""
+        with self._lock:
+            if callback not in self._log_subscribers:
+                self._log_subscribers.append(callback)
+
+    def unsubscribe_log(self, callback: Callable[[str, str], None]) -> None:
+        """Odłącza subskrypcję logowania."""
+        with self._lock:
+            if callback in self._log_subscribers:
+                self._log_subscribers.remove(callback)
 
     # ------------------------------------------------------------------
     # TRYB / ADAPTER LIVE

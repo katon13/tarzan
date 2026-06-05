@@ -1,80 +1,58 @@
-# TARZAN MAIN RUNTIME — Zespolenie Pełne (Etap Wykonawczy)
+# TARZAN MAIN RUNTIME — Etap Uruchomieniowy Fundamentu (Etapy 0-13)
 
-**Status:** System ZESPOLONY. Etapy 6-16 (Wykonawcze) zamknięte.
-**Wersja:** 3.0
+**Status:** Fundament ZESPOLONY. Etapy 6-13 (Logiczne) domknięte. Etapy 14-15 (Wykonawcze) w trakcie (SZKIELET).
+**Wersja:** 3.1 (Korekta merytoryczna)
 **Data:** 2026-06-05
 
-## 1. Stan Implementacji
+## 1. Stan Implementacji (ZROBIONE / CZĘŚCIOWE / NIEGOTOWE)
 
-### Mięśnie Systemu (ETAP 14 i 15) - ZAMKNIĘTE
-- **Zrealizowano**: `TarzanHardwareBridge` jest teraz aktywnym mostkiem wykonawczym. Generuje impulsy STEP dla trybu manualnego (tM) i obsługuje statusy READY/ALARM/POS z PoKeys Pulse Engine v2.
-- **Zrealizowano**: Blending ruchu (Etap 15). HardwareBridge w locie łączy impulsy STEP z TAKE z dynamicznymi offsetami KHR.
-- **Zrealizowano**: EHR Playback (Etap 14). TSP Server odtwarza załadowane TAKE z częstotliwością 100Hz, strumieniując sygnały bezpośrednio do SignalBus i HardwareBridge.
-
-### Logika Trybów (ETAP 12) - ZAMKNIĘTA
-- **Zrealizowano**: `TarzanModeLogic` zarządza priorytetami sterowania (`control_owner`) i automatycznie reaguje na komendy systemowe (`cmd_ehr_start` itp.).
-
-### Monitoring i Diagnostyka (ETAP 16) - ZAMKNIĘTE
-- **Zrealizowano**: Publikacja `FAST_STATS` in czasie rzeczywistym. Pełna izolacja procesów diagnostycznych (Etap 3) chroni runtime przed crashami.
-
-### Etap 6: PAR LIVE przez TarzanParBridge (ZAMKNIĘTY)
+### Etap 6: PAR LIVE przez TarzanParBridge (ZROBIONE)
 - **Status**: Stabilny, jedyny tor komunikacji PAR ↔ miniPC.
-- **Zrealizowano**: Bridge zarządza cyklem życia `TarzanTspClient`. Handshake (HELLO, PING, GET_STATE, SUBSCRIBE) jest kompletny i zsynchronizowany.
-- **Zrealizowano**: Wszystkie dane z miniPC trafiają do lokalnego SignalBus PAR przez `apply_snapshot`.
+- **Zrealizowano**: Bridge zarządza cyklem życia `TarzanTspClient`. Handshake (HELLO, PING, GET_STATE, SUBSCRIBE) jest kompletny.
+- **Weryfikacja**: Wymaga potwierdzenia z realnym serwerem na miniPC.
 
-### Etap 7: Dwukierunkowa Synchronizacja (ZAMKNIĘTY)
-- **Status**: Pełny przepływ informacji MiniPC ↔ PAR bez pętli zwrotnych.
-- **Zrealizowano**: Filtrowanie identycznych wartości w `SignalBus.apply_snapshot` i `force_signal`.
-- **Zrealizowano**: TSP Server zwraca czytelne statusy zapisu (`OK`, `UNKNOWN_SIGNAL`, `WRITE_DENIED`).
+### Etap 7: Dwukierunkowa Synchronizacja (CZĘŚCIOWE)
+- **Status**: Mechanizm wdrożony, oczekuje na weryfikację z realnym hardware i wejściami.
+- **Zrealizowano**: Filtrowanie identycznych wartości w `SignalBus.apply_snapshot` i `force_signal` (ochrona przed pętlą).
+- **Zrealizowano**: TSP Server zwraca czytelne statusy zapisu (`OK`, `WRITE_DENIED`).
 
-### Etap 8: PAR jako Pełna Administracja (ZAMKNIĘTY)
-- **Status**: PAR w trybie LIVE w pełni kontroluje runtime przez TSP/SignalBus.
-- **Zrealizowano**: Ujednolicone wywołania administracyjne przez `bridge.call_action(...)` i `bridge.write_output(...)`.
-- **Zrealizowano**: Panel SYSTEM wyświetla stan hardware LKS, statystyki TSP i pozwala na akcje: `Diagnostyka`, `Take Control`, `Reboot`.
-- **Zrealizowano**: Zdalne sterowanie modułami EHR/KHR (Start/Stop).
+### Etap 8: PAR Administracja Fundament (CZĘŚCIOWE)
+- **Status**: Fundament administracji wdrożony. Pozwala na zdalne akcje (Diagnostyka, Reboot, Take Control).
+- **Uwaga**: Nie jest to jeszcze "pełna administracja" wszystkich modułów. Wsparcie dla pełnego panelu operatorskiego RRP/SOK/osi/Nextion7 jest w fazie integracji logicznej.
+- **Zrealizowano**: Ujednolicone wywołania przez `bridge.call_action(...)`.
 
-### Etap 13: RRP / SOK / Osie (ZAMKNIĘTY)
-- **Status**: Pełne spięcie modułów manualnych i automatycznych przez tor wykonawczy.
-- **Zrealizowano**: Dopisanie pełnej mapy statusów osi do katalogu centralnego.
-- **Zrealizowano**: Logika `tarzanMode.py` (tM) mapuje rRP/SOK na sygnały wybranej osi.
-- **Zrealizowano**: HardwareBridge generuje impulsy fizyczne i czyta statusy osi.
+### Etap 13: RRP / SOK / Osie Logiczne (CZĘŚCIOWE)
+- **Status**: Spięcie logiczne modułów manualnych i automatycznych przez tor SignalBus.
+- **WAŻNE**: Fizyczna generacja impulsów STEP/DIR jest JAWNIE ZABLOKOWANA (`safety_axis_unlock=False`).
+- **Wymagane**: Osobny test bezpieczeństwa operatora przed aktywacją ruchu fizycznego.
+- **Zrealizowano**: Dopisanie pełnej mapy statusów osi do katalogu centralnego. Logika `tarzanMode.py` (tM) mapuje rRP/SOK na sygnały w SignalBus.
 
-## 2. Zmienione kluczowe pliki
-*   `core/tarzanZmienneSygnalowe.py`: Dodano 40+ sygnałów statusu osi i komend.
-*   `core/TSP/tarzanTspServer.py` i `tarzanTspSignals.py`: Rozszerzony katalog akcji administracyjnych.
-*   `core/tarzanMode.py`: Zabezpieczona logika trybów manualnych i automatycznych.
-*   `editor/PAR/tarzanParBridge.py`: Ujednolicony klient TSP z pełnym logowaniem sesji.
-*   `editor/PAR/tarzanParPanels.py`: Ujednolicone sterowanie administracyjne.
+### Etap 14 i 15: EHR Playback & KHR Correction (NIEGOTOWE / SZKIELET)
+- **Status**: SZKIELET / POC.
+- **Zrealizowano**: `TarzanHardwareBridge` jako fundament toru wykonawczego.
+- **EHR**: Początki toru playbacku (100Hz), ale nie jest to jeszcze pełne odtwarzanie TAKE z krzywymi.
+- **KHR**: Prosty mechanizm blendingu pozycji (offset KHR), wymagający rozbudowy do pełnej korekty dynamicznej.
 
-## 3. Jak uruchomić na MiniPC
-1.  Pobrać najnowszy kod (`git pull`).
-2.  Zrestartować usługę: `sudo systemctl restart tarzan-tsp-lks-n5.service`.
-3.  Upewnić się, że `Tarzan Mode Logic: STARTED` widnieje w logach.
+## 2. Architektura Toru Wykonawczego
+Nadal obowiązuje zasada:
+`PAR / EHR / KHR / LKS → TSP / SignalBus → Snajper / Bridge / adaptery → hardware.`
 
-## 4. Jak testować (Próba Generalna)
-1.  **Handshake**: Połącz PAR w trybie LIVE (Handshake OK).
-2.  **Statusy**: Sprawdź, czy diody w panelu SYSTEM (Linux, TSP, Bus, PoKeys) świecą na zielono.
-3.  **Akcje**: Kliknij "RUN DIAGNOSTICS" w PAR i sprawdź, czy w logach miniPC rusza diagnostyka.
-4.  **Tryby**: Zmień tryb na `tM`. Ruszając rRP (jeśli fizycznie podpięte), sprawdź czy sygnały `axis_..._dir/speed` zmieniają się w SignalBus.
-5.  **Owner**: Sprawdź, czy `control_owner` zmienia się poprawnie (np. na `PAR_LIVE` po połączeniu).
+`TarzanHardwareBridge` został zaimplementowany jako **adapter wykonawczy** dla SignalBus. Nie jest on "prywatnym skrótem", lecz częścią toru Snajpera na miniPC, reagującą na sygnały systemowe.
 
-## 5. Co ma się pojawić w logach (Sukces)
-*   `Handshake OK: tarzanMiniPC` — potwierdzenie dwukierunkowej komunikacji.
-*   `apply_snapshot: applied X signals` — synchronizacja stanu początkowego.
-*   `Isolated Spawn Process` — start bezpiecznej diagnostyki LKS na MiniPC.
+## 3. Bezpieczeństwo i Testy (SAFETY CHECKLIST)
+Przed przejściem do testów fizycznych (Aktywacja Mięśni):
+1.  **Test Logiczny**: Potwierdzenie `Handshake OK` i stabilności synchronizacji sygnałów systemowych.
+2.  **Test Odporności**: Weryfikacja, czy błędy libusb/PoKeys nie zabijają serwera TSP.
+3.  **Audit Bezpieczeństwa**: Sprawdzenie, czy `control_owner` poprawnie blokuje nieautoryzowany dostęp do osi (np. blokada RRP podczas EHR Playback).
+4.  **Weryfikacja Mechaniczna**: Sprawdzenie krańcówek i fizycznego wyłącznika STOP.
+5.  **Jawne Odblokowanie**: Zmiana `safety_axis_unlock = True` w `core/tarzanHardwareBridge.py` TYLKO po spełnieniu powyższych punktów przez uprawnionego operatora.
 
-## 6. Gotowość Wykonawcza (Aktywacja Mięśni)
-System TARZAN jest obecnie w pełni zespolony. MiniPC samodzielnie nadzoruje hardware, odtwarza ruch i nakłada korekty w czasie rzeczywistym. PAR pełni rolę nadrzędnej konsoli administracyjnej.
+UWAGA: Kod w obecnej wersji (v3.1) ma JAWNIE ZABLOKOWANĄ generację impulsów fizycznych.
 
-**Kluczowe osiągnięcia:**
-*   Tor EHR -> TSP -> HW Bridge -> PoKeys Pulse Engine jest aktywny.
-*   Logika MODE (tM, tAA) jest zintegrowana i bezpieczna.
-*   Statusy fizyczne osi są widoczne w czasie rzeczywistym.
-
-## 7. Ważne przypomnienia
-*   **Źródło Prawdy**: Katalog sygnałów (nazwy, typy, role) znajduje się WYŁĄCZNIE w `core/tarzanZmienneSygnalowe.py`.
-*   **Aktualny Stan**: `SignalBus` to jedyna tablica aktualnych wartości runtime. Żaden moduł nie powinien trzymać prywatnych kopii stanu sygnałów.
-*   **Protokół**: Programowanie spina się z elektroniką przez TSP/SignalBus. Zakaz stosowania bezpośrednich skrótów do sprzętu z poziomu UI PAR.
+## 4. Główne Przypomnienie
+- **Źródło Prawdy**: `core/tarzanZmienneSygnalowe.py`.
+- **Aktualny Stan**: `SignalBus`.
+- **Protokół**: Programowanie ↔ Elektronika TYLKO przez protokół komunikacji.
 
 ---
-*Dokumentacja wygenerowana przez JUNI dla systemu TARZAN.*
+*Dokumentacja zaktualizowana przez JUNI dla systemu TARZAN.*

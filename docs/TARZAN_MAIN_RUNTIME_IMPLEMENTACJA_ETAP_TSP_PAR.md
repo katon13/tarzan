@@ -10,7 +10,7 @@ Zrealizowano fundamenty **TARZAN MAIN RUNTIME**, łącząc MiniPC (Runtime/LKS/T
 ### Co dodano:
 - **Centralny Katalog Sygnałów**: Rozszerzono `core/tarzanZmienneSygnalowe.py` o sygnały systemowe (`system_state`, `runtime_state`, `control_owner`) oraz stany modułów.
 - **Zoptymalizowany SignalBus**: Wprowadzono metodę `apply_snapshot` w `core/tarzanSignalBus.py` z filtrowaniem zmian, co zapobiega pętlom zwrotnym i nadmiarowemu odświeżaniu UI.
-- **Fundament MAIN RUNTIME / etap TSP-PAR**: Rozszerzono `TarzanTspServer` o automatyczny start, diagnostykę LKS przygotowaną do testu na miniPC oraz nadzór nad stanem `BOOTING`.
+- **Etapy 8-16 (Rozpoczęte)**: Wprowadzono fundamenty pod pełną administrację PAR, raportowanie stanów EHR/KHR oraz wstępną logikę trybów (MODE). System wymaga domknięcia wykonawczego dla ruchu osi i playbacku.
 - **Integracja PAR LIVE**: `TarzanParBridge` posiada teraz wbudowanego klienta TSP, który automatycznie synchronizuje stan z MiniPC po przełączeniu w tryb LIVE.
 - **Bezpieczeństwo (Control Owner)**: Wdrożono mechanizm `control_owner`, który blokuje manualne sterowanie osiami podczas playbacku EHR (`WRITE_DENIED`).
 

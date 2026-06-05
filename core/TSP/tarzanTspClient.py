@@ -22,6 +22,7 @@ from .tarzanTspProtocol import (
     CMD_GET_SIGNAL_CATALOG,
     CMD_GET_STATE,
     CMD_HELLO,
+    CMD_LOAD_TAKE,
     CMD_PING,
     CMD_SET_SIGNAL,
     CMD_SUBSCRIBE,
@@ -50,6 +51,10 @@ class TarzanTspClient:
         self.normal_count = 0
         self.slow_count = 0
         self.health_count = 0
+
+    @property
+    def is_connected(self) -> bool:
+        return self.running and self.sock is not None
 
     # ------------------------------------------------------------------
     # START / STOP
@@ -116,6 +121,9 @@ class TarzanTspClient:
 
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> None:
         self.send({"cmd": CMD_CALL_ACTION, "name": name, "payload": payload or {}})
+
+    def load_take(self, take_data: Dict[str, Any]) -> None:
+        self.send({"cmd": CMD_LOAD_TAKE, "take": take_data})
 
     def trace_signal(self, name: str, seconds: int = 5) -> None:
         self.send({"cmd": CMD_TRACE_SIGNAL, "name": name, "seconds": seconds})

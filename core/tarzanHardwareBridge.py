@@ -25,7 +25,14 @@ except ImportError:
 class TarzanHardwareBridge:
     """
     Bridge łączący SignalBus z fizycznym sprzętem (PoKeys, I2C, LCD).
-    Działa jako live_adapter dla SignalBus na miniPC.
+    Działa jako LIVE_ADAPTER dla SignalBus na miniPC.
+    
+    ARCHITEKTURA:
+    PAR / EHR / KHR / LKS (Intencja)
+    -> SignalBus (Tablica stanu)
+    -> Snajper (Rozprowadzanie)
+    -> TarzanHardwareBridge (Ten moduł - Wykonanie)
+    -> PoKeys / Hardware (Fizyka)
     
     ETAP 13 (Wykonawczy) + ETAP 14 (EHR Playback).
     """
@@ -47,6 +54,10 @@ class TarzanHardwareBridge:
         
         self._last_poll_ms = 0
         self._poll_interval_ms = 50  # 20Hz dla wejść
+        
+        # FLAGA BEZPIECZEŃSTWA - musi być True, aby generować impulsy na fizycznym sprzęcie
+        # ETAP 13: Aktywacja mięśni (odblokowanie osi po weryfikacji logicznej)
+        self.safety_axis_unlock = False
         
         # Mapa sygnałów dla szybkiego dostępu w metodzie write/read
         self._signal_map = WSZYSTKIE_SYGNALY
@@ -288,6 +299,12 @@ class TarzanHardwareBridge:
         Implementacja Pulse Engine v2 dla PoKeys (Etap 14 + 15).
         Obsługuje narastające zbocza impulsów STEP i nakłada korekty KHR.
         """
+        if not self.safety_axis_unlock:
+            # Blokada bezpieczeństwa - logujemy tylko raz na jakiś czas
+            if time.time() % 10 < 0.1:
+                self.logger.warning("PHYSICAL MOTION BLOCKED by safety_axis_unlock=False (Etap 13 Safety)")
+            return
+
         try:
             # Zakładamy, że 'kanal' sygnału to indeks osi (np. "0", "1", ...)
             axis_idx = int(syg.kanal) if syg.kanal and syg.kanal.isdigit() else 0
@@ -305,12 +322,13 @@ class TarzanHardwareBridge:
                 dir_signal = axis_base + "_dir"
                 dir_val = self.bus.read(dir_signal, 1)
                 
-                # Aktualizujemy licznik lokalny
+                # Aktualizujemy licznik lokalny (Etap 14 - Playback stream)
                 step_inc = 1 if dir_val == 1 else -1
                 self._abs_positions[axis_base] += step_inc
 
-            # Pobieramy korektę KHR (Etap 15)
-            # Sygnał khr_cam_h_offset itp.
+            # PROTOKOŁ KOREKTY KHR (Etap 15 - Szkielet / Blending)
+            # Obecnie implementujemy prosty offset pozycji.
+            # Docelowo: wygładzanie (lerp) i blending z krzywą bazową.
             khr_signal = f"khr_{axis_base[5:]}_offset"
             khr_offset = int(float(self.bus.read(khr_signal, 0.0)))
             
@@ -330,7 +348,7 @@ class TarzanHardwareBridge:
         return {}
 
     def _on_signal_change(self, name: str, state: Any) -> None:
-        """Reaguje na zmiany sygnałów w SignalBus (np. offsety KHR)."""
+        """Reaguje na zmiany sygnałów w SignalBus (np. offsety KHR, komendy)."""
         if name.startswith("khr_") and name.endswith("_offset"):
             # Znajdujemy odpowiadającą oś
             # khr_cam_h_offset -> axis_cam_h
@@ -348,3 +366,20 @@ class TarzanHardwareBridge:
                     return
                 # Ponownie przeliczamy i wysyłamy pozycję PE
                 self._handle_pulse_engine_write(syg, 0, device) # value 0 because it's offset change, not step
+
+        elif name == "cmd_unlock_axes":
+            val = int(state)
+            self.logger.info(f"ACTION: Safety axis unlock changed to {val}")
+            self.safety_axis_unlock = (val == 1)
+            # Synchronizacja statusu zwrotnego
+            self.bus.set_input("safety_axis_unlock", val, source="HW_BRIDGE_SYNC")
+
+        elif name == "cmd_clear_alarms" and state == 1:
+            # ETAP 13: Resetowanie alarmów osi
+            self.logger.info("ACTION: Clearing axis alarms on miniPC.")
+            from core.tarzanZmienneSygnalowe import LISTA_NAZW_OSI
+            for ax in LISTA_NAZW_OSI:
+                self.bus.set_input(f"axis_{ax}_alarm", 0, source="HW_BRIDGE_CLEAR")
+            
+            # Resetujemy stan komendy
+            self.bus.set_input("cmd_clear_alarms", 0, source="HW_BRIDGE_FINISH")

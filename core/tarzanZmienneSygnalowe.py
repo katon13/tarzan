@@ -558,6 +558,46 @@ tarzan_ready = _sygnal(
     klasa_wykonawcza="tarzanTspServer.py",
 )
 
+safety_axis_unlock = _sygnal(
+    nazwa="safety_axis_unlock",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Fizyczne odblokowanie osi (0=BLOCKED, 1=UNLOCKED). Etap 13.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Safety Unlock",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanHardwareBridge.py",
+)
+
+cmd_unlock_axes = _sygnal(
+    nazwa="cmd_unlock_axes",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="OUT",
+    default="0",
+    opis="Komenda odblokowania/zablokowania osi.",
+    zrodlo="UI",
+    hardware_function=HW_SYSTEM,
+    hardware_label="CMD Unlock",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanHardwareBridge.py",
+)
+
 cmd_run_diagnostics = _sygnal(
     nazwa="cmd_run_diagnostics",
     plytka="SYSTEM",
@@ -719,6 +759,46 @@ cmd_khr_stop = _sygnal(
 )
 
 # SYGNAŁY KOREKTY KHR (ETAP 15)
+khr_active_mode = _sygnal(
+    nazwa="khr_active_mode",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="OFF",
+    opis="Aktywny tryb korekty KHR (OFF/LEVEL/FACE/AI).",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="KHR Mode",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanKhr.py",
+)
+
+khr_sensitivity = _sygnal(
+    nazwa="khr_sensitivity",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="1.0",
+    opis="Czułość korekty KHR.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="KHR Sensitivity",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanKhr.py",
+)
+
 khr_cam_h_offset = _sygnal(
     nazwa="khr_cam_h_offset",
     plytka="SYSTEM",
@@ -1047,6 +1127,8 @@ SYGNALY_SYSTEMOWE: Dict[str, TarzanSygnal] = {
         cmd_ehr_stop,
         cmd_khr_start,
         cmd_khr_stop,
+        khr_active_mode,
+        khr_sensitivity,
         khr_cam_h_offset,
         khr_cam_v_offset,
         khr_arm_h_offset,

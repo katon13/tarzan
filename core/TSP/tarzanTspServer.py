@@ -552,6 +552,15 @@ class TarzanTspServer:
         self._sock.listen(10)
         self._sock.settimeout(0.5)
         self.logger.info("TSP SERVER START host=%s port=%s node=%s", self.host, self.port, self.node_name)
+
+        # ETAP 16: Forwarding logów z SignalBus do TSP
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            bus.subscribe_log(self._handle_bus_log)
+        except Exception:
+            pass
+
         self.lks.start()
         self._init_lks_n5()
         self._accept_thread = threading.Thread(target=self._accept_loop, name="TSP-ACCEPT", daemon=True)
@@ -988,6 +997,9 @@ class TarzanTspServer:
         while self.running:
             now = monotonic_ms()
 
+            # ETAP 14: Obsługa playbacku TAKE na MiniPC
+            self._handle_take_playback()
+
             # Pobieramy listę klientów raz na obieg pętli
             clients = self.clients()
             client_count = len(clients)
@@ -1187,12 +1199,87 @@ class TarzanTspServer:
 
         time.sleep(sleep_s)
 
+    def _handle_take_playback(self) -> None:
+        """Pętla odtwarzania TAKE (ETAP 14)."""
+        if not hasattr(self, "_loaded_take") or not self._loaded_take:
+            return
+
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            
+            # Pobieramy transport_state z SignalBus
+            transport = str(bus.read("transport_state", "STOP")).upper()
+            
+            if transport == "STOP":
+                if self._take_playback_start_ms > 0:
+                    self._take_playback_start_ms = 0
+                    self._take_playback_row_idx = 0
+                    bus.log("TSP", "Playback STOPPED.")
+                return
+
+            if transport == "PAUSE":
+                self._take_playback_start_ms = 0
+                return
+
+            if transport != "PLAY":
+                return
+
+            now = monotonic_ms()
+            
+            # Inicjalizacja startu przy przejściu STOP/PAUSE -> PLAY
+            rows = self._loaded_take.get("rows", [])
+            if self._take_playback_start_ms == 0:
+                if self._take_playback_row_idx < len(rows):
+                    current_row_time = int(rows[self._take_playback_row_idx].get("time_ms", 0))
+                    self._take_playback_start_ms = now - current_row_time
+                else:
+                    self._take_playback_start_ms = now
+                    self._take_playback_row_idx = 0
+                bus.log("TSP", f"Playback START/RESUME: {self._loaded_take.get('name')} at row {self._take_playback_row_idx}")
+            
+            elapsed = now - self._take_playback_start_ms
+            
+            # Aplikujemy wiersze
+            while self._take_playback_row_idx < len(rows):
+                row = rows[self._take_playback_row_idx]
+                row_time = int(row.get("time_ms", 0))
+                
+                if row_time <= elapsed:
+                    for name, value in row.items():
+                        if name != "time_ms" and bus.exists(name):
+                            bus.force_signal(name, value, source="TSP_PLAYBACK")
+                    self._take_playback_row_idx += 1
+                else:
+                    break
+            
+            if self._take_playback_row_idx >= len(rows):
+                bus.force_signal("transport_state", "STOP", source="TSP_PLAYBACK")
+                bus.log("TSP", "Playback FINISHED.")
+                self._take_playback_start_ms = 0
+                self._take_playback_row_idx = 0
+
+        except Exception as e:
+            self.logger.error("Playback loop error: %s", e)
+
     def broadcast_lane(self, lane: str, dt_ms: int, clients: Optional[list[TarzanTspClientSession]] = None) -> None:
         values = self.provider.get_lane_values(lane, None)
         if not values:
             return
         packet = snajper_packet(lane, values, dt_ms=dt_ms)
         self.broadcast(packet, lane=lane, clients=clients)
+
+    def _handle_bus_log(self, source: str, message: str) -> None:
+        """Forwarduje logi systemowe do klientów TSP (ETAP 16)."""
+        if not self.running:
+            return
+        event = {
+            "event": "log_event",
+            "source": source,
+            "message": message,
+            "ts": now_ms()
+        }
+        self.broadcast(event, lane=LANE_URGENT)
 
     def broadcast(self, message: Dict[str, Any], lane: str, immediate: bool = False, clients: Optional[list[TarzanTspClientSession]] = None) -> None:
         target_clients = clients if clients is not None else self.clients()

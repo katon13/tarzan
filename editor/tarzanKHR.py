@@ -1426,10 +1426,34 @@ class TarzanKHRWindow(tk.Tk):
         self._apply_ui_settings()
         self.time_ms = int((time.time() - self.t0) * 1000)
         self._update_model()
+        
+        # Etap 15: Wysyłanie offsetu KHR do miniPC (TSP)
+        if self.tsp_client:
+            offset_signal = self._get_offset_signal_name()
+            if offset_signal:
+                try:
+                    # Wysyłamy aktualny offset a_corr
+                    self.tsp_client.set_signal(offset_signal, float(self.a_corr))
+                except Exception:
+                    pass
 
         # KHR działa co 10 ms, ale UI nie rysuje się w tej pętli.
         # Dzięki temu Canvas i obraz z kamery nie blokują korektora.
         self.after(self.sample_time_ms, self._loop)
+
+    def _get_offset_signal_name(self) -> Optional[str]:
+        """Mapuje nazwę osi na sygnał offsetu KHR (Etap 15)."""
+        mapping = {
+            "oś pozioma kamery": "khr_cam_h_offset",
+            "oś pionowa kamery": "khr_cam_v_offset",
+            "oś pochyłu kamery": "khr_arm_t_offset", # cam_t -> arm_t
+            "oś pochyłu ramienia": "khr_arm_t_offset",
+            "oś ostrości kamery": "khr_cam_f_offset",
+            "oś pionowa ramienia": "khr_arm_v_offset",
+            "oś pozioma ramienia": "khr_arm_h_offset",
+            "DRON": "khr_dron_offset",
+        }
+        return mapping.get(self.axis_name)
 
     def _start_ui_loop(self) -> None:
         if self._ui_loop_active:

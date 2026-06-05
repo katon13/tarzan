@@ -36,6 +36,7 @@ CMD_SUBSCRIBE = "subscribe"
 CMD_UNSUBSCRIBE = "unsubscribe"
 CMD_GET_STATE = "get_state"
 CMD_CALL_ACTION = "call_action"
+CMD_LOAD_TAKE = "load_take"
 CMD_TRACE_SIGNAL = "trace_signal"
 CMD_DUMP_SNAPSHOT = "dump_snapshot"
 

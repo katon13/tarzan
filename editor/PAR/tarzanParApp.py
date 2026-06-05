@@ -78,6 +78,7 @@ DEFAULT_VISIBLE = {
     "cnc_signals": True,
     "automatyka": True,
     "nextion_7_preview": True,
+    "diagnostics": True,
 
 }
 
@@ -113,6 +114,7 @@ DEFAULT_PANEL_ZONES = {
     "cnc_signals": "middle_bottom",
     "automatyka": "middle_top",
     "nextion_7_preview": "right",
+    "diagnostics": "right",
 
 }
 
@@ -538,7 +540,7 @@ class TarzanParApp(tk.Tk):
             ("dron", "  🛩  DRON"), ("lcd", "  ▤  LCD 1602"), ("matrix_led", "  ▦  Matrix LED 8x8"),
             ("keyboard", "  ⌨  Klawiatura"), ("poextbus_cnc", "  ▥  PoExtBus / CNC"), ("functions", "  🔒  Funkcje / Rezerwy"),
             ("camera", "  📷  Kamera i KHR"), ("autostatus", "  ⚙  AUTOSTATUS"), ("system", "  ⚙  System i Status"),
-            ("take", "  🎬  TAKE Player"), ("info", "  ℹ  Panel informacyjny"), ("log", "  📜  Logi"), ("all_signals", "  ✣  Wszystkie Sygnały"),
+            ("take", "  🎬  TAKE Player"), ("diagnostics", "  🩺  Diagnostyka i Trace"), ("info", "  ℹ  Panel informacyjny"), ("log", "  📜  Logi"), ("all_signals", "  ✣  Wszystkie Sygnały"),
         ]
         for key, label in items:
             tk.Button(self.left, text=label, anchor="w", bg="#101820", fg=COLORS["text"], relief="flat", font=("Segoe UI", 10), command=lambda k=key: self.toggle_panel(k)).pack(fill="x", ipady=8, pady=1)
@@ -651,6 +653,7 @@ class TarzanParApp(tk.Tk):
             "sok": p.sok_panel,
             "cnc_signals": p.cnc_signals_panel,
             "nextion_7_preview": p.nextion_7_preview,
+            "diagnostics": p.diagnostics_panel,
         }
 
         cursor_by_zone = {z: {"row": 0, "col": 0, "row_height": 1} for z in zones}

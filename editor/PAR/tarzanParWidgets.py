@@ -360,3 +360,24 @@ class AxisCard(tk.Frame):
 
     def set_end_right(self, value):
         self.end_right.set(1 if value else 0)
+
+    def set_ready(self, value):
+        """ETAP 13: Wizualizacja gotowości osi (READY)."""
+        # Możemy np. zmienić kolor diody EN jeśli READY=0 (brak gotowości drivera)
+        if not value:
+            self.en.set(0) # Driver niegotowy
+        else:
+            # EN może być sterowane niezależnie, więc nie wymuszamy 1 jeśli READY=1
+            pass
+
+    def set_alarm(self, value):
+        """ETAP 13: Wizualizacja alarmu osi (ALARM)."""
+        color = COLORS["red"] if value else COLORS["border"]
+        self.configure(highlightbackground=color, highlightthickness=2 if value else 1)
+
+    def set_locked(self, locked: bool):
+        """ETAP 13: Wizualizacja blokady bezpieczeństwa (SAFETY)."""
+        if locked:
+            self.configure(bg="#2a1010") # Ciemnoczerwone tło
+        else:
+            self.configure(bg=COLORS["panel3"])

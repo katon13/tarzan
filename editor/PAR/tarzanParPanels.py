@@ -1070,6 +1070,9 @@ class TarzanParPanels:
 
             self.axis_cards[key] = card
 
+        # ETAP 13: Odświeżanie kart przy zmianie blokady bezpieczeństwa
+        self._register_signal_proxy("safety_axis_unlock", lambda v: self.refresh_axis_cards())
+
         # FIX: Tytuł CAM_H
         card_h = self.axis_cards.get("CAM_H")
         if card_h:
@@ -1137,6 +1140,17 @@ class TarzanParPanels:
             pulses = self.bus.get(f"par_{axis.lower()}_pulses", 0)
         
         card.set_counter(int(float(pulses)))
+
+        # ETAP 13: Odczyt statusów sprzętowych z miniPC
+        axis_low = axis.lower()
+        ready = self.bus.get(f"axis_{axis_low}_ready", 1)
+        alarm = self.bus.get(f"axis_{axis_low}_alarm", 0)
+        card.set_ready(ready)
+        card.set_alarm(alarm)
+
+        # ETAP 13: Wizualizacja blokady bezpieczeństwa
+        locked = not bool(self.bus.get("safety_axis_unlock", 0))
+        card.set_locked(locked)
 
         # Logger silnika — Snajper/LOGI: jeden wpis ruchu osi, nie każdy impuls STEP.
         if not hasattr(card, "_has_logger"):
@@ -1257,7 +1271,7 @@ class TarzanParPanels:
                 state["speed_mul"] = mul
                 paint_speed_buttons()
                 if write_bus:
-                    self.bus.force_signal(speed_signal, mul, source="PAR_RRP_SPEED")
+                    self._force_signal(speed_signal, mul, source="PAR_RRP_SPEED")
 
             for mul in (1, 2, 3, 4):
                 btn = tk.Button(
@@ -1373,7 +1387,7 @@ class TarzanParPanels:
                             state["pulse_accumulator"] -= pulse_count
 
                             direction = int(self.bus.get(f"par_rrp_{player}_dir", 0))
-                            self.bus.force_signal(dir_signal, direction, source="PAR_GEN")
+                            self._force_signal(dir_signal, direction, source="PAR_GEN")
 
                             pulse_gap_ms = max(1, sample_ms // max(1, pulse_count))
                             for pulse_idx in range(pulse_count):
@@ -1381,19 +1395,19 @@ class TarzanParPanels:
                                 off_delay = on_delay + 1
                                 self.app.after(
                                     on_delay,
-                                    lambda name=step_signal: self.bus.force_signal(name, 1, source="PAR_GEN"),
+                                    lambda name=step_signal: self._force_signal(name, 1, source="PAR_GEN"),
                                 )
                                 self.app.after(
                                     off_delay,
-                                    lambda name=step_signal: self.bus.force_signal(name, 0, source="PAR_GEN"),
+                                    lambda name=step_signal: self._force_signal(name, 0, source="PAR_GEN"),
                                 )
 
                         # Wartość panelowa pokazuje realną docelową częstotliwość impulsów/s.
                         step_val = int(round(rate_hz))
                         if abs(step_val - state["last_step_val"]) >= 1:
                             state["last_step_val"] = step_val
-                            self.bus.set_input(f"par_rrp_{player}_val", step_val, source="PAR_GEN")
-                            self.bus.set_input(f"rrp_{player}_val", step_val, source="PAR_GEN")
+                            self._set_signal(f"par_rrp_{player}_val", step_val, source="PAR_GEN")
+                            self._set_signal(f"rrp_{player}_val", step_val, source="PAR_GEN")
                     else:
                         state["pulse_accumulator"] = 0.0
                         state["last_tick_ts"] = time.monotonic()
@@ -1418,7 +1432,7 @@ class TarzanParPanels:
                 if delta:
                     nv = max(0, min(4095, int(state["value"] + delta * 128)))
                     state["value"] = nv
-                    self.bus.force_signal(knob_signal, nv, source="PAR_RRP_POT")
+                    self._force_signal(knob_signal, nv, source="PAR_RRP_POT")
                     drw()
                 return "break"
 
@@ -1528,7 +1542,7 @@ class TarzanParPanels:
                     'PION':  (['axis_arm_v_dir'], ['axis_arm_v_step']),
                 }
                 dirs, ctrs = sig_map.get(m, ([ds], [cs]))
-                for n in dirs: self.bus.force_signal(n, d, source="PAR_SOK")
+                for n in dirs: self._force_signal(n, d, source="PAR_SOK")
                 self._pulse_many_signals(ctrs, delay_ms=70, src="PAR_SOK")
 
             btns = tk.Frame(box, bg=COLORS['panel3']); btns.pack(fill='x', padx=4, pady=4)
@@ -1693,8 +1707,8 @@ class TarzanParPanels:
             sig = f"sensor_level_{a}"
             if a in ("x", "y"): 
                 st["z"] = calc_z(st["x"], st["y"])
-                self.bus.set_input("sensor_level_z", st["z"])
-            self.bus.set_input(sig, st[a], source="PAR_XYZ")
+                self._set_signal("sensor_level_z", st["z"])
+            self._set_signal(sig, st[a], source="PAR_XYZ")
             draw()
 
         cx, cy = w//2, h//2
@@ -1746,7 +1760,7 @@ class TarzanParPanels:
         def dr(v=None):
             val = self.bus.get(signal) if v is None else v
             led.set(val); lbl.configure(text=on_text if val else off_text, fg=COLORS["green"] if val else COLORS["text"])
-        def tg(_e=None): v=1-(1 if self.bus.get(signal) else 0); self.bus.set_input(signal, v); dr(v)
+        def tg(_e=None): v=1-(1 if self.bus.get(signal) else 0); self._set_signal(signal, v); dr(v)
         for w in (led, lbl, panel.body): w.bind("<Button-1>", tg)
         self.rows[signal] = _ParValueProxy(dr); dr(); return panel
 
@@ -1774,7 +1788,7 @@ class TarzanParPanels:
             y = 7 + (float(end)-curr)/(max(1.0, float(end)-float(start)))*(h-14)
             can.create_rectangle(5, y-7, 33, y+7, fill="#7b1730", outline="#d65c78", width=2)
             v_l.configure(text=fmt(curr))
-        def dg(e): nv = float(end) - ((max(7, min(h-7, e.y))-7)/(h-14))*(max(1.0, float(end)-float(start))); self.bus.set_input(signal, nv); dr(nv)
+        def dg(e): nv = float(end) - ((max(7, min(h-7, e.y))-7)/(h-14))*(max(1.0, float(end)-float(start))); self._set_signal(signal, nv); dr(nv)
         can.bind("<B1-Motion>", dg); self.rows[signal] = _ParValueProxy(dr); dr(); return panel
 
     def temperature_panel(self, p): return self._par_canvas_sensor_slider_panel(p, key="temp", title="TEMPERATURA (\u00b0C)", signal="sensor_temp_c", unit="\u00b0C", start=-20, end=50, decimals=1)
@@ -1830,6 +1844,16 @@ class TarzanParPanels:
 
     def _set_signal(self, name, value, source="PAR_SIM"):
         try:
+            # ETAP 8: Delegacja przez Bridge (który obsłuży LIVE)
+            if hasattr(self.app, "bridge"):
+                m = self.bus.get_meta(name)
+                is_input = getattr(m, "is_input", False) or name.startswith("par_")
+                if is_input:
+                    self.app.bridge.set_input(name, value, source=source)
+                else:
+                    self.app.bridge.write_output(name, value, source=source)
+                return
+
             m = self.bus.get_meta(name)
             if not m:
                 self.bus.force_signal(name, value, source=source)
@@ -1838,6 +1862,15 @@ class TarzanParPanels:
                 self.bus.set_input(name, value, source=source)
             else:
                 self.bus.write_output(name, value, source=source)
+        except Exception: pass
+
+    def _force_signal(self, name, value, source="PAR_FORCE"):
+        """Wymusza sygnał przez Bridge (obsługa LIVE) (Etap 7)."""
+        try:
+            if hasattr(self.app, "bridge"):
+                self.app.bridge.force_signal(name, value, source=source)
+                return
+            self.bus.force_signal(name, value, source=source)
         except Exception: pass
 
     def _final_force_or_toggle(self, name: str):
@@ -1936,18 +1969,30 @@ class TarzanParPanels:
         b = AXIS_SIGNAL_BINDINGS.get(ax, {})
         # Każdy generator produkuje STEP/DIR
         for n in b.get("dir", []): 
-            self.bus.force_signal(n, dir, source="PAR_MANUAL")
+            if hasattr(self.app, "bridge"):
+                self.app.bridge.force_signal(n, dir, source="PAR_MANUAL")
+            else:
+                self.bus.force_signal(n, dir, source="PAR_MANUAL")
         
         # Wygeneruj 10 zboczy narastających na szynie (zostaną zliczone przez on_state_change)
         # Używamy lekkiego opóźnienia, aby UI i Timeline nadążyły z rysowaniem
         for i in range(10):
-            self.app.after(i * 15, lambda: [self.bus.force_signal(n, 1, source="PAR_MANUAL") for n in b.get("step", [])])
-            self.app.after(i * 15 + 7, lambda: [self.bus.force_signal(n, 0, source="PAR_MANUAL") for n in b.get("step", [])])
+            def f1(steps=b.get("step", [])):
+                for n in steps:
+                    if hasattr(self.app, "bridge"): self.app.bridge.force_signal(n, 1, source="PAR_MANUAL")
+                    else: self.bus.force_signal(n, 1, source="PAR_MANUAL")
+            def f2(steps=b.get("step", [])):
+                for n in steps:
+                    if hasattr(self.app, "bridge"): self.app.bridge.force_signal(n, 0, source="PAR_MANUAL")
+                    else: self.bus.force_signal(n, 0, source="PAR_MANUAL")
+            
+            self.app.after(i * 15, f1)
+            self.app.after(i * 15 + 7, f2)
 
     def _pulse_many_signals(self, names, delay_ms=10, src="PAR_PULSE"):
         for n in names:
-            self.bus.force_signal(n, 1, source=src)
-            self.app.after(delay_ms, lambda name=n: self.bus.force_signal(name, 0, source=src))
+            self._force_signal(n, 1, source=src)
+            self.app.after(delay_ms, lambda name=n: self._force_signal(name, 0, source=src))
 
     def _first_value(self, names: List[str]):
         for n in names:
@@ -1975,7 +2020,7 @@ class TarzanParPanels:
         names = self._get_clean_limit_names()
         active = [str(i+1) for i, n in enumerate(names) if self.bus.get(n)]
         res = "0" if not active else ",".join(active)
-        self.bus.force_signal("sensor_limits_status", res, source="PAR_LIMIT_MONITOR")
+        self._force_signal("sensor_limits_status", res, source="PAR_LIMIT_MONITOR")
 
     def limit_label(self, name: str):
         clean = name
@@ -2168,23 +2213,23 @@ class TarzanParPanels:
             if name in {"play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"}:
                 for extra in ["play_p41_mass_reg_enable", "rec_p36_mass_reg_enable", "par_mass_reg_enable"]:
                     if extra != name and self.bus.exists(extra):
-                        self.bus.force_signal(extra, val, source="PAR_LINK")
+                        self._force_signal(extra, val, source="PAR_LINK")
             elif name in {"play_p13_mass_reg_limit_add", "par_mass_reg_limit_add"}:
                 for extra in ["play_p13_mass_reg_limit_add", "par_mass_reg_limit_add"]:
                     if extra != name and self.bus.exists(extra):
-                        self.bus.force_signal(extra, val, source="PAR_LINK")
+                        self._force_signal(extra, val, source="PAR_LINK")
             elif name in {"play_p23_mass_reg_limit_remove", "par_mass_reg_limit_remove"}:
                 for extra in ["play_p23_mass_reg_limit_remove", "par_mass_reg_limit_remove"]:
                     if extra != name and self.bus.exists(extra):
-                        self.bus.force_signal(extra, val, source="PAR_LINK")
+                        self._force_signal(extra, val, source="PAR_LINK")
             elif name in {"par_lamp_auto_active", "play_p16_action_led"}:
                 for extra in ["par_lamp_auto_active", "play_p16_action_led"]:
                     if extra != name and self.bus.exists(extra):
-                        self.bus.force_signal(extra, val, source="PAR_LINK")
+                        self._force_signal(extra, val, source="PAR_LINK")
             elif name in {"par_shock_sensor_state", "rec_p39_shock_sensor"}:
                 for extra in ["par_shock_sensor_state", "rec_p39_shock_sensor"]:
                     if extra != name and self.bus.exists(extra):
-                        self.bus.force_signal(extra, val, source="PAR_LINK")
+                        self._force_signal(extra, val, source="PAR_LINK")
         except Exception: pass
 
         # Odświeżanie kart osi (wizualizacja Step/Dir) - WYŁĄCZONE DLA SNAJPERA
@@ -2329,7 +2374,7 @@ class TarzanParPanels:
             for s, v in [("par_mass_reg_limit_add", va), ("play_p13_mass_reg_limit_add", va),
                          ("par_mass_reg_limit_remove", vr), ("play_p23_mass_reg_limit_remove", vr),
                          ("par_mass_reg_enable", ve), ("play_p41_mass_reg_enable", ve), ("rec_p36_mass_reg_enable", ve)]:
-                self.bus.force_signal(s, v, source="PAR_MASS_EXCLUSIVE")
+                self._force_signal(s, v, source="PAR_MASS_EXCLUSIVE")
         
         ba.configure(command=lambda: sm("A"))
         br.configure(command=lambda: sm("R"))
@@ -2648,9 +2693,65 @@ class TarzanParPanels:
 
     def camera(self, p):
         panel = self.panel("camera", p, "KAMERA I KHR")
-        b = tk.Frame(panel.body, bg=COLORS["panel"], padx=8, pady=8); b.pack(fill="x")
-        tk.Button(b, text="OPEN KHR", bg=COLORS["button"], command=lambda: self.bus.toggle_input("par_khr_open")).pack(fill="x", pady=2)
-        tk.Button(b, text="REC START/STOP", bg="#7a251f", fg="white", command=lambda: self.bus.toggle_input("par_camera_rec")).pack(fill="x", pady=2)
+        b = tk.Frame(panel.body, bg=COLORS["panel"], padx=10, pady=10)
+        b.pack(fill="both", expand=True)
+
+        # Sekcja kamery
+        tk.Label(b, text="KAMERA OPERATORSKA:", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w")
+        f_cam = tk.Frame(b, bg=COLORS["panel"], pady=5)
+        f_cam.pack(fill="x")
+        tk.Button(f_cam, text="REC START/STOP", bg="#7a251f", fg="white", font=("Segoe UI", 9, "bold"),
+                  command=lambda: self._set_signal("par_camera_rec", 1)).pack(side="left", fill="x", expand=True, padx=(0, 5))
+        
+        # Sekcja KHR
+        tk.Label(b, text="KOREKTA KHR (AI/LEVEL/FACE):", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(15, 5))
+        
+        # Tryb KHR
+        f_mode = tk.Frame(b, bg=COLORS["panel"])
+        f_mode.pack(fill="x")
+        
+        modes = ["OFF", "LEVEL", "FACE", "AI"]
+        for m in modes:
+            def set_m(val=m): self._set_signal("khr_active_mode", val)
+            btn = tk.Button(f_mode, text=m, bg=COLORS["button"], font=("Segoe UI", 8), command=set_m)
+            btn.pack(side="left", fill="x", expand=True, padx=1)
+            # Podświetlenie aktywnego trybu
+            def update_btn(v, b_ref=btn, m_ref=m):
+                bg = COLORS["green"] if v == m_ref else COLORS["button"]
+                fg = "black" if v == m_ref else COLORS["text"]
+                b_ref.configure(bg=bg, fg=fg)
+            self.rows[f"khr_mode_{m}"] = _ParValueProxy(lambda v, m=m, b=btn: update_btn(v, b, m))
+
+        # Czułość KHR
+        tk.Label(b, text="CZUŁOŚĆ KOREKTY:", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 8)).pack(anchor="w", pady=(10, 0))
+        f_sens = tk.Frame(b, bg=COLORS["panel"])
+        f_sens.pack(fill="x")
+        
+        sens_val = tk.Label(f_sens, text="1.0", bg=COLORS["panel"], fg=COLORS["green"], width=4)
+        sens_val.pack(side="right")
+        
+        sc = tk.Scale(f_sens, from_=0.1, to=5.0, resolution=0.1, orient="horizontal", bg=COLORS["panel"], 
+                     troughcolor="#263741", highlightthickness=0, showvalue=False,
+                     command=lambda v: self._set_signal("khr_sensitivity", float(v)))
+        sc.set(1.0)
+        sc.pack(side="left", fill="x", expand=True)
+        
+        def update_sens(v):
+            try:
+                val = float(v)
+                sc.set(val)
+                sens_val.configure(text=f"{val:.1f}")
+            except: pass
+        self.rows["khr_sensitivity"] = _ParValueProxy(update_sens)
+
+        # Przyciski sterujące KHR
+        f_ctrl = tk.Frame(b, bg=COLORS["panel"], pady=10)
+        f_ctrl.pack(fill="x")
+        tk.Button(f_ctrl, text="START KHR", bg=COLORS["green"], fg="black", font=("Segoe UI", 9, "bold"),
+                  command=lambda: self._set_signal("cmd_khr_start", 1)).pack(side="left", fill="x", expand=True, padx=(0, 2))
+        tk.Button(f_ctrl, text="STOP KHR", bg=COLORS["red"], fg="white", font=("Segoe UI", 9, "bold"),
+                  command=lambda: self._set_signal("cmd_khr_stop", 1)).pack(side="left", fill="x", expand=True, padx=(2, 0))
+
         return panel
 
     def autostatus(self, parent):
@@ -2666,7 +2767,7 @@ class TarzanParPanels:
 
         def click(_e=None):
             nv = 0 if self.bus.get(sig, 0) else 1
-            self.bus.force_signal(sig, nv, source="PAR_AUTO_WINDOW")
+            self._force_signal(sig, nv, source="PAR_AUTO_WINDOW")
             led.set(nv)
 
         led.bind("<Button-1>", click)
@@ -2712,6 +2813,7 @@ class TarzanParPanels:
             ("pokeys_ok", "POKEYS (USB)"),
             ("i2c_bus_ok", "I2C BUS"),
             ("nextion5_ok", "NEXTION 5"),
+            ("axis_inventory_ok", "AXIS INVENTORY"),
             ("tarzan_ready", "READY FOR PAR"),
         ]
         
@@ -2724,13 +2826,60 @@ class TarzanParPanels:
             # Mapowanie stanów tekstowych na 0/1 dla LED
             def _set_led(v, led_ref=led):
                 if isinstance(v, str):
-                    state = 1 if v in ("CONNECTED", "READY", "ACTIVE", "BOOTING") else 0
+                    state = 1 if v in ("CONNECTED", "READY", "ACTIVE", "BOOTING", "OK") else 0
                     led_ref.set(state)
                 else:
                     led_ref.set(v)
 
             self.rows[sig] = _ParValueProxy(_set_led)
             _set_led(self.bus.get(sig, 0))
+
+        # MODUŁY OPERATORSKIE STATUS (ETAP 8)
+        mod_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
+        mod_frame.pack(fill="x")
+        tk.Label(mod_frame, text="OPERATOR MODULES STATUS:", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 5))
+        
+        modules = [
+            ("par_state", "PAR CONSOLE"),
+            ("rrp_state", "RRP REGULATOR"),
+            ("sok_state", "SOK SENSOR"),
+            ("nextion7_state", "NEXTION 7"),
+        ]
+        
+        for i, (sig, label) in enumerate(modules):
+            row = i + 1
+            tk.Label(mod_frame, text=label, bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 8)).grid(row=row, column=0, sticky="w", padx=(5, 10))
+            led = Led(mod_frame, size=14)
+            led.grid(row=row, column=1, sticky="w", pady=2)
+            
+            def _set_mod_led(v, led_ref=led):
+                state = 1 if v in ("CONNECTED", "READY", "ACTIVE", "LIVE", 1) else 0
+                led_ref.set(state)
+
+            self.rows[sig] = _ParValueProxy(_set_mod_led)
+            _set_mod_led(self.bus.get(sig, 0))
+
+        # RRP / SOK QUICK VIEW (ETAP 8)
+        quick_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
+        quick_frame.pack(fill="x")
+        tk.Label(quick_frame, text="RRP / SOK SELECTION (LIVE):", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 5))
+        
+        rrp_sels = [
+            ("par_rrp_p1_selected_axis", "RRP P1 AXIS"),
+            ("par_rrp_p2_selected_axis", "RRP P2 AXIS"),
+        ]
+        
+        for i, (sig, label) in enumerate(rrp_sels):
+            row = i + 1
+            tk.Label(quick_frame, text=label, bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 8)).grid(row=row, column=0, sticky="w", padx=(5, 10))
+            v_lbl = tk.Label(quick_frame, text="NONE", bg=COLORS["panel"], fg=COLORS["green"], font=("Segoe UI", 8, "bold"))
+            v_lbl.grid(row=row, column=1, sticky="w", pady=2)
+            
+            def _set_sel_lbl(v, lbl_ref=v_lbl):
+                lbl_ref.configure(text=str(v).upper() if v else "NONE")
+
+            self.rows[sig] = _ParValueProxy(_set_sel_lbl)
+            _set_sel_lbl(self.bus.get(sig, ""))
 
         # ACTIONS PANEL (ETAP 8)
         act_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
@@ -2758,9 +2907,68 @@ class TarzanParPanels:
             self.app.bridge.call_action("reboot")
             self.bus.log("PAR", "Requested miniPC REBOOT.")
 
+        def clear_errors():
+            if self.bus.mode != "LIVE": return
+            # Wysyłamy komendę do HardwareBridge na miniPC
+            self.app.bridge.call_action("axis_status", {"cmd": "clear_alarms"})
+            self.bus.log("PAR", "Requested AXIS ALARMS CLEAR.")
+
         tk.Button(act_frame, text="RUN DIAGNOSTICS", command=run_diag, **btn_opts).pack(side="left", padx=2)
         tk.Button(act_frame, text="TAKE CONTROL", command=take_control, **btn_opts).pack(side="left", padx=2)
+        tk.Button(act_frame, text="CLEAR ERRORS", command=clear_errors, **btn_opts).pack(side="left", padx=2)
         tk.Button(act_frame, text="REBOOT miniPC", command=reboot, **btn_opts).pack(side="left", padx=2)
+
+        # TRACE SIGNAL PANEL (ETAP 16)
+        trace_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
+        trace_frame.pack(fill="x")
+        tk.Label(trace_frame, text="TRACE SIGNAL (Live Monitor):", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 5))
+        
+        trace_inner = tk.Frame(trace_frame, bg="#050810", padx=5, pady=5)
+        trace_inner.pack(fill="x")
+        
+        tk.Label(trace_inner, text="Signal Name:", bg="#050810", fg=COLORS["muted"]).pack(side="left")
+        trace_ent = tk.Entry(trace_inner, bg="#101825", fg=COLORS["green"], insertbackground="white", borderwidth=0, width=25)
+        trace_ent.pack(side="left", padx=5)
+        
+        def run_trace():
+            name = trace_ent.get().strip()
+            if not name or self.bus.mode != "LIVE": return
+            self.app.bridge.tsp_client.trace_signal(name, seconds=30)
+            self.bus.log("PAR", f"Started TRACE for signal: {name} (30s)")
+
+        tk.Button(trace_inner, text="START TRACE", command=run_trace, bg=COLORS["green"], fg="black", font=("Segoe UI", 8, "bold"), relief="flat", padx=10).pack(side="left", padx=5)
+
+        # HARDWARE SAFETY STATUS (ETAP 13)
+        safe_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
+        safe_frame.pack(fill="x")
+        
+        tk.Label(safe_frame, text="HARDWARE SAFETY UNLOCK:", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(side="left")
+        
+        safe_led = Led(safe_frame, size=18)
+        safe_led.pack(side="left", padx=10)
+        
+        safe_lbl = tk.Label(safe_frame, text="LOCKED (Safety)", bg=COLORS["panel"], fg=COLORS["red"], font=("Segoe UI", 9, "bold"))
+        safe_lbl.pack(side="left")
+        
+        def update_safe(v):
+            v_bool = (int(v) == 1)
+            safe_led.set(v_bool)
+            if v_bool:
+                safe_lbl.configure(text="UNLOCKED (Ready to move)", fg=COLORS["green"])
+            else:
+                safe_lbl.configure(text="LOCKED (Safety)", fg=COLORS["red"])
+        
+        def toggle_unlock():
+            if self.bus.mode != "LIVE": return
+            current = int(self.bus.get("safety_axis_unlock", 0))
+            new_val = 1 if current == 0 else 0
+            self.app.bridge.set_signal("cmd_unlock_axes", new_val)
+            self.bus.log("PAR", f"Requesting physical axis {'UNLOCK' if new_val else 'LOCK'}.")
+
+        tk.Button(safe_frame, text="TOGGLE UNLOCK", command=toggle_unlock, bg="#7a251f", fg="white", font=("Segoe UI", 8, "bold"), relief="flat", padx=10).pack(side="right")
+        
+        self.rows["safety_axis_unlock"] = _ParValueProxy(update_safe)
+        update_safe(self.bus.get("safety_axis_unlock", 0))
 
         # EHR / KHR REMOTE CONTROL (ETAP 8-9)
         ehr_khr_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
@@ -2891,6 +3099,65 @@ class TarzanParPanels:
         self.register_log_snajper_widget(self.log_text)
         # TARZAN_SNAJPER_LOGI_INITIAL_QUEUE: pokaż kolejkę, która powstała przed renderem panelu.
         self.update_log()
+        return panel
+
+    def diagnostics_panel(self, p):
+        panel = self.panel("diagnostics", p, "DIAGNOSTYKA I TRACE")
+        b = tk.Frame(panel.body, bg=COLORS["panel"], padx=10, pady=10)
+        b.pack(fill="both", expand=True)
+        
+        tk.Label(b, text="TRACE SIGNAL (Real-time from MiniPC):", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w")
+        
+        f_trace = tk.Frame(b, bg=COLORS["panel"], pady=5)
+        f_trace.pack(fill="x")
+        
+        sig_var = tk.StringVar(value="axis_arm_h_pulses")
+        tk.Entry(f_trace, textvariable=sig_var, bg="#050810", fg=COLORS["green"], font=("Consolas", 10)).pack(side="left", fill="x", expand=True, padx=(0, 5))
+        
+        def run_trace():
+            if self.bus.mode != "LIVE":
+                self.bus.log("PAR", "Trace requires LIVE mode.")
+                return
+            sig = sig_var.get()
+            self.app.bridge.call_action("trace_signal", {"name": sig, "seconds": 30})
+            self.bus.log("PAR", f"Started trace for: {sig}")
+
+        tk.Button(f_trace, text="START TRACE", command=run_trace, bg=COLORS["button"], font=("Segoe UI", 9, "bold")).pack(side="right")
+
+        tk.Label(b, text="SAFETY & LIMITS:", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(15, 5))
+        
+        f_safety = tk.Frame(b, bg=COLORS["panel"])
+        f_safety.pack(fill="x")
+        
+        safety_var = tk.BooleanVar(value=False)
+        def toggle_safety():
+            val = 1 if safety_var.get() else 0
+            self._set_signal("safety_axis_unlock", val)
+            self.bus.log("PAR", f"Safety axis unlock set to: {val}")
+
+        cb = tk.Checkbutton(f_safety, text="UNLOCK PHYSICAL AXIS (DANGEROUS)", variable=safety_var, command=toggle_safety,
+                          bg=COLORS["panel"], fg=COLORS["orange"], activebackground=COLORS["panel"],
+                          selectcolor="#050810", font=("Segoe UI", 9, "bold"))
+        cb.pack(side="left")
+        self.rows["safety_axis_unlock"] = _ParValueProxy(lambda v: safety_var.set(bool(v)))
+
+        tk.Label(b, text="LIVE SYSTEM METRICS:", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(15, 5))
+        
+        metrics = [
+            ("tsp_fast_stats", "Network (JSON)"),
+            ("system_state", "System State"),
+            ("control_owner", "Control Owner"),
+            ("runtime_state", "Runtime State"),
+        ]
+        
+        for sig, lbl in metrics:
+            row = tk.Frame(b, bg=COLORS["panel"])
+            row.pack(fill="x", pady=2)
+            tk.Label(row, text=f"{lbl}:", bg=COLORS["panel"], fg=COLORS["muted"], width=15, anchor="w").pack(side="left")
+            val_lbl = tk.Label(row, text="---", bg="#050810", fg=COLORS["green"], font=("Consolas", 9), anchor="w")
+            val_lbl.pack(side="left", fill="x", expand=True)
+            self.rows[sig] = _ParValueProxy(lambda v, l=val_lbl: l.configure(text=str(v)))
+            
         return panel
 
     def cnc_signals_panel(self, p):

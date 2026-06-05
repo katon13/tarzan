@@ -2817,8 +2817,8 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
             for i, row in enumerate(rows):
                 if i < len(stream):
                     prefix = f"axis_{model.axis_def.axis_id}"
-                    stream[i][f"{prefix}_dir"] = row["dir"]
                     stream[i][f"{prefix}_step"] = row["step"]
+                    stream[i][f"{prefix}_dir"] = row["dir"]
                     if row.get("event") == "RELEASE":
                         stream[i]["event"] = "RELEASE"
         

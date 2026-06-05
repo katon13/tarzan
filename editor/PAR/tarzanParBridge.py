@@ -26,6 +26,7 @@ class TarzanParBridge:
         after: Optional[Callable[..., Any]] = None,
         after_cancel: Optional[Callable[[Any], Any]] = None,
     ) -> None:
+        self.tsp_host = TSP_MINI_PC_HOST
         self.bus = bus or get_signal_bus("TEST")
         self.mapper = TarzanParProtocolMapper(self.bus.names())
         self.take_player = TarzanParTakePlayer(self.bus, self.mapper)
@@ -59,7 +60,7 @@ class TarzanParBridge:
         while self.bus.mode == "LIVE":
             if self.tsp_client is None:
                 try:
-                    self.tsp_client = TarzanTspClient(host=TSP_MINI_PC_HOST, name="tarzanPAR")
+                    self.tsp_client = TarzanTspClient(host=self.tsp_host, name="tarzanPAR")
                     self.tsp_client.on_message = self._handle_tsp_message
                     self.tsp_client.connect()
                     
@@ -120,6 +121,13 @@ class TarzanParBridge:
         elif event == "disconnect":
             self.bus.log("TSP", "Server disconnected.")
 
+        elif event == "log_event":
+            # ETAP 16: Odbieranie logów z MiniPC
+            src = message.get("source", "REMOTE")
+            msg = message.get("message", "")
+            # Wpisujemy do lokalnego busa, co automatycznie odświeży panel logów PAR
+            self.bus.log(f"MINI:{src}", msg)
+
     def nextion_connect(self):
         return self.nextion.connect_enabled()
 
@@ -154,6 +162,10 @@ class TarzanParBridge:
         return self.bus.write_output(name, value, source=source)
 
     def force_signal(self, name: str, value: Any, source: str = "PAR_FORCE") -> bool:
+        if self.tsp_client and self.bus.mode == "LIVE":
+            # ETAP 7: Delegacja wymuszenia do TSP
+            self.tsp_client.set_signal(name, value)
+            return True
         return self.bus.force_signal(name, value, source=source)
 
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> bool:
@@ -168,16 +180,36 @@ class TarzanParBridge:
         return self.bus.snapshot(include_meta=include_meta)
 
     def load_take(self, path: str | Path) -> TarzanTakeData:
-        return self.take_player.load(path)
+        data = self.take_player.load(path)
+        if self.tsp_client and self.bus.mode == "LIVE":
+            # ETAP 14: Przesyłanie danych TAKE do MiniPC
+            payload = {
+                "name": Path(path).name,
+                "columns": data.columns,
+                "rows": data.rows,
+                "metadata": data.metadata,
+                "duration_ms": data.duration_ms()
+            }
+            self.tsp_client.load_take(payload)
+        return data
 
     def play_take(self) -> None:
-        self.take_player.play()
+        if self.tsp_client and self.bus.mode == "LIVE":
+            self.call_action("play_take")
+        else:
+            self.take_player.play()
 
     def pause_take(self) -> None:
-        self.take_player.pause()
+        if self.tsp_client and self.bus.mode == "LIVE":
+            self.call_action("pause_take")
+        else:
+            self.take_player.pause()
 
     def stop_take(self) -> None:
-        self.take_player.stop()
+        if self.tsp_client and self.bus.mode == "LIVE":
+            self.call_action("stop_take")
+        else:
+            self.take_player.stop()
 
     def step_take_index(self, index: int):
         return self.take_player.step_to_index(index)

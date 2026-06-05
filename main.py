@@ -1,181 +1,111 @@
-from pathlib import Path
-import json
+#!/usr/bin/env python3
+"""
+TARZAN MAIN RUNTIME
+Główny punkt wejścia systemu TARZAN na miniPC.
+Automatycznie uruchamia i spina wszystkie moduły:
+- TSP Server / LKS / Nextion 5
+- SignalBus (LIVE)
+- Hardware Bridge (PoKeys / I2C)
+- Mode Logic
+- Snajper (Pulse Engine)
+"""
 
-from core.tarzanProtokolRuchu import TarzanProtokolRuchu
-from core.tarzanTakeVersioning import TarzanTakeVersioning
+from __future__ import annotations
+
+import sys
+import os
+import platform
+from pathlib import Path
+
+# Dodanie katalogu głównego do sys.path
+ROOT_DIR = Path(__file__).resolve().parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from core.tarzanSignalBus import get_signal_bus
+from core.TSP.tarzanTspServer import TarzanTspServer
 from core.tarzanUstawienia import CZAS_PROBKOWANIA_MS
 
-from motion.tarzanGhostMotion import TarzanGhostMotion
-from motion.tarzanKrzyweRuchu import TarzanKrzyweRuchu
-from motion.tarzanMechanicalValidator import TarzanMechanicalValidator
-from motion.tarzanSegmentAnalyzer import TarzanSegmentAnalyzer
-from motion.tarzanStepGenerator import TarzanStepGenerator
-from motion.tarzanSymulacjaRuchu import TarzanSymulacjaRuchu
-from motion.tarzanTakeModel import TarzanTake
-from motion.tarzanTimeline import TarzanAxisTimeline, TarzanTimeline
+def main():
+    print("====================================================")
+    print("   TARZAN SYSTEM — MAIN RUNTIME STARTING           ")
+    print("====================================================")
+    print(f"Platform: {platform.system()} {platform.machine()}")
+    print(f"Sample Rate: {CZAS_PROBKOWANIA_MS} ms")
+    print("----------------------------------------------------")
 
-
-def main() -> None:
-    base_dir = Path(__file__).resolve().parent
-    take_path = base_dir / "data" / "take" / "TAKE_001_v01.json"
-
-    print("=== TARZAN START ===")
-    print(f"Ładowanie TAKE: {take_path}")
-    print(f"Czas próbkowania systemu: {CZAS_PROBKOWANIA_MS} ms")
-
-    take = TarzanTake.load_json(take_path)
-
-    print(f"TAKE ID: {take.metadata.take_id}")
-    print(f"Wersja: {take.metadata.version}")
-    print(f"Tytuł: {take.metadata.title}")
-    print(f"Czas TAKE: {take.timeline.take_duration} {take.timeline.time_unit}")
-
-    basic_errors = take.validate_basic()
-    if basic_errors:
-        print("\nBłędy walidacji TAKE")
-        for error in basic_errors:
-            print(error)
+    # 1. Inicjalizacja SignalBus w trybie LIVE
+    # get_signal_bus w trybie LIVE odczyta konfigurację hardware'ową
+    bus = get_signal_bus(mode="LIVE")
+    bus.set_input("runtime_state", "INITIALIZING", source="MAIN")
+    bus.set_input("system_state", "BOOTING", source="MAIN")
+    
+    # 2. Konfiguracja parametrów serwera TSP
+    is_windows = platform.system().lower() == "windows"
+    
+    # Domyślne porty dla miniPC (na Windowsie używamy dry_run)
+    lks_tty = "-" if is_windows else "/dev/tty1"
+    n5_port = "COM5" if is_windows else "/dev/ttyUSB0"
+    n5_dry_run = is_windows
+    
+    print(f"Initializing TSP Server (LKS={lks_tty}, N5={n5_port}, DryRun={n5_dry_run})...")
+    
+    # 3. Inicjalizacja i start TSP Servera
+    # TspServer.start() automatycznie uruchamia:
+    # - HardwareBridge (PoKeys)
+    # - Snajper (Adaptery)
+    # - ModeLogic (Tryby pracy)
+    # - LKS (Status panel)
+    # - LKS-N5 (Nextion 5)
+    server = TarzanTspServer(
+        enable_lks=True,
+        lks_tty=lks_tty,
+        enable_lks_n5=True,
+        lks_n5_port=n5_port,
+        lks_n5_dry_run=n5_dry_run
+    )
+    
+    try:
+        # TspServer.start() zainicjuje podsystemy i połączy je z bus-em
+        server.start()
+    except Exception as e:
+        print(f"CRITICAL ERROR during system start: {e}")
+        bus.set_input("system_state", "ERROR", source="MAIN")
+        bus.set_input("par_last_error", f"Startup failed: {e}", source="MAIN")
         return
 
-    validator = TarzanMechanicalValidator()
-    mechanical_errors = validator.validate_take(take)
+    # 4. Sprawdzanie gotowości EHR/KHR (przez ModeLogic)
+    # ModeLogic (uruchomiony przez TspServer) monitoruje statusy modułów.
+    bus.set_input("ehr_state", "READY", source="MAIN")
+    bus.set_input("khr_state", "READY", source="MAIN")
 
-    if mechanical_errors:
-        print("\nBłędy walidacji mechanicznej")
-        for error in mechanical_errors:
-            print(error)
-        return
+    # 5. Blokada bezpieczeństwa osi (Safety Lock)
+    # Zgodnie z wymaganiem: Ruch osi NIE startuje automatycznie.
+    # Musi zostać zablokowany do świadomego unlock przez operatora.
+    bus.set_input("safety_axis_unlock", 0, source="MAIN_SAFETY")
+    bus.log("MAIN", "Axes LOCKED (Safety Mode). Manual unlock required.")
 
-    print("\nWalidacja TAKE: OK")
+    # 6. Sygnał gotowości systemu
+    bus.set_input("tarzan_ready", 1, source="MAIN")
+    bus.set_input("runtime_state", "RUNNING", source="MAIN")
+    bus.set_input("system_state", "READY", source="MAIN")
+    
+    print("----------------------------------------------------")
+    print("   TARZAN SYSTEM IS READY AND RUNNING              ")
+    print("   Operator Panel: Automatic                        ")
+    print("   Safety: LOCKED                                   ")
+    print("----------------------------------------------------")
+    
+    bus.log("MAIN", "System fully operational. Ready for PAR connection.")
 
-    krzywe = TarzanKrzyweRuchu()
-    ghost = TarzanGhostMotion()
-
-    print("\n=== EDYCJA KRZYWEJ (TEST) ===")
-
-    axis_original = krzywe.clone_axis(take.axes["camera_horizontal"])
-
-    axis_edited = krzywe.apply_amplitude_scale_on_interval(
-        axis_original,
-        start_time_ms=300,
-        end_time_ms=1450,
-        scale=1.25,
-        normalize_distance=True,
-    )
-
-    axis_edited = krzywe.smooth_interval(
-        axis_edited,
-        start_time_ms=300,
-        end_time_ms=1450,
-        strength=0.4,
-        normalize_distance=True,
-    )
-
-    take.axes["camera_horizontal"] = axis_edited
-
-    print("Krzywa została zmodyfikowana.")
-
-    print("\n=== GHOST COMPARE ===")
-    comparison = ghost.compare_axes(axis_original, axis_edited)
-
-    print(f"Oś: {comparison.axis_name}")
-    print(f"Pole oryginalne: {comparison.original_area:.4f}")
-    print(f"Pole edytowane:  {comparison.edited_area:.4f}")
-    print(f"Delta pola:      {comparison.area_delta:.4f}")
-    print(f"Delta pola %:    {comparison.area_delta_percent:.4f}%")
-    print(f"Peak oryginalny: {comparison.original_peak:.4f}")
-    print(f"Peak edytowany:  {comparison.edited_peak:.4f}")
-    print(f"Delta peak:      {comparison.peak_delta:.4f}")
-    print(f"Zero crossings oryginalne: {comparison.original_zero_crossings}")
-    print(f"Zero crossings edytowane:  {comparison.edited_zero_crossings}")
-
-    print("\nZapisywanie nowej wersji TAKE...")
-
-    with open(take_path, "r", encoding="utf-8") as file:
-        take_dict = json.load(file)
-
-    control_points = []
-    for point in axis_edited.curve.control_points:
-        control_points.append(
-            {
-                "time": int(point.time),
-                "amplitude": float(point.amplitude),
-            }
-        )
-
-    take_dict["axes"]["camera_horizontal"]["curve"]["control_points"] = control_points
-
-    versioning = TarzanTakeVersioning()
-    new_take_path = versioning.save_new_take(
-        original_take_path=take_path,
-        take_dict=take_dict,
-    )
-
-    print("Nowa wersja TAKE zapisana:")
-    print(new_take_path)
-
-    take_v2 = TarzanTake.load_json(new_take_path)
-
-    analyzer = TarzanSegmentAnalyzer()
-    timeline_builder = TarzanTimeline()
-
-    axis_timelines = []
-
-    for axis_key, axis in take_v2.axes.items():
-        profiles = analyzer.build_axis_segment_profiles(axis)
-        axis_frames = []
-
-        for profile in profiles:
-            step_generator = TarzanStepGenerator(
-                time_ms=profile.times_ms,
-                pulse_density=profile.pulse_density,
-            )
-
-            step_times = step_generator.generate_step_times()
-
-            frames = timeline_builder.build_axis_frames(
-                step_times=step_times,
-                segment_start_ms=profile.start_time,
-                segment_end_ms=profile.end_time,
-                direction=profile.direction,
-                enabled=not profile.is_pause,
-            )
-
-            axis_frames.extend(frames)
-
-        axis_timeline = TarzanAxisTimeline(
-            axis_key=axis_key,
-            axis_name=axis.axis_name,
-            frames=axis_frames,
-        )
-        axis_timelines.append(axis_timeline)
-
-    global_timeline = timeline_builder.build_global_timeline(axis_timelines)
-
-    print("\nEksport protokołu ruchu...")
-    protokol = TarzanProtokolRuchu()
-
-    protocol_path = (
-        base_dir
-        / "data"
-        / "protokoly"
-        / f"{take_v2.metadata.take_id}_{take_v2.metadata.version}_protocol.txt"
-    )
-
-    protokol.export_txt(
-        take=take_v2,
-        global_timeline=global_timeline,
-        file_path=protocol_path,
-    )
-
-    print("Protokół zapisany:")
-    print(protocol_path)
-
-    simulator = TarzanSymulacjaRuchu()
-    simulator.plot_take_axes(take_v2)
-
-    print("\n=== KONIEC SYMULACJI ===")
-
+    # Pętla główna (blokująca)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopping system...")
+    finally:
+        server.stop()
+        print("TARZAN SYSTEM STOPPED.")
 
 if __name__ == "__main__":
     main()

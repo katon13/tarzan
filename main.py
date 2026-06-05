@@ -23,7 +23,6 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from core.tarzanSignalBus import get_signal_bus
-from core.TSP.tarzanTspServer import TarzanTspServer
 from core.tarzanUstawienia import CZAS_PROBKOWANIA_MS
 
 def main():
@@ -45,7 +44,7 @@ def main():
     bus.log("MAIN", "HardwareBridge START")
     bus.log("MAIN", "LKS-N5 START")
     
-    # 2. Konfiguracja parametrów serwera TSP
+# 2. Konfiguracja parametrów serwera TSP
     is_windows = platform.system().lower() == "windows"
     
     # Domyślne porty dla miniPC (na Windowsie używamy dry_run)
@@ -54,9 +53,23 @@ def main():
     n5_dry_run = is_windows
     
     print(f"Initializing TSP Server (LKS={lks_tty}, N5={n5_port}, DryRun={n5_dry_run})...")
+
+    # Wymuszenie czystego importu serwera (na wypadek problemów z bytecode na miniPC)
+    try:
+        from core.TSP.tarzanTspServer import TarzanTspServer
+        print("TSP Server module loaded successfully.")
+    except ImportError as e:
+        print(f"CRITICAL: Failed to import TarzanTspServer: {e}")
+        # Próba importu z pakietu
+        try:
+            from core.TSP import TarzanTspServer
+            print("TSP Server module loaded via package.")
+        except ImportError as e2:
+            print(f"CRITICAL: Package import also failed: {e2}")
+            return
     
     # 3. Inicjalizacja i start TSP Servera
-    # TspServer.start() automatycznie uruchamia:
+    # TarzanTspServer.start() automatycznie uruchamia:
     # - HardwareBridge (PoKeys)
     # - Snajper (Adaptery)
     # - ModeLogic (Tryby pracy)
@@ -71,7 +84,7 @@ def main():
     )
     
     try:
-        # TspServer.start() zainicjuje podsystemy i połączy je z bus-em
+        # TarzanTspServer.start() zainicjuje podsystemy i połączy je z bus-em
         server.start()
     except Exception as e:
         print(f"CRITICAL ERROR during system start: {e}")

@@ -479,3 +479,60 @@
 2026-06-05 15:15:19,240 [INFO] TSP SERVER STOPPED
 2026-06-05 15:15:19,240 [INFO] Hardware Bridge STOPPED.
 2026-06-05 15:15:19,240 [INFO] TSP SERVER STOPPED
+2026-06-05 15:51:39,050 [INFO] Catalog built from SignalBus: 230 signals
+2026-06-05 15:51:39,052 [INFO] Starting Hardware Bridge...
+2026-06-05 15:51:39,052 [ERROR] PoKeys library file not found at: X:\tarzan\hardware\pokeys\PoKeysDevice_x64.dll
+2026-06-05 15:51:39,054 [INFO] TSP SERVER START host=0.0.0.0 port=7777 node=tarzanMiniPC
+2026-06-05 15:51:39,423 [WARNING] LKS-N5 boot progress failed: module 'os' has no attribute 'uname'
+2026-06-05 15:51:39,628 [INFO] LKS-N5 START port=COM5 baudrate=9600 dry_run=True
+2026-06-05 15:51:39,630 [INFO] Tarzan Mode Logic: STARTED
+2026-06-05 15:51:40,629 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:41,629 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:42,629 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:43,629 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:44,631 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:45,632 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:46,632 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:47,632 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:48,632 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:49,632 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:50,633 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:51,633 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:52,634 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:53,633 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:54,634 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:55,635 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:56,635 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:57,636 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:58,636 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:51:59,637 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:00,638 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:01,639 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:02,639 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:03,640 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:04,642 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:05,642 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:06,642 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:07,642 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:08,642 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:09,643 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:10,644 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:11,644 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:12,645 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:13,645 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:14,645 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:15,646 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:16,646 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:17,647 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:18,647 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:19,647 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:20,647 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:21,647 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:22,647 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:23,647 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:24,647 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=1 dropped=0 lanes={}
+2026-06-05 15:52:25,225 [INFO] TSP SERVER STOP requested=KeyboardInterrupt
+2026-06-05 15:52:25,233 [INFO] Hardware Bridge STOPPED.
+2026-06-05 15:52:25,234 [INFO] TSP SERVER STOPPED
+2026-06-05 15:52:25,234 [INFO] Hardware Bridge STOPPED.
+2026-06-05 15:52:25,234 [INFO] TSP SERVER STOPPED

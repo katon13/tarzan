@@ -441,9 +441,20 @@ class TarzanTspServer:
             base = bool(self._lks_n5_status_cache.get(name, False))
             self.logger.info("LKS-N5 POINT TEST component=%s", name)
             self.lks_n5.blink_component(name, base_value=base)
-            diagnostics = TarzanTspLksDiagnostics()
-            diagnostics.run_component(name)
-            ok = bool(diagnostics.status_map().get(name, False))
+
+            # ETAP 1I: PAR/EHR nie są lokalnym sprzętem miniPC. Ich status na
+            # LKS-N5 ma wynikać z realnego połączenia klienta TSP, a nie z
+            # konserwatywnej diagnostyki repo/procesów, która nie widzi aplikacji
+            # PAR uruchomionej na stacji operatorskiej. Dzięki temu kliknięcie
+            # ikony PAR na Nextion 5 sprawdza prawdziwy stan LIVE: czy PAR jest
+            # podłączony i heartbeat/ping przechodzi przez TSP.
+            if name == "par_sys":
+                ok = len(self.clients()) > 0
+            else:
+                diagnostics = TarzanTspLksDiagnostics()
+                diagnostics.run_component(name)
+                ok = bool(diagnostics.status_map().get(name, False))
+
             self.lks_n5.set_status(name, ok)
             self._lks_n5_status_cache[name] = ok
             self.logger.info("LKS-N5 POINT TEST DONE component=%s ok=%s", name, ok)
@@ -468,24 +479,12 @@ class TarzanTspServer:
             client_count = len(clients)
             reason_low = reason.lower()
 
-            # Pobieramy stany z SignalBus, aby Nextion pokazywał realny stan połączenia
-            # (SignalBus jest aktualizowany w HELLO i DISCONNECT)
-            par_connected = False
-            ehr_connected = False
-            try:
-                from core.tarzanSignalBus import get_signal_bus
-                bus = get_signal_bus()
-                par_connected = bus.read("par_state") == "CONNECTED"
-                ehr_connected = bus.read("ehr_state") == "CONNECTED"
-            except Exception:
-                pass
-
             desired_statuses: Dict[str, bool] = {
                 "linux_sys": True,
-                "snajper_sys": reason_low.startswith("health") or reason_low == "startup",
+                "snajper_sys": reason_low.startswith("health"),
                 "take_sys": True,
-                "par_sys": par_connected,
-                "ehr_sys": ehr_connected,
+                "par_sys": client_count > 0,
+                "ehr_sys": client_count > 0,
                 "pok_play": True,
                 "pok_rec": True,
             }
@@ -625,21 +624,12 @@ class TarzanTspServer:
             command = ["ping", param, "1", TSP_STACJA_HOST]
             
             res = subprocess.call(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            
-            # Pobieramy aktualny stan, żeby nie nadpisywać CONNECTED
-            current_state = bus.read("par_state")
-            
             if res == 0:
-                if current_state != "CONNECTED":
-                    bus.set_input("par_state", "AVAILABLE", source="TSP_CHECK")
-                # else: zostawiamy CONNECTED
+                bus.log("TSP", f"PAR station {TSP_STACJA_HOST} is ONLINE.")
+                bus.set_input("par_state", "AVAILABLE", source="TSP_CHECK")
             else:
-                if current_state != "CONNECTED":
-                    bus.set_input("par_state", "OFFLINE", source="TSP_CHECK")
-                else:
-                    # Jeśli mamy CONNECTED, ale ping padł, to może być chwilowy problem sieciowy
-                    # lub ICMP blokowane, nie zmieniamy stanu sesji TSP tutaj.
-                    pass
+                bus.log("TSP", f"PAR station {TSP_STACJA_HOST} is OFFLINE or unreachable.")
+                bus.set_input("par_state", "OFFLINE", source="TSP_CHECK")
                 
         except Exception as exc:
             self.logger.debug("PAR check failed: %s", exc)

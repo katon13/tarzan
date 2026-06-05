@@ -2715,7 +2715,32 @@ class TarzanParPanels:
         self.status_label.pack(anchor="w", pady=5)
         if tk_adapter: tk_adapter.register_widget("status_panel", "status_label", self.status_label)
 
-        tk.Label(b, text="CPU: 12%", bg=COLORS["panel"], fg=COLORS["green"]).pack(anchor="w")
+        # LKS DIAGNOSTICS (ETAP 8)
+        st_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
+        st_frame.pack(fill="x")
+        
+        tk.Label(st_frame, text="LKS HARDWARE STATUS (from miniPC):", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 5))
+        
+        signals = [
+            ("linux_ok", "LINUX / SERVICE"),
+            ("tsp_ok", "TSP SERVER"),
+            ("signalbus_ok", "SIGNAL BUS"),
+            ("pokeys_ok", "POKEYS (USB)"),
+            ("i2c_bus_ok", "I2C BUS"),
+            ("nextion5_ok", "NEXTION 5"),
+            ("tarzan_ready", "READY FOR PAR"),
+        ]
+        
+        for i, (sig, label) in enumerate(signals):
+            row = i + 1
+            tk.Label(st_frame, text=label, bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 8)).grid(row=row, column=0, sticky="w", padx=(5, 10))
+            led = Led(st_frame, size=14)
+            led.grid(row=row, column=1, sticky="w", pady=2)
+            self.rows[sig] = _ParValueProxy(led.set)
+            # Ustawiamy stan początkowy
+            led.set(self.bus.get(sig, 0))
+
+        tk.Label(b, text="CPU: 12%", bg=COLORS["panel"], fg=COLORS["green"]).pack(anchor="w", pady=(10, 0))
         tk.Label(b, text="IP: 192.168.1.10", bg=COLORS["panel"], fg=COLORS["muted"]).pack(anchor="w")
         return panel
 

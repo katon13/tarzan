@@ -16,7 +16,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from core.TSP.tarzanTspLksStatusMap import REQUIRED_BUS_DEVICES, empty_statuses, bus_ok_from_statuses
 from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
@@ -44,10 +44,11 @@ class TarzanTspLksBootCheck:
     Diagnostyka pełnych podzespołów przyjdzie w ETAPIE 6.
     """
 
-    def __init__(self, n5: object, repo_root: Optional[str] = None, pause_s: float = 0.35) -> None:
+    def __init__(self, n5: object, repo_root: Optional[str] = None, pause_s: float = 0.35, hardware_bridge: Optional[Any] = None) -> None:
         self.n5 = n5
         self.repo_root = Path(repo_root or self._detect_repo_root()).resolve()
         self.pause_s = float(pause_s)
+        self.hardware_bridge = hardware_bridge
         self.results: List[LksBootCheckResult] = []
         self.statuses: Dict[str, bool] = empty_statuses(False)
 
@@ -241,6 +242,7 @@ class TarzanTspLksBootCheck:
             self.n5,
             repo_root=str(self.repo_root),
             pause_s=self.pause_s,
+            hardware_bridge=self.hardware_bridge,
         )
         progress_results = progress.run()
         self.statuses = dict(progress.statuses)

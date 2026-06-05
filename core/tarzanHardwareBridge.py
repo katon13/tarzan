@@ -4,6 +4,9 @@ import time
 import threading
 import os
 import platform
+import glob
+import json
+from pathlib import Path
 from typing import Any, Dict, Optional, List, Sequence
 
 from core.tarzanZmienneSygnalowe import (
@@ -501,18 +504,49 @@ class TarzanHardwareBridge:
 
     def _lks_test_i2c_bus(self) -> Dict[str, Any]:
         device = self._device_ready("PLAY")
+        serial_links = sorted(glob.glob("/dev/serial/by-id/*"))
+        tty_links = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
+        usb_detail = "USB=" + (",".join(serial_links[:3] or tty_links[:3]) or "no-tty")
         if device is None:
-            return self._lks_test_result("i2c_bus", False, error="PLAY not connected")
+            return self._lks_test_result("i2c_bus", False, detail=usb_detail, error="PLAY not connected")
         try:
             device.PK_I2CBusScanStart()
             time.sleep(0.35)
             devices = device.PK_I2CBusScanGetResults()
             found = [addr for addr in range(0, min(128, len(devices))) if int(devices[addr]) == 1]
             if not found:
-                return self._lks_test_result("i2c_bus", False, error="brak adresów BUS/I2C")
-            return self._lks_test_result("i2c_bus", True, detail="addresses=" + ",".join(f"0x{x:02X}" for x in found))
+                return self._lks_test_result("i2c_bus", False, detail=usb_detail, error="brak adresów BUS/I2C")
+            bus_detail = "addresses=" + ",".join(f"0x{x:02X}" for x in found)
+            return self._lks_test_result("i2c_bus", True, detail=f"{bus_detail}; {usb_detail}")
         except Exception as exc:
-            return self._lks_test_result("i2c_bus", False, error=str(exc))
+            return self._lks_test_result("i2c_bus", False, detail=usb_detail, error=str(exc))
+
+    def _lks_test_nextion7(self) -> Dict[str, Any]:
+        """Bezpieczny test obecności portu Nextion 7 / USB-UART bez otwierania HMI."""
+        candidates: List[str] = []
+        try:
+            cfg_path = Path(__file__).resolve().parents[1] / "data" / "nextion" / "nextion_ports.json"
+            if cfg_path.exists():
+                cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+                n7 = cfg.get("nextion_7", {}) if isinstance(cfg, dict) else {}
+                port = str(n7.get("port", "") or "")
+                if port and not port.upper().startswith("COM"):
+                    candidates.append(port)
+        except Exception:
+            pass
+        candidates.extend(sorted(glob.glob("/dev/serial/by-id/*Nextion*7*") + glob.glob("/dev/serial/by-id/*NX8048*")))
+        candidates.extend(sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*")))
+        existing = []
+        seen = set()
+        for item in candidates:
+            if item in seen:
+                continue
+            seen.add(item)
+            if Path(item).exists():
+                existing.append(item)
+        if existing:
+            return self._lks_test_result("next_7", True, detail=", ".join(existing[:3]))
+        return self._lks_test_result("next_7", False, detail=", ".join(candidates[:3]), error="brak portu Nextion 7 na miniPC")
 
     def _lks_test_bh1750(self, address: int = 0x5C) -> Dict[str, Any]:
         device = self._device_ready("PLAY")
@@ -563,6 +597,8 @@ class TarzanHardwareBridge:
                 return self._lks_test_i2c_bus()
             if name == "light_bh1750":
                 return self._lks_test_bh1750()
+            if name == "next_7":
+                return self._lks_test_nextion7()
             return self._lks_test_result(name, False, error="component not handled by active HardwareBridge point test")
 
     # ------------------------------------------------------------------

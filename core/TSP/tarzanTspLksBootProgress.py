@@ -17,7 +17,7 @@ import sys
 import time
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from core.TSP.tarzanTspLksStatusMap import empty_statuses
 from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
@@ -59,11 +59,13 @@ class TarzanTspLksBootProgress:
         repo_root: Optional[str] = None,
         pause_s: float = 0.18,
         nextion5_port: str = "",
+        hardware_bridge: Optional[Any] = None,
     ) -> None:
         self.n5 = n5
         self.repo_root = Path(repo_root or self._detect_repo_root()).resolve()
         self.pause_s = max(0.0, float(pause_s))
         self.nextion5_port = str(nextion5_port or "")
+        self.hardware_bridge = hardware_bridge
         self.results: List[LksBootProgressResult] = []
         self.statuses: Dict[str, bool] = empty_statuses(False)
         self._current_scene: str = ""
@@ -98,6 +100,21 @@ class TarzanTspLksBootProgress:
     def _systemctl_active(self, service: str) -> bool:
         rc, _, _ = self._run_cmd(["systemctl", "is-active", "--quiet", service], timeout=0.8)
         return rc == 0
+
+    def _bridge_test(self, component: str, visible: bool = False) -> Optional[Tuple[bool, str, str]]:
+        """Uruchamia test przez aktywny HardwareBridge, bez otwierania drugiej sesji PoKeys."""
+        bridge = self.hardware_bridge
+        if bridge is None or not hasattr(bridge, "test_lks_component"):
+            return None
+        try:
+            result = bridge.test_lks_component(component, visible=visible)
+            ok = bool(result.get("ok", False))
+            detail = str(result.get("detail", "") or "")
+            error = str(result.get("error", "") or "")
+            return ok, detail[:180], error
+        except Exception as exc:
+            return False, "", str(exc)
+
 
     def _add_result(
         self,
@@ -296,6 +313,16 @@ class TarzanTspLksBootProgress:
         return ok, links[0] if links else "", "CP2102/Nextion5 not found" if not ok else ""
 
     def _check_pokeys_usb(self) -> Tuple[bool, str, str]:
+        # Najpierw aktywny HardwareBridge: to jest prawda runtime, bo PLAY/REC są już otwarte.
+        play = self._bridge_test("pok_play", visible=False)
+        rec = self._bridge_test("pok_rec", visible=False)
+        if play is not None or rec is not None:
+            ok_play = bool(play and play[0])
+            ok_rec = bool(rec and rec[0])
+            detail = "; ".join(x for x in [play[1] if play else "", rec[1] if rec else ""] if x)
+            error = "; ".join(x for x in [play[2] if play else "", rec[2] if rec else ""] if x)
+            return ok_play and ok_rec, detail[:180], "" if (ok_play and ok_rec) else (error or "PoKeys PLAY/REC not ready")
+
         rc, out, err = self._run_cmd(["lsusb"], timeout=1.2)
         if rc != 0:
             return False, "", err or "lsusb failed"
@@ -313,9 +340,14 @@ class TarzanTspLksBootProgress:
 
     def _check_i2c_nodes(self) -> Tuple[bool, str, str]:
         # W TARZANIE LKS-N5 podstawowa magistrala I2C/BUS dla operatora
-        # jest testowana przez PoKeys, nie przez kernelowe /dev/i2c-*.
-        # Dlatego status i2c_bus ma być zielony, gdy realny PoKeys BUS/I2C
-        # odpowiada albo gdy BH1750 potwierdza komunikację po tej magistrali.
+        # jest testowana przez aktywny HardwareBridge, bez drugiego connect PoKeys.
+        bridge_bus = self._bridge_test("i2c_bus", visible=False)
+        if bridge_bus is not None and bridge_bus[0]:
+            return bridge_bus
+        bridge_bh = self._bridge_test("light_bh1750", visible=False)
+        if bridge_bh is not None and bridge_bh[0]:
+            return True, ("BH1750 OK; " + bridge_bh[1])[:180], ""
+
         try:
             tester = TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
             probe = tester.test_i2c_bus(visible=False)
@@ -339,10 +371,36 @@ class TarzanTspLksBootProgress:
         return ok, ", ".join(nodes[:6]), "no /dev/video*" if not ok else ""
 
     def _check_diagnostics(self) -> Tuple[bool, str, str]:
+        # Jeżeli HardwareBridge już trzyma PLAY/REC, diagnostyka startowa idzie tym samym torem.
+        # Nie wolno tutaj otwierać drugiej sesji PoKeys, bo wtedy pojawia się fałszywe
+        # "Requested device not found!" i status_main nie dostaje poprawnych testów fizycznych.
+        if self.hardware_bridge is not None and hasattr(self.hardware_bridge, "test_lks_component"):
+            tests = [
+                ("pok_play", False),
+                ("pok_rec", False),
+                ("i2c_bus", False),
+                ("light_bh1750", False),
+                ("lcd_1602", True),
+                ("matrix_led", True),
+                ("f_led", True),
+                ("f_button", False),
+                ("keypad", False),
+            ]
+            ok_count = 0
+            fail_count = 0
+            details: List[str] = []
+            for component, visible in tests:
+                result = self._bridge_test(component, visible=visible)
+                ok = bool(result and result[0])
+                self.statuses[component] = ok
+                ok_count += 1 if ok else 0
+                fail_count += 0 if ok else 1
+                if result and result[1]:
+                    details.append(f"{component}:{result[1]}")
+            # i2c_bus jest agregatem USB/UART/I2C/BUS — ma zostać zielony, jeśli realny BUS odpowiada.
+            return True, f"bridge diagnostics ok={ok_count} off/fail={fail_count}", "; ".join(details)[:180]
+
         diagnostics = TarzanTspLksDiagnostics(repo_root=str(self.repo_root))
-        # Boot startowy ma pokazać operatorowi realną relację z podzespołami
-        # wyjściowymi: LCD 1602, Matrix LED i F1-F4 LED dostają krótkie wzorce.
-        # Diagnostyka osi pozostaje wyłącznie odczytowa: zero STEP/DIR/ENABLE.
         results = diagnostics.run_all(operator_visible=True)
         self.statuses.update(diagnostics.status_map())
         ok_count = sum(1 for item in results if item.ok)

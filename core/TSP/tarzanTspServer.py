@@ -320,7 +320,7 @@ class TarzanTspServer:
             try:
                 from .tarzanTspLksBootCheck import TarzanTspLksBootCheck
 
-                boot = TarzanTspLksBootCheck(self.lks_n5, pause_s=0.12)
+                boot = TarzanTspLksBootCheck(self.lks_n5, pause_s=0.12, hardware_bridge=getattr(self, "hw_bridge", None))
                 boot.run()
                 self._lks_n5_status_page_ready = True
                 self._lks_n5_status_cache = dict(getattr(boot, "statuses", {}) or {})

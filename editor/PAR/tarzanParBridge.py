@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, Optional
 
 from core.tarzanSignalBus import TarzanSignalBus, get_signal_bus
 from core.TSP.tarzanTspClient import TarzanTspClient
-from core.TSP.tarzanTspConfig import TSP_MINI_PC_HOST, TSP_PORT
+from core.TSP.tarzanTspConfig import TSP_MINI_PC_HOST
 try:
     from editor.PAR.tarzanParProtocolMapper import TarzanParProtocolMapper
 except ModuleNotFoundError:
@@ -40,7 +40,6 @@ class TarzanParBridge:
         # TSP CLIENT: dla trybu LIVE
         self.tsp_client: Optional[TarzanTspClient] = None
         self._tsp_thread: Optional[threading.Thread] = None
-        self._tsp_active = False
 
     def set_mode(self, mode: str) -> None:
         self.bus.set_mode(mode)
@@ -50,7 +49,6 @@ class TarzanParBridge:
             self._stop_tsp()
 
     def _start_tsp(self) -> None:
-        self._tsp_active = True
         if self._tsp_thread and self._tsp_thread.is_alive():
             return
         self.bus.log("TSP", "Starting TSP connector thread (LIVE)...")
@@ -59,46 +57,24 @@ class TarzanParBridge:
 
     def _tsp_connector_loop(self) -> None:
         """Pętla dbająca o połączenie i podtrzymanie sesji TSP."""
-        while self._tsp_active:
-            # Upewniamy się, że mode jest LIVE (pętla może działać chwilę po zmianie na TEST)
-            if self.bus.mode != "LIVE":
-                if self.tsp_client and self.tsp_client.is_connected():
-                    self.tsp_client.close()
-                time.sleep(1.0)
-                continue
-
-            # Sprawdzanie połączenia - używamy callable dla bezpieczeństwa (ujednolicenie API)
-            connected = False
-            if self.tsp_client:
-                try:
-                    if callable(self.tsp_client.is_connected):
-                        connected = self.tsp_client.is_connected()
-                    else:
-                        # Fallback jeśli ktoś nadpisał polem bool
-                        connected = bool(self.tsp_client.is_connected)
-                except Exception:
-                    connected = False
-
-            if not connected:
-                if self.tsp_client:
+        while self.bus.mode == "LIVE":
+            if self.tsp_client is None or not self.tsp_client.is_connected():
+                if self.tsp_client and not self.tsp_client.is_connected():
                     self.bus.log("TSP_ERROR", "CONNECTION LOST: MiniPC offline.")
                     self.bus.set_input("par_state", "OFFLINE", source="TSP_LIVE")
                     self.tsp_client.close()
                     self.tsp_client = None
 
                 try:
-                    print(f"TSP: Attempting connection to {self.tsp_host}:{TSP_PORT}...")
                     self.tsp_client = TarzanTspClient(host=self.tsp_host, name="tarzanPAR")
                     self.tsp_client.on_message = self._handle_tsp_message
                     self.tsp_client.connect()
                     
                     # Handshake
-                    print(f"TSP: Connected to {self.tsp_host}. Sending HELLO...")
                     self.bus.log("TSP", f"Connected to {self.tsp_host}. Sending HELLO...")
                     self.bus.set_input("par_state", "CONNECTED", source="TSP_LIVE")
                     self.tsp_client.hello()
                 except Exception as e:
-                    print(f"TSP: Connection failed to {self.tsp_host}: {e}")
                     if self.tsp_client:
                         self.bus.log("TSP", f"Connection failed: {e}")
                     self.bus.set_input("par_state", "OFFLINE", source="TSP_LIVE")
@@ -106,33 +82,12 @@ class TarzanParBridge:
             
             time.sleep(5.0) # Re-check co 5s
 
-    def disconnect_tsp(self) -> None:
-        """Ręczne rozłączenie od TSP bez zamykania mostka."""
-        self._stop_tsp()
-        self.bus.log("TSP", "Manual DISCONNECT requested by user.")
-        self.bus.set_input("par_state", "OFFLINE", source="PAR_UI")
-
     def _stop_tsp(self) -> None:
-        self._tsp_active = False
         if self.tsp_client:
             self.bus.log("TSP", "Disconnecting from MiniPC...")
             self.tsp_client.close()
             self.tsp_client = None
-        # Nie czekamy na join(), bo to daemon thread, a chcemy uniknąć blokady UI
-        self._tsp_thread = None
-
-    def shutdown(self) -> None:
-        """Całkowite zatrzymanie mostka (przy zamykaniu aplikacji)."""
-        self._tsp_active = False
-        self._stop_tsp()
-        if hasattr(self, 'nextion'):
-            try:
-                # Jeśli nextion ma metodę close/shutdown
-                if hasattr(self.nextion, 'close'):
-                    self.nextion.close()
-            except Exception:
-                pass
-        self.bus.log("SYSTEM", "PAR Bridge SHUTDOWN.")
+            self._tsp_thread = None
 
     def _handle_tsp_message(self, message: Dict[str, Any]) -> None:
         event = message.get("event")
@@ -160,10 +115,6 @@ class TarzanParBridge:
                 self.tsp_client.ping()
                 self.tsp_client.get_state()
                 self.tsp_client.subscribe(lanes=["fast", "normal", "slow", "health", "urgent"])
-
-                # Po połączeniu wymuszamy par_mode zgodny z aktualnym stanem lokalnym
-                m_val = 0 if self.bus.mode == "TEST" else (1 if self.bus.mode == "LIVE" else 2)
-                self.tsp_client.set_signal("par_mode", m_val)
         
         elif cmd == "subscribe" and ok:
             self.bus.log("TSP", "SUBSCRIBE OK: receiving live updates.")
@@ -220,20 +171,20 @@ class TarzanParBridge:
         return self.bus.read_input(name, default)
 
     def set_input(self, name: str, value: Any, source: str = "PAR") -> bool:
-        if self.tsp_client and self.tsp_client.is_connected() and self.bus.mode == "LIVE":
+        if self.tsp_client and self.bus.mode == "LIVE":
             # W trybie LIVE wysyłamy do TSP zamiast pisać lokalnie (Etap 7-8)
             self.tsp_client.set_signal(name, value)
             return True
         return self.bus.set_input(name, value, source=source)
 
     def write_output(self, name: str, value: Any, source: str = "PAR") -> bool:
-        if self.tsp_client and self.tsp_client.is_connected() and self.bus.mode == "LIVE":
+        if self.tsp_client and self.bus.mode == "LIVE":
             self.tsp_client.set_signal(name, value)
             return True
         return self.bus.write_output(name, value, source=source)
 
     def force_signal(self, name: str, value: Any, source: str = "PAR_FORCE") -> bool:
-        if self.tsp_client and self.tsp_client.is_connected() and self.bus.mode == "LIVE":
+        if self.tsp_client and self.bus.mode == "LIVE":
             # ETAP 7: Delegacja wymuszenia do TSP
             self.tsp_client.set_signal(name, value)
             return True
@@ -241,7 +192,7 @@ class TarzanParBridge:
 
     def set_signal(self, name: str, value: Any, source: str = "PAR") -> bool:
         """Alias dla ujednoliconego zapisu sygnału w obu trybach (Etap 7-8)."""
-        if self.tsp_client and self.tsp_client.is_connected() and self.bus.mode == "LIVE":
+        if self.tsp_client and self.bus.mode == "LIVE":
             self.tsp_client.set_signal(name, value)
             return True
         
@@ -255,7 +206,7 @@ class TarzanParBridge:
 
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> bool:
         """Wysyła komendę administracyjną do TSP (Etap 8)."""
-        if self.tsp_client and self.tsp_client.is_connected() and self.bus.mode == "LIVE":
+        if self.tsp_client and self.bus.mode == "LIVE":
             if name == "trace_signal" and payload:
                 sig = payload.get("name")
                 sec = payload.get("seconds", 30)
@@ -272,7 +223,7 @@ class TarzanParBridge:
 
     def load_take(self, path: str | Path) -> TarzanTakeData:
         data = self.take_player.load(path)
-        if self.tsp_client and self.tsp_client.is_connected() and self.bus.mode == "LIVE":
+        if self.tsp_client and self.bus.mode == "LIVE":
             # ETAP 14: Przesyłanie danych TAKE do MiniPC
             payload = {
                 "name": Path(path).name,
@@ -285,19 +236,19 @@ class TarzanParBridge:
         return data
 
     def play_take(self) -> None:
-        if self.tsp_client and self.tsp_client.is_connected() and self.bus.mode == "LIVE":
+        if self.tsp_client and self.bus.mode == "LIVE":
             self.call_action("play_take")
         else:
             self.take_player.play()
 
     def pause_take(self) -> None:
-        if self.tsp_client and self.tsp_client.is_connected() and self.bus.mode == "LIVE":
+        if self.tsp_client and self.bus.mode == "LIVE":
             self.call_action("pause_take")
         else:
             self.take_player.pause()
 
     def stop_take(self) -> None:
-        if self.tsp_client and self.tsp_client.is_connected() and self.bus.mode == "LIVE":
+        if self.tsp_client and self.bus.mode == "LIVE":
             self.call_action("stop_take")
         else:
             self.take_player.stop()

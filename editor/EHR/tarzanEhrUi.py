@@ -2737,17 +2737,103 @@ class TarzanEhrMultiAxisWindow(tk.Tk):
         # Raportujemy stan początkowy do lokalnego SignalBus
         self.bus.set_input("ehr_state", "READY", source="EHR_INIT")
         
+        # Subskrypcja komend systemowych (Etap 9)
+        self.bus.subscribe("cmd_ehr_start", self._handle_system_cmd)
+        self.bus.subscribe("cmd_ehr_stop", self._handle_system_cmd)
+
         # Jeśli jesteśmy w trybie LIVE, uruchamiamy klienta TSP
         if self.bus.mode == "LIVE":
             self._start_tsp_client()
 
+    def _handle_system_cmd(self, name: str, value: Any) -> None:
+        """Obsługa komend przychodzących z SignalBus (np. od PAR przez TSP)."""
+        if value != 1: return # Reagujemy tylko na zbocze narastające
+        
+        if name == "cmd_ehr_start":
+            self.bus.log("EHR", "System command: START received. Syncing TAKE...")
+            self._update_runtime_state("ACTIVE")
+            if self._sync_take_to_tsp():
+                # Po udanej synchronizacji zmieniamy tryb na PLAY
+                self.bus.set_input("transport_state", "PLAY", source="EHR_CMD")
+            else:
+                self._update_runtime_state("ERROR")
+            
+            # Resetujemy flagę komendy
+            self.bus.set_input(name, 0, source="EHR_EXEC")
+        elif name == "cmd_ehr_stop":
+            self.bus.log("EHR", "System command: STOP received.")
+            self.bus.set_input("transport_state", "STOP", source="EHR_CMD")
+            self._update_runtime_state("READY")
+            self.bus.set_input(name, 0, source="EHR_EXEC")
+
+    def _handle_tsp_message(self, message: dict[str, Any]) -> None:
+        """Odbiera pakiety z miniPC i aplikuje je do lokalnego SignalBus."""
+        event = message.get("event")
+        if event == "snajper_packet":
+            values = message.get("values", {})
+            # Aplikujemy stan z miniPC do lokalnego SignalBus, aby UI widziało to samo
+            self.bus.apply_snapshot(values, source="TSP_SYNC")
+        elif event == "hello":
+            self.bus.log("EHR", "TSP Handshake OK.")
+        elif event == "error":
+            self.bus.log("EHR", f"TSP Server Error: {message.get('error')}")
+
+    def _sync_take_to_tsp(self) -> bool:
+        """Wysyła bieżący TAKE do miniPC (Etap 14)."""
+        if not self.tsp_client: 
+            # W trybie TEST (bez TSP) symulujemy sukces
+            return self.bus.mode != "LIVE"
+        
+        try:
+            self.bus.log("EHR", "Building STEP stream...")
+            take_data = {
+                "duration_ms": self.global_take_duration_ms,
+                "rows": self._build_step_stream()
+            }
+            self.bus.log("EHR", f"Sending TAKE ({len(take_data['rows'])} rows) to miniPC...")
+            self.tsp_client.send({"cmd": "load_take", "take": take_data})
+            self.bus.log("EHR", "TAKE synchronized successfully.")
+            return True
+        except Exception as e:
+            self.bus.log("EHR", f"TAKE sync failed: {e}")
+            return False
+
+    def _build_step_stream(self) -> list[dict[str, Any]]:
+        """Buduje zagregowany strumień STEP ze wszystkich aktywnych osi."""
+        duration = self.global_take_duration_ms
+        sample_ms = 10 
+        steps = duration // sample_ms
+        
+        # Inicjalizujemy strumień
+        stream = []
+        for i in range(steps + 1):
+            stream.append({"time_ms": i * sample_ms})
+        
+        # Nakładamy dane z każdej osi
+        for axis_idx, model in enumerate(self.axis_models):
+            if not self._is_axis_active(axis_idx): continue
+            
+            rows = model.protocol_rows(duration_ms=duration)
+            for i, row in enumerate(rows):
+                if i < len(stream):
+                    prefix = f"axis_{model.axis_def.axis_id}"
+                    stream[i][f"{prefix}_dir"] = row["dir"]
+                    stream[i][f"{prefix}_step"] = row["step"]
+                    if row.get("event") == "RELEASE":
+                        stream[i]["event"] = "RELEASE"
+        
+        return stream
+
     def _start_tsp_client(self) -> None:
         """Uruchamia klienta TSP dla raportowania stanu do miniPC."""
         try:
+            from core.TSP.tarzanTspConfig import TSP_MINI_PC_HOST
             self.tsp_client = TarzanTspClient(host=TSP_MINI_PC_HOST, name="tarzanEHR")
+            self.tsp_client.on_message = self._handle_tsp_message
             self.tsp_client.connect()
             self.tsp_client.hello()
-            self.bus.log("EHR", "TSP Client connected to miniPC.")
+            self.tsp_client.subscribe() # Subskrybujemy zmiany sygnałów z miniPC
+            self.bus.log("EHR", "TSP Client connected to miniPC. Subscribed to signals.")
             self.bus.set_input("ehr_state", "CONNECTED", source="EHR_TSP")
         except Exception as e:
             self.bus.log("EHR", f"TSP Connection failed: {e}")

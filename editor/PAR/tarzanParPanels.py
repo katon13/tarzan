@@ -1199,33 +1199,7 @@ class TarzanParPanels:
 
             # P1/P2 to kanały operatora. Potencjometr nie jest osią; oś jest wybierana osobno z Nextiona.
             knob_signal = _rrp_pot_signal(player)
-            speed_signal = f"par_rrp_{player}_speed_mul"
-
-            # RRP SPEED musi być sygnałem ANALOG.
-            # Inaczej SignalBus tworzy go jako wirtualny LH i normalizuje X2/X4/... do 1,
-            # przez co przyciski wracają na X1, a generator nie dostaje mnożnika.
-            try:
-                if not self.bus.exists(speed_signal) or getattr(self.bus.get_meta(speed_signal), "typ", None) != "ANALOG":
-                    self.bus.meta[speed_signal] = TarzanSignalMeta(
-                        nazwa=speed_signal,
-                        plytka="VIRTUAL",
-                        typ="ANALOG",
-                        kierunek="IN",
-                        default="1",
-                        opis=f"Mnożnik szybkości generatora RRP {player.upper()}",
-                        grupa="RRP",
-                        status="AKTYWNY",
-                        kanoniczna_nazwa=f"rrp_{player}_speed_mul",
-                    )
-                    if speed_signal not in self.bus.state:
-                        self.bus.state[speed_signal] = TarzanSignalState(
-                            name=speed_signal,
-                            value=1,
-                            mode=self.bus.mode,
-                            source="PAR_RRP_SPEED_INIT",
-                        )
-            except Exception:
-                pass
+            speed_signal = f"rrp_{player}_speed_mul"
 
             state = {
                 "value": float(self.bus.get(knob_signal, self.bus.get(signal, 0))),
@@ -2761,24 +2735,53 @@ class TarzanParPanels:
             if self.bus.mode != "LIVE":
                 self.bus.log("PAR", "Diagnostics action only available in LIVE mode.")
                 return
-            self.app.bridge.tsp_client.call_action("run_diagnostics")
+            self.app.bridge.call_action("run_diagnostics")
             self.bus.log("PAR", "Requested LKS Diagnostics on miniPC.")
             
         def take_control():
             if self.bus.mode != "LIVE":
                 self.bus.log("PAR", "Take control only available in LIVE mode.")
                 return
-            self.app.bridge.tsp_client.call_action("set_owner", {"owner": "PAR_LIVE"})
+            self.app.bridge.call_action("set_owner", {"owner": "PAR_LIVE"})
             self.bus.log("PAR", "Requested PAR_LIVE control owner.")
 
         def reboot():
             if self.bus.mode != "LIVE": return
-            self.app.bridge.tsp_client.call_action("reboot")
+            self.app.bridge.call_action("reboot")
             self.bus.log("PAR", "Requested miniPC REBOOT.")
 
         tk.Button(act_frame, text="RUN DIAGNOSTICS", command=run_diag, **btn_opts).pack(side="left", padx=2)
         tk.Button(act_frame, text="TAKE CONTROL", command=take_control, **btn_opts).pack(side="left", padx=2)
         tk.Button(act_frame, text="REBOOT miniPC", command=reboot, **btn_opts).pack(side="left", padx=2)
+
+        # EHR / KHR REMOTE CONTROL (ETAP 8-9)
+        ehr_khr_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
+        ehr_khr_frame.pack(fill="x")
+        tk.Label(ehr_khr_frame, text="REMOTE BLOCKS (EHR/KHR):", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 5))
+
+        def ehr_cmd(action):
+            if self.bus.mode != "LIVE": return
+            sig = f"cmd_ehr_{action}"
+            self.app.bridge.write_output(sig, 1)
+            self.bus.log("PAR", f"Sent EHR {action.upper()} command.")
+
+        def khr_cmd(action):
+            if self.bus.mode != "LIVE": return
+            sig = f"cmd_khr_{action}"
+            self.app.bridge.write_output(sig, 1)
+            self.bus.log("PAR", f"Sent KHR {action.upper()} command.")
+
+        row_ehr = tk.Frame(ehr_khr_frame, bg=COLORS["panel"])
+        row_ehr.pack(fill="x", pady=2)
+        tk.Label(row_ehr, text="EHR:", bg=COLORS["panel"], fg=COLORS["muted"], width=6, anchor="w").pack(side="left")
+        tk.Button(row_ehr, text="START", command=lambda: ehr_cmd("start"), **btn_opts).pack(side="left", padx=2)
+        tk.Button(row_ehr, text="STOP", command=lambda: ehr_cmd("stop"), **btn_opts).pack(side="left", padx=2)
+
+        row_khr = tk.Frame(ehr_khr_frame, bg=COLORS["panel"])
+        row_khr.pack(fill="x", pady=2)
+        tk.Label(row_khr, text="KHR:", bg=COLORS["panel"], fg=COLORS["muted"], width=6, anchor="w").pack(side="left")
+        tk.Button(row_khr, text="START", command=lambda: khr_cmd("start"), **btn_opts).pack(side="left", padx=2)
+        tk.Button(row_khr, text="STOP", command=lambda: khr_cmd("stop"), **btn_opts).pack(side="left", padx=2)
 
         tk.Label(b, text="CPU: 12%", bg=COLORS["panel"], fg=COLORS["green"]).pack(anchor="w", pady=(10, 0))
         tk.Label(b, text="IP: 192.168.1.10", bg=COLORS["panel"], fg=COLORS["muted"]).pack(anchor="w")

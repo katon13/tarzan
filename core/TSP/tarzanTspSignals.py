@@ -439,6 +439,103 @@ class TarzanTspSignalProvider:
                 except Exception as e:
                     return {"ok": False, "error": str(e), "action": name}
 
+            if name == "set_mode":
+                mode = payload.get("mode", "TEST")
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    bus = get_signal_bus()
+                    bus.set_mode(mode)
+                    return {"ok": True, "action": name, "mode": mode}
+                except Exception as e:
+                    return {"ok": False, "error": str(e), "action": name}
+
+            if name == "set_transport":
+                state = str(payload.get("state", "STOP")).upper()
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    bus = get_signal_bus()
+                    bus.force_signal("transport_state", state, source="TSP_ACTION")
+                    return {"ok": True, "action": name, "state": state}
+                except Exception as e:
+                    return {"ok": False, "error": str(e), "action": name}
+
+            if name == "rrp_set":
+                player = payload.get("player", "p1")
+                axis_idx = payload.get("axis_index", 0)
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    bus = get_signal_bus()
+                    signal_name = f"rrp_{player}_axis_index"
+                    if bus.exists(signal_name):
+                        bus.set_input(signal_name, axis_idx, source="TSP_ACTION")
+                        return {"ok": True, "action": name, "player": player, "axis_index": axis_idx}
+                    return {"ok": False, "error": "unknown_player", "player": player}
+                except Exception as e:
+                    return {"ok": False, "error": str(e), "action": name}
+
+            if name == "sok_set":
+                axis = payload.get("axis")
+                state = payload.get("state", 0)
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    bus = get_signal_bus()
+                    # SOK to zazwyczaj włącznik/blokada dla osi
+                    signal_name = f"sok_{axis}_active"
+                    if bus.exists(signal_name):
+                        bus.set_input(signal_name, state, source="TSP_ACTION")
+                        return {"ok": True, "action": name, "axis": axis, "state": state}
+                    return {"ok": False, "error": "unknown_axis", "axis": axis}
+                except Exception as e:
+                    return {"ok": False, "error": str(e), "action": name}
+
+            if name == "module_status":
+                module = payload.get("module")
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    bus = get_signal_bus()
+                    if not module:
+                        # Zwróć wszystkie statusy modułów
+                        modules = ["ehr", "khr", "lks", "par", "nextion5", "nextion7"]
+                        data = {m: bus.read(f"{m}_state", "UNKNOWN") for m in modules}
+                        return {"ok": True, "action": name, "modules": data}
+                    
+                    val = bus.read(f"{module}_state", "UNKNOWN")
+                    return {"ok": True, "action": name, "module": module, "state": val}
+                except Exception as e:
+                    return {"ok": False, "error": str(e), "action": name}
+
+            if name == "axis_inventory":
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    bus = get_signal_bus()
+                    bus.set_input("cmd_run_diagnostics", 1, source="TSP_ACTION")
+                    # Zwracamy listę osi z SignalBus (klasyfikacja)
+                    axes = [n for n in bus.names() if n.startswith("axis_") and n.endswith("_step")]
+                    return {"ok": True, "action": name, "status": "requested", "axes": axes}
+                except Exception as e:
+                    return {"ok": False, "error": str(e), "action": name}
+
+            if name == "axis_status":
+                axis = payload.get("axis")
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    bus = get_signal_bus()
+                    if not axis:
+                        # Zwróć wszystkie osie
+                        axis_data = {n: bus.read(n) for n in bus.names() if n.startswith("axis_")}
+                        return {"ok": True, "action": name, "axes": axis_data}
+                    
+                    # Konkretna oś
+                    data = {
+                        "ready": bus.read(f"axis_{axis}_ready", 0),
+                        "alarm": bus.read(f"axis_{axis}_alarm", 0),
+                        "pos": bus.read(f"axis_{axis}_pos", 0),
+                        "pulses": bus.read(f"axis_{axis}_pulses", 0)
+                    }
+                    return {"ok": True, "action": name, "axis": axis, "status": data}
+                except Exception as e:
+                    return {"ok": False, "error": str(e), "action": name}
+
             return {"ok": False, "error": "unknown_action", "action": name}
 
     def state_summary(self) -> Dict[str, Any]:

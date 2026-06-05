@@ -9,6 +9,7 @@ import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk, filedialog
+from typing import Any, Dict, Optional
 
 from core.tarzanSignalBus import get_signal_bus
 from core.TSP.tarzanTspClient import TarzanTspClient
@@ -760,17 +761,54 @@ class TarzanKHRWindow(tk.Tk):
         # Raportujemy stan początkowy do lokalnego SignalBus
         self.bus.set_input("khr_state", "READY", source="KHR_INIT")
         
+        # Subskrypcja komend systemowych (Etap 9)
+        self.bus.subscribe("cmd_khr_start", self._handle_system_cmd)
+        self.bus.subscribe("cmd_khr_stop", self._handle_system_cmd)
+
         # Jeśli jesteśmy w trybie LIVE, uruchamiamy klienta TSP
         if self.bus.mode == "LIVE":
             self._start_tsp_client()
 
+    def _handle_system_cmd(self, name: str, value: Any) -> None:
+        """Obsługa komend przychodzących z SignalBus (np. od PAR przez TSP)."""
+        if value != 1: return
+        
+        if name == "cmd_khr_start":
+            self.bus.log("KHR", "System command: START received.")
+            self._update_runtime_state("ACTIVE")
+            try:
+                self.start()
+            except Exception as e:
+                self.bus.log("KHR", f"Start failed: {e}")
+                self._update_runtime_state("ERROR")
+            self.bus.set_input(name, 0, source="KHR_EXEC")
+        elif name == "cmd_khr_stop":
+            self.bus.log("KHR", "System command: STOP received.")
+            self.stop()
+            self._update_runtime_state("READY")
+            self.bus.set_input(name, 0, source="KHR_EXEC")
+
+    def _handle_tsp_message(self, message: dict[str, Any]) -> None:
+        """Odbiera pakiety z miniPC i aplikuje je do lokalnego SignalBus."""
+        event = message.get("event")
+        if event == "snajper_packet":
+            values = message.get("values", {})
+            self.bus.apply_snapshot(values, source="TSP_SYNC")
+        elif event == "hello":
+            self.bus.log("KHR", "TSP Handshake OK.")
+        elif event == "error":
+            self.bus.log("KHR", f"TSP Server Error: {message.get('error')}")
+
     def _start_tsp_client(self) -> None:
         """Uruchamia klienta TSP dla raportowania stanu do miniPC."""
         try:
+            from core.TSP.tarzanTspConfig import TSP_MINI_PC_HOST
             self.tsp_client = TarzanTspClient(host=TSP_MINI_PC_HOST, name="tarzanKHR")
+            self.tsp_client.on_message = self._handle_tsp_message
             self.tsp_client.connect()
             self.tsp_client.hello()
-            self.bus.log("KHR", "TSP Client connected to miniPC.")
+            self.tsp_client.subscribe()
+            self.bus.log("KHR", "TSP Client connected to miniPC. Subscribed to signals.")
             self.bus.set_input("khr_state", "CONNECTED", source="KHR_TSP")
         except Exception as e:
             self.bus.log("KHR", f"TSP Connection failed: {e}")

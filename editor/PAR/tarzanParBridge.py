@@ -64,7 +64,7 @@ class TarzanParBridge:
                     self.tsp_client.connect()
                     
                     # Handshake
-                    self.bus.log("TSP", "Connected. Sending HELLO...")
+                    self.bus.log("TSP", f"Connected to {TSP_MINI_PC_HOST}. Sending HELLO...")
                     self.tsp_client.hello()
                 except Exception as e:
                     self.bus.log("TSP", f"Connection failed: {e}")
@@ -87,27 +87,38 @@ class TarzanParBridge:
         if event == "snajper_packet":
             values = message.get("values", {})
             # ETAP 6-7: Apply snapshot do lokalnego SignalBus PAR
-            # Unikamy pętli zwrotnej przez apply_snapshot
+            # Unikamy pętli zwrotnej przez apply_snapshot (filtrowanie w Bus)
             self.bus.apply_snapshot(values, source="TSP_LIVE")
         
         elif cmd == "get_state" and ok:
             # ETAP 4: Synchronizacja stanu początkowego
             state = message.get("state", {})
             if state:
+                self.bus.log("TSP", f"GET_STATE OK: signals={len(state.get('signals', state))}")
                 self.bus.apply_snapshot(state, source="TSP_INITIAL")
 
         elif (event == "hello") or (cmd == "hello" and ok):
-            node = message.get("node") or message.get("node_name", "unknown")
+            node = message.get("node") or message.get("node_name") or message.get("node_id", "unknown")
             self.bus.log("TSP", f"Handshake OK: {node}")
             # Pełna sekwencja po połączeniu
             if self.tsp_client:
                 self.tsp_client.ping()
                 self.tsp_client.get_state()
-                self.tsp_client.subscribe(lanes=["fast", "normal", "slow", "health"])
+                self.tsp_client.subscribe(lanes=["fast", "normal", "slow", "health", "urgent"])
         
-        elif event == "error" or (not ok and message.get("error")):
-            err_msg = message.get("message") or message.get("error")
-            self.bus.log("TSP", f"Error: {err_msg}")
+        elif cmd == "subscribe" and ok:
+            self.bus.log("TSP", "SUBSCRIBE OK: receiving live updates.")
+
+        elif event == "error" or (not ok and (message.get("error") or message.get("message"))):
+            err_code = message.get("error", "unknown_error")
+            err_msg = message.get("message") or message.get("reason") or err_code
+            self.bus.log("TSP_ERROR", f"TSP Error ({err_code}): {err_msg}")
+            # Specjalna obsługa odmowy zapisu dla UI (Etap 7-8)
+            if err_code == "write_denied":
+                self.bus.log("TSP_ERROR", f"Access Denied: {message.get('reason', 'control_owner_conflict')}")
+
+        elif event == "disconnect":
+            self.bus.log("TSP", "Server disconnected.")
 
     def nextion_connect(self):
         return self.nextion.connect_enabled()
@@ -144,6 +155,14 @@ class TarzanParBridge:
 
     def force_signal(self, name: str, value: Any, source: str = "PAR_FORCE") -> bool:
         return self.bus.force_signal(name, value, source=source)
+
+    def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> bool:
+        """Wysyła komendę administracyjną do TSP (Etap 8)."""
+        if self.tsp_client and self.bus.mode == "LIVE":
+            self.tsp_client.call_action(name, payload)
+            return True
+        self.bus.log("PAR", f"Action {name} ignored (not in LIVE mode)")
+        return False
 
     def snapshot(self, include_meta: bool = False) -> Dict[str, Any]:
         return self.bus.snapshot(include_meta=include_meta)

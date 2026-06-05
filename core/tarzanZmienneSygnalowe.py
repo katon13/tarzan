@@ -638,6 +638,167 @@ active_mode = _sygnal(
     klasa_wykonawcza="tarzanTspServer.py",
 )
 
+cmd_ehr_start = _sygnal(
+    nazwa="cmd_ehr_start",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Komenda startu EHR.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Action: EHR Start",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanEhr.py",
+)
+
+cmd_ehr_stop = _sygnal(
+    nazwa="cmd_ehr_stop",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Komenda stopu EHR.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Action: EHR Stop",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanEhr.py",
+)
+
+cmd_khr_start = _sygnal(
+    nazwa="cmd_khr_start",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Komenda startu KHR.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Action: KHR Start",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanKhr.py",
+)
+
+cmd_khr_stop = _sygnal(
+    nazwa="cmd_khr_stop",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Komenda stopu KHR.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Action: KHR Stop",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanKhr.py",
+)
+
+# SYGNAŁY KOREKTY KHR (ETAP 15)
+khr_cam_h_offset = _sygnal(
+    nazwa="khr_cam_h_offset",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Korekta offsetu osi poziomej kamery.",
+    zrodlo="KHR",
+    hardware_function=HW_SYSTEM,
+    hardware_label="KHR Offset CAM_H",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanKhr.py",
+)
+
+khr_cam_v_offset = _sygnal(
+    nazwa="khr_cam_v_offset",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Korekta offsetu osi pionowej kamery.",
+    zrodlo="KHR",
+    hardware_function=HW_SYSTEM,
+    hardware_label="KHR Offset CAM_V",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanKhr.py",
+)
+
+khr_arm_h_offset = _sygnal(
+    nazwa="khr_arm_h_offset",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Korekta offsetu osi poziomej ramienia.",
+    zrodlo="KHR",
+    hardware_function=HW_SYSTEM,
+    hardware_label="KHR Offset ARM_H",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanKhr.py",
+)
+
+khr_arm_v_offset = _sygnal(
+    nazwa="khr_arm_v_offset",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Korekta offsetu osi pionowej ramienia.",
+    zrodlo="KHR",
+    hardware_function=HW_SYSTEM,
+    hardware_label="KHR Offset ARM_V",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanKhr.py",
+)
+
 transport_state = _sygnal(
     nazwa="transport_state",
     plytka="SYSTEM",
@@ -658,6 +819,118 @@ transport_state = _sygnal(
     klasa_wykonawcza="tarzanTspServer.py",
 )
 
+rrp_p1_axis_index = _sygnal(
+    nazwa="rrp_p1_axis_index",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Indeks wybranej osi dla rRP gracza 1.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="RRP P1 Axis",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanMode.py",
+    kanoniczna_nazwa="rrp_p1_axis",
+)
+
+rrp_p2_axis_index = _sygnal(
+    nazwa="rrp_p2_axis_index",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Indeks wybranej osi dla rRP gracza 2.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="RRP P2 Axis",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanMode.py",
+    kanoniczna_nazwa="rrp_p2_axis",
+)
+
+rrp_p1_speed_mul = _sygnal(
+    nazwa="rrp_p1_speed_mul",
+    plytka="SYSTEM",
+    typ="ANALOG",
+    kierunek="IN",
+    default="1",
+    opis="Mnożnik szybkości generatora RRP P1 (X1..X4).",
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanParPanels.py",
+)
+
+rrp_p2_speed_mul = _sygnal(
+    nazwa="rrp_p2_speed_mul",
+    plytka="SYSTEM",
+    typ="ANALOG",
+    kierunek="IN",
+    default="1",
+    opis="Mnożnik szybkości generatora RRP P2 (X1..X4).",
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanParPanels.py",
+)
+
+# --- STATUSY OSI (ETAP 13) ---
+
+axis_inventory_ok = _sygnal(
+    nazwa="axis_inventory_ok",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Status pomyślnego zakończenia inwentaryzacji osi.",
+    grupa="STATUS",
+    klasa_wykonawcza="tarzanTspLksDiagnostics.py",
+)
+
+def _gen_axis_status_signals(axes_list: List[str]) -> List[TarzanSygnal]:
+    out = []
+    for ax in axes_list:
+        out.append(_sygnal(
+            nazwa=f"axis_{ax}_ready",
+            plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+            opis=f"Gotowość sprzętowa osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+        ))
+        out.append(_sygnal(
+            nazwa=f"axis_{ax}_alarm",
+            plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+            opis=f"Alarm / błąd sterownika osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+        ))
+        out.append(_sygnal(
+            nazwa=f"axis_{ax}_enabled",
+            plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+            opis=f"Status sygnału ENABLE dla osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+        ))
+        out.append(_sygnal(
+            nazwa=f"axis_{ax}_owner",
+            plytka="SYSTEM", pin=None, kanal=None, typ="TEXT", kierunek="IN", default="NONE",
+            opis=f"Aktualny właściciel logiczny osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanMode.py"
+        ))
+        out.append(_sygnal(
+            nazwa=f"axis_{ax}_last_error",
+            plytka="SYSTEM", pin=None, kanal=None, typ="TEXT", kierunek="IN", default="",
+            opis=f"Ostatni błąd zgłoszony przez oś {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+        ))
+    return out
+
+LISTA_NAZW_OSI = ["cam_h", "cam_v", "cam_t", "cam_f", "arm_h", "arm_v", "tilt", "cart"]
+SYGNALY_STATUSU_OSI = _gen_axis_status_signals(LISTA_NAZW_OSI)
+
 SYGNALY_SYSTEMOWE: Dict[str, TarzanSygnal] = {
     sygnal.nazwa: sygnal
     for sygnal in [
@@ -675,10 +948,23 @@ SYGNALY_SYSTEMOWE: Dict[str, TarzanSygnal] = {
         tarzan_ready,
         cmd_run_diagnostics,
         cmd_system_reboot,
+        cmd_ehr_start,
+        cmd_ehr_stop,
+        cmd_khr_start,
+        cmd_khr_stop,
+        khr_cam_h_offset,
+        khr_cam_v_offset,
+        khr_arm_h_offset,
+        khr_arm_v_offset,
         tsp_fast_stats,
         active_mode,
         transport_state,
-    ]
+        rrp_p1_axis_index,
+        rrp_p2_axis_index,
+        rrp_p1_speed_mul,
+        rrp_p2_speed_mul,
+        axis_inventory_ok,
+    ] + SYGNALY_STATUSU_OSI
 }
 
 

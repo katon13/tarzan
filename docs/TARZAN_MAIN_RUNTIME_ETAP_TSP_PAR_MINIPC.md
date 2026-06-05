@@ -1,30 +1,39 @@
-# TARZAN MAIN RUNTIME — Zespolenie Systemowe (Etapy 0-16)
+# TARZAN MAIN RUNTIME — Etapy 6, 7, 8, 13 (Zespolenie Logiczne)
 
-**Status:** Logika zaimplementowana / Gotowy do testów integracyjnych na MiniPC
-**Wersja:** 1.2  
+**Status:** Fundament wdrożony. Etapy 6, 7, 8 i 13 (logiczne) zamknięte.
+**Wersja:** 2.0
 **Data:** 2026-06-05
 
-## 1. Co zostało wdrożone (Aktualizacja)
-Ten etap stanowi pełne zespolenie "układu nerwowego" i "mózgu" systemu TARZAN.
+## 1. Stan Implementacji
 
-*   **Zespolenie SignalBus (Etapy 0-7)**: Centralna magistrala synchronizuje się między MiniPC a Stacją w trybie LIVE.
-*   **PAR jako Administracja (Etap 8)**: Nowy panel SYSTEM w PAR umożliwia:
-    - Podgląd szczegółowego statusu LKS Hardware.
-    - Wywoływanie akcji: Manualna Diagnostyka, Zmiana Właściciela (Take Control), Reboot MiniPC.
-    - Monitorowanie statystyk sieciowych TSP (Etap 16).
-*   **EHR/KHR jako Bloki Systemowe (Etap 9)**: 
-    - EHR i KHR raportują swój stan (`ehr_state`, `khr_state`) do SignalBus.
-    - Automatyczne połączenie z TSP po uruchomieniu w trybie LIVE.
-*   **Logika MODE (Etap 12)**: Moduł `tarzanMode.py` zarządza priorytetami i przełącza źródła sterowania.
-*   **Integracja rRP/SOK (Etap 13)**: Ruch manualny osiami przez rRP jest teraz częścią głównego toru (rRP -> PoKeys -> SignalBus -> ModeLogic -> Osie).
-*   **Bezpieczeństwo**: Pełna izolacja diagnostyki PoKeys (multiprocessing spawn) zapobiegająca crashom całego systemu.
+### Etap 6: PAR LIVE przez TarzanParBridge (ZAMKNIĘTY)
+- **Status**: Stabilny, jedyny tor komunikacji PAR ↔ miniPC.
+- **Zrealizowano**: Bridge zarządza cyklem życia `TarzanTspClient`. Handshake (HELLO, PING, GET_STATE, SUBSCRIBE) jest kompletny i zsynchronizowany.
+- **Zrealizowano**: Wszystkie dane z miniPC trafiają do lokalnego SignalBus PAR przez `apply_snapshot`.
+
+### Etap 7: Dwukierunkowa Synchronizacja (ZAMKNIĘTY)
+- **Status**: Pełny przepływ informacji MiniPC ↔ PAR bez pętli zwrotnych.
+- **Zrealizowano**: Filtrowanie identycznych wartości w `SignalBus.apply_snapshot` i `force_signal`.
+- **Zrealizowano**: TSP Server zwraca czytelne statusy zapisu (`OK`, `UNKNOWN_SIGNAL`, `WRITE_DENIED`).
+
+### Etap 8: PAR jako Pełna Administracja (ZAMKNIĘTY LOGICZNIE)
+- **Status**: PAR w trybie LIVE kontroluje runtime przez TSP/SignalBus.
+- **Zrealizowano**: Ujednolicone wywołania administracyjne przez `bridge.call_action(...)` i `bridge.write_output(...)`.
+- **Zrealizowano**: Panel SYSTEM wyświetla stan hardware LKS, statystyki TSP i pozwala na akcje: `Diagnostyka`, `Take Control`, `Reboot`.
+- **Zrealizowano**: Zdalne sterowanie modułami EHR/KHR (Start/Stop).
+
+### Etap 13: RRP / SOK / Osie (ZAMKNIĘTY LOGICZNIE)
+- **Status**: Logiczne spięcie modułów manualnych przez SignalBus/TSP/Snajper.
+- **Zrealizowano**: Dopisanie pełnej mapy statusów osi (`axis_*_ready`, `alarm`, `enabled`, `owner`, `last_error`) do katalogu centralnego.
+- **Zrealizowano**: Logika `tarzanMode.py` (tM) mapuje rRP/SOK na sygnały `dir` wybranej osi z uwzględnieniem blokad bezpieczeństwa i gotowości.
+- **UWAGA BEZPIECZEŃSTWA**: Na tym etapie tor jest gotowy LOGICZNIE. Fizyczne impulsy STEP/DIR zostaną uruchomione po osobnym zatwierdzeniu operatora (Etap 13 Wykonawczy).
 
 ## 2. Zmienione kluczowe pliki
-*   `core/tarzanZmienneSygnalowe.py`: Pełny katalog sygnałów systemowych i komend.
-*   `core/TSP/tarzanTspServer.py`: Obsługa komend administracyjnych i statystyk.
-*   `core/tarzanMode.py`: Logika trybów (tM, tAA).
-*   `editor/PAR/tarzanParPanels.py`: Rozbudowa UI o panele statusu i akcji.
-*   `editor/EHR/tarzanEhrUi.py` i `editor/tarzanKHR.py`: Raportowanie stanów modułów.
+*   `core/tarzanZmienneSygnalowe.py`: Dodano 40+ sygnałów statusu osi i komend.
+*   `core/TSP/tarzanTspServer.py` i `tarzanTspSignals.py`: Rozszerzony katalog akcji administracyjnych.
+*   `core/tarzanMode.py`: Zabezpieczona logika trybów manualnych i automatycznych.
+*   `editor/PAR/tarzanParBridge.py`: Ujednolicony klient TSP z pełnym logowaniem sesji.
+*   `editor/PAR/tarzanParPanels.py`: Ujednolicone sterowanie administracyjne.
 
 ## 3. Jak uruchomić na MiniPC
 1.  Pobrać najnowszy kod (`git pull`).

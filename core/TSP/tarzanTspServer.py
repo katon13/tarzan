@@ -39,6 +39,7 @@ from .tarzanTspProtocol import (
     CMD_GET_SIGNAL_CATALOG,
     CMD_GET_STATE,
     CMD_HELLO,
+    CMD_LOAD_TAKE,
     CMD_PING,
     CMD_SET_SIGNAL,
     CMD_SUBSCRIBE,
@@ -247,6 +248,9 @@ class TarzanTspServer:
         self._lks_n5_status_cache: Dict[str, bool] = {}
         self._lks_n5_last_poll_ms = 0
         self._lks_n5_last_point_test_ms = 0
+        self._loaded_take: Optional[Dict[str, Any]] = None
+        self._take_playback_start_ms: int = 0
+        self._take_playback_row_idx: int = 0
 
     # ------------------------------------------------------------------
     # LKS — LAMPKA KONTROLNA SYSTEMU
@@ -527,6 +531,16 @@ class TarzanTspServer:
             bus.log("TSP", "TARZAN MAIN RUNTIME Starting...")
         except Exception as exc:
             self.logger.error("Could not init SignalBus in TarzanTspServer: %s", exc)
+
+        # ETAP 5: Spięcie SignalBus ze Snajperem na miniPC (tor wykonawczy)
+        try:
+            from core.tarzanSnajper import create_default_tarzan_snajper
+            self.snajper = create_default_tarzan_snajper()
+            # Na miniPC Snajper subskrybuje SignalBus i strzela do zarejestrowanych adapterów (hardware)
+            bus.subscribe(lambda name, state: self.snajper.fire_from_signal(name, state.value))
+            bus.log("TSP", "Snajper connected to SignalBus on miniPC.")
+        except Exception as e:
+            self.logger.error("Could not init Snajper on miniPC: %s", e)
 
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -944,6 +958,16 @@ class TarzanTspServer:
             path = self.debug.dump_snapshot(TSP_LOG_DIR)
             return ok_response(cmd, path=str(path))
 
+        if cmd == CMD_LOAD_TAKE:
+            take_data = payload.get("take")
+            if not take_data:
+                return error_response(cmd, "missing_take_data")
+            self._loaded_take = take_data
+            self._take_playback_row_idx = 0
+            self._take_playback_start_ms = 0
+            self.logger.info("TAKE loaded from %s: duration=%s ms", client.name, take_data.get("duration_ms"))
+            return ok_response(cmd, status="loaded")
+
         return error_response(cmd, "unknown_cmd")
 
     # ------------------------------------------------------------------
@@ -1031,6 +1055,9 @@ class TarzanTspServer:
             # 6. Traces
             self._emit_traces(clients=clients, now=now)
 
+            # 7. Odtwarzanie TAKE (ETAP 14)
+            self._handle_take_playback(now)
+
             # 5. Adaptacyjne usypianie pętli
             self._sleep_until_next_lane(
                 now_ms=monotonic_ms(),
@@ -1040,6 +1067,55 @@ class TarzanTspServer:
                 last_health=last_health,
                 has_urgent=has_urgent
             )
+
+    def _handle_take_playback(self, now_ms: int) -> None:
+        """
+        Obsługuje odtwarzanie załadowanego TAKE (Etap 14).
+        Zsynchronizowane z transport_state = PLAY.
+        """
+        if self._loaded_take is None:
+            return
+            
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            transport = bus.read("transport_state", "STOP")
+            
+            if transport == "PLAY":
+                if self._take_playback_start_ms == 0:
+                    self._take_playback_start_ms = now_ms
+                    bus.log("TSP", "TAKE Playback started.")
+                
+                elapsed = now_ms - self._take_playback_start_ms
+                bus.set_take_time(elapsed)
+                
+                rows = self._loaded_take.get("rows", [])
+                if rows:
+                    # Aplikujemy wiersze, które nadeszły w czasie (EHR Playback Etap 14)
+                    while self._take_playback_row_idx < len(rows):
+                        row = rows[self._take_playback_row_idx]
+                        row_time = row.get("time_ms", 0)
+                        
+                        if row_time <= elapsed:
+                            # Aplikujemy wartości sygnałów z wiersza
+                            bus.write_many_outputs(row, source="TAKE_PLAYBACK", time_ms=elapsed)
+                            self._take_playback_row_idx += 1
+                        else:
+                            # Jeszcze nie czas na ten wiersz
+                            break
+                    
+                    # Koniec TAKE
+                    if self._take_playback_row_idx >= len(rows):
+                        bus.log("TSP", "TAKE Finished.")
+                        bus.set_input("transport_state", "STOP", source="TAKE_PLAYBACK")
+            else:
+                if self._take_playback_start_ms != 0:
+                    self._take_playback_start_ms = 0
+                    self._take_playback_row_idx = 0
+                    bus.log("TSP", "TAKE Playback stopped/paused.")
+                    
+        except Exception as exc:
+            self.logger.debug("TAKE playback error: %s", exc)
 
     def _sleep_until_next_lane(
         self,

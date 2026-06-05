@@ -44,10 +44,10 @@ Ten etap stanowi fundament "układu nerwowego" systemu TARZAN, łącząc MiniPC 
 ## 5. Co ma się pojawić w logach (Sukces)
 *   `Handshake OK: tarzanMiniPC` — potwierdzenie dwukierunkowej komunikacji.
 *   `apply_snapshot: applied X signals` — synchronizacja stanu początkowego.
-*   `Diagnostics started` / `Diagnostics finished` — na MiniPC.
+*   `Isolated Spawn Process` — start bezpiecznej diagnostyki LKS na MiniPC.
 
 ## 6. Co jeszcze nie jest pełne (Następne etapy)
-Po potwierdzeniu stabilnego połączenia TSP i synchronizacji stanów, w kolejnych etapach wdrożone zostaną:
+Po potwierdzeniu stabilnego połączenia TSP i synchronizacji stanów (oraz weryfikacji odporności na crashe PoKeys), w kolejnych etapach wdrożone zostaną:
 
 *   **Realne wykonanie hardware**: Podpięcie Snajpera do fizycznych wyjść PoKeys i sterowników CNC.
 *   **Obsługa LCD i Matrix**: Wyświetlanie stanu systemowego na lokalnych peryferiach MiniPC.

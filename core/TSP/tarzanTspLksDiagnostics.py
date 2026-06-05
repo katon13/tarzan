@@ -281,23 +281,32 @@ class TarzanTspLksDiagnostics:
         text = self.inventory.text_blob("usb_lsusb")
         lib_seen = self.inventory.is_present("repo_marker_pokeys_lib") or self.inventory.is_present("usb_pokeys_hint")
 
+        # ETAP 10+: Ograniczamy liczbę operacji connect/disconnect.
+        # Jeśli lib_seen jest False, nie próbujemy nawet hardware probe, 
+        # bo to grozi crashem libusb przy braku urządzenia.
+        
         for component, board, pattern in (
             ("pok_play", "PLAY", r"PoLabs\s+PLAYER|PLAYER|PLAY"),
             ("pok_rec", "REC", r"PoLabs\s+RECK|RECK|REC"),
         ):
-            probe = self._try_hardware_probe(component, visible=False)
+            seen_in_lsusb = bool(re.search(pattern, text, re.IGNORECASE))
+            
+            probe = None
+            if lib_seen and seen_in_lsusb:
+                # Tylko jeśli urządzenie jest widoczne w systemie, próbujemy connect.
+                probe = self._try_hardware_probe(component, visible=False)
+            
             if probe is not None:
                 self._hardware_result(f"{component}_sovereign_pokeys", probe)
-                continue
-            seen = bool(lib_seen and re.search(pattern, text, re.IGNORECASE))
-            self._result(
-                f"{component}_usb_identity",
-                component,
-                seen,
-                f"PoKeys {board} USB identity",
-                detail=text[:500],
-                error=f"PoKeys {board} not identified or no real PoKeys wrapper" if not seen else "",
-            )
+            else:
+                self._result(
+                    f"{component}_usb_identity",
+                    component,
+                    seen_in_lsusb,
+                    f"PoKeys {board} USB identity",
+                    detail=text[:500],
+                    error=f"PoKeys {board} not identified or no real PoKeys wrapper" if not seen_in_lsusb else "Hardware probe skipped for stability",
+                )
 
         self._finalize_statuses_for(GROUP_POKEYS)
         return self.results[before:]

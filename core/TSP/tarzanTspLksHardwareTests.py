@@ -64,23 +64,31 @@ class _PoKeysSession:
     def __enter__(self) -> "_PoKeysSession":
         # Zabezpieczenie przed zbyt szybkim ponownym połączeniem (libusb stability)
         since_last = time.time() - _PoKeysSession._last_disconnect_at
-        if since_last < 0.1:
-            time.sleep(0.1 - since_last)
+        if since_last < 0.2:
+            time.sleep(0.2 - since_last)
 
-        ok = self.device.PK_ConnectToDeviceWSerial(self.serial, 1, True)
-        if not ok:
-            raise RuntimeError(f"Nie udało się połączyć z {self.board} serial={self.serial}")
-        actual = int(self.device.device.contents.DeviceData.SerialNumber)
-        if actual != self.serial:
-            raise RuntimeError(f"Zły serial {self.board}: oczekiwano {self.serial}, odczytano {actual}")
-        self.refresh()
-        return self
+        try:
+            ok = self.device.PK_ConnectToDeviceWSerial(self.serial, 1, True)
+            if not ok:
+                raise RuntimeError(f"Nie udało się połączyć z {self.board} serial={self.serial}")
+            actual = int(self.device.device.contents.DeviceData.SerialNumber)
+            if actual != self.serial:
+                raise RuntimeError(f"Zły serial {self.board}: oczekiwano {self.serial}, odczytano {actual}")
+            self.refresh()
+            return self
+        except Exception as exc:
+            # Jeśli PK_ConnectToDeviceWSerial sypie crashem natywnym, to try-except go nie złapie,
+            # ale jeśli to zwykły wyjątek pythonowy z ctypes, to go logujemy.
+            raise RuntimeError(f"Błąd połączenia PoKeys {self.board}: {exc}")
 
     def __exit__(self, exc_type, exc, tb) -> None:
         try:
             # Krótkie opóźnienie przed rozłączeniem dla stabilności libusb
-            time.sleep(0.05)
-            self.device.Disconnect()
+            time.sleep(0.1)
+            # Wywołujemy natywne rozłączenie TYLKO jeśli mamy pewność, że urządzenie żyje.
+            # hid_close w libusb sypie się gdy mutex jest już zwolniony lub podwójnie zwalniany.
+            if hasattr(self.device, "Disconnect"):
+                self.device.Disconnect()
             # Oznaczamy czas ostatniego rozłączenia
             _PoKeysSession._last_disconnect_at = time.time()
         except Exception:

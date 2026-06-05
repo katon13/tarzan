@@ -90,13 +90,21 @@ class TarzanTspClient:
     # KOMENDY
     # ------------------------------------------------------------------
 
-    def send(self, message: Dict[str, Any]) -> None:
+    def send(self, message: Dict[str, Any]) -> bool:
         if self.sock is None:
-            raise RuntimeError("TSP client is not connected")
-        raw = encode_jsonl(message)
-        with self._send_lock:
-            self.sock.sendall(raw)
-        self.tx_count += 1
+            # Nie rzucamy RuntimeError, bo to zabija wątek UI przy wyścigach (race conditions)
+            # Logujemy na stderr dla debugowania.
+            print(f"TSP_CLIENT_WARNING: Cannot send message, not connected: {message.get('cmd') or message.get('event') or message.get('lane')}", file=sys.stderr)
+            return False
+        try:
+            raw = encode_jsonl(message)
+            with self._send_lock:
+                self.sock.sendall(raw)
+            self.tx_count += 1
+            return True
+        except Exception as e:
+            print(f"TSP_CLIENT_ERROR: Send failed: {e}", file=sys.stderr)
+            return False
 
     def hello(self) -> None:
         self.send({"cmd": CMD_HELLO, "node": self.name, "version": "1"})

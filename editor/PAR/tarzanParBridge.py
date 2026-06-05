@@ -118,6 +118,10 @@ class TarzanParBridge:
                 self.tsp_client.ping()
                 self.tsp_client.get_state()
                 self.tsp_client.subscribe(lanes=["fast", "normal", "slow", "health", "urgent"])
+
+                # Po połączeniu wymuszamy par_mode zgodny z aktualnym stanem lokalnym
+                m_val = 0 if self.bus.mode == "TEST" else (1 if self.bus.mode == "LIVE" else 2)
+                self.tsp_client.set_signal("par_mode", m_val)
         
         elif cmd == "subscribe" and ok:
             self.bus.log("TSP", "SUBSCRIBE OK: receiving live updates.")
@@ -174,20 +178,20 @@ class TarzanParBridge:
         return self.bus.read_input(name, default)
 
     def set_input(self, name: str, value: Any, source: str = "PAR") -> bool:
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self.tsp_client and self.tsp_client.is_connected and self.bus.mode == "LIVE":
             # W trybie LIVE wysyłamy do TSP zamiast pisać lokalnie (Etap 7-8)
             self.tsp_client.set_signal(name, value)
             return True
         return self.bus.set_input(name, value, source=source)
 
     def write_output(self, name: str, value: Any, source: str = "PAR") -> bool:
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self.tsp_client and self.tsp_client.is_connected and self.bus.mode == "LIVE":
             self.tsp_client.set_signal(name, value)
             return True
         return self.bus.write_output(name, value, source=source)
 
     def force_signal(self, name: str, value: Any, source: str = "PAR_FORCE") -> bool:
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self.tsp_client and self.tsp_client.is_connected and self.bus.mode == "LIVE":
             # ETAP 7: Delegacja wymuszenia do TSP
             self.tsp_client.set_signal(name, value)
             return True
@@ -195,7 +199,7 @@ class TarzanParBridge:
 
     def set_signal(self, name: str, value: Any, source: str = "PAR") -> bool:
         """Alias dla ujednoliconego zapisu sygnału w obu trybach (Etap 7-8)."""
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self.tsp_client and self.tsp_client.is_connected and self.bus.mode == "LIVE":
             self.tsp_client.set_signal(name, value)
             return True
         
@@ -209,7 +213,7 @@ class TarzanParBridge:
 
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> bool:
         """Wysyła komendę administracyjną do TSP (Etap 8)."""
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self.tsp_client and self.tsp_client.is_connected and self.bus.mode == "LIVE":
             if name == "trace_signal" and payload:
                 sig = payload.get("name")
                 sec = payload.get("seconds", 30)
@@ -226,7 +230,7 @@ class TarzanParBridge:
 
     def load_take(self, path: str | Path) -> TarzanTakeData:
         data = self.take_player.load(path)
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self.tsp_client and self.tsp_client.is_connected and self.bus.mode == "LIVE":
             # ETAP 14: Przesyłanie danych TAKE do MiniPC
             payload = {
                 "name": Path(path).name,
@@ -239,19 +243,19 @@ class TarzanParBridge:
         return data
 
     def play_take(self) -> None:
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self.tsp_client and self.tsp_client.is_connected and self.bus.mode == "LIVE":
             self.call_action("play_take")
         else:
             self.take_player.play()
 
     def pause_take(self) -> None:
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self.tsp_client and self.tsp_client.is_connected and self.bus.mode == "LIVE":
             self.call_action("pause_take")
         else:
             self.take_player.pause()
 
     def stop_take(self) -> None:
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self.tsp_client and self.tsp_client.is_connected and self.bus.mode == "LIVE":
             self.call_action("stop_take")
         else:
             self.take_player.stop()

@@ -531,6 +531,32 @@ class TarzanParApp(tk.Tk):
             tk.Label(box, text=text, bg="#070b0e", fg=COLORS["text"], font=("Segoe UI", 10)).pack(side="left", padx=8)
 
         tk.Button(self.header, text="⚙", bg="#11191f", fg="#fff", relief="flat", font=("Segoe UI", 16), command=self.panel_menu).pack(side="right", padx=7)
+        
+        # Przycisk RESET SYGNAŁÓW
+        tk.Button(
+            self.header, 
+            text="RESET SYGNAŁÓW", 
+            bg="#7a251f", 
+            fg="white", 
+            activebackground="#9b2f27", 
+            activeforeground="white", 
+            relief="flat", 
+            font=("Segoe UI", 8, "bold"), 
+            command=lambda: self.panels.reset_signals() if hasattr(self, 'panels') else None
+        ).pack(side="right", padx=3)
+        
+        # Przycisk ODŁĄCZ TSP
+        tk.Button(
+            self.header, 
+            text="ODŁĄCZ TSP", 
+            bg="#3e4451", 
+            fg="white", 
+            activebackground="#4b5263", 
+            activeforeground="white", 
+            relief="flat", 
+            font=("Segoe UI", 8, "bold"), 
+            command=lambda: self.bridge.disconnect_tsp() if hasattr(self, 'bridge') else None
+        ).pack(side="right", padx=3)
 
         self.layout_master = tk.Frame(self.body, bg=COLORS["bg"])
         self.layout_master.pack(fill="both", expand=True)

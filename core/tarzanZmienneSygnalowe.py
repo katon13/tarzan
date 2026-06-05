@@ -416,6 +416,26 @@ par_state = _sygnal(
     klasa_wykonawcza="tarzanTspServer.py",
 )
 
+par_mode = _sygnal(
+    nazwa="par_mode",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="1",
+    opis="Tryb pracy PAR (0=TEST, 1=LIVE, 2=MIX).",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="PAR Mode",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanParApp.py",
+)
+
 par_last_error = _sygnal(
     nazwa="par_last_error",
     plytka="SYSTEM",
@@ -1256,6 +1276,7 @@ SYGNALY_SYSTEMOWE: Dict[str, TarzanSygnal] = {
         runtime_state,
         tsp_state,
         par_state,
+        par_mode,
         par_last_error,
         par_write_denied_event,
         ehr_state,

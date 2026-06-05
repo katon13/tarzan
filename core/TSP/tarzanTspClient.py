@@ -51,6 +51,8 @@ class TarzanTspClient:
         self.normal_count = 0
         self.slow_count = 0
         self.health_count = 0
+        self._tx_queue: deque[Dict[str, Any]] = deque(maxlen=2000)
+        self._tx_cv = threading.Condition()
 
     def is_connected(self) -> bool:
         return self.running and self.sock is not None
@@ -71,6 +73,8 @@ class TarzanTspClient:
         self.running = True
         self._rx_thread = threading.Thread(target=self._rx_loop, name="TSP-CLIENT-RX", daemon=True)
         self._rx_thread.start()
+        self._tx_thread = threading.Thread(target=self._tx_loop, name="TSP-CLIENT-TX", daemon=True)
+        self._tx_thread.start()
 
     def close(self) -> None:
         self.running = False
@@ -90,20 +94,34 @@ class TarzanTspClient:
     # ------------------------------------------------------------------
 
     def send(self, message: Dict[str, Any]) -> bool:
-        if self.sock is None:
-            # Nie rzucamy RuntimeError, bo to zabija wątek UI przy wyścigach (race conditions)
-            # Logujemy na stderr dla debugowania.
-            print(f"TSP_CLIENT_WARNING: Cannot send message, not connected: {message.get('cmd') or message.get('event') or message.get('lane')}", file=sys.stderr)
+        if not self.running:
             return False
-        try:
-            raw = encode_jsonl(message)
-            with self._send_lock:
-                self.sock.sendall(raw)
-            self.tx_count += 1
-            return True
-        except Exception as e:
-            print(f"TSP_CLIENT_ERROR: Send failed: {e}", file=sys.stderr)
-            return False
+        with self._tx_cv:
+            self._tx_queue.append(message)
+            self._tx_cv.notify()
+        return True
+
+    def _tx_loop(self) -> None:
+        while self.running:
+            message = None
+            with self._tx_cv:
+                while self.running and not self._tx_queue:
+                    self._tx_cv.wait(timeout=0.1)
+                if not self.running:
+                    break
+                if self._tx_queue:
+                    message = self._tx_queue.popleft()
+            
+            if message and self.sock:
+                try:
+                    raw = encode_jsonl(message)
+                    with self._send_lock:
+                        self.sock.sendall(raw)
+                    self.tx_count += 1
+                except Exception as e:
+                    print(f"TSP_CLIENT_ERROR: Send failed: {e}", file=sys.stderr)
+                    # Przy błędzie wysyłania nie zamykamy klienta tutaj, 
+                    # pętla RX to wykryje lub konektor w PAR Bridge.
 
     def hello(self) -> None:
         self.send({"cmd": CMD_HELLO, "node": self.name, "version": "1"})

@@ -320,10 +320,30 @@ class TarzanTspServer:
             try:
                 from .tarzanTspLksBootCheck import TarzanTspLksBootCheck
 
-                boot = TarzanTspLksBootCheck(self.lks_n5, pause_s=0.12)
+                # ETAP 1N: boot-check musi dostać aktywny HardwareBridge.
+                # Inaczej startowa diagnostyka fizyczna idzie starą ścieżką,
+                # próbuje drugi raz otwierać PoKeys i statusy USB/LCD/I2C/Matrix
+                # nie przechodzą na starcie, choć klik punktowy działa.
+                boot = TarzanTspLksBootCheck(
+                    self.lks_n5,
+                    pause_s=0.12,
+                    hardware_bridge=getattr(self, "hw_bridge", None),
+                )
                 boot.run()
                 self._lks_n5_status_page_ready = True
                 self._lks_n5_status_cache = dict(getattr(boot, "statuses", {}) or {})
+
+                # ETAP 1L: Snajper na miniPC jest tworzony przed startem LKS-N5
+                # i subskrybuje SignalBus. Boot-check nie może czekać na późniejszy
+                # klik operatora, żeby dopiero wtedy zazielenić snajper_sys.
+                # Jeżeli runtime Snajpera istnieje, od razu pokazujemy status OK.
+                snajper_ok = getattr(self, "snajper", None) is not None
+                self._lks_n5_status_cache["snajper_sys"] = bool(snajper_ok)
+                try:
+                    self.lks_n5.set_status("snajper_sys", bool(snajper_ok))
+                except Exception:
+                    pass
+
                 self._lks_n5_dirty = False
                 self._lks_n5_dirty_reason = ""
             except Exception as boot_exc:
@@ -337,50 +357,12 @@ class TarzanTspServer:
                 self._lks_n5_dirty = True
                 self._lks_n5_dirty_reason = "startup"
 
-            # ETAP 1M: statusy runtime (Snajper/Bridge) ustawiamy DOPIERO po
-            # zakończeniu sekwencji boot. Nie wolno odpalać dodatkowego testu
-            # Snajpera w środku boot-checku, bo może przerwać testy fizyczne
-            # LCD/USB/I2C. To jest tylko spokojne dopisanie wyniku na status_main.
-            self._apply_lks_n5_runtime_boot_statuses()
-
             self._lks_n5_last_refresh_ms = monotonic_ms()
             self.logger.info("LKS-N5 START port=%s baudrate=%s dry_run=%s", self._lks_n5_port, self._lks_n5_baudrate, self._lks_n5_dry_run)
         except Exception as exc:
             self.debug.record_error("lks_n5_start_failed", {"error": str(exc)})
             self.logger.warning("LKS-N5 start failed: %s", exc)
             self.lks_n5 = None
-
-    def _apply_lks_n5_runtime_boot_statuses(self) -> None:
-        """Dopisuje lekkie statusy runtime po boot-checku LKS-N5.
-
-        To NIE jest pełna diagnostyka i NIE odpala fizycznych testów ponownie.
-        Służy do statusów modułów, które istnieją już w runtime TSP:
-        - Snajper: zielony, gdy obiekt Snajpera został utworzony,
-        - PoKeys PLAY/REC: zachowujemy zielone tylko gdy aktywny HardwareBridge
-          ma otwarte urządzenia.
-        """
-        if self.lks_n5 is None:
-            return
-        updates: Dict[str, bool] = {}
-        try:
-            if getattr(self, "snajper", None) is not None:
-                updates["snajper_sys"] = True
-
-            bridge = getattr(self, "hw_bridge", None)
-            if bridge is not None and bool(getattr(bridge, "running", False)):
-                devices = getattr(bridge, "devices", {}) or {}
-                if devices.get("PLAY") is not None:
-                    updates["pok_play"] = True
-                if devices.get("REC") is not None:
-                    updates["pok_rec"] = True
-
-            if updates:
-                self.lks_n5.set_many_statuses(updates)
-                self._lks_n5_status_cache.update(updates)
-                self.logger.info("LKS-N5 RUNTIME BOOT STATUS %s", updates)
-        except Exception as exc:
-            self.debug.record_error("lks_n5_runtime_boot_status_failed", {"error": str(exc)})
-            self.logger.warning("LKS-N5 runtime boot status failed: %s", exc)
 
     def _stop_lks_n5(self) -> None:
         """Zamyka LKS-N5 po zatrzymaniu pętli serwera.
@@ -480,12 +462,27 @@ class TarzanTspServer:
             self.logger.info("LKS-N5 POINT TEST component=%s", name)
             self.lks_n5.blink_component(name, base_value=base)
 
-            if name == "snajper_sys":
-                ok = getattr(self, "snajper", None) is not None
+            # ETAP 1I: PAR/EHR nie są lokalnym sprzętem miniPC. Ich status na
+            # LKS-N5 ma wynikać z realnego połączenia klienta TSP, a nie z
+            # konserwatywnej diagnostyki repo/procesów, która nie widzi aplikacji
+            # PAR uruchomionej na stacji operatorskiej. Dzięki temu kliknięcie
+            # ikony PAR na Nextion 5 sprawdza prawdziwy stan LIVE: czy PAR jest
+            # podłączony i heartbeat/ping przechodzi przez TSP.
+            if name == "par_sys":
+                ok = len(self.clients()) > 0
             else:
-                diagnostics = TarzanTspLksDiagnostics()
-                diagnostics.run_component(name)
-                ok = bool(diagnostics.status_map().get(name, False))
+                bridge_components = {"pok_play", "pok_rec", "lcd_1602", "matrix_led", "f_button", "f_led", "keypad", "i2c_bus", "light_bh1750"}
+                hw_bridge = getattr(self, "hw_bridge", None)
+                if name in bridge_components and hw_bridge is not None and hasattr(hw_bridge, "test_lks_component"):
+                    result = hw_bridge.test_lks_component(name, visible=True)
+                    ok = bool(result.get("ok", False))
+                    detail = str(result.get("detail", "") or result.get("error", ""))
+                    if detail:
+                        self.logger.info("LKS-N5 POINT TEST DETAIL component=%s %s", name, detail)
+                else:
+                    diagnostics = TarzanTspLksDiagnostics()
+                    diagnostics.run_component(name)
+                    ok = bool(diagnostics.status_map().get(name, False))
 
             self.lks_n5.set_status(name, ok)
             self._lks_n5_status_cache[name] = ok
@@ -513,10 +510,6 @@ class TarzanTspServer:
 
             desired_statuses: Dict[str, bool] = {
                 "linux_sys": True,
-                # Snajper jest lokalnym modułem runtime na miniPC.
-                # Nie wolno uzależniać jego statusu od powodu odświeżenia
-                # (np. "health"), bo wtedy po zwykłym starcie/refreshu
-                # ikona może wrócić na OFF mimo że Snajper działa.
                 "snajper_sys": getattr(self, "snajper", None) is not None,
                 "take_sys": True,
                 "par_sys": client_count > 0,

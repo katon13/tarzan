@@ -62,6 +62,11 @@ class _PoKeysSession:
         self.device = PoKeysDevice(self.lib_path)
 
     def __enter__(self) -> "_PoKeysSession":
+        # Zabezpieczenie przed zbyt szybkim ponownym połączeniem (libusb stability)
+        since_last = time.time() - _PoKeysSession._last_disconnect_at
+        if since_last < 0.1:
+            time.sleep(0.1 - since_last)
+
         ok = self.device.PK_ConnectToDeviceWSerial(self.serial, 1, True)
         if not ok:
             raise RuntimeError(f"Nie udało się połączyć z {self.board} serial={self.serial}")
@@ -73,11 +78,23 @@ class _PoKeysSession:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         try:
+            # Krótkie opóźnienie przed rozłączeniem dla stabilności libusb
+            time.sleep(0.05)
             self.device.Disconnect()
+            # Oznaczamy czas ostatniego rozłączenia
+            _PoKeysSession._last_disconnect_at = time.time()
         except Exception:
             pass
 
+    _last_disconnect_at: float = 0.0
+
     def refresh(self) -> None:
+        # Zabezpieczenie przed zbyt szybkim odpytywaniem
+        now = time.time()
+        if now - getattr(self, "_last_refresh_at", 0) < 0.05:
+            return
+        self._last_refresh_at = now
+        
         self.device.PK_PinConfigurationGet()
         self.device.PK_DigitalIOGet()
         try:

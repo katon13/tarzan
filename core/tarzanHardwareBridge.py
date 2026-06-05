@@ -1,0 +1,350 @@
+from __future__ import annotations
+
+import time
+import threading
+import os
+import platform
+from typing import Any, Dict, Optional, List
+
+from core.tarzanZmienneSygnalowe import (
+    WSZYSTKIE_SYGNALY,
+    POKEYS57U_PLAY_DEVICE_SERIAL,
+    POKEYS57U_REC_DEVICE_SERIAL,
+    TarzanSygnal
+)
+from core.TSP.tarzanTspLog import setup_tsp_logger
+
+# Próba importu biblioteki PoKeys
+try:
+    from hardware.pokeys.PoKeys import PoKeysDevice
+    LIB_POKEYS_AVAILABLE = True
+except ImportError:
+    LIB_POKEYS_AVAILABLE = False
+    PoKeysDevice = None
+
+class TarzanHardwareBridge:
+    """
+    Bridge łączący SignalBus z fizycznym sprzętem (PoKeys, I2C, LCD).
+    Działa jako live_adapter dla SignalBus na miniPC.
+    
+    ETAP 13 (Wykonawczy) + ETAP 14 (EHR Playback).
+    """
+
+    def __init__(self, bus: Any) -> None:
+        self.bus = bus
+        self.logger = setup_tsp_logger("HW.BRIDGE")
+        self.running = False
+        self._lock = threading.Lock()
+        
+        self.devices: Dict[str, Any] = {
+            "PLAY": None,
+            "REC": None
+        }
+        
+        # Liczniki absolutne pozycji (Etap 14/15)
+        # Kluczem jest nazwa bazowa osi, np. "axis_cam_h"
+        self._abs_positions: Dict[str, int] = {}
+        
+        self._last_poll_ms = 0
+        self._poll_interval_ms = 50  # 20Hz dla wejść
+        
+        # Mapa sygnałów dla szybkiego dostępu w metodzie write/read
+        self._signal_map = WSZYSTKIE_SYGNALY
+        
+        self._thread: Optional[threading.Thread] = None
+
+    def start(self) -> bool:
+        if self.running:
+            return True
+            
+        self.logger.info("Starting Hardware Bridge...")
+        
+        if not LIB_POKEYS_AVAILABLE:
+            self.logger.error("PoKeys library not available!")
+            self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
+            return False
+
+        # Ścieżka do biblioteki PoKeys (zależna od platformy)
+        lib_path = self._get_lib_path()
+        if not lib_path or not os.path.exists(lib_path):
+            self.logger.error(f"PoKeys library file not found at: {lib_path}")
+            self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
+            return False
+
+        try:
+            self._init_devices(lib_path)
+            self.running = True
+            self.bus.set_live_adapter(self)
+            
+            # Subskrypcja offsetów KHR (Etap 15) - reagujemy na zmiany offsetu nawet bez impulsów STEP
+            self.bus.subscribe(self._on_signal_change)
+            
+            self._thread = threading.Thread(target=self._run, daemon=True, name="HW_Bridge_Loop")
+            self._thread.start()
+            
+            self.bus.force_signal("hardware_state", "READY", source="HW_BRIDGE")
+            self.logger.info("Hardware Bridge STARTED and linked to SignalBus.")
+            return True
+        except Exception as exc:
+            self.logger.error(f"Hardware Bridge failed to start: {exc}")
+            self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
+            return False
+
+    def stop(self) -> None:
+        self.running = False
+        if self._thread:
+            self._thread.join(timeout=1.0)
+        
+        with self._lock:
+            for board, device in self.devices.items():
+                if device:
+                    try:
+                        device.Disconnect()
+                        self.logger.info(f"Disconnected {board} board.")
+                    except:
+                        pass
+                    self.devices[board] = None
+        
+        self.bus.set_live_adapter(None)
+        self.logger.info("Hardware Bridge STOPPED.")
+
+    def _get_lib_path(self) -> str:
+        # Taka sama logika jak w tarzanTspLksHardwareTests
+        from pathlib import Path
+        repo_root = Path(__file__).resolve().parents[1]
+        if platform.system() == "Windows":
+            return str(repo_root / "hardware" / "pokeys" / "PoKeysDevice_x64.dll")
+        else:
+            return str(repo_root / "hardware" / "pokeys" / "libPoKeys.so")
+
+    def _init_devices(self, lib_path: str) -> None:
+        # PLAY Board
+        self.devices["PLAY"] = self._connect_board("PLAY", POKEYS57U_PLAY_DEVICE_SERIAL, lib_path)
+        # REC Board
+        self.devices["REC"] = self._connect_board("REC", POKEYS57U_REC_DEVICE_SERIAL, lib_path)
+
+    def _connect_board(self, name: str, serial: int, lib_path: str) -> Any:
+        device = PoKeysDevice(lib_path)
+        ok = device.PK_ConnectToDeviceWSerial(serial, 1, True)
+        if not ok:
+            self.logger.warning(f"Failed to connect to {name} board (serial={serial})")
+            return None
+        
+        # Pobieramy dane początkowe
+        device.PK_DeviceDataGet()
+        device.PK_PinConfigurationGet()
+        self.logger.info(f"Connected to {name} board (serial={serial}).")
+        return device
+
+    def _run(self) -> None:
+        while self.running:
+            now = time.time() * 1000
+            
+            # 1. Polling wejść (20Hz)
+            if now - self._last_poll_ms >= self._poll_interval_ms:
+                self._poll_hardware()
+                self._last_poll_ms = now
+                
+            # 2. Generator trybu manualnego (tM) - ETAP 13
+            self._handle_manual_generator()
+            
+            time.sleep(0.005)
+
+    def _handle_manual_generator(self) -> None:
+        """Generuje impulsy STEP w trybie manualnym na podstawie kierunków w SignalBus."""
+        if self.bus.read("active_mode", "tM") != "tM":
+            return
+            
+        # Tylko jeśli PAR lub LKS ma kontrolę
+        owner = self.bus.read("control_owner", "TSP_BOOT")
+        if owner not in {"PAR_LIVE", "TSP_SERVICE", "LKS_DIAGNOSTIC"}:
+            return
+
+        from core.tarzanZmienneSygnalowe import LISTA_NAZW_OSI
+        for ax_name in LISTA_NAZW_OSI:
+            prefix = f"axis_{ax_name}"
+            dir_val = int(self.bus.read(f"{prefix}_dir", 0))
+            
+            if dir_val != 0:
+                # Generujemy impuls co N obiegów pętli (uproszczona prędkość)
+                # W realnym systemie częstotliwość byłaby sterowana rrp_speed_mul
+                step_signal = f"{prefix}_step"
+                # Wpisujemy do SignalBus - to wywoła write() w tym samym bridge'u
+                self.bus.write_output(step_signal, 1, source="HW_MANUAL_GEN")
+                self.bus.write_output(step_signal, 0, source="HW_MANUAL_GEN")
+
+    def _poll_hardware(self) -> None:
+        """Odczytuje stany wejść z hardware i wpisuje do SignalBus."""
+        with self._lock:
+            for board_name, device in self.devices.items():
+                if not device:
+                    continue
+                
+                try:
+                    # 1. Odczyt wejść cyfrowych GPIO
+                    device.PK_DigitalIOGet()
+                    for syg in self._signal_map.values():
+                        if syg.plytka == board_name and syg.kierunek == "IN":
+                            if syg.hardware_function == "GPIO" and syg.pin is not None:
+                                val = device.PK_DigitalIOGetSingle(syg.pin)
+                                self.bus.set_input(syg.nazwa, 1 if val else 0, source=f"HW.{board_name}", forced=True)
+
+                    # 2. Odczyt statusu Pulse Engine (Etap 13 - Statusy osi)
+                    if board_name == "PLAY": # Zakładamy, że PE działa na płycie PLAY
+                        self._poll_pulse_engine_status(device)
+
+                except Exception as exc:
+                    self.logger.debug(f"Poll hardware error ({board_name}): {exc}")
+
+    def _poll_pulse_engine_status(self, device: Any) -> None:
+        """Czyta READY, ALARM i pozycję z Pulse Engine v2."""
+        try:
+            device.PK_PEv2_StatusGet()
+            
+            # Mapowanie osi TARZAN na kanały PE
+            # Domyślnie używamy listy z tarzanZmienneSygnalowe
+            from core.tarzanZmienneSygnalowe import LISTA_NAZW_OSI
+            
+            for idx, ax_name in enumerate(LISTA_NAZW_OSI):
+                if idx >= 8: break # PoKeys obsługuje do 8 osi
+                
+                axis_state = device.PEv2.AxesState[idx]
+                axis_pos = device.PEv2.CurrentPosition[idx]
+                
+                # Bity statusu (uproszczone mapowanie na sygnały systemowe)
+                # State 0: Stopped, 1: Internal, 2: Buffer, 3: Running
+                is_running = (axis_state & 0x03) == 0x03
+                
+                # Sygnały statusowe
+                self.bus.set_input(f"axis_{ax_name}_ready", 1 if is_running else 0, source="HW.PE")
+                # self.bus.set_input(f"axis_{ax_name}_alarm", 1 if error_bit else 0, source="HW.PE")
+                
+                # Aktualizacja pozycji w SignalBus
+                self.bus.force_signal(f"axis_{ax_name}_pos", axis_pos, source="HW.PE")
+                
+        except Exception as e:
+            self.logger.debug(f"Pulse Engine poll error: {e}")
+
+    # ------------------------------------------------------------------
+    # SignalBus LIVE Adapter Interface
+    # ------------------------------------------------------------------
+
+    def read(self, name: str) -> Any:
+        """Odczyt sygnału bezpośrednio z hardware (jeśli to możliwe)."""
+        # Dla optymalizacji większość odczytów i tak idzie z cache SignalBus,
+        # który jest aktualizowany w _poll_hardware.
+        return None
+
+    def write(self, name: str, value: Any) -> None:
+        """Zapis sygnału bezpośrednio do hardware."""
+        syg = self._signal_map.get(name)
+        if not syg:
+            return
+            
+        if syg.kierunek != "OUT" and syg.kierunek != "F":
+            return
+
+        with self._lock:
+            device = self.devices.get(syg.plytka)
+            if not device:
+                return
+
+            try:
+                # Obsługa wyjść cyfrowych
+                if syg.hardware_function == "GPIO" and syg.pin is not None:
+                    device.PK_DigitalIOSetSingle(syg.pin, 1 if value else 0)
+                
+                # Obsługa sygnału ENABLE dla osi (Etap 13)
+                elif syg.nazwa.startswith("axis_") and syg.nazwa.endswith("_en"):
+                    self._handle_pulse_engine_enable(syg, value, device)
+
+                # Obsługa Pulse Engine (STEP/DIR) - ETAP 14
+                elif syg.hardware_function == "PULSE_ENGINE":
+                    self._handle_pulse_engine_write(syg, value, device)
+                    
+            except Exception as exc:
+                self.logger.debug(f"Write hardware error ({name}={value}): {exc}")
+
+    def _handle_pulse_engine_enable(self, syg: TarzanSygnal, value: Any, device: Any) -> None:
+        """Włącza/wyłącza oś w Pulse Engine (Etap 13)."""
+        try:
+            axis_idx = int(syg.kanal) if syg.kanal and syg.kanal.isdigit() else 0
+            # Konfiguracja osi
+            device.PK_PEv2_AxisConfigurationGet(axis_idx)
+            if value == 1:
+                device.PEv2.AxesConfig[axis_idx] |= 0x01 # PK_AC_ENABLED
+            else:
+                device.PEv2.AxesConfig[axis_idx] &= ~0x01
+            device.PK_PEv2_AxisConfigurationSet(axis_idx)
+            
+            # Aktualizujemy status w SignalBus
+            ax_base = syg.nazwa.replace("_en", "")
+            self.bus.set_input(f"{ax_base}_enabled", 1 if value else 0, source="HW.PE")
+        except Exception as e:
+            self.logger.debug(f"Pulse Engine EN error: {e}")
+
+    def _handle_pulse_engine_write(self, syg: TarzanSygnal, value: Any, device: Any) -> None:
+        """
+        Implementacja Pulse Engine v2 dla PoKeys (Etap 14 + 15).
+        Obsługuje narastające zbocza impulsów STEP i nakłada korekty KHR.
+        """
+        try:
+            # Zakładamy, że 'kanal' sygnału to indeks osi (np. "0", "1", ...)
+            axis_idx = int(syg.kanal) if syg.kanal and syg.kanal.isdigit() else 0
+            
+            # Pobieramy nazwę bazową osi, np. axis_cam_h
+            # Nazwa sygnału to np. axis_cam_h_step
+            axis_base = syg.nazwa.replace("_step", "")
+            
+            if axis_base not in self._abs_positions:
+                self._abs_positions[axis_base] = 0
+
+            # Reagujemy tylko na impuls (zbocze narastające)
+            if value == 1:
+                # Sprawdzamy kierunek w SignalBus
+                dir_signal = axis_base + "_dir"
+                dir_val = self.bus.read(dir_signal, 1)
+                
+                # Aktualizujemy licznik lokalny
+                step_inc = 1 if dir_val == 1 else -1
+                self._abs_positions[axis_base] += step_inc
+
+            # Pobieramy korektę KHR (Etap 15)
+            # Sygnał khr_cam_h_offset itp.
+            khr_signal = f"khr_{axis_base[5:]}_offset"
+            khr_offset = int(float(self.bus.read(khr_signal, 0.0)))
+            
+            # Pozycja docelowa = TAKE (local counter) + KHR offset
+            target_pos = self._abs_positions[axis_base] + khr_offset
+            
+            # Aktualizujemy PoKeys Pulse Engine
+            device.PK_PEv2_StatusGet()
+            device.PEv2.Axes[axis_idx].Position = target_pos
+            device.PK_PEv2_PositionSet()
+            
+        except Exception as exc:
+            self.logger.debug(f"Pulse Engine robust write error: {exc}")
+
+    def snapshot(self) -> Dict[str, Any]:
+        """Zwraca aktualny stan hardware (jeśli adapter ma własną tablicę)."""
+        return {}
+
+    def _on_signal_change(self, name: str, state: Any) -> None:
+        """Reaguje na zmiany sygnałów w SignalBus (np. offsety KHR)."""
+        if name.startswith("khr_") and name.endswith("_offset"):
+            # Znajdujemy odpowiadającą oś
+            # khr_cam_h_offset -> axis_cam_h
+            axis_base = "axis_" + name[4:-7]
+            
+            # Pobieramy sygnał STEP dla tej osi, aby znać płytkę i kanał PE
+            step_signal = axis_base + "_step"
+            syg = self._signal_map.get(step_signal)
+            if not syg or syg.hardware_function != "PULSE_ENGINE":
+                return
+
+            with self._lock:
+                device = self.devices.get(syg.plytka)
+                if not device:
+                    return
+                # Ponownie przeliczamy i wysyłamy pozycję PE
+                self._handle_pulse_engine_write(syg, 0, device) # value 0 because it's offset change, not step

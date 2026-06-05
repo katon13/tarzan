@@ -32,6 +32,9 @@ class TarzanModeLogic:
                 time.sleep(0.5)
                 continue
 
+            # ETAP 8 i 9: Obsługa komend systemowych
+            self._handle_system_commands()
+
             active_mode = self.bus.read("active_mode", "tM")
             transport = self.bus.read("transport_state", "STOP")
             owner = self.bus.read("control_owner", "TSP_BOOT")
@@ -57,6 +60,32 @@ class TarzanModeLogic:
                 self.bus.write_output("rec_p09_led_data", 0, source="MODE_LOGIC")
 
             time.sleep(0.05) # 20Hz wystarczy dla logiki trybów
+
+    def _handle_system_commands(self):
+        """Obsługuje komendy start/stop modułów EHR/KHR."""
+        # EHR Start/Stop
+        if self.bus.read("cmd_ehr_start", 0):
+            self.bus.set_input("cmd_ehr_start", 0, source="MODE_LOGIC")
+            self.bus.set_input("ehr_state", "ACTIVE", source="MODE_LOGIC")
+            self.bus.set_input("transport_state", "PLAY", source="MODE_LOGIC")
+            self.bus.log("MODE", "EHR Playback STARTED via command.")
+
+        if self.bus.read("cmd_ehr_stop", 0):
+            self.bus.set_input("cmd_ehr_stop", 0, source="MODE_LOGIC")
+            self.bus.set_input("ehr_state", "READY", source="MODE_LOGIC")
+            self.bus.set_input("transport_state", "STOP", source="MODE_LOGIC")
+            self.bus.log("MODE", "EHR Playback STOPPED via command.")
+
+        # KHR Start/Stop
+        if self.bus.read("cmd_khr_start", 0):
+            self.bus.set_input("cmd_khr_start", 0, source="MODE_LOGIC")
+            self.bus.set_input("khr_state", "ACTIVE", source="MODE_LOGIC")
+            self.bus.log("MODE", "KHR Correction ACTIVE.")
+
+        if self.bus.read("cmd_khr_stop", 0):
+            self.bus.set_input("cmd_khr_stop", 0, source="MODE_LOGIC")
+            self.bus.set_input("khr_state", "READY", source="MODE_LOGIC")
+            self.bus.log("MODE", "KHR Correction OFF.")
 
     def _manage_control_owner(self, mode: str, current_owner: str):
         """Automatycznie ustawia właściciela sterowania w zależności od trybu."""

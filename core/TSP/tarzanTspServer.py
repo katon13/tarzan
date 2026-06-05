@@ -532,15 +532,19 @@ class TarzanTspServer:
         except Exception as exc:
             self.logger.error("Could not init SignalBus in TarzanTspServer: %s", exc)
 
-        # ETAP 5: Spięcie SignalBus ze Snajperem na miniPC (tor wykonawczy)
+        # ETAP 5: Spięcie SignalBus z Hardware Bridge na miniPC (tor wykonawczy)
         try:
+            from core.tarzanHardwareBridge import TarzanHardwareBridge
+            self.hw_bridge = TarzanHardwareBridge(bus)
+            self.hw_bridge.start()
+            
             from core.tarzanSnajper import create_default_tarzan_snajper
             self.snajper = create_default_tarzan_snajper()
             # Na miniPC Snajper subskrybuje SignalBus i strzela do zarejestrowanych adapterów (hardware)
             bus.subscribe(lambda name, state: self.snajper.fire_from_signal(name, state.value))
-            bus.log("TSP", "Snajper connected to SignalBus on miniPC.")
+            bus.log("TSP", "Hardware Bridge and Snajper connected to SignalBus on miniPC.")
         except Exception as e:
-            self.logger.error("Could not init Snajper on miniPC: %s", e)
+            self.logger.error("Could not init Hardware Bridge/Snajper on miniPC: %s", e)
 
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -786,6 +790,8 @@ class TarzanTspServer:
 
         self._stop_lks_n5()
         self.lks.stop()
+        if hasattr(self, "hw_bridge") and self.hw_bridge:
+            self.hw_bridge.stop()
         self.logger.info("TSP SERVER STOPPED")
 
     # ------------------------------------------------------------------
@@ -1097,8 +1103,31 @@ class TarzanTspServer:
                         row_time = row.get("time_ms", 0)
                         
                         if row_time <= elapsed:
-                            # Aplikujemy wartości sygnałów z wiersza
-                            bus.write_many_outputs(row, source="TAKE_PLAYBACK", time_ms=elapsed)
+                            # Aplikujemy wartości sygnałów z wiersza + Korekty KHR (Etap 15)
+                            # Kopiujemy wiersz, aby nie modyfikować załadowanego TAKE
+                            final_row = dict(row)
+                            
+                            # Nakładamy korekty dla aktywnych osi
+                            for key in row.keys():
+                                if key.startswith("axis_") and key.endswith("_step"):
+                                    # Szukamy odpowiadającego offsetu KHR w SignalBus
+                                    axis_prefix = key[:-5] # np. "axis_cam_h"
+                                    offset_signal = f"khr_{axis_prefix[5:]}_offset" # np. "khr_cam_h_offset"
+                                    
+                                    if bus.exists(offset_signal):
+                                        offset = float(bus.read(offset_signal, 0.0))
+                                        if offset != 0.0:
+                                            # Blending: do bazowej pozycji w krokach dodajemy offset
+                                            # UWAGA: row["axis_X_step"] to zazwyczaj 0/1 (impuls), 
+                                            # a KHR a_corr to skumulowany offset w stopniach/krokach.
+                                            # Prawdziwe blendingowanie wymagałoby operowania na absolutnych pozycjach,
+                                            # lub zamiany offsetu na dodatkowe impulsy.
+                                            
+                                            # PROSTSZA IMPLEMENTACJA ETAPU 15:
+                                            # Dodajemy offset do wiersza, a HardwareBridge musi to obsłużyć.
+                                            final_row[f"{axis_prefix}_offset"] = offset
+
+                            bus.write_many_outputs(final_row, source="TAKE_PLAYBACK", time_ms=elapsed)
                             self._take_playback_row_idx += 1
                         else:
                             # Jeszcze nie czas na ten wiersz

@@ -324,17 +324,25 @@ class TarzanTspSignalProvider:
     # ------------------------------------------------------------------
 
     def tick(self, client_count: int = 0) -> None:
-        # ETAP 6: W trybie MAIN/LIVE wyłączamy symulację, jeśli SignalBus jest aktywny
+        """
+        Aktualizuje stan providera.
+        W trybie produkcyjnym (SignalBus obecny) większość danych pochodzi z bus.
+        """
         try:
             from core.tarzanSignalBus import get_signal_bus
             bus = get_signal_bus()
+            
+            # Aktualizujemy statystyki węzła bezpośrednio w SignalBus
+            uptime = monotonic_ms() - self._start_ms
+            bus.force_signal("node_uptime_ms", uptime, source="TSP_STATS")
+            bus.force_signal("tsp_clients", client_count, source="TSP_STATS")
+            
+            # W trybie LIVE nie generujemy symulacji ruchu - czekamy na SignalBus/Hardware
             if bus.mode == "LIVE":
-                # W trybie LIVE tylko aktualizujemy statystyki węzła
-                with self._lock:
-                    self._signals["node_uptime_ms"] = monotonic_ms() - self._start_ms
-                    self._signals["tsp_clients"] = client_count
                 return
+
         except Exception:
+            # Fallback dla testów bez SignalBus
             pass
 
         now = monotonic_ms()

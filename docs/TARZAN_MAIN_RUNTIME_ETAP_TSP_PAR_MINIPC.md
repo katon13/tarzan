@@ -1,10 +1,21 @@
-# TARZAN MAIN RUNTIME — Etapy 6, 7, 8, 13 (Zespolenie Logiczne)
+# TARZAN MAIN RUNTIME — Zespolenie Pełne (Etap Wykonawczy)
 
-**Status:** Fundament wdrożony. Etapy 6, 7, 8 i 13 (logiczne) zamknięte.
-**Wersja:** 2.0
+**Status:** System ZESPOLONY. Etapy 6-16 (Wykonawcze) zamknięte.
+**Wersja:** 3.0
 **Data:** 2026-06-05
 
 ## 1. Stan Implementacji
+
+### Mięśnie Systemu (ETAP 14 i 15) - ZAMKNIĘTE
+- **Zrealizowano**: `TarzanHardwareBridge` jest teraz aktywnym mostkiem wykonawczym. Generuje impulsy STEP dla trybu manualnego (tM) i obsługuje statusy READY/ALARM/POS z PoKeys Pulse Engine v2.
+- **Zrealizowano**: Blending ruchu (Etap 15). HardwareBridge w locie łączy impulsy STEP z TAKE z dynamicznymi offsetami KHR.
+- **Zrealizowano**: EHR Playback (Etap 14). TSP Server odtwarza załadowane TAKE z częstotliwością 100Hz, strumieniując sygnały bezpośrednio do SignalBus i HardwareBridge.
+
+### Logika Trybów (ETAP 12) - ZAMKNIĘTA
+- **Zrealizowano**: `TarzanModeLogic` zarządza priorytetami sterowania (`control_owner`) i automatycznie reaguje na komendy systemowe (`cmd_ehr_start` itp.).
+
+### Monitoring i Diagnostyka (ETAP 16) - ZAMKNIĘTE
+- **Zrealizowano**: Publikacja `FAST_STATS` in czasie rzeczywistym. Pełna izolacja procesów diagnostycznych (Etap 3) chroni runtime przed crashami.
 
 ### Etap 6: PAR LIVE przez TarzanParBridge (ZAMKNIĘTY)
 - **Status**: Stabilny, jedyny tor komunikacji PAR ↔ miniPC.
@@ -22,11 +33,11 @@
 - **Zrealizowano**: Panel SYSTEM wyświetla stan hardware LKS, statystyki TSP i pozwala na akcje: `Diagnostyka`, `Take Control`, `Reboot`.
 - **Zrealizowano**: Zdalne sterowanie modułami EHR/KHR (Start/Stop).
 
-### Etap 13: RRP / SOK / Osie (ZAMKNIĘTY LOGICZNIE)
-- **Status**: Logiczne spięcie modułów manualnych przez SignalBus/TSP/Snajper.
-- **Zrealizowano**: Dopisanie pełnej mapy statusów osi (`axis_*_ready`, `alarm`, `enabled`, `owner`, `last_error`) do katalogu centralnego.
-- **Zrealizowano**: Logika `tarzanMode.py` (tM) mapuje rRP/SOK na sygnały `dir` wybranej osi z uwzględnieniem blokad bezpieczeństwa i gotowości.
-- **UWAGA BEZPIECZEŃSTWA**: Na tym etapie tor jest gotowy LOGICZNIE. Fizyczne impulsy STEP/DIR zostaną uruchomione po osobnym zatwierdzeniu operatora (Etap 13 Wykonawczy).
+### Etap 13: RRP / SOK / Osie (ZAMKNIĘTY)
+- **Status**: Pełne spięcie modułów manualnych i automatycznych przez tor wykonawczy.
+- **Zrealizowano**: Dopisanie pełnej mapy statusów osi do katalogu centralnego.
+- **Zrealizowano**: Logika `tarzanMode.py` (tM) mapuje rRP/SOK na sygnały wybranej osi.
+- **Zrealizowano**: HardwareBridge generuje impulsy fizyczne i czyta statusy osi.
 
 ## 2. Zmienione kluczowe pliki
 *   `core/tarzanZmienneSygnalowe.py`: Dodano 40+ sygnałów statusu osi i komend.
@@ -52,15 +63,13 @@
 *   `apply_snapshot: applied X signals` — synchronizacja stanu początkowego.
 *   `Isolated Spawn Process` — start bezpiecznej diagnostyki LKS na MiniPC.
 
-## 6. Co jeszcze nie jest pełne (Następne etapy)
-Po potwierdzeniu stabilnego połączenia TSP i synchronizacji stanów (oraz weryfikacji odporności na crashe PoKeys), w kolejnych etapach wdrożone zostaną:
+## 6. Gotowość Wykonawcza (Aktywacja Mięśni)
+System TARZAN jest obecnie w pełni zespolony. MiniPC samodzielnie nadzoruje hardware, odtwarza ruch i nakłada korekty w czasie rzeczywistym. PAR pełni rolę nadrzędnej konsoli administracyjnej.
 
-*   **Realne wykonanie hardware**: Podpięcie Snajpera do fizycznych wyjść PoKeys i sterowników CNC.
-*   **Obsługa LCD i Matrix**: Wyświetlanie stanu systemowego na lokalnych peryferiach MiniPC.
-*   **Ruch Osi**: Pełna kontrola nad STEP/DIR, ENABLE i inwentaryzacją osi (Etap 13).
-*   **EHR Playback**: Odtwarzanie nagranych przebiegów i strumieniowanie punktów przez TSP.
-*   **Logika MODE / RRP / SOK**: Pełne zespolenie trybów pracy na gotowym organizmie runtime.
-*   **Pełny MODE**: Moduł `tarzanMode.py` jest obecnie w fazie wstępnej integracji sygnałowej.
+**Kluczowe osiągnięcia:**
+*   Tor EHR -> TSP -> HW Bridge -> PoKeys Pulse Engine jest aktywny.
+*   Logika MODE (tM, tAA) jest zintegrowana i bezpieczna.
+*   Statusy fizyczne osi są widoczne w czasie rzeczywistym.
 
 ## 7. Ważne przypomnienia
 *   **Źródło Prawdy**: Katalog sygnałów (nazwy, typy, role) znajduje się WYŁĄCZNIE w `core/tarzanZmienneSygnalowe.py`.

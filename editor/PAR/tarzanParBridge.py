@@ -43,6 +43,7 @@ class TarzanParBridge:
         self.tsp_client: Optional[TarzanTspClient] = None
         self._tsp_thread: Optional[threading.Thread] = None
         self._tsp_subscribed: bool = False
+        self._tsp_last_state_sync_ts: float = 0.0
         # ETAP 1D: tryb LIVE utrzymujemy własną flagą, nie samym bus.mode.
         # Snapshot z miniPC albo lokalna zmiana stanu nie może zabić wątku TSP.
         self._tsp_active: bool = False
@@ -125,6 +126,34 @@ class TarzanParBridge:
         self._tsp_subscribed = False
         self._bus_log("TSP", f"Client dropped: {reason}. Reconnect pending...")
 
+    def _announce_par_live_to_tsp(self) -> None:
+        """KROK ZERO: jawne potwierdzenie PAR -> TSP bez przejmowania sterowania osiami."""
+        client = self.tsp_client
+        if client is None or not self._client_is_connected():
+            return
+        try:
+            client.set_signal("par_state", "PAR_LIVE")
+            self._tsp_last_state_sync_ts = time.monotonic()
+        except Exception as exc:
+            self._bus_log("TSP_ERROR", f"PAR live announce failed: {exc}")
+            self._drop_tsp_client(reason="par_live_announce_failed")
+
+    def _sync_zero_state_with_tsp(self) -> None:
+        """KROK ZERO: lekki odczyt stanu miniPC + potwierdzenie PAR_LIVE co kilka sekund."""
+        client = self.tsp_client
+        if client is None or not self._client_is_connected():
+            return
+        now = time.monotonic()
+        if now - self._tsp_last_state_sync_ts < 5.0:
+            return
+        try:
+            client.get_state()
+            client.set_signal("par_state", "PAR_LIVE")
+            self._tsp_last_state_sync_ts = now
+        except Exception as exc:
+            self._bus_log("TSP_ERROR", f"KROK ZERO state sync failed: {exc}")
+            self._drop_tsp_client(reason="krok_zero_state_sync_failed")
+
     def _send_to_tsp_if_ready(self, send_fn: Callable[[TarzanTspClient], Any], action_name: str) -> bool:
         """Wysyła do TSP tylko po pełnym połączeniu; w fazie LIVE-start nie wolno wywalać UI."""
         if self.bus.mode != "LIVE" or not self._client_is_connected():
@@ -163,6 +192,7 @@ class TarzanParBridge:
                     client.connect()
                     self.tsp_client = client
                     self._tsp_subscribed = False
+                    self._tsp_last_state_sync_ts = 0.0
 
                     self._bus_log("TSP", f"Connected to {self.tsp_host}. Sending HELLO...")
                     self._bus_set_input("par_state", "CONNECTED", source="TSP_LIVE")
@@ -173,6 +203,7 @@ class TarzanParBridge:
                     try:
                         assert self.tsp_client is not None
                         self.tsp_client.ping()
+                        self._sync_zero_state_with_tsp()
                     except Exception as exc:
                         self._bus_log("TSP_ERROR", f"Heartbeat failed: {exc}")
                         self._drop_tsp_client(reason="heartbeat_failed")
@@ -190,6 +221,11 @@ class TarzanParBridge:
         self._tsp_active = False
         if self.tsp_client:
             self._bus_log("TSP", "Disconnecting from MiniPC...")
+            try:
+                if self._client_is_connected():
+                    self.tsp_client.set_signal("par_state", "DISCONNECTED")
+            except Exception:
+                pass
             self.tsp_client.close()
             self.tsp_client = None
         self._tsp_subscribed = False
@@ -229,6 +265,12 @@ class TarzanParBridge:
         
         elif cmd == "subscribe" and ok:
             self.bus.log("TSP", "SUBSCRIBE OK: receiving live updates.")
+            self._announce_par_live_to_tsp()
+            try:
+                if self.tsp_client and self._client_is_connected():
+                    self.tsp_client.get_state()
+            except Exception as exc:
+                self.bus.log("TSP_ERROR", f"GET_STATE after subscribe failed: {exc}")
 
         elif event == "error" or (not ok and (message.get("error") or message.get("message"))):
             err_code = message.get("error", "unknown_error")

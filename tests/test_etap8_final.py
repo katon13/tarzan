@@ -24,6 +24,7 @@ def test_etap8_logic():
     
     print('[CLIENT] Creating TarzanParBridge...')
     bridge = TarzanParBridge(bus=get_signal_bus('TEST_CLIENT'))
+    bridge.tsp_host = '127.0.0.1'
     
     print('[CLIENT] Switching to LIVE mode...')
     bridge.set_mode('LIVE')
@@ -31,7 +32,7 @@ def test_etap8_logic():
     max_wait = 50
     connected = False
     for _ in range(max_wait):
-        if bridge.tsp_client and bridge.tsp_client.is_connected:
+        if bridge.tsp_client and bridge.tsp_client.is_connected():
             connected = True
             break
         time.sleep(0.1)

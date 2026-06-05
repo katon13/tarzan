@@ -250,6 +250,22 @@ class TarzanParApp(tk.Tk):
             pass
         self.after_idle(self.snajper_render_initial_structure)
         self.after(30, self.nextion_snajper_tick)
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def on_close(self):
+        """Obsługa bezpiecznego zamykania aplikacji."""
+        try:
+            print("PAR: Closing application...")
+            if hasattr(self, 'bridge'):
+                self.bridge.shutdown()
+        except Exception as e:
+            print(f"PAR: Error during shutdown: {e}")
+        finally:
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            sys.exit(0)
         # USUNIĘTE: PAR_APP.tick wyłączony
 
     def load_layout(self):

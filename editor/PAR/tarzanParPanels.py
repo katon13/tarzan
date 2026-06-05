@@ -884,10 +884,10 @@ class TarzanParPanels:
         # Przycisk jest dokładany po zbudowaniu paska aplikacji, bez przebudowy układu PAR.
         self._top_reset_button = None
         try:
-            self.app.after_idle(self._install_top_reset_button)
+            self.app.after_idle(self._install_top_buttons)
         except Exception:
             try:
-                self.app.after(200, self._install_top_reset_button)
+                self.app.after(200, self._install_top_buttons)
             except Exception:
                 pass
 
@@ -911,25 +911,23 @@ class TarzanParPanels:
             except Exception:
                 pass
 
-    def _install_top_reset_button(self):
-        """Dodaje jeden przycisk RESET SYGNAŁÓW obok istniejącej ikony ustawień w prawym górnym rogu PAR."""
-        if getattr(self, "_top_reset_button", None) is not None:
-            try:
-                if self._top_reset_button.winfo_exists():
-                    return
-            except Exception:
-                pass
+    def _install_top_buttons(self):
+        """Dodaje przyciski RESET SYGNAŁÓW oraz ODŁĄCZ TSP w prawym górnym rogu PAR."""
+        if getattr(self, "_top_buttons_installed", False):
+            return
 
         settings_button = self._find_settings_button(getattr(self, "app", None))
         if settings_button is None:
             try:
-                self.app.after(300, self._install_top_reset_button)
+                self.app.after(300, self._install_top_buttons)
             except Exception:
                 pass
             return
 
         parent = settings_button.master
-        btn = tk.Button(
+        
+        # Przycisk RESET
+        btn_reset = tk.Button(
             parent,
             text="RESET SYGNAŁÓW",
             bg="#7a251f",
@@ -940,25 +938,41 @@ class TarzanParPanels:
             font=("Segoe UI", 8, "bold"),
             command=self.reset_signals,
         )
+        
+        # Przycisk ODŁĄCZ TSP
+        btn_disc = tk.Button(
+            parent,
+            text="ODŁĄCZ TSP",
+            bg="#3e4451",
+            fg="white",
+            activebackground="#4b5263",
+            activeforeground="white",
+            relief="flat",
+            font=("Segoe UI", 8, "bold"),
+            command=lambda: self.app.bridge.disconnect_tsp() if hasattr(self.app, 'bridge') else None,
+        )
 
         try:
             pack_info = settings_button.pack_info()
             side = pack_info.get("side", "right")
             pady = pack_info.get("pady", 0)
-            btn.pack(side=side, padx=(0, 6), pady=pady)
+            btn_reset.pack(side=side, padx=(0, 6), pady=pady)
+            btn_disc.pack(side=side, padx=(0, 6), pady=pady)
         except Exception:
             try:
                 grid_info = settings_button.grid_info()
                 row = int(grid_info.get("row", 0))
                 column = int(grid_info.get("column", 0))
-                btn.grid(row=row, column=max(0, column - 1), padx=(0, 6), pady=grid_info.get("pady", 0), sticky=grid_info.get("sticky", ""))
+                btn_reset.grid(row=row, column=max(0, column - 1), padx=(0, 6), pady=grid_info.get("pady", 0), sticky=grid_info.get("sticky", ""))
+                btn_disc.grid(row=row, column=max(0, column - 2), padx=(0, 6), pady=grid_info.get("pady", 0), sticky=grid_info.get("sticky", ""))
             except Exception:
                 try:
-                    btn.place(in_=parent, relx=1.0, rely=0.0, x=-62, y=4, anchor="ne")
+                    btn_reset.place(in_=parent, relx=1.0, rely=0.0, x=-62, y=4, anchor="ne")
+                    btn_disc.place(in_=parent, relx=1.0, rely=0.0, x=-162, y=4, anchor="ne")
                 except Exception:
                     return
 
-        self._top_reset_button = btn
+        self._top_buttons_installed = True
 
     def _find_settings_button(self, root):
         if root is None:

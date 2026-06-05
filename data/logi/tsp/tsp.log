@@ -536,3 +536,78 @@
 2026-06-05 15:52:25,234 [INFO] TSP SERVER STOPPED
 2026-06-05 15:52:25,234 [INFO] Hardware Bridge STOPPED.
 2026-06-05 15:52:25,234 [INFO] TSP SERVER STOPPED
+2026-06-05 16:17:33,207 [INFO] Catalog built from SignalBus: 230 signals
+2026-06-05 16:17:33,262 [INFO] Starting Hardware Bridge...
+2026-06-05 16:17:33,263 [ERROR] PoKeys library file not found at: X:\tarzan\hardware\pokeys\PoKeysDevice_x64.dll
+2026-06-05 16:17:33,264 [INFO] TSP SERVER START host=127.0.0.1 port=7777 node=tarzanMiniPC
+2026-06-05 16:17:33,266 [INFO] Tarzan Mode Logic: STARTED
+2026-06-05 16:17:34,265 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:17:35,265 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:17:36,266 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:17:37,265 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:17:38,265 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:17:39,265 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:17:40,265 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:17:41,266 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:17:42,266 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:17:43,266 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:17:43,919 [INFO] Hardware Bridge STOPPED.
+2026-06-05 16:17:43,920 [INFO] TSP SERVER STOPPED
+2026-06-05 16:18:20,010 [INFO] Catalog built from SignalBus: 230 signals
+2026-06-05 16:18:20,037 [INFO] Starting Hardware Bridge...
+2026-06-05 16:18:20,037 [ERROR] PoKeys library file not found at: X:\tarzan\hardware\pokeys\PoKeysDevice_x64.dll
+2026-06-05 16:18:20,039 [INFO] TSP SERVER START host=127.0.0.1 port=7777 node=tarzanMiniPC
+2026-06-05 16:18:20,040 [INFO] Tarzan Mode Logic: STARTED
+2026-06-05 16:18:21,040 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:18:21,043 [INFO] CONNECT client#1 127.0.0.1:53083
+2026-06-05 16:18:21,067 [INFO] SUBSCRIBE client#1 127.0.0.1:53083 lanes=['fast', 'health', 'normal', 'slow', 'urgent'] signals=1
+2026-06-05 16:18:21,069 [INFO] SUBSCRIBE client#1 127.0.0.1:53083 lanes=['fast', 'health', 'normal', 'slow', 'urgent'] signals=1
+2026-06-05 16:18:22,040 [INFO] TSP_STATS clients=1 tx=29237 rx=10 errors=2 dropped=0 lanes={'hello': 2, 'log_event': 29111, 'ping': 2, 'get_state': 2, 'subscribe': 2, 'set_signal': 2, 'fast': 94, 'normal': 19, 'slow': 1, 'call_action': 1, 'health': 1}
+2026-06-05 16:18:23,041 [INFO] TSP_STATS clients=1 tx=49348 rx=10 errors=2 dropped=0 lanes={'hello': 2, 'log_event': 49106, 'ping': 2, 'get_state': 2, 'subscribe': 2, 'set_signal': 2, 'fast': 187, 'normal': 39, 'slow': 3, 'call_action': 1, 'health': 2}
+2026-06-05 16:18:23,638 [WARNING] DISCONNECT client#1 127.0.0.1:53083 reason=send_failed error=timed out
+2026-06-05 16:18:23,638 [INFO] DISCONNECT client#1 127.0.0.1:53083
+2026-06-05 16:18:24,041 [INFO] TSP_STATS clients=0 tx=51310 rx=10 errors=3 dropped=0 lanes={'hello': 2, 'log_event': 51057, 'ping': 2, 'get_state': 2, 'subscribe': 2, 'set_signal': 2, 'fast': 196, 'normal': 40, 'slow': 4, 'call_action': 1, 'health': 2}
+2026-06-05 16:18:25,043 [INFO] TSP_STATS clients=0 tx=51310 rx=10 errors=3 dropped=0 lanes={'hello': 2, 'log_event': 51057, 'ping': 2, 'get_state': 2, 'subscribe': 2, 'set_signal': 2, 'fast': 196, 'normal': 40, 'slow': 4, 'call_action': 1, 'health': 2}
+2026-06-05 16:18:26,044 [INFO] TSP_STATS clients=0 tx=51310 rx=10 errors=3 dropped=0 lanes={'hello': 2, 'log_event': 51057, 'ping': 2, 'get_state': 2, 'subscribe': 2, 'set_signal': 2, 'fast': 196, 'normal': 40, 'slow': 4, 'call_action': 1, 'health': 2}
+2026-06-05 16:18:26,069 [INFO] CONNECT client#2 127.0.0.1:53084
+2026-06-05 16:18:26,084 [INFO] SUBSCRIBE client#2 127.0.0.1:53084 lanes=['fast', 'health', 'normal', 'slow', 'urgent'] signals=1
+2026-06-05 16:18:26,085 [INFO] SUBSCRIBE client#2 127.0.0.1:53084 lanes=['fast', 'health', 'normal', 'slow', 'urgent'] signals=1
+2026-06-05 16:18:27,044 [INFO] TSP_STATS clients=1 tx=80730 rx=19 errors=5 dropped=0 lanes={'hello': 4, 'log_event': 80353, 'ping': 4, 'get_state': 4, 'subscribe': 4, 'set_signal': 4, 'fast': 288, 'normal': 59, 'slow': 6, 'call_action': 1, 'health': 3}
+2026-06-05 16:18:27,876 [WARNING] DISCONNECT client#2 127.0.0.1:53084 reason=send_failed error=timed out
+2026-06-05 16:18:27,877 [INFO] DISCONNECT client#2 127.0.0.1:53084
+2026-06-05 16:18:28,044 [INFO] TSP_STATS clients=0 tx=89284 rx=19 errors=6 dropped=0 lanes={'hello': 4, 'log_event': 88869, 'ping': 4, 'get_state': 4, 'subscribe': 4, 'set_signal': 4, 'fast': 319, 'normal': 65, 'slow': 7, 'call_action': 1, 'health': 3}
+2026-06-05 16:18:28,582 [INFO] Hardware Bridge STOPPED.
+2026-06-05 16:18:28,582 [INFO] TSP SERVER STOPPED
+2026-06-05 16:23:21,296 [INFO] Catalog built from SignalBus: 230 signals
+2026-06-05 16:23:21,348 [INFO] Starting Hardware Bridge...
+2026-06-05 16:23:21,348 [ERROR] PoKeys library file not found at: X:\tarzan\hardware\pokeys\PoKeysDevice_x64.dll
+2026-06-05 16:23:21,351 [INFO] TSP SERVER START host=127.0.0.1 port=7777 node=tarzanMiniPC
+2026-06-05 16:23:21,352 [INFO] Tarzan Mode Logic: STARTED
+2026-06-05 16:23:22,351 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:23:22,355 [INFO] CONNECT client#1 127.0.0.1:55939
+2026-06-05 16:23:22,356 [INFO] SUBSCRIBE client#1 127.0.0.1:55939 lanes=['fast', 'health', 'normal', 'slow', 'urgent'] signals=1
+2026-06-05 16:23:22,356 [INFO] SUBSCRIBE client#1 127.0.0.1:55939 lanes=['fast', 'health', 'normal', 'slow', 'urgent'] signals=1
+2026-06-05 16:23:22,957 [WARNING] DISCONNECT client#1 127.0.0.1:55939 reason=send_failed error=[WinError 10054] Istniejące połączenie zostało gwałtownie zamknięte przez zdalnego hosta
+2026-06-05 16:23:22,958 [INFO] DISCONNECT client#1 127.0.0.1:55939
+2026-06-05 16:23:22,960 [INFO] Hardware Bridge STOPPED.
+2026-06-05 16:23:22,960 [INFO] TSP SERVER STOPPED
+2026-06-05 16:23:35,554 [INFO] Catalog built from SignalBus: 230 signals
+2026-06-05 16:23:35,581 [INFO] Starting Hardware Bridge...
+2026-06-05 16:23:35,582 [ERROR] PoKeys library file not found at: X:\tarzan\hardware\pokeys\PoKeysDevice_x64.dll
+2026-06-05 16:23:35,584 [INFO] TSP SERVER START host=127.0.0.1 port=7777 node=tarzanMiniPC
+2026-06-05 16:23:35,585 [INFO] Tarzan Mode Logic: STARTED
+2026-06-05 16:23:36,586 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
+2026-06-05 16:23:36,588 [INFO] CONNECT client#1 127.0.0.1:55940
+2026-06-05 16:23:36,609 [INFO] SUBSCRIBE client#1 127.0.0.1:55940 lanes=['fast', 'health', 'normal', 'slow', 'urgent'] signals=1
+2026-06-05 16:23:36,611 [INFO] SUBSCRIBE client#1 127.0.0.1:55940 lanes=['fast', 'health', 'normal', 'slow', 'urgent'] signals=1
+2026-06-05 16:23:36,688 [WARNING] DISCONNECT client#1 127.0.0.1:55940 reason=send_failed error=[WinError 10054] Istniejące połączenie zostało gwałtownie zamknięte przez zdalnego hosta
+2026-06-05 16:23:36,689 [INFO] DISCONNECT client#1 127.0.0.1:55940
+2026-06-05 16:23:37,587 [INFO] TSP_STATS clients=0 tx=4397 rx=9 errors=3 dropped=0 lanes={'hello': 2, 'log_event': 4378, 'ping': 2, 'get_state': 2, 'subscribe': 2, 'set_signal': 2, 'fast': 8, 'normal': 1}
+2026-06-05 16:23:37,690 [INFO] CONNECT client#2 127.0.0.1:55941
+2026-06-05 16:23:37,711 [INFO] SUBSCRIBE client#2 127.0.0.1:55941 lanes=['fast', 'health', 'normal', 'slow', 'urgent'] signals=1
+2026-06-05 16:23:37,712 [INFO] SUBSCRIBE client#2 127.0.0.1:55941 lanes=['fast', 'health', 'normal', 'slow', 'urgent'] signals=1
+2026-06-05 16:23:37,791 [WARNING] DISCONNECT client#2 127.0.0.1:55941 reason=send_failed error=[WinError 10054] Istniejące połączenie zostało gwałtownie zamknięte przez zdalnego hosta
+2026-06-05 16:23:37,791 [INFO] DISCONNECT client#2 127.0.0.1:55941
+2026-06-05 16:23:38,587 [INFO] TSP_STATS clients=0 tx=8398 rx=18 errors=6 dropped=0 lanes={'hello': 4, 'log_event': 8360, 'ping': 4, 'get_state': 4, 'subscribe': 4, 'set_signal': 4, 'fast': 15, 'normal': 3}
+2026-06-05 16:23:38,800 [INFO] Hardware Bridge STOPPED.
+2026-06-05 16:23:38,800 [INFO] TSP SERVER STOPPED

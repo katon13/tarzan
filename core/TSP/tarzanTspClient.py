@@ -52,7 +52,6 @@ class TarzanTspClient:
         self.slow_count = 0
         self.health_count = 0
 
-    @property
     def is_connected(self) -> bool:
         return self.running and self.sock is not None
 

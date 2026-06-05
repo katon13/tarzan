@@ -320,10 +320,22 @@ class TarzanTspServer:
             try:
                 from .tarzanTspLksBootCheck import TarzanTspLksBootCheck
 
-                boot = TarzanTspLksBootCheck(self.lks_n5, pause_s=0.12, hardware_bridge=getattr(self, "hw_bridge", None))
+                boot = TarzanTspLksBootCheck(self.lks_n5, pause_s=0.12)
                 boot.run()
                 self._lks_n5_status_page_ready = True
                 self._lks_n5_status_cache = dict(getattr(boot, "statuses", {}) or {})
+
+                # ETAP 1L: Snajper na miniPC jest tworzony przed startem LKS-N5
+                # i subskrybuje SignalBus. Boot-check nie może czekać na późniejszy
+                # klik operatora, żeby dopiero wtedy zazielenić snajper_sys.
+                # Jeżeli runtime Snajpera istnieje, od razu pokazujemy status OK.
+                snajper_ok = getattr(self, "snajper", None) is not None
+                self._lks_n5_status_cache["snajper_sys"] = bool(snajper_ok)
+                try:
+                    self.lks_n5.set_status("snajper_sys", bool(snajper_ok))
+                except Exception:
+                    pass
+
                 self._lks_n5_dirty = False
                 self._lks_n5_dirty_reason = ""
             except Exception as boot_exc:
@@ -490,7 +502,7 @@ class TarzanTspServer:
 
             desired_statuses: Dict[str, bool] = {
                 "linux_sys": True,
-                "snajper_sys": reason_low.startswith("health"),
+                "snajper_sys": getattr(self, "snajper", None) is not None,
                 "take_sys": True,
                 "par_sys": client_count > 0,
                 "ehr_sys": client_count > 0,

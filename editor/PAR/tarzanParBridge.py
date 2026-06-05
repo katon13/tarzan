@@ -55,11 +55,34 @@ class TarzanParBridge:
         self._tsp_thread = threading.Thread(target=self._tsp_connector_loop, name="TSP-CONNECTOR", daemon=True)
         self._tsp_thread.start()
 
+    def _client_is_connected(self) -> bool:
+        """Zwraca prawdziwy stan połączenia TSP bez założenia, czy is_connected jest property czy metodą."""
+        client = self.tsp_client
+        if client is None:
+            return False
+        state = getattr(client, "is_connected", False)
+        try:
+            return bool(state() if callable(state) else state)
+        except Exception:
+            return False
+
+    def _send_to_tsp_if_ready(self, send_fn: Callable[[TarzanTspClient], Any], action_name: str) -> bool:
+        """Wysyła do TSP tylko po pełnym połączeniu; w fazie LIVE-start nie wolno wywalać UI."""
+        if self.bus.mode != "LIVE" or not self._client_is_connected():
+            return False
+        try:
+            assert self.tsp_client is not None
+            send_fn(self.tsp_client)
+            return True
+        except Exception as exc:
+            self.bus.log("TSP_ERROR", f"{action_name} failed: {exc}")
+            return False
+
     def _tsp_connector_loop(self) -> None:
         """Pętla dbająca o połączenie i podtrzymanie sesji TSP."""
         while self.bus.mode == "LIVE":
-            if self.tsp_client is None or not self.tsp_client.is_connected():
-                if self.tsp_client and not self.tsp_client.is_connected():
+            if self.tsp_client is None or not self._client_is_connected():
+                if self.tsp_client and not self._client_is_connected():
                     self.bus.log("TSP_ERROR", "CONNECTION LOST: MiniPC offline.")
                     self.bus.set_input("par_state", "OFFLINE", source="TSP_LIVE")
                     self.tsp_client.close()
@@ -171,31 +194,25 @@ class TarzanParBridge:
         return self.bus.read_input(name, default)
 
     def set_input(self, name: str, value: Any, source: str = "PAR") -> bool:
-        if self.tsp_client and self.bus.mode == "LIVE":
-            # W trybie LIVE wysyłamy do TSP zamiast pisać lokalnie (Etap 7-8)
-            self.tsp_client.set_signal(name, value)
+        if self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"set_input {name}"):
             return True
         return self.bus.set_input(name, value, source=source)
 
     def write_output(self, name: str, value: Any, source: str = "PAR") -> bool:
-        if self.tsp_client and self.bus.mode == "LIVE":
-            self.tsp_client.set_signal(name, value)
+        if self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"write_output {name}"):
             return True
         return self.bus.write_output(name, value, source=source)
 
     def force_signal(self, name: str, value: Any, source: str = "PAR_FORCE") -> bool:
-        if self.tsp_client and self.bus.mode == "LIVE":
-            # ETAP 7: Delegacja wymuszenia do TSP
-            self.tsp_client.set_signal(name, value)
+        if self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"force_signal {name}"):
             return True
         return self.bus.force_signal(name, value, source=source)
 
     def set_signal(self, name: str, value: Any, source: str = "PAR") -> bool:
         """Alias dla ujednoliconego zapisu sygnału w obu trybach (Etap 7-8)."""
-        if self.tsp_client and self.bus.mode == "LIVE":
-            self.tsp_client.set_signal(name, value)
+        if self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"set_signal {name}"):
             return True
-        
+
         m = self.bus.get_meta(name)
         if not m:
             return self.bus.force_signal(name, value, source=source)
@@ -206,16 +223,16 @@ class TarzanParBridge:
 
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> bool:
         """Wysyła komendę administracyjną do TSP (Etap 8)."""
-        if self.tsp_client and self.bus.mode == "LIVE":
-            if name == "trace_signal" and payload:
-                sig = payload.get("name")
-                sec = payload.get("seconds", 30)
-                if sig:
-                    self.tsp_client.trace_signal(sig, seconds=sec)
-                    return True
-            self.tsp_client.call_action(name, payload)
+        if name == "trace_signal" and payload:
+            sig = payload.get("name")
+            sec = payload.get("seconds", 30)
+            if sig and self._send_to_tsp_if_ready(lambda c: c.trace_signal(sig, seconds=sec), f"trace_signal {sig}"):
+                return True
+
+        if self._send_to_tsp_if_ready(lambda c: c.call_action(name, payload), f"call_action {name}"):
             return True
-        self.bus.log("PAR", f"Action {name} ignored (not in LIVE mode)")
+
+        self.bus.log("PAR", f"Action {name} ignored (TSP not connected)")
         return False
 
     def snapshot(self, include_meta: bool = False) -> Dict[str, Any]:
@@ -223,7 +240,7 @@ class TarzanParBridge:
 
     def load_take(self, path: str | Path) -> TarzanTakeData:
         data = self.take_player.load(path)
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self._client_is_connected() and self.bus.mode == "LIVE":
             # ETAP 14: Przesyłanie danych TAKE do MiniPC
             payload = {
                 "name": Path(path).name,
@@ -236,19 +253,19 @@ class TarzanParBridge:
         return data
 
     def play_take(self) -> None:
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self._client_is_connected() and self.bus.mode == "LIVE":
             self.call_action("play_take")
         else:
             self.take_player.play()
 
     def pause_take(self) -> None:
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self._client_is_connected() and self.bus.mode == "LIVE":
             self.call_action("pause_take")
         else:
             self.take_player.pause()
 
     def stop_take(self) -> None:
-        if self.tsp_client and self.bus.mode == "LIVE":
+        if self._client_is_connected() and self.bus.mode == "LIVE":
             self.call_action("stop_take")
         else:
             self.take_player.stop()

@@ -30,6 +30,8 @@ class TarzanParBridge:
         self.bus = bus or get_signal_bus("TEST")
         self.mapper = TarzanParProtocolMapper(self.bus.names())
         self.take_player = TarzanParTakePlayer(self.bus, self.mapper)
+        self._after = after
+        self._after_cancel = after_cancel
         if after is not None and after_cancel is not None:
             self.take_player.set_scheduler(after, after_cancel)
         
@@ -59,6 +61,32 @@ class TarzanParBridge:
             "safety_axis_unlock",
         ]
 
+    def _ui_call(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
+        """Wykonuje zmianę UI/SignalBus bezpiecznie w wątku Tkintera, gdy mamy scheduler."""
+        if self._after is None:
+            try:
+                fn(*args, **kwargs)
+            except Exception:
+                pass
+            return
+        try:
+            self._after(0, lambda: fn(*args, **kwargs))
+        except Exception:
+            try:
+                fn(*args, **kwargs)
+            except Exception:
+                pass
+
+    def _bus_log(self, source: str, message: str) -> None:
+        self._ui_call(self.bus.log, source, message)
+
+    def _bus_set_input(self, name: str, value: Any, source: str = "TSP_LIVE") -> None:
+        self._ui_call(self.bus.set_input, name, value, source=source)
+
+    def _queue_tsp_message(self, message: Dict[str, Any]) -> None:
+        """RX klienta TSP działa w tle; obsługę wpisów do busa robimy przez Tk after()."""
+        self._ui_call(self._handle_tsp_message, message)
+
     def set_mode(self, mode: str) -> None:
         self.bus.set_mode(mode)
         if mode == "LIVE":
@@ -70,7 +98,7 @@ class TarzanParBridge:
     def _start_tsp(self) -> None:
         if self._tsp_thread and self._tsp_thread.is_alive():
             return
-        self.bus.log("TSP", "Starting TSP connector thread (LIVE)...")
+        self._bus_log("TSP", "Starting TSP connector thread (LIVE)...")
         self._tsp_thread = threading.Thread(target=self._tsp_connector_loop, name="TSP-CONNECTOR", daemon=True)
         self._tsp_thread.start()
 
@@ -108,7 +136,7 @@ class TarzanParBridge:
             try:
                 if self.tsp_client is None or not self._client_is_connected():
                     if self.tsp_client is not None:
-                        self.bus.log("TSP_ERROR", "CONNECTION LOST: MiniPC offline or client closed. Reconnecting...")
+                        self._bus_log("TSP_ERROR", "CONNECTION LOST: MiniPC offline or client closed. Reconnecting...")
                         try:
                             self.tsp_client.close()
                         except Exception:
@@ -116,20 +144,20 @@ class TarzanParBridge:
                         self.tsp_client = None
                         self._tsp_subscribed = False
 
-                    self.bus.set_input("par_state", "CONNECTING", source="TSP_LIVE")
+                    self._bus_set_input("par_state", "CONNECTING", source="TSP_LIVE")
                     client = TarzanTspClient(host=self.tsp_host, name="tarzanPAR")
-                    client.on_message = self._handle_tsp_message
+                    client.on_message = self._queue_tsp_message
                     client.connect()
                     self.tsp_client = client
                     self._tsp_subscribed = False
 
-                    self.bus.log("TSP", f"Connected to {self.tsp_host}. Sending HELLO...")
-                    self.bus.set_input("par_state", "CONNECTED", source="TSP_LIVE")
+                    self._bus_log("TSP", f"Connected to {self.tsp_host}. Sending HELLO...")
+                    self._bus_set_input("par_state", "CONNECTED", source="TSP_LIVE")
                     client.hello()
 
             except Exception as exc:
-                self.bus.log("TSP_ERROR", f"Connector loop error: {exc}")
-                self.bus.set_input("par_state", "OFFLINE", source="TSP_LIVE")
+                self._bus_log("TSP_ERROR", f"Connector loop error: {exc}")
+                self._bus_set_input("par_state", "OFFLINE", source="TSP_LIVE")
                 if self.tsp_client is not None:
                     try:
                         self.tsp_client.close()
@@ -140,12 +168,12 @@ class TarzanParBridge:
 
             time.sleep(1.0)
 
-        self.bus.log("TSP", "TSP connector thread stopped.")
+        self._bus_log("TSP", "TSP connector thread stopped.")
 
     def _stop_tsp(self) -> None:
         self._tsp_active = False
         if self.tsp_client:
-            self.bus.log("TSP", "Disconnecting from MiniPC...")
+            self._bus_log("TSP", "Disconnecting from MiniPC...")
             self.tsp_client.close()
             self.tsp_client = None
         self._tsp_subscribed = False

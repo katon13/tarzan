@@ -58,17 +58,26 @@ class TarzanParBridge:
     def _tsp_connector_loop(self) -> None:
         """Pętla dbająca o połączenie i podtrzymanie sesji TSP."""
         while self.bus.mode == "LIVE":
-            if self.tsp_client is None:
+            if self.tsp_client is None or not self.tsp_client.is_connected():
+                if self.tsp_client and not self.tsp_client.is_connected():
+                    self.bus.log("TSP_ERROR", "CONNECTION LOST: MiniPC offline.")
+                    self.bus.set_input("par_state", "OFFLINE", source="TSP_LIVE")
+                    self.tsp_client.close()
+                    self.tsp_client = None
+
                 try:
                     self.tsp_client = TarzanTspClient(host=self.tsp_host, name="tarzanPAR")
                     self.tsp_client.on_message = self._handle_tsp_message
                     self.tsp_client.connect()
                     
                     # Handshake
-                    self.bus.log("TSP", f"Connected to {TSP_MINI_PC_HOST}. Sending HELLO...")
+                    self.bus.log("TSP", f"Connected to {self.tsp_host}. Sending HELLO...")
+                    self.bus.set_input("par_state", "CONNECTED", source="TSP_LIVE")
                     self.tsp_client.hello()
                 except Exception as e:
-                    self.bus.log("TSP", f"Connection failed: {e}")
+                    if self.tsp_client:
+                        self.bus.log("TSP", f"Connection failed: {e}")
+                    self.bus.set_input("par_state", "OFFLINE", source="TSP_LIVE")
                     self.tsp_client = None
             
             time.sleep(5.0) # Re-check co 5s
@@ -114,9 +123,16 @@ class TarzanParBridge:
             err_code = message.get("error", "unknown_error")
             err_msg = message.get("message") or message.get("reason") or err_code
             self.bus.log("TSP_ERROR", f"TSP Error ({err_code}): {err_msg}")
+            
+            # ETAP 8: Powiadamianie UI o błędzie
+            self.bus.set_input("par_last_error", f"{err_code}: {err_msg}", source="TSP_LIVE")
+            
             # Specjalna obsługa odmowy zapisu dla UI (Etap 7-8)
             if err_code == "write_denied":
                 self.bus.log("TSP_ERROR", f"Access Denied: {message.get('reason', 'control_owner_conflict')}")
+                self.bus.set_input("par_write_denied_event", 1, source="TSP_LIVE")
+                # Resetujemy flagę zdarzenia po chwili, żeby mogła "mignąć" w UI
+                threading.Timer(1.0, lambda: self.bus.set_input("par_write_denied_event", 0, source="TSP_LIVE")).start()
 
         elif event == "disconnect":
             self.bus.log("TSP", "Server disconnected.")
@@ -127,6 +143,12 @@ class TarzanParBridge:
             msg = message.get("message", "")
             # Wpisujemy do lokalnego busa, co automatycznie odświeży panel logów PAR
             self.bus.log(f"MINI:{src}", msg)
+
+        elif event == "trace":
+            # ETAP 16: Odbieranie danych trace w czasie rzeczywistym
+            name = message.get("signal", "unknown")
+            val = message.get("value", 0)
+            self.bus.force_signal(f"trace_{name}", val, source="TSP_TRACE")
 
     def nextion_connect(self):
         return self.nextion.connect_enabled()
@@ -168,9 +190,29 @@ class TarzanParBridge:
             return True
         return self.bus.force_signal(name, value, source=source)
 
+    def set_signal(self, name: str, value: Any, source: str = "PAR") -> bool:
+        """Alias dla ujednoliconego zapisu sygnału w obu trybach (Etap 7-8)."""
+        if self.tsp_client and self.bus.mode == "LIVE":
+            self.tsp_client.set_signal(name, value)
+            return True
+        
+        m = self.bus.get_meta(name)
+        if not m:
+            return self.bus.force_signal(name, value, source=source)
+        if m.is_input() or name.startswith("par_"):
+            return self.bus.set_input(name, value, source=source)
+        else:
+            return self.bus.write_output(name, value, source=source)
+
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> bool:
         """Wysyła komendę administracyjną do TSP (Etap 8)."""
         if self.tsp_client and self.bus.mode == "LIVE":
+            if name == "trace_signal" and payload:
+                sig = payload.get("name")
+                sec = payload.get("seconds", 30)
+                if sig:
+                    self.tsp_client.trace_signal(sig, seconds=sec)
+                    return True
             self.tsp_client.call_action(name, payload)
             return True
         self.bus.log("PAR", f"Action {name} ignored (not in LIVE mode)")

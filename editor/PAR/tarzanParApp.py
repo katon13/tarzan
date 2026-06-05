@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 from core.tarzanSnajper import create_default_tarzan_snajper, NextionPhysicalSnajperAdapter
 
 import json
@@ -653,7 +653,7 @@ class TarzanParApp(tk.Tk):
             "sok": p.sok_panel,
             "cnc_signals": p.cnc_signals_panel,
             "nextion_7_preview": p.nextion_7_preview,
-            "diagnostics": p.diagnostics_panel,
+            "diagnostics": p.diagnostics,
         }
 
         cursor_by_zone = {z: {"row": 0, "col": 0, "row_height": 1} for z in zones}
@@ -1889,7 +1889,7 @@ class TarzanParApp(tk.Tk):
             self.bus.mode = mode
             # Dodatkowo ustawiamy par_mode dla pełnej kompatybilności wstecznej TFD
             m_val = 0 if mode == "TEST" else (1 if mode == "LIVE" else 2)
-            self.bus.force_signal("par_mode", m_val, source="PAR_UI")
+            self.bridge.force_signal("par_mode", m_val, source="PAR_UI")
 
         color = "#b38316" if mode == "TEST" else ("#08620e" if mode == "LIVE" else "#18528c")
         self.mode_label.configure(text=f"TRYB: {mode}", bg=color)

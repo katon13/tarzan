@@ -75,10 +75,8 @@ class TarzanTspSignalProvider:
         self._start_ms = monotonic_ms()
         self._last_ms = self._start_ms
         self._urgent_queue: list[Dict[str, Any]] = []
-        self._signals: Dict[str, Any] = {}
         self._catalog: Dict[str, TarzanTspSignalDef] = {}
         self._build_catalog()
-        self._reset_values()
 
     # ------------------------------------------------------------------
     # KATALOG
@@ -141,102 +139,87 @@ class TarzanTspSignalProvider:
     # ------------------------------------------------------------------
 
     def get_signal(self, name: str) -> Any:
-        # Próba odczytu z SignalBus (MAIN/LIVE)
-        try:
-            from core.tarzanSignalBus import get_signal_bus
-            bus = get_signal_bus()
-            if bus.exists(name):
-                return bus.read(name)
-        except Exception:
-            pass
-
+        # ETAP 17: Provider polega wyłącznie na SignalBus (MAIN/LIVE)
+        from core.tarzanSignalBus import get_signal_bus
+        bus = get_signal_bus()
+        if bus.exists(name):
+            return bus.read(name)
+        
+        # Jeśli sygnał nie istnieje w busie, a jest w katalogu, zwracamy default
         with self._lock:
-            if name not in self._signals:
-                raise KeyError(name)
-            return self._signals[name]
+            item = self._catalog.get(name)
+            if item: return item.default
+            raise KeyError(name)
 
     def get_all(self) -> Dict[str, Any]:
-        # Pobieramy stan bazowy (symulacja/cache)
+        from core.tarzanSignalBus import get_signal_bus
+        bus = get_signal_bus()
+        res = bus.values_snapshot()
+        
+        # Uzupełniamy o brakujące w busie sygnały z katalogu
         with self._lock:
-            res = dict(self._signals)
-
-        # Nakładamy stan z SignalBus (MAIN/LIVE)
-        try:
-            from core.tarzanSignalBus import get_signal_bus
-            bus = get_signal_bus()
-            res.update(bus.values_snapshot())
-        except Exception:
-            pass
+            for name, item in self._catalog.items():
+                if name not in res:
+                    res[name] = item.default
         return res
 
     def get_lane_values(self, lane: str, names: Optional[Iterable[str]] = None) -> Dict[str, Any]:
-        # Najpierw budujemy listę sygnałów, których potrzebujemy
+        from core.tarzanSignalBus import get_signal_bus
+        bus = get_signal_bus()
+        
         with self._lock:
             if names is None or "*" in set(names):
                 wanted = [name for name, item in self._catalog.items() if item.lane == lane]
             else:
                 wanted = [name for name in names if name in self._catalog and self._catalog[name].lane == lane]
             
-            # Pobieramy stan bazowy dla tych sygnałów
-            res = {name: self._signals[name] for name in wanted if name in self._signals}
-
-        # Aktualizujemy o wartości z SignalBus (MAIN/LIVE)
-        try:
-            from core.tarzanSignalBus import get_signal_bus
-            bus = get_signal_bus()
-            for name in wanted:
-                if bus.exists(name):
-                    res[name] = bus.read(name)
-        except Exception:
-            pass
+        res = {}
+        for name in wanted:
+            if bus.exists(name):
+                res[name] = bus.read(name)
+            else:
+                with self._lock:
+                    res[name] = self._catalog[name].default
         return res
 
     def set_signal(self, name: str, value: Any, source: str = "tsp") -> Dict[str, Any]:
-        # Próba zapisu do SignalBus (MAIN/LIVE)
-        try:
-            from core.tarzanSignalBus import get_signal_bus
-            bus = get_signal_bus()
-            if bus.exists(name):
-                # ETAP 11: Sprawdzanie control_owner (Bezpieczeństwo)
-                owner = bus.read("control_owner", "TSP_BOOT")
-                
-                # Jeśli właścicielem jest EHR, odrzucamy ręczne sterowanie osiami z TSP/PAR
-                is_axis = any(sub in name for sub in ["axis_", "rrp_", "sok_"])
-                if owner == "EHR_PLAYBACK" and is_axis and "tarzanEHR" not in source:
-                    return {
-                        "ok": False, 
-                        "error": "write_denied", 
-                        "name": name, 
-                        "reason": "control_owner_conflict",
-                        "owner": owner
-                    }
-                
-                meta = bus.get_meta(name)
-                if meta.kierunek == "OUT":
-                    bus.write_output(name, value, source=source)
-                else:
-                    bus.set_input(name, value, source=source)
-                return {"ok": True, "name": name, "value": value}
-        except Exception:
-            pass
+        from core.tarzanSignalBus import get_signal_bus
+        bus = get_signal_bus()
+        
+        if not bus.exists(name):
+            with self._lock:
+                if name not in self._catalog:
+                    return {"ok": False, "error": "unknown_signal", "name": name}
+        
+        # ETAP 11: Sprawdzanie control_owner (Bezpieczeństwo)
+        owner = bus.read("control_owner", "TSP_BOOT")
+        
+        # Jeśli właścicielem jest EHR, odrzucamy ręczne sterowanie osiami z TSP/PAR
+        is_axis = any(sub in name for sub in ["axis_", "rrp_", "sok_"])
+        if owner == "EHR_PLAYBACK" and is_axis and "tarzanEHR" not in source:
+            return {
+                "ok": False, 
+                "error": "write_denied", 
+                "name": name, 
+                "reason": "control_owner_conflict",
+                "owner": owner
+            }
 
-        with self._lock:
-            item = self._catalog.get(name)
-            if item is None:
-                return {"ok": False, "error": "unknown_signal", "name": name}
-            if item.logika_trybow == LOGIKA_TYLKO_ODCZYT:
-                return {"ok": False, "error": "write_denied", "name": name, "reason": LOGIKA_TYLKO_ODCZYT}
-            if item.logika_trybow == LOGIKA_ZABRONIONY:
-                return {"ok": False, "error": "write_denied", "name": name, "reason": LOGIKA_ZABRONIONY}
-
-            old = self._signals.get(name)
-            self._signals[name] = self._coerce_value(value, item.value_type)
-            new = self._signals[name]
-
-            urgent = self._urgent_for_change(name, old, new, source)
-            if urgent:
+        old = bus.read(name)
+        
+        meta = bus.get_meta(name)
+        if meta and meta.kierunek == "OUT":
+            bus.write_output(name, value, source=source)
+        else:
+            bus.set_input(name, value, source=source)
+        
+        new = bus.read(name)
+        urgent = self._urgent_for_change(name, old, new, source)
+        if urgent:
+            with self._lock:
                 self._urgent_queue.append(urgent)
-            return {"ok": True, "name": name, "value": new}
+                
+        return {"ok": True, "name": name, "value": new}
 
     def _coerce_value(self, value: Any, value_type: str) -> Any:
         if value_type == "int":
@@ -294,21 +277,21 @@ class TarzanTspSignalProvider:
 
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         payload = payload or {}
+        from core.tarzanSignalBus import get_signal_bus
+        bus = get_signal_bus()
+        
         with self._lock:
             if name == "clap":
-                count = int(self._signals.get("clap_event", 0)) + 1
-                self._signals["clap_event"] = count
-                self._signals["take_marker"] = f"CLAP_{count:03d}"
+                count = int(bus.read("clap_event", 0)) + 1
+                bus.set_input("clap_event", count, source="TSP_ACTION")
+                bus.set_input("take_marker", f"CLAP_{count:03d}", source="TSP_ACTION")
                 self._urgent_queue.append(
-                    urgent_event("clap_event", count, "operator_clap", PRIORITY_MARKER, marker=self._signals["take_marker"])
+                    urgent_event("clap_event", count, "operator_clap", PRIORITY_MARKER, marker=f"CLAP_{count:03d}")
                 )
-                return {"ok": True, "action": name, "clap_event": count, "take_marker": self._signals["take_marker"]}
-            if name == "nextion_refresh_page":
-                page = str(self._signals.get("nextion_page", "take_main"))
-                self._urgent_queue.append(urgent_event("nextion_page", page, "refresh_page", PRIORITY_HIGH))
-                return {"ok": True, "action": name, "page": page}
+                return {"ok": True, "action": name, "clap_event": count, "take_marker": f"CLAP_{count:03d}"}
+            
             if name == "stop":
-                self._signals["transport_state"] = "STOP"
+                bus.force_signal("transport_state", "STOP", source="TSP_ACTION")
                 self._urgent_queue.append(urgent_event("transport_state", "STOP", "operator_stop", PRIORITY_SAFETY))
                 return {"ok": True, "action": name, "transport_state": "STOP"}
             

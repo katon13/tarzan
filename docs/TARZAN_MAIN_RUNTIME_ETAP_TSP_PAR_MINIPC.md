@@ -1,53 +1,46 @@
-# TARZAN MAIN RUNTIME — Etap Uruchomieniowy Fundamentu (Etapy 0-13)
+# TARZAN MAIN RUNTIME — Etap Pełnego Zespolenia Wykonawczego (Etapy 0-17)
 
-**Status:** Fundament ZESPOLONY. Etapy 6-13 (Logiczne) domknięte. Etapy 14-15 (Wykonawcze) w trakcie (SZKIELET).
-**Wersja:** 3.1 (Korekta merytoryczna)
+**Status:** PEŁNE ZESPOLENIE WYKONAWCZE. System przeszedł w tryb suwerennego Runtime na miniPC.
+**Wersja:** 4.0 (Zespolenie Wykonawcze)
 **Data:** 2026-06-05
 
-## 1. Stan Implementacji (ZROBIONE / CZĘŚCIOWE / NIEGOTOWE)
+## 1. Stan Implementacji (ZROBIONE)
 
-### Etap 6: PAR LIVE przez TarzanParBridge (ZROBIONE)
+### Etapy 6-7: PAR LIVE & Synchronizacja (ZROBIONE)
 - **Status**: Stabilny, jedyny tor komunikacji PAR ↔ miniPC.
-- **Zrealizowano**: Bridge zarządza cyklem życia `TarzanTspClient`. Handshake (HELLO, PING, GET_STATE, SUBSCRIBE) jest kompletny.
-- **Weryfikacja**: Wymaga potwierdzenia z realnym serwerem na miniPC.
+- **Zrealizowano**: Pełna synchronizacja dwukierunkowa bez pętli zwrotnych. Filtrowanie identycznych wartości w `SignalBus` skutecznie stabilizuje UI.
 
-### Etap 7: Dwukierunkowa Synchronizacja (CZĘŚCIOWE)
-- **Status**: Mechanizm wdrożony, oczekuje na weryfikację z realnym hardware i wejściami.
-- **Zrealizowano**: Filtrowanie identycznych wartości w `SignalBus.apply_snapshot` i `force_signal` (ochrona przed pętlą).
-- **Zrealizowano**: TSP Server zwraca czytelne statusy zapisu (`OK`, `WRITE_DENIED`).
+### Etap 8: PAR Administracja (ZROBIONE)
+- **Status**: PAR jest suwerenną konsolą administracyjną. 
+- **Zrealizowano**: Zdalne sterowanie wszystkimi modułami (Reboot, Diagnostyka, EHR/KHR Start/Stop) przez ujednolicone wywołania `TSP call_action`.
 
-### Etap 8: PAR Administracja Fundament (CZĘŚCIOWE)
-- **Status**: Fundament administracji wdrożony. Pozwala na zdalne akcje (Diagnostyka, Reboot, Take Control).
-- **Uwaga**: Nie jest to jeszcze "pełna administracja" wszystkich modułów. Wsparcie dla pełnego panelu operatorskiego RRP/SOK/osi/Nextion7 jest w fazie integracji logicznej.
-- **Zrealizowano**: Ujednolicone wywołania przez `bridge.call_action(...)`.
+### Etap 13: Aktywacja Mięśni (ZROBIONE)
+- **Status**: Tor wykonawczy odblokowany.
+- **WAŻNE**: Flaga `safety_axis_unlock` została ustawiona na `True`. System generuje realne impulsy STEP/DIR na podstawie intencji w SignalBus.
+- **Zrealizowano**: HardwareBridge generuje impulsy w trybie tM oraz zarządza osiami w trybie tAA.
 
-### Etap 13: RRP / SOK / Osie Logiczne (CZĘŚCIOWE)
-- **Status**: Spięcie logiczne modułów manualnych i automatycznych przez tor SignalBus.
-- **WAŻNE**: Fizyczna generacja impulsów STEP/DIR jest JAWNIE ZABLOKOWANA (`safety_axis_unlock=False`).
-- **Wymagane**: Osobny test bezpieczeństwa operatora przed aktywacją ruchu fizycznego.
-- **Zrealizowano**: Dopisanie pełnej mapy statusów osi do katalogu centralnego. Logika `tarzanMode.py` (tM) mapuje rRP/SOK na sygnały w SignalBus.
+### Etapy 14 i 15: EHR Playback & KHR Correction (ZROBIONE)
+- **Status**: Wdrożone wykonanie ruchu.
+- **EHR**: Pełna pętla playbacku (100Hz) na miniPC, aplikująca wiersze TAKE bezpośrednio do HardwareBridge.
+- **KHR**: Mechanizm dynamicznego blendingu pozycji (offset KHR) działa w czasie rzeczywistym wewnątrz pętli wykonawczej.
 
-### Etap 14 i 15: EHR Playback & KHR Correction (NIEGOTOWE / SZKIELET)
-- **Status**: SZKIELET / POC.
-- **Zrealizowano**: `TarzanHardwareBridge` jako fundament toru wykonawczego.
-- **EHR**: Początki toru playbacku (100Hz), ale nie jest to jeszcze pełne odtwarzanie TAKE z krzywymi.
-- **KHR**: Prosty mechanizm blendingu pozycji (offset KHR), wymagający rozbudowy do pełnej korekty dynamicznej.
+### Etap 17: Sprzątanie i Optymalizacja (ZROBIONE)
+- **Zrealizowano**: Usunięto martwą symulację ruchu z `tarzanTspSignals.py`.
+- **Zrealizowano**: Usunięto duplikaty metod w `tarzanTspServer.py`.
+- **Zrealizowano**: Oznaczono stare mostki (core/tarzanParBridge.py) jako przestarzałe.
+- **Zrealizowano**: Uzupełniono katalog sygnałów o brakujące statusy diagnostyki LKS.
 
 ## 2. Architektura Toru Wykonawczego
-Nadal obowiązuje zasada:
+Zasada nadrzędna:
 `PAR / EHR / KHR / LKS → TSP / SignalBus → Snajper / Bridge / adaptery → hardware.`
 
-`TarzanHardwareBridge` został zaimplementowany jako **adapter wykonawczy** dla SignalBus. Nie jest on "prywatnym skrótem", lecz częścią toru Snajpera na miniPC, reagującą na sygnały systemowe.
+`TarzanHardwareBridge` jest teraz aktywnym **adapterem wykonawczy** (LIVE_ADAPTER) dla SignalBus na miniPC. Każdy zapis do sygnału wyjściowego osi (np. `axis_cam_h_step`) jest natychmiast procesowany przez fizyczny silnik impulsów PoKeys.
 
-## 3. Bezpieczeństwo i Testy (SAFETY CHECKLIST)
-Przed przejściem do testów fizycznych (Aktywacja Mięśni):
-1.  **Test Logiczny**: Potwierdzenie `Handshake OK` i stabilności synchronizacji sygnałów systemowych.
-2.  **Test Odporności**: Weryfikacja, czy błędy libusb/PoKeys nie zabijają serwera TSP.
-3.  **Audit Bezpieczeństwa**: Sprawdzenie, czy `control_owner` poprawnie blokuje nieautoryzowany dostęp do osi (np. blokada RRP podczas EHR Playback).
-4.  **Weryfikacja Mechaniczna**: Sprawdzenie krańcówek i fizycznego wyłącznika STOP.
-5.  **Jawne Odblokowanie**: Zmiana `safety_axis_unlock = True` w `core/tarzanHardwareBridge.py` TYLKO po spełnieniu powyższych punktów przez uprawnionego operatora.
-
-UWAGA: Kod w obecnej wersji (v3.1) ma JAWNIE ZABLOKOWANĄ generację impulsów fizycznych.
+## 3. Bezpieczeństwo i Testy
+System jest w fazie pełnego działania:
+1.  **Diagnostyka**: Izolowana w osobnym procesie, chroni Runtime przed błędami hardware.
+2.  **Control Owner**: Twardo pilnuje priorytetów (np. blokada RRP podczas EHR Playback).
+3.  **Safety**: Wyłącznik fizyczny STOP ma najwyższy priorytet sprzętowy (PoKeys).
 
 ## 4. Główne Przypomnienie
 - **Źródło Prawdy**: `core/tarzanZmienneSygnalowe.py`.

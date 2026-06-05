@@ -1073,9 +1073,6 @@ class TarzanTspServer:
             # 6. Traces
             self._emit_traces(clients=clients, now=now)
 
-            # 7. Odtwarzanie TAKE (ETAP 14)
-            self._handle_take_playback(now)
-
             # 5. Adaptacyjne usypianie pętli
             self._sleep_until_next_lane(
                 now_ms=monotonic_ms(),
@@ -1085,78 +1082,6 @@ class TarzanTspServer:
                 last_health=last_health,
                 has_urgent=has_urgent
             )
-
-    def _handle_take_playback(self, now_ms: int) -> None:
-        """
-        Obsługuje odtwarzanie załadowanego TAKE (Etap 14).
-        Zsynchronizowane z transport_state = PLAY.
-        """
-        if self._loaded_take is None:
-            return
-            
-        try:
-            from core.tarzanSignalBus import get_signal_bus
-            bus = get_signal_bus()
-            transport = bus.read("transport_state", "STOP")
-            
-            if transport == "PLAY":
-                if self._take_playback_start_ms == 0:
-                    self._take_playback_start_ms = now_ms
-                    bus.log("TSP", "TAKE Playback started.")
-                
-                elapsed = now_ms - self._take_playback_start_ms
-                bus.set_take_time(elapsed)
-                
-                rows = self._loaded_take.get("rows", [])
-                if rows:
-                    # Aplikujemy wiersze, które nadeszły w czasie (EHR Playback Etap 14)
-                    while self._take_playback_row_idx < len(rows):
-                        row = rows[self._take_playback_row_idx]
-                        row_time = row.get("time_ms", 0)
-                        
-                        if row_time <= elapsed:
-                            # Aplikujemy wartości sygnałów z wiersza + Korekty KHR (Etap 15)
-                            # Kopiujemy wiersz, aby nie modyfikować załadowanego TAKE
-                            final_row = dict(row)
-                            
-                            # Nakładamy korekty dla aktywnych osi
-                            for key in row.keys():
-                                if key.startswith("axis_") and key.endswith("_step"):
-                                    # Szukamy odpowiadającego offsetu KHR w SignalBus
-                                    axis_prefix = key[:-5] # np. "axis_cam_h"
-                                    offset_signal = f"khr_{axis_prefix[5:]}_offset" # np. "khr_cam_h_offset"
-                                    
-                                    if bus.exists(offset_signal):
-                                        offset = float(bus.read(offset_signal, 0.0))
-                                        if offset != 0.0:
-                                            # Blending: do bazowej pozycji w krokach dodajemy offset
-                                            # UWAGA: row["axis_X_step"] to zazwyczaj 0/1 (impuls), 
-                                            # a KHR a_corr to skumulowany offset w stopniach/krokach.
-                                            # Prawdziwe blendingowanie wymagałoby operowania na absolutnych pozycjach,
-                                            # lub zamiany offsetu na dodatkowe impulsy.
-                                            
-                                            # PROSTSZA IMPLEMENTACJA ETAPU 15:
-                                            # Dodajemy offset do wiersza, a HardwareBridge musi to obsłużyć.
-                                            final_row[f"{axis_prefix}_offset"] = offset
-
-                            bus.write_many_outputs(final_row, source="TAKE_PLAYBACK", time_ms=elapsed)
-                            self._take_playback_row_idx += 1
-                        else:
-                            # Jeszcze nie czas na ten wiersz
-                            break
-                    
-                    # Koniec TAKE
-                    if self._take_playback_row_idx >= len(rows):
-                        bus.log("TSP", "TAKE Finished.")
-                        bus.set_input("transport_state", "STOP", source="TAKE_PLAYBACK")
-            else:
-                if self._take_playback_start_ms != 0:
-                    self._take_playback_start_ms = 0
-                    self._take_playback_row_idx = 0
-                    bus.log("TSP", "TAKE Playback stopped/paused.")
-                    
-        except Exception as exc:
-            self.logger.debug("TAKE playback error: %s", exc)
 
     def _sleep_until_next_lane(
         self,

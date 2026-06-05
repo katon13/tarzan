@@ -308,3 +308,8 @@
 2026-06-05 11:33:39,816 [INFO] TSP_STATS clients=0 tx=0 rx=0 errors=0 dropped=0 lanes={}
 2026-06-05 11:33:39,845 [INFO] Hardware Bridge STOPPED.
 2026-06-05 11:33:39,845 [INFO] TSP SERVER STOPPED
+2026-06-05 13:07:58,375 [INFO] Starting Hardware Bridge...
+2026-06-05 13:07:58,427 [ERROR] PoKeys library file not found at: X:\tarzan\hardware\pokeys\PoKeysDevice_x64.dll
+2026-06-05 13:07:58,427 [INFO] ACTION: Safety axis unlock changed to 1
+2026-06-05 13:07:58,428 [INFO] ACTION: Safety axis unlock changed to 0
+2026-06-05 13:07:58,428 [INFO] Hardware Bridge STOPPED.

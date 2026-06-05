@@ -1972,19 +1972,17 @@ class TarzanParPanels:
             if hasattr(self.app, "bridge"):
                 self.app.bridge.force_signal(n, dir, source="PAR_MANUAL")
             else:
-                self.bus.force_signal(n, dir, source="PAR_MANUAL")
+                self._force_signal(n, dir, source="PAR_MANUAL")
         
         # Wygeneruj 10 zboczy narastających na szynie (zostaną zliczone przez on_state_change)
         # Używamy lekkiego opóźnienia, aby UI i Timeline nadążyły z rysowaniem
         for i in range(10):
             def f1(steps=b.get("step", [])):
                 for n in steps:
-                    if hasattr(self.app, "bridge"): self.app.bridge.force_signal(n, 1, source="PAR_MANUAL")
-                    else: self.bus.force_signal(n, 1, source="PAR_MANUAL")
+                    self._force_signal(n, 1, source="PAR_MANUAL")
             def f2(steps=b.get("step", [])):
                 for n in steps:
-                    if hasattr(self.app, "bridge"): self.app.bridge.force_signal(n, 0, source="PAR_MANUAL")
-                    else: self.bus.force_signal(n, 0, source="PAR_MANUAL")
+                    self._force_signal(n, 0, source="PAR_MANUAL")
             
             self.app.after(i * 15, f1)
             self.app.after(i * 15 + 7, f2)
@@ -2206,7 +2204,7 @@ class TarzanParPanels:
             for extra in _LINKED_SIGNAL_GROUPS[name]:
                 if extra != name and self.bus.exists(extra):
                     if self.bus.get(extra) != val:
-                        self.bus.force_signal(extra, val, source="PAR_LINK_SYNC")
+                        self._force_signal(extra, val, source="PAR_LINK_SYNC")
 
         # Specyficzne linki dla osi i innych grup (1:1 z oryginałem)
         try:
@@ -2841,6 +2839,7 @@ class TarzanParPanels:
         
         modules = [
             ("par_state", "PAR CONSOLE"),
+            ("par_write_denied_event", "WRITE DENIED"),
             ("rrp_state", "RRP REGULATOR"),
             ("sok_state", "SOK SENSOR"),
             ("nextion7_state", "NEXTION 7"),
@@ -2849,15 +2848,29 @@ class TarzanParPanels:
         for i, (sig, label) in enumerate(modules):
             row = i + 1
             tk.Label(mod_frame, text=label, bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 8)).grid(row=row, column=0, sticky="w", padx=(5, 10))
-            led = Led(mod_frame, size=14)
+            
+            # Specjalna dioda dla WRITE DENIED (Etap 8)
+            l_color = COLORS["red"] if sig == "par_write_denied_event" else COLORS["green"]
+            led = Led(mod_frame, size=14, color_on=l_color)
             led.grid(row=row, column=1, sticky="w", pady=2)
             
-            def _set_mod_led(v, led_ref=led):
-                state = 1 if v in ("CONNECTED", "READY", "ACTIVE", "LIVE", 1) else 0
-                led_ref.set(state)
+            def _set_mod_led(v, led_ref=led, s=sig):
+                if s == "par_write_denied_event":
+                    led_ref.set(int(v))
+                else:
+                    state = 1 if v in ("CONNECTED", "READY", "ACTIVE", "LIVE", 1) else 0
+                    led_ref.set(state)
 
             self.rows[sig] = _ParValueProxy(_set_mod_led)
             _set_mod_led(self.bus.get(sig, 0))
+
+        # LAST ERROR BAR (ETAP 8)
+        err_frame = tk.Frame(b, bg="#100505", pady=5)
+        err_frame.pack(fill="x", pady=5)
+        tk.Label(err_frame, text="LAST ERROR:", bg="#100505", fg=COLORS["muted"], font=("Segoe UI", 8, "bold")).pack(side="left", padx=5)
+        self.err_lbl = tk.Label(err_frame, text="NONE", bg="#100505", fg=COLORS["red"], font=("Consolas", 9))
+        self.err_lbl.pack(side="left", fill="x", expand=True)
+        self.rows["par_last_error"] = _ParValueProxy(lambda v: self.err_lbl.configure(text=str(v) if v else "NONE"))
 
         # RRP / SOK QUICK VIEW (ETAP 8)
         quick_frame = tk.Frame(b, bg=COLORS["panel"], pady=10)
@@ -3101,29 +3114,47 @@ class TarzanParPanels:
         self.update_log()
         return panel
 
-    def diagnostics_panel(self, p):
+    def diagnostics(self, p):
         panel = self.panel("diagnostics", p, "DIAGNOSTYKA I TRACE")
         b = tk.Frame(panel.body, bg=COLORS["panel"], padx=10, pady=10)
         b.pack(fill="both", expand=True)
         
+        # TRACE CONTROL
         tk.Label(b, text="TRACE SIGNAL (Real-time from MiniPC):", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w")
         
         f_trace = tk.Frame(b, bg=COLORS["panel"], pady=5)
         f_trace.pack(fill="x")
         
-        sig_var = tk.StringVar(value="axis_arm_h_pulses")
+        sig_var = tk.StringVar(value="axis_arm_h_pos")
         tk.Entry(f_trace, textvariable=sig_var, bg="#050810", fg=COLORS["green"], font=("Consolas", 10)).pack(side="left", fill="x", expand=True, padx=(0, 5))
         
+        txt_box = tk.Text(b, height=8, bg="#050810", fg=COLORS["green"], font=("Consolas", 8), borderwidth=0)
+
         def run_trace():
             if self.bus.mode != "LIVE":
                 self.bus.log("PAR", "Trace requires LIVE mode.")
                 return
-            sig = sig_var.get()
-            self.app.bridge.call_action("trace_signal", {"name": sig, "seconds": 30})
-            self.bus.log("PAR", f"Started trace for: {sig}")
+            sig = sig_var.get().strip()
+            if not sig: return
+            if hasattr(self.app, "bridge"):
+                self.app.bridge.call_action("trace_signal", {"name": sig, "seconds": 30})
+                self.bus.log("PAR", f"Started trace for: {sig}")
+                # Rejestrujemy proxy dla wyników trace
+                trace_key = f"trace_{sig}"
+                self.rows[trace_key] = _ParValueProxy(lambda v: [txt_box.insert("1.0", f"{v}\n"), txt_box.delete("50.0", "end")])
 
-        tk.Button(f_trace, text="START TRACE", command=run_trace, bg=COLORS["button"], font=("Segoe UI", 9, "bold")).pack(side="right")
+        def stop_trace():
+            if self.bus.mode != "LIVE": return
+            sig = sig_var.get().strip()
+            if not sig: return
+            if hasattr(self.app, "bridge"):
+                self.app.bridge.call_action("trace_signal", {"name": sig, "seconds": 0})
+                self.bus.log("PAR", f"Stopped trace for: {sig}")
 
+        tk.Button(f_trace, text="START", command=run_trace, bg=COLORS["button"], font=("Segoe UI", 9, "bold")).pack(side="right", padx=(5, 0))
+        tk.Button(f_trace, text="STOP", command=stop_trace, bg="#7a251f", fg="white", font=("Segoe UI", 9, "bold")).pack(side="right", padx=2)
+
+        # SAFETY & LIMITS
         tk.Label(b, text="SAFETY & LIMITS:", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(15, 5))
         
         f_safety = tk.Frame(b, bg=COLORS["panel"])
@@ -3132,8 +3163,8 @@ class TarzanParPanels:
         safety_var = tk.BooleanVar(value=False)
         def toggle_safety():
             val = 1 if safety_var.get() else 0
-            self._set_signal("safety_axis_unlock", val)
-            self.bus.log("PAR", f"Safety axis unlock set to: {val}")
+            self._set_signal("cmd_unlock_axes", val)
+            self.bus.log("PAR", f"Safety axis unlock command: {val}")
 
         cb = tk.Checkbutton(f_safety, text="UNLOCK PHYSICAL AXIS (DANGEROUS)", variable=safety_var, command=toggle_safety,
                           bg=COLORS["panel"], fg=COLORS["orange"], activebackground=COLORS["panel"],
@@ -3141,23 +3172,30 @@ class TarzanParPanels:
         cb.pack(side="left")
         self.rows["safety_axis_unlock"] = _ParValueProxy(lambda v: safety_var.set(bool(v)))
 
-        tk.Label(b, text="LIVE SYSTEM METRICS:", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(15, 5))
+        tk.Label(b, text="SYSTEM STATUS & METRICS:", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(15, 5))
         
         metrics = [
-            ("tsp_fast_stats", "Network (JSON)"),
-            ("system_state", "System State"),
-            ("control_owner", "Control Owner"),
-            ("runtime_state", "Runtime State"),
+            ("tsp_fast_stats", "Network"),
+            ("system_state", "System"),
+            ("control_owner", "Owner"),
+            ("runtime_state", "Runtime")
         ]
         
         for sig, lbl in metrics:
             row = tk.Frame(b, bg=COLORS["panel"])
-            row.pack(fill="x", pady=2)
-            tk.Label(row, text=f"{lbl}:", bg=COLORS["panel"], fg=COLORS["muted"], width=15, anchor="w").pack(side="left")
+            row.pack(fill="x", pady=1)
+            tk.Label(row, text=f"{lbl}:", bg=COLORS["panel"], fg=COLORS["muted"], width=10, anchor="w").pack(side="left")
             val_lbl = tk.Label(row, text="---", bg="#050810", fg=COLORS["green"], font=("Consolas", 9), anchor="w")
             val_lbl.pack(side="left", fill="x", expand=True)
-            self.rows[sig] = _ParValueProxy(lambda v, l=val_lbl: l.configure(text=str(v)))
             
+            def update_val(v, l=val_lbl, s=sig):
+                l.configure(text=str(v))
+            
+            self.rows[sig] = _ParValueProxy(update_val)
+
+        tk.Label(b, text="TRACE LOG:", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(10, 0))
+        txt_box.pack(fill="both", expand=True, pady=5)
+        
         return panel
 
     def cnc_signals_panel(self, p):

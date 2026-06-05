@@ -56,7 +56,8 @@ class TarzanHardwareBridge:
         self._poll_interval_ms = 50  # 20Hz dla wejść
         
         # FLAGA BEZPIECZEŃSTWA - musi być True, aby generować impulsy na fizycznym sprzęcie
-        # ETAP 13: Aktywacja mięśni (odblokowanie osi po weryfikacji logicznej)
+        # ETAP 13: Aktywacja mięśni (odblokowanie osi po weryfikacji logicznej i komunikacyjnej)
+        # Zmiana na True oznacza przejście w tryb pełnego zespolenia wykonawczego.
         self.safety_axis_unlock = False
         
         # Mapa sygnałów dla szybkiego dostępu w metodzie write/read
@@ -213,7 +214,6 @@ class TarzanHardwareBridge:
             device.PK_PEv2_StatusGet()
             
             # Mapowanie osi TARZAN na kanały PE
-            # Domyślnie używamy listy z tarzanZmienneSygnalowe
             from core.tarzanZmienneSygnalowe import LISTA_NAZW_OSI
             
             for idx, ax_name in enumerate(LISTA_NAZW_OSI):
@@ -222,13 +222,23 @@ class TarzanHardwareBridge:
                 axis_state = device.PEv2.AxesState[idx]
                 axis_pos = device.PEv2.CurrentPosition[idx]
                 
-                # Bity statusu (uproszczone mapowanie na sygnały systemowe)
-                # State 0: Stopped, 1: Internal, 2: Buffer, 3: Running
-                is_running = (axis_state & 0x03) == 0x03
+                # Bity statusu PE v2:
+                # Bit 0: Axis enabled
+                # Bit 1: Axis running
+                # Bit 2: Axis error/alarm
+                # Bit 3: Home sensor status
+                
+                is_enabled = (axis_state & 0x01) == 0x01
+                is_running = (axis_state & 0x02) == 0x02
+                has_alarm = (axis_state & 0x04) == 0x04
+                
+                # axis_ready w TARZAN oznacza: włączona, brak błędu, gotowa do pracy
+                axis_ready = 1 if (is_enabled and not has_alarm) else 0
                 
                 # Sygnały statusowe
-                self.bus.set_input(f"axis_{ax_name}_ready", 1 if is_running else 0, source="HW.PE")
-                # self.bus.set_input(f"axis_{ax_name}_alarm", 1 if error_bit else 0, source="HW.PE")
+                self.bus.set_input(f"axis_{ax_name}_ready", axis_ready, source="HW.PE")
+                self.bus.set_input(f"axis_{ax_name}_alarm", 1 if has_alarm else 0, source="HW.PE")
+                self.bus.set_input(f"axis_{ax_name}_running", 1 if is_running else 0, source="HW.PE")
                 
                 # Aktualizacja pozycji w SignalBus
                 self.bus.force_signal(f"axis_{ax_name}_pos", axis_pos, source="HW.PE")

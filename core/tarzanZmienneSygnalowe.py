@@ -318,6 +318,24 @@ def pobierz_zabronione_dla_trybow() -> List[TarzanSygnal]:
 # SYGNAŁY SYSTEMOWE I RUNTIME
 # ======================================================================
 
+safety_axis_unlock = _sygnal(
+    nazwa="safety_axis_unlock",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Flaga odblokowania ruchu fizycznego osi (0=LOCKED, 1=UNLOCKED).", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="Safety Unlock",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="SYSTEM", klasa_wykonawcza="tarzanHardwareBridge.py"
+)
+
+cmd_unlock_axes = _sygnal(
+    nazwa="cmd_unlock_axes",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="OUT", default="0",
+    opis="Komenda odblokowania/zablokowania osi fizycznych.", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="Cmd Unlock Axes",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="SYSTEM", klasa_wykonawcza="tarzanHardwareBridge.py"
+)
+
 system_state = _sygnal(
     nazwa="system_state",
     plytka="SYSTEM",
@@ -398,6 +416,20 @@ par_state = _sygnal(
     klasa_wykonawcza="tarzanTspServer.py",
 )
 
+par_last_error = _sygnal(
+    nazwa="par_last_error",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="",
+    opis="Ostatni błąd komunikacji lub odmowy zapisu w PAR.",
+    zrodlo="RUNTIME", grupa="SYSTEM"
+)
+
+par_write_denied_event = _sygnal(
+    nazwa="par_write_denied_event",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Flaga zdarzenia odmowy zapisu (miga na czerwono).",
+    zrodlo="RUNTIME", grupa="SYSTEM"
+)
+
 ehr_state = _sygnal(
     nazwa="ehr_state",
     plytka="SYSTEM",
@@ -436,6 +468,116 @@ khr_state = _sygnal(
     panel_port=None,
     grupa="SYSTEM",
     klasa_wykonawcza="tarzanKHR.py",
+)
+
+# --- Sygnały diagnostyki LKS ---
+
+linux_ok = _sygnal(
+    nazwa="linux_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Status systemu operacyjnego Linux na miniPC.", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="Linux OS OK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+)
+
+tsp_ok = _sygnal(
+    nazwa="tsp_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Status serwera TSP.", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="TSP Server OK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanTspServer.py"
+)
+
+signalbus_ok = _sygnal(
+    nazwa="signalbus_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Status magistrali SignalBus.", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="SignalBus OK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanSignalBus.py"
+)
+
+snajper_ok = _sygnal(
+    nazwa="snajper_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Status systemu Snajper.", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="Snajper OK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanSnajper.py"
+)
+
+lks_n5_ok = _sygnal(
+    nazwa="lks_n5_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Status modułu LKS-N5.", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="LKS N5 OK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanTspLksNextion5.py"
+)
+
+nextion5_ok = _sygnal(
+    nazwa="nextion5_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Status fizycznego panelu Nextion 5.", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="Nextion 5 OK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanTspLksNextion5.py"
+)
+
+pokeys_ok = _sygnal(
+    nazwa="pokeys_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Status połączenia z kontrolerami PoKeys.", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="PoKeys OK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+)
+
+i2c_bus_ok = _sygnal(
+    nazwa="i2c_bus_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Status magistrali I2C na miniPC.", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="I2C Bus OK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+)
+
+lcd_1602_ok = _sygnal(
+    nazwa="lcd_1602_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Status wyświetlacza LCD 1602 (I2C).", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="LCD 1602 OK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+)
+
+matrix_led_ok = _sygnal(
+    nazwa="matrix_led_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Status matrycy LED (I2C).", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="Matrix LED OK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+)
+
+f_led_ok = _sygnal(
+    nazwa="f_led_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Status diod funkcyjnych (I2C).", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="F-LED OK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py"
+)
+
+hardware_ready = _sygnal(
+    nazwa="hardware_ready",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Flaga gotowości warstwy sprzętowej miniPC.", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="Hardware Ready",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py"
 )
 
 lks_state = _sygnal(
@@ -558,45 +700,6 @@ tarzan_ready = _sygnal(
     klasa_wykonawcza="tarzanTspServer.py",
 )
 
-safety_axis_unlock = _sygnal(
-    nazwa="safety_axis_unlock",
-    plytka="SYSTEM",
-    pin=None,
-    kanal=None,
-    typ="LH",
-    kierunek="IN",
-    default="0",
-    opis="Fizyczne odblokowanie osi (0=BLOCKED, 1=UNLOCKED). Etap 13.",
-    zrodlo="RUNTIME",
-    hardware_function=HW_SYSTEM,
-    hardware_label="Safety Unlock",
-    pin_is_fixed=True,
-    is_shared_pin=False,
-    conflict_group=None,
-    panel_port=None,
-    grupa="SYSTEM",
-    klasa_wykonawcza="tarzanHardwareBridge.py",
-)
-
-cmd_unlock_axes = _sygnal(
-    nazwa="cmd_unlock_axes",
-    plytka="SYSTEM",
-    pin=None,
-    kanal=None,
-    typ="LH",
-    kierunek="OUT",
-    default="0",
-    opis="Komenda odblokowania/zablokowania osi.",
-    zrodlo="UI",
-    hardware_function=HW_SYSTEM,
-    hardware_label="CMD Unlock",
-    pin_is_fixed=True,
-    is_shared_pin=False,
-    conflict_group=None,
-    panel_port=None,
-    grupa="SYSTEM",
-    klasa_wykonawcza="tarzanHardwareBridge.py",
-)
 
 cmd_run_diagnostics = _sygnal(
     nazwa="cmd_run_diagnostics",
@@ -1069,22 +1172,36 @@ def _gen_axis_status_signals(axes_list: List[str]) -> List[TarzanSygnal]:
         out.append(_sygnal(
             nazwa=f"axis_{ax}_ready",
             plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
-            opis=f"Gotowość sprzętowa osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py",
+            opis=f"Gotowość sprzętowa osi {ax} (Enabled i No Alarm).", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py",
             zrodlo="RUNTIME", hardware_function=HW_SYSTEM, hardware_label=f"Axis {ax} Ready",
+            pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None
+        ))
+        out.append(_sygnal(
+            nazwa=f"axis_{ax}_running",
+            plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+            opis=f"Status ruchu osi {ax} (Physical pulse generation).", grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
+            zrodlo="RUNTIME", hardware_function=HW_SYSTEM, hardware_label=f"Axis {ax} Running",
             pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None
         ))
         out.append(_sygnal(
             nazwa=f"axis_{ax}_alarm",
             plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
-            opis=f"Alarm / błąd sterownika osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py",
+            opis=f"Alarm / błąd sterownika osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
             zrodlo="RUNTIME", hardware_function=HW_SYSTEM, hardware_label=f"Axis {ax} Alarm",
             pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None
         ))
         out.append(_sygnal(
             nazwa=f"axis_{ax}_enabled",
             plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
-            opis=f"Status sygnału ENABLE dla osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanTspLksDiagnostics.py",
+            opis=f"Status sygnału ENABLE dla osi {ax}.", grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
             zrodlo="RUNTIME", hardware_function=HW_SYSTEM, hardware_label=f"Axis {ax} Enabled",
+            pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None
+        ))
+        out.append(_sygnal(
+            nazwa=f"axis_{ax}_pos",
+            plytka="SYSTEM", pin=None, kanal=None, typ="CTR", kierunek="IN", default="0",
+            opis=f"Aktualna pozycja absolutna osi {ax} w impulsach.", grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
+            zrodlo="RUNTIME", hardware_function=HW_SYSTEM, hardware_label=f"Axis {ax} Pos",
             pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None
         ))
         out.append(_sygnal(
@@ -1116,11 +1233,25 @@ SYGNALY_SYSTEMOWE: Dict[str, TarzanSygnal] = {
         ehr_state,
         khr_state,
         lks_state,
+        linux_ok,
+        tsp_ok,
+        signalbus_ok,
+        snajper_ok,
+        lks_n5_ok,
+        nextion5_ok,
+        pokeys_ok,
+        i2c_bus_ok,
+        lcd_1602_ok,
+        matrix_led_ok,
+        f_led_ok,
+        hardware_ready,
         nextion5_state,
         nextion7_state,
         hardware_state,
         control_owner,
         tarzan_ready,
+        safety_axis_unlock,
+        cmd_unlock_axes,
         cmd_run_diagnostics,
         cmd_system_reboot,
         cmd_ehr_start,

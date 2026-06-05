@@ -358,6 +358,9 @@ class TarzanSignalBus:
             self.mode = mode
             for st in self.state.values():
                 st.mode = mode
+            # Synchronizacja z sygnałem systemowym active_mode (Etap 12)
+            if "active_mode" in self.state:
+                self.force_signal("active_mode", mode, source="BUS_MODE")
             self.log("MODE", f"SignalBus mode={mode}")
 
     def set_live_adapter(self, adapter: Any) -> None:
@@ -581,9 +584,14 @@ class TarzanSignalBus:
 
     def apply_snapshot(self, snapshot: Dict[str, Any], *, source: str = "SNAPSHOT") -> None:
         signals = snapshot.get("signals", snapshot)
-        for name, data in signals.items():
-            value = data.get("value") if isinstance(data, dict) else data
-            self.force_signal(name, value, source=source)
+        with self._lock:
+            for name, data in signals.items():
+                value = data.get("value") if isinstance(data, dict) else data
+                # Filtrowanie zmian: Etap 7 (Unikanie pętli zwrotnej i nadmiaru powiadomień)
+                if name in self.state:
+                    if self.state[name].value == value:
+                        continue
+                self.force_signal(name, value, source=source)
 
     def reset_to_defaults(self) -> None:
         with self._lock:

@@ -1,10 +1,14 @@
 """Most PAR ↔ SignalBus ↔ TAKE."""
 from __future__ import annotations
 
+import threading
+import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from core.tarzanSignalBus import TarzanSignalBus, get_signal_bus
+from core.TSP.tarzanTspClient import TarzanTspClient
+from core.TSP.tarzanTspConfig import TSP_MINI_PC_HOST
 try:
     from editor.PAR.tarzanParProtocolMapper import TarzanParProtocolMapper
 except ModuleNotFoundError:
@@ -32,6 +36,79 @@ class TarzanParBridge:
         from hardware.tarzanNextion.bridge import TarzanNextionBridge
         self.nextion = TarzanNextionBridge(self.bus)
 
+        # TSP CLIENT: dla trybu LIVE
+        self.tsp_client: Optional[TarzanTspClient] = None
+        self._tsp_thread: Optional[threading.Thread] = None
+
+    def set_mode(self, mode: str) -> None:
+        self.bus.set_mode(mode)
+        if mode == "LIVE":
+            self._start_tsp()
+        else:
+            self._stop_tsp()
+
+    def _start_tsp(self) -> None:
+        if self._tsp_thread and self._tsp_thread.is_alive():
+            return
+        self.bus.log("TSP", "Starting TSP connector thread (LIVE)...")
+        self._tsp_thread = threading.Thread(target=self._tsp_connector_loop, name="TSP-CONNECTOR", daemon=True)
+        self._tsp_thread.start()
+
+    def _tsp_connector_loop(self) -> None:
+        """Pętla dbająca o połączenie i podtrzymanie sesji TSP."""
+        while self.bus.mode == "LIVE":
+            if self.tsp_client is None:
+                try:
+                    self.tsp_client = TarzanTspClient(host=TSP_MINI_PC_HOST, name="tarzanPAR")
+                    self.tsp_client.on_message = self._handle_tsp_message
+                    self.tsp_client.connect()
+                    
+                    # Handshake
+                    self.bus.log("TSP", "Connected. Sending HELLO...")
+                    self.tsp_client.hello()
+                except Exception as e:
+                    self.bus.log("TSP", f"Connection failed: {e}")
+                    self.tsp_client = None
+            
+            time.sleep(5.0) # Re-check co 5s
+
+    def _stop_tsp(self) -> None:
+        if self.tsp_client:
+            self.bus.log("TSP", "Disconnecting from MiniPC...")
+            self.tsp_client.close()
+            self.tsp_client = None
+            self._tsp_thread = None
+
+    def _handle_tsp_message(self, message: Dict[str, Any]) -> None:
+        event = message.get("event")
+        cmd = message.get("cmd")
+        ok = message.get("ok", True)
+
+        if event == "snajper_packet":
+            values = message.get("values", {})
+            # ETAP 6-7: Apply snapshot do lokalnego SignalBus PAR
+            # Unikamy pętli zwrotnej przez apply_snapshot
+            self.bus.apply_snapshot(values, source="TSP_LIVE")
+        
+        elif cmd == "get_state" and ok:
+            # ETAP 4: Synchronizacja stanu początkowego
+            state = message.get("state", {})
+            if state:
+                self.bus.apply_snapshot(state, source="TSP_INITIAL")
+
+        elif (event == "hello") or (cmd == "hello" and ok):
+            node = message.get("node") or message.get("node_name", "unknown")
+            self.bus.log("TSP", f"Handshake OK: {node}")
+            # Pełna sekwencja po połączeniu
+            if self.tsp_client:
+                self.tsp_client.ping()
+                self.tsp_client.get_state()
+                self.tsp_client.subscribe(lanes=["fast", "normal", "slow", "health"])
+        
+        elif event == "error" or (not ok and message.get("error")):
+            err_msg = message.get("message") or message.get("error")
+            self.bus.log("TSP", f"Error: {err_msg}")
+
     def nextion_connect(self):
         return self.nextion.connect_enabled()
 
@@ -49,16 +126,20 @@ class TarzanParBridge:
         if hasattr(self.nextion, "queue_snajper_command"):
             return self.nextion.queue_snajper_command(scope, component, prop, value)
 
-    def set_mode(self, mode: str) -> None:
-        self.bus.set_mode(mode)
-
     def read_input(self, name: str, default: Any = 0) -> Any:
         return self.bus.read_input(name, default)
 
     def set_input(self, name: str, value: Any, source: str = "PAR") -> bool:
+        if self.tsp_client and self.bus.mode == "LIVE":
+            # W trybie LIVE wysyłamy do TSP zamiast pisać lokalnie (Etap 7-8)
+            self.tsp_client.set_signal(name, value)
+            return True
         return self.bus.set_input(name, value, source=source)
 
     def write_output(self, name: str, value: Any, source: str = "PAR") -> bool:
+        if self.tsp_client and self.bus.mode == "LIVE":
+            self.tsp_client.set_signal(name, value)
+            return True
         return self.bus.write_output(name, value, source=source)
 
     def force_signal(self, name: str, value: Any, source: str = "PAR_FORCE") -> bool:

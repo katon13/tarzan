@@ -315,6 +315,332 @@ def pobierz_zabronione_dla_trybow() -> List[TarzanSygnal]:
 
 
 # ======================================================================
+# SYGNAŁY SYSTEMOWE I RUNTIME
+# ======================================================================
+
+system_state = _sygnal(
+    nazwa="system_state",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="BOOTING",
+    opis="Główny stan systemu TARZAN (BOOTING, TESTING, READY, ERROR).",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="System State",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanTspServer.py",
+)
+
+runtime_state = _sygnal(
+    nazwa="runtime_state",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="INITIALIZING",
+    opis="Szczegółowy stan runtime miniPC.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Runtime State",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanTspServer.py",
+)
+
+tsp_state = _sygnal(
+    nazwa="tsp_state",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="OFFLINE",
+    opis="Stan serwera TSP na miniPC.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="TSP State",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanTspServer.py",
+)
+
+par_state = _sygnal(
+    nazwa="par_state",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="DISCONNECTED",
+    opis="Stan połączenia stacji PAR.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="PAR State",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanTspServer.py",
+)
+
+ehr_state = _sygnal(
+    nazwa="ehr_state",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="OFF",
+    opis="Stan modułu EHR.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="EHR State",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanEHR.py",
+)
+
+khr_state = _sygnal(
+    nazwa="khr_state",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="OFF",
+    opis="Stan modułu KHR.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="KHR State",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanKHR.py",
+)
+
+lks_state = _sygnal(
+    nazwa="lks_state",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="OFF",
+    opis="Stan modułu LKS (Nextion 5).",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="LKS State",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanTspServer.py",
+)
+
+nextion5_state = _sygnal(
+    nazwa="nextion5_state",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="OFF",
+    opis="Stan komunikacji z ekranem Nextion 5.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Nextion 5 State",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanTspServer.py",
+)
+
+nextion7_state = _sygnal(
+    nazwa="nextion7_state",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="OFF",
+    opis="Stan komunikacji z ekranem Nextion 7.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Nextion 7 State",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanParBridge.py",
+)
+
+hardware_state = _sygnal(
+    nazwa="hardware_state",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="UNKNOWN",
+    opis="Zbiorczy stan warstwy sprzętowej miniPC.",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Hardware State",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanTspServer.py",
+)
+
+control_owner = _sygnal(
+    nazwa="control_owner",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="TSP_BOOT",
+    opis="Aktualny właściciel sterowania systemem (TSP_BOOT, PAR_LIVE, EHR_PLAYBACK, etc.).",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Control Owner",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanTspServer.py",
+)
+
+tarzan_ready = _sygnal(
+    nazwa="tarzan_ready",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Flaga gotowości całego systemu (1 = READY).",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Tarzan Ready Flag",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanTspServer.py",
+)
+
+tsp_fast_stats = _sygnal(
+    nazwa="tsp_fast_stats",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="{}",
+    opis="Statystyki transmisji FAST (JSON).",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="TSP Fast Stats",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanTspServer.py",
+)
+
+active_mode = _sygnal(
+    nazwa="active_mode",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="LIVE",
+    opis="Aktywny tryb systemu (LIVE, TEST, MIX).",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Active Mode",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanTspServer.py",
+)
+
+transport_state = _sygnal(
+    nazwa="transport_state",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="STOP",
+    opis="Stan transportu (STOP, PLAY, REC, PAUSE).",
+    zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM,
+    hardware_label="Transport State",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="SYSTEM",
+    klasa_wykonawcza="tarzanTspServer.py",
+)
+
+SYGNALY_SYSTEMOWE: Dict[str, TarzanSygnal] = {
+    sygnal.nazwa: sygnal
+    for sygnal in [
+        system_state,
+        runtime_state,
+        tsp_state,
+        par_state,
+        ehr_state,
+        khr_state,
+        lks_state,
+        nextion5_state,
+        nextion7_state,
+        hardware_state,
+        control_owner,
+        tarzan_ready,
+        tsp_fast_stats,
+        active_mode,
+        transport_state,
+    ]
+}
+
+
+# ======================================================================
 # PLAY
 # ======================================================================
 
@@ -3176,6 +3502,10 @@ SYGNALY_REZERWOWE: Dict[str, TarzanSygnal] = {
 }
 
 WSZYSTKIE_SYGNALY: Dict[str, TarzanSygnal] = {}
+WSZYSTKIE_SYGNALY.update(SYGNALY_SYSTEMOWE)
 WSZYSTKIE_SYGNALY.update(SYGNALY_PLAY)
 WSZYSTKIE_SYGNALY.update(SYGNALY_REC)
 WSZYSTKIE_SYGNALY.update(SYGNALY_CNC)
+WSZYSTKIE_SYGNALY.update(SYGNALY_UI)
+WSZYSTKIE_SYGNALY.update(SYGNALY_CZUJNIKI)
+WSZYSTKIE_SYGNALY.update(SYGNALY_REZERWOWE)

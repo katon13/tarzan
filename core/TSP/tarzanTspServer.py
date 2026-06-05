@@ -12,6 +12,7 @@ import argparse
 import socket
 import threading
 import time
+import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
@@ -61,6 +62,7 @@ from .tarzanTspSignals import TarzanTspSignalProvider
 from .tarzanTspLks import TarzanTspLks
 from .tarzanTspLksStatusMap import component_from_nextion_id, validate_component
 from .tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
+from .tarzanTspLksInventory import TarzanTspLksInventory
 
 try:
     from .tarzanTspLksNextion5 import TarzanTspLksNextion5
@@ -80,6 +82,7 @@ class TarzanTspClientSession:
     active: bool = True
     subscribed_lanes: set[str] = field(default_factory=lambda: {LANE_URGENT})
     subscribed_signals: set[str] = field(default_factory=set)
+    node_name: Optional[str] = None  # Ustawiane przez CMD_HELLO
     trace_signals: Dict[str, int] = field(default_factory=dict)  # signal -> end_monotonic_ms
     trace_last_emit_ms: int = 0
     last_rx_ms: int = field(default_factory=monotonic_ms)
@@ -488,6 +491,18 @@ class TarzanTspServer:
             return
         self._stopping = False
         self.running = True
+
+        # ETAP 2: Centralny SignalBus + system_state = BOOTING
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            bus.set_input("system_state", "BOOTING", source="TSP_START")
+            bus.set_input("runtime_state", "STARTING", source="TSP_START")
+            bus.set_input("control_owner", "TSP_BOOT", source="TSP_START")
+            bus.log("TSP", "TARZAN MAIN RUNTIME Starting...")
+        except Exception as exc:
+            self.logger.error("Could not init SignalBus in TarzanTspServer: %s", exc)
+
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._sock.bind((self.host, self.port))
@@ -500,6 +515,126 @@ class TarzanTspServer:
         self._lane_thread = threading.Thread(target=self._lane_loop, name="TSP-LANES", daemon=True)
         self._accept_thread.start()
         self._lane_thread.start()
+
+        # ETAP 2-3: Ustawienie statusów gotowości TCP dla PAR (BOOTING jest już widoczny)
+        try:
+            bus.set_input("tsp_state", "READY", source="TSP_START")
+            bus.log("TSP", "TSP Server is now available for clients.")
+        except Exception:
+            pass
+
+        # ETAP 3: Asynchroniczna diagnostyka LKS
+        diag_thread = threading.Thread(target=self._run_diagnostics, name="TSP-DIAG", daemon=True)
+        diag_thread.start()
+
+        # Etap 12: Uruchomienie logiki trybów (MODE)
+        try:
+            from core.tarzanMode import start_mode_logic
+            self._mode_logic = start_mode_logic()
+            self.logger.info("Tarzan Mode Logic: STARTED")
+        except Exception as e:
+            self.logger.error("Tarzan Mode Logic: FAILED to start: %s", e)
+
+        # ETAP 4: Sprawdzanie dostępności stacji PAR (asynchronicznie)
+        par_thread = threading.Thread(target=self._check_par_availability, name="TSP-PAR-CHECK", daemon=True)
+        par_thread.start()
+
+    def _check_par_availability(self) -> None:
+        """
+        Asynchronicznie sprawdza, czy stacja PAR jest dostępna w sieci (Etap 4).
+        """
+        from .tarzanTspConfig import TSP_STACJA_HOST
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            bus.log("TSP", f"Checking PAR station availability at {TSP_STACJA_HOST}...")
+            
+            # Prosty test socketowy na port TSP (jeśli PAR też by go miał) 
+            # lub po prostu ping (ale ping wymaga uprawnień lub subprocess).
+            # Spróbujemy połączyć się z portem TSP na stacji (jeśli PAR nasłuchuje na komendy zwrotne)
+            # ale PAR jest klientem. Więc może po prostu sprawdzić czy host żyje.
+            
+            import subprocess
+            import platform
+            
+            param = "-n" if platform.system().lower() == "windows" else "-c"
+            command = ["ping", param, "1", TSP_STACJA_HOST]
+            
+            res = subprocess.call(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if res == 0:
+                bus.log("TSP", f"PAR station {TSP_STACJA_HOST} is ONLINE.")
+                bus.set_input("par_state", "AVAILABLE", source="TSP_CHECK")
+            else:
+                bus.log("TSP", f"PAR station {TSP_STACJA_HOST} is OFFLINE or unreachable.")
+                bus.set_input("par_state", "OFFLINE", source="TSP_CHECK")
+                
+        except Exception as exc:
+            self.logger.debug("PAR check failed: %s", exc)
+
+    def _run_diagnostics(self) -> None:
+        """
+        Asynchroniczna diagnostyka systemu (ETAP 3).
+        Wypełnia SignalBus wynikami testów i ustawia READY_FOR_PAR.
+        """
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            bus.set_input("runtime_state", "TESTING", source="TSP_DIAG")
+            bus.log("TSP", "Starting LKS Hardware Diagnostics...")
+
+            # 1. Inwentaryzacja
+            inventory = TarzanTspLksInventory()
+            inventory.collect()
+            
+            # 2. Diagnostyka szczegółowa
+            diag = TarzanTspLksDiagnostics(collect_inventory_if_missing=False)
+            # Wstrzykujemy zebrany inwentarz, żeby nie zbierać go dwa razy
+            diag._inventory = inventory.to_dict()
+            diag.run_all()
+            
+            # 3. Publikacja wyników do SignalBus
+            results = diag.status_map() # Mapuje komponent -> bool (OK)
+            
+            # Mapowanie nazw LKS na sygnały SignalBus
+            mapping = {
+                "linux": "linux_ok",
+                "tsp": "tsp_ok",
+                "signalbus": "signalbus_ok",
+                "snajper": "snajper_ok",
+                "nextion5": "nextion5_ok",
+                "pokeys": "pokeys_ok",
+                "i2c_bus": "i2c_bus_ok",
+                "lcd_1602": "lcd_1602_ok",
+                "matrix_led": "matrix_led_ok",
+                "f_led": "f_led_ok",
+                "axis_inventory": "axis_inventory_ok"
+            }
+            
+            for lks_key, sig_name in mapping.items():
+                is_ok = results.get(lks_key, False)
+                if bus.exists(sig_name):
+                    bus.set_input(sig_name, 1 if is_ok else 0, source="TSP_DIAG")
+            
+            # 4. Finalizacja stanu
+            all_ok = all(results.get(k, False) for k in ["linux", "tsp", "signalbus", "pokeys"])
+            if all_ok:
+                bus.set_input("hardware_state", "READY", source="TSP_DIAG")
+                bus.set_input("runtime_state", "READY_FOR_PAR", source="TSP_DIAG")
+                bus.set_input("tarzan_ready", 1, source="TSP_DIAG")
+                bus.log("TSP", "LKS Diagnostics: SUCCESS. System READY_FOR_PAR.")
+            else:
+                bus.set_input("hardware_state", "PARTIAL_ERROR", source="TSP_DIAG")
+                bus.set_input("runtime_state", "ERROR_DIAG", source="TSP_DIAG")
+                bus.log("TSP", "LKS Diagnostics: COMPLETED with some issues.")
+
+            # Odświeżamy LKS-N5 (Etap 3)
+            self.mark_lks_outputs_dirty("diag_finished", immediate_n5=True)
+
+        except Exception as exc:
+            self.logger.error("LKS Diagnostics CRASHED: %s", exc)
+            try:
+                bus.set_input("runtime_state", "CRITICAL_ERROR", source="TSP_DIAG")
+            except Exception: pass
 
     def serve_forever(self) -> None:
         self.start()
@@ -573,6 +708,21 @@ class TarzanTspServer:
     def remove_client(self, client: TarzanTspClientSession) -> None:
         with self._clients_lock:
             self._clients.pop(client.client_id, None)
+        
+        # ETAP 4 i 9: Aktualizacja stanu klienta po rozłączeniu
+        if client.node_name:
+            try:
+                from core.tarzanSignalBus import get_signal_bus
+                bus = get_signal_bus()
+                if "tarzanPAR" in client.node_name:
+                    bus.set_input("par_state", "OFFLINE", source="TSP_DISCONNECT")
+                elif "tarzanEHR" in client.node_name:
+                    bus.set_input("ehr_state", "OFFLINE", source="TSP_DISCONNECT")
+                elif "tarzanKHR" in client.node_name:
+                    bus.set_input("khr_state", "OFFLINE", source="TSP_DISCONNECT")
+            except Exception:
+                pass
+
         client.close()
         self.logger.info("DISCONNECT %s", client.name)
         self.mark_lks_outputs_dirty("disconnect", immediate_n5=True)
@@ -591,6 +741,24 @@ class TarzanTspServer:
         payload = command.payload
 
         if cmd == CMD_HELLO:
+            node = payload.get("node", "unknown")
+            client.node_name = node
+            # ETAP 4 i 9: Rejestracja stanu klienta w SignalBus
+            try:
+                from core.tarzanSignalBus import get_signal_bus
+                bus = get_signal_bus()
+                if "tarzanPAR" in node:
+                    bus.set_input("par_state", "CONNECTED", source="TSP_HELLO")
+                    # PAR przejmuje kontrolę administracyjną
+                    if bus.read("control_owner") in {"TSP_BOOT", "TSP_SERVICE"}:
+                        bus.set_input("control_owner", "PAR_LIVE", source="TSP_HELLO")
+                elif "tarzanEHR" in node:
+                    bus.set_input("ehr_state", "CONNECTED", source="TSP_HELLO")
+                elif "tarzanKHR" in node:
+                    bus.set_input("khr_state", "CONNECTED", source="TSP_HELLO")
+                bus.log("TSP", f"Client HELLO: {node}")
+            except Exception:
+                pass
             return hello_response(self.node_name, "server", self.provider.signal_count())
 
         if cmd == CMD_PING:
@@ -606,7 +774,9 @@ class TarzanTspServer:
 
         if cmd == CMD_SET_SIGNAL:
             name = str(payload.get("name", ""))
-            result = self.provider.set_signal(name, payload.get("value"), source=f"client_{client.client_id}")
+            # Używamy node_name klienta jako źródła, jeśli jest dostępna
+            source = client.node_name if client.node_name else f"client_{client.client_id}"
+            result = self.provider.set_signal(name, payload.get("value"), source=source)
             if not result.get("ok"):
                 self.debug.record_error(str(result.get("error", "set_signal_failed")), {"client": client.name, "name": name})
                 # Nie przekazujemy pola "error" drugi raz jako **kwargs, bo error_response()
@@ -621,6 +791,15 @@ class TarzanTspServer:
 
         if cmd == CMD_GET_ALL_SIGNALS:
             return ok_response(cmd, values=self.provider.get_all())
+
+        if cmd == CMD_GET_STATE:
+            # Etap 4: Zwracamy pełny stan runtime, liczbę klientów i statystyki
+            return ok_response(
+                cmd, 
+                state=self.provider.state_summary(), 
+                clients=len(self.clients()), 
+                stats=self.debug.stats.as_dict()
+            )
 
         if cmd == CMD_SUBSCRIBE:
             lanes = payload.get("lanes") or payload.get("lane") or [LANE_FAST, LANE_NORMAL, LANE_SLOW, LANE_HEALTH, LANE_URGENT]
@@ -647,9 +826,6 @@ class TarzanTspServer:
             for signal in signals:
                 client.subscribed_signals.discard(str(signal))
             return ok_response(cmd, lanes=sorted(client.subscribed_lanes), signals=sorted(client.subscribed_signals))
-
-        if cmd == CMD_GET_STATE:
-            return ok_response(cmd, state=self.provider.state_summary(), clients=len(self.clients()), stats=self.debug.stats.as_dict())
 
         if cmd == CMD_CALL_ACTION:
             name = str(payload.get("name", ""))
@@ -736,6 +912,15 @@ class TarzanTspServer:
                     "TSP_STATS clients=%s tx=%s rx=%s errors=%s dropped=%s lanes=%s",
                     client_count, stats["packets_tx"], stats["packets_rx"], stats["errors"], stats["dropped"], stats["lane_packets"],
                 )
+                
+                # Etap 16: Publikacja FAST_STATS do SignalBus
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    bus = get_signal_bus()
+                    if bus.exists("tsp_fast_stats"):
+                        bus.set_input("tsp_fast_stats", json.dumps(stats), source="TSP_STATS")
+                except Exception:
+                    pass
 
             # 4. LKS-N5 — spokojna praca:
             # - nie robimy pełnych testów w pętli,

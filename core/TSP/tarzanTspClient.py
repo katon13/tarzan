@@ -94,7 +94,7 @@ class TarzanTspClient:
         self.tx_count += 1
 
     def hello(self) -> None:
-        self.send({"cmd": CMD_HELLO, "client": self.name, "version": "1"})
+        self.send({"cmd": CMD_HELLO, "node": self.name, "version": "1"})
 
     def ping(self) -> None:
         self.send({"cmd": CMD_PING, "ts": now_ms()})

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from threading import Lock
 from typing import Any, Dict, Iterable, Optional
 
+from .tarzanTspLog import setup_tsp_logger
 from .tarzanTspProtocol import (
     LANE_FAST,
     LANE_HEALTH,
@@ -69,6 +70,7 @@ class TarzanTspSignalProvider:
 
     def __init__(self, node_name: str = "tarzanMiniPC") -> None:
         self.node_name = node_name
+        self.logger = setup_tsp_logger("TSP.PROVIDER")
         self._lock = Lock()
         self._start_ms = monotonic_ms()
         self._last_ms = self._start_ms
@@ -86,6 +88,44 @@ class TarzanTspSignalProvider:
         self._catalog[item.name] = item
 
     def _build_catalog(self) -> None:
+        # Próba załadowania z SignalBus (MAIN/LIVE)
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            from core.tarzanZmienneSygnalowe import WSZYSTKIE_SYGNALY
+            bus = get_signal_bus()
+            
+            # Budujemy katalog na podstawie WSZYSTKIE_SYGNALY
+            for name, syg in WSZYSTKIE_SYGNALY.items():
+                lane = LANE_NORMAL
+                # Klasyfikacja na pasma
+                if syg.typ == "CTR" or syg.grupa in ("COPY_CAMERA", "ENCODERY", "RRP"):
+                    lane = LANE_FAST
+                elif syg.rola_logiki == "SENSOR":
+                    lane = LANE_SLOW
+                elif syg.rola_logiki == "SYSTEM":
+                    lane = LANE_HEALTH
+                
+                self._add(TarzanTspSignalDef(
+                    name=name,
+                    lane=lane,
+                    value_type="int" if syg.typ == "LH" else "float" if syg.typ == "ANALOG" else "str",
+                    default=syg.default,
+                    logika_trybow=syg.logika_trybow,
+                    rola_logiki=syg.rola_logiki,
+                    opis=syg.opis
+                ))
+            
+            # Dodatki specyficzne dla TSP, jeśli nie ma ich w mapie
+            if "node_name" not in self._catalog:
+                self._add(TarzanTspSignalDef("node_name", LANE_HEALTH, "str", self.node_name, "TYLKO_ODCZYT", "STATUS", "Nazwa node."))
+            if "tsp_clients" not in self._catalog:
+                self._add(TarzanTspSignalDef("tsp_clients", LANE_HEALTH, "int", 0, "TYLKO_ODCZYT", "STATUS", "Liczba klientów TSP."))
+
+            self.logger.info("Catalog built from SignalBus/tarzanZmienneSygnalowe: %d signals", len(self._catalog))
+            return
+        except Exception as exc:
+            self.logger.warning("Could not build catalog from SignalBus, falling back to built-in simulation: %s", exc)
+
         # TAKE / transport
         self._add(TarzanTspSignalDef("take_time_ms", LANE_FAST, "int", 0, LOGIKA_TYLKO_ODCZYT, "STATUS", "Czas TAKE w ms."))
         self._add(TarzanTspSignalDef("take_timecode", LANE_FAST, "str", "00:00:00:00", LOGIKA_TYLKO_ODCZYT, "STATUS", "Timecode TAKE."))
@@ -155,24 +195,85 @@ class TarzanTspSignalProvider:
     # ------------------------------------------------------------------
 
     def get_signal(self, name: str) -> Any:
+        # Próba odczytu z SignalBus (MAIN/LIVE)
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            if bus.exists(name):
+                return bus.read(name)
+        except Exception:
+            pass
+
         with self._lock:
             if name not in self._signals:
                 raise KeyError(name)
             return self._signals[name]
 
     def get_all(self) -> Dict[str, Any]:
+        # Pobieramy stan bazowy (symulacja/cache)
         with self._lock:
-            return dict(self._signals)
+            res = dict(self._signals)
+
+        # Nakładamy stan z SignalBus (MAIN/LIVE)
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            res.update(bus.values_snapshot())
+        except Exception:
+            pass
+        return res
 
     def get_lane_values(self, lane: str, names: Optional[Iterable[str]] = None) -> Dict[str, Any]:
+        # Najpierw budujemy listę sygnałów, których potrzebujemy
         with self._lock:
             if names is None or "*" in set(names):
                 wanted = [name for name, item in self._catalog.items() if item.lane == lane]
             else:
                 wanted = [name for name in names if name in self._catalog and self._catalog[name].lane == lane]
-            return {name: self._signals[name] for name in wanted if name in self._signals}
+            
+            # Pobieramy stan bazowy dla tych sygnałów
+            res = {name: self._signals[name] for name in wanted if name in self._signals}
+
+        # Aktualizujemy o wartości z SignalBus (MAIN/LIVE)
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            for name in wanted:
+                if bus.exists(name):
+                    res[name] = bus.read(name)
+        except Exception:
+            pass
+        return res
 
     def set_signal(self, name: str, value: Any, source: str = "tsp") -> Dict[str, Any]:
+        # Próba zapisu do SignalBus (MAIN/LIVE)
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            if bus.exists(name):
+                # ETAP 11: Sprawdzanie control_owner (Bezpieczeństwo)
+                owner = bus.read("control_owner", "TSP_BOOT")
+                
+                # Jeśli właścicielem jest EHR, odrzucamy ręczne sterowanie osiami z TSP/PAR
+                is_axis = any(sub in name for sub in ["axis_", "rrp_", "sok_"])
+                if owner == "EHR_PLAYBACK" and is_axis and "tarzanEHR" not in source:
+                    return {
+                        "ok": False, 
+                        "error": "write_denied", 
+                        "name": name, 
+                        "reason": "control_owner_conflict",
+                        "owner": owner
+                    }
+                
+                meta = bus.get_meta(name)
+                if meta.kierunek == "OUT":
+                    bus.write_output(name, value, source=source)
+                else:
+                    bus.set_input(name, value, source=source)
+                return {"ok": True, "name": name, "value": value}
+        except Exception:
+            pass
+
         with self._lock:
             item = self._catalog.get(name)
             if item is None:
@@ -223,6 +324,19 @@ class TarzanTspSignalProvider:
     # ------------------------------------------------------------------
 
     def tick(self, client_count: int = 0) -> None:
+        # ETAP 6: W trybie MAIN/LIVE wyłączamy symulację, jeśli SignalBus jest aktywny
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            if bus.mode == "LIVE":
+                # W trybie LIVE tylko aktualizujemy statystyki węzła
+                with self._lock:
+                    self._signals["node_uptime_ms"] = monotonic_ms() - self._start_ms
+                    self._signals["tsp_clients"] = client_count
+                return
+        except Exception:
+            pass
+
         now = monotonic_ms()
         with self._lock:
             elapsed_ms = now - self._start_ms
@@ -295,15 +409,35 @@ class TarzanTspSignalProvider:
             return {"ok": False, "error": "unknown_action", "action": name}
 
     def state_summary(self) -> Dict[str, Any]:
-        with self._lock:
+        # W trybie MAIN/LIVE pobieramy rozszerzony stan z SignalBus
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
             return {
                 "node": self.node_name,
-                "signal_count": len(self._catalog),
-                "active_mode": self._signals.get("active_mode"),
-                "transport_state": self._signals.get("transport_state"),
-                "nextion_page": self._signals.get("nextion_page"),
-                "uptime_ms": self._signals.get("node_uptime_ms"),
+                "signal_count": bus.names_count() if hasattr(bus, "names_count") else len(bus.names()),
+                "system_state": bus.read("system_state"),
+                "runtime_state": bus.read("runtime_state"),
+                "control_owner": bus.read("control_owner"),
+                "tarzan_ready": bus.read("tarzan_ready"),
+                "active_mode": bus.read("active_mode"),
+                "transport_state": bus.read("transport_state"),
+                "par_state": bus.read("par_state"),
+                "ehr_state": bus.read("ehr_state"),
+                "khr_state": bus.read("khr_state"),
+                "hardware_state": bus.read("hardware_state"),
+                "uptime_ms": bus.read("node_uptime_ms"),
             }
+        except Exception:
+            with self._lock:
+                return {
+                    "node": self.node_name,
+                    "signal_count": len(self._catalog),
+                    "active_mode": self._signals.get("active_mode"),
+                    "transport_state": self._signals.get("transport_state"),
+                    "nextion_page": self._signals.get("nextion_page"),
+                    "uptime_ms": self._signals.get("node_uptime_ms"),
+                }
 
     @staticmethod
     def _format_timecode(ms: int, fps: int = 25) -> str:

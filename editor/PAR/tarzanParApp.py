@@ -419,12 +419,19 @@ class TarzanParApp(tk.Tk):
         slot.grid_propagate(False)
         slot.pack_propagate(False)
 
-        widget = builder(slot)
         try:
-            widget.pack(fill="both", expand=True)
-        except Exception:
-            # Jeżeli panel sam się spakował lub jest już zarządzany, nie zabijaj całego pulpitu.
-            pass
+            widget = builder(slot)
+            if widget:
+                widget.pack(fill="both", expand=True)
+        except Exception as e:
+            # Jeżeli panel rzuci błąd przy budowaniu (np. błąd koloru w diagnostics), 
+            # logujemy to, ale nie przerywamy budowania reszty layoutu.
+            print(f"CRITICAL ERROR building panel {key}: {e}")
+            try:
+                err_lbl = tk.Label(slot, text=f"PANEL ERROR: {key}\n{e}", fg="red", bg="#101010", font=("Consolas", 8))
+                err_lbl.pack(fill="both", expand=True)
+            except Exception:
+                pass
 
         for c in range(columns):
             zone_frame.grid_columnconfigure(

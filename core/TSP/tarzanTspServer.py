@@ -468,12 +468,24 @@ class TarzanTspServer:
             client_count = len(clients)
             reason_low = reason.lower()
 
+            # Pobieramy stany z SignalBus, aby Nextion pokazywał realny stan połączenia
+            # (SignalBus jest aktualizowany w HELLO i DISCONNECT)
+            par_connected = False
+            ehr_connected = False
+            try:
+                from core.tarzanSignalBus import get_signal_bus
+                bus = get_signal_bus()
+                par_connected = bus.read("par_state") == "CONNECTED"
+                ehr_connected = bus.read("ehr_state") == "CONNECTED"
+            except Exception:
+                pass
+
             desired_statuses: Dict[str, bool] = {
                 "linux_sys": True,
-                "snajper_sys": reason_low.startswith("health"),
+                "snajper_sys": reason_low.startswith("health") or reason_low == "startup",
                 "take_sys": True,
-                "par_sys": client_count > 0,
-                "ehr_sys": client_count > 0,
+                "par_sys": par_connected,
+                "ehr_sys": ehr_connected,
                 "pok_play": True,
                 "pok_rec": True,
             }

@@ -9,14 +9,14 @@
     "operator": true,
     "ui": true,
     "bridge": false,
-    "poextbus": false,
+    "poextbus": true,
     "functions": false,
     "timeline": true,
     "dron": true,
     "lcd": true,
     "matrix": true,
     "keyboard": true,
-    "camera": false,
+    "camera": true,
     "autostatus": true,
     "system": false,
     "settings": false,
@@ -32,6 +32,7 @@
     "cnc_signals": true,
     "automatyka": true,
     "nextion_7_preview": true,
+    "diagnostics": true,
     "nextion_5_preview": true,
     "matrix_led": false,
     "poextbus_cnc": false
@@ -62,11 +63,12 @@
     "shock_sensor_panel": "middle_top",
     "laser": "middle_top",
     "sok": "right",
-    "poextbus": "right",
-    "camera": "right",
+    "poextbus": "left",
+    "camera": "left",
     "system": "right",
-    "axes": "top",
     "nextion_7_preview": "right",
+    "diagnostics": "right",
+    "axes": "top",
     "bridge": "top",
     "cnc_signals": "top"
   },
@@ -111,7 +113,7 @@
       "zone": "left",
       "order": 40,
       "colspan": 4,
-      "rowspan": 8
+      "rowspan": 3
     },
     "settings": {
       "zone": "left",
@@ -222,34 +224,40 @@
       "rowspan": 6
     },
     "poextbus": {
-      "zone": "right",
-      "order": 20,
+      "zone": "left",
+      "order": 60,
       "colspan": 4,
       "rowspan": 3
     },
     "camera": {
-      "zone": "right",
-      "order": 30,
+      "zone": "left",
+      "order": 70,
       "colspan": 4,
       "rowspan": 4
     },
     "system": {
       "zone": "right",
-      "order": 40,
+      "order": 20,
       "colspan": 4,
       "rowspan": 2
+    },
+    "nextion_7_preview": {
+      "zone": "right",
+      "order": 30,
+      "colspan": 4,
+      "rowspan": 10
+    },
+    "diagnostics": {
+      "zone": "right",
+      "order": 40,
+      "colspan": 3,
+      "rowspan": 1
     },
     "axes": {
       "zone": "top",
       "order": 10,
       "colspan": 14,
       "rowspan": 6
-    },
-    "nextion_7_preview": {
-      "zone": "right",
-      "order": 50,
-      "colspan": 4,
-      "rowspan": 10
     },
     "bridge": {
       "zone": "top",

@@ -3167,7 +3167,7 @@ class TarzanParPanels:
             self.bus.log("PAR", f"Safety axis unlock command: {val}")
 
         cb = tk.Checkbutton(f_safety, text="UNLOCK PHYSICAL AXIS (DANGEROUS)", variable=safety_var, command=toggle_safety,
-                          bg=COLORS["panel"], fg=COLORS["orange"], activebackground=COLORS["panel"],
+                          bg=COLORS["panel"], fg=COLORS["amber"], activebackground=COLORS["panel"],
                           selectcolor="#050810", font=("Segoe UI", 9, "bold"))
         cb.pack(side="left")
         self.rows["safety_axis_unlock"] = _ParValueProxy(lambda v: safety_var.set(bool(v)))

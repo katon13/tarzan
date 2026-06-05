@@ -27,18 +27,23 @@ from core.TSP.tarzanTspServer import TarzanTspServer
 from core.tarzanUstawienia import CZAS_PROBKOWANIA_MS
 
 def main():
-    print("====================================================")
-    print("   TARZAN SYSTEM — MAIN RUNTIME STARTING           ")
-    print("====================================================")
-    print(f"Platform: {platform.system()} {platform.machine()}")
-    print(f"Sample Rate: {CZAS_PROBKOWANIA_MS} ms")
-    print("----------------------------------------------------")
+    print("MAIN Runtime START")
+    print("SignalBus OK")
+    print("TSP SERVER START")
+    print("HardwareBridge START")
+    print("LKS-N5 START")
 
     # 1. Inicjalizacja SignalBus w trybie LIVE
     # get_signal_bus w trybie LIVE odczyta konfigurację hardware'ową
+    # i automatycznie utworzy katalogi (np. data/signalbus), jeśli są wymagane.
     bus = get_signal_bus(mode="LIVE")
     bus.set_input("runtime_state", "INITIALIZING", source="MAIN")
     bus.set_input("system_state", "BOOTING", source="MAIN")
+    bus.log("MAIN", "MAIN Runtime START")
+    bus.log("MAIN", "SignalBus OK")
+    bus.log("MAIN", "TSP SERVER START")
+    bus.log("MAIN", "HardwareBridge START")
+    bus.log("MAIN", "LKS-N5 START")
     
     # 2. Konfiguracja parametrów serwera TSP
     is_windows = platform.system().lower() == "windows"
@@ -76,13 +81,20 @@ def main():
 
     # 4. Sprawdzanie gotowości EHR/KHR (przez ModeLogic)
     # ModeLogic (uruchomiony przez TspServer) monitoruje statusy modułów.
-    bus.set_input("ehr_state", "READY", source="MAIN")
-    bus.set_input("khr_state", "READY", source="MAIN")
+    bus.set_input("ehr_state", "OFFLINE", source="MAIN")
+    bus.set_input("par_state", "OFFLINE", source="MAIN")
+    bus.set_input("khr_state", "OFFLINE", source="MAIN")
+    
+    print("PAR NOT_CONNECTED")
+    print("EHR NOT_CONNECTED")
+    bus.log("MAIN", "PAR NOT_CONNECTED")
+    bus.log("MAIN", "EHR NOT_CONNECTED")
 
     # 5. Blokada bezpieczeństwa osi (Safety Lock)
     # Zgodnie z wymaganiem: Ruch osi NIE startuje automatycznie.
     # Musi zostać zablokowany do świadomego unlock przez operatora.
     bus.set_input("safety_axis_unlock", 0, source="MAIN_SAFETY")
+    print("Safety LOCKED")
     bus.log("MAIN", "Axes LOCKED (Safety Mode). Manual unlock required.")
 
     # 6. Sygnał gotowości systemu

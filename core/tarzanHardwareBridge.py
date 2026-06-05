@@ -72,15 +72,15 @@ class TarzanHardwareBridge:
         self.logger.info("Starting Hardware Bridge...")
         
         if not LIB_POKEYS_AVAILABLE:
-            self.logger.error("PoKeys library not available!")
-            self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
+            self.logger.error("PoKeys wrapper/library not available!")
+            self.bus.force_signal("hardware_state", "POKEYS_LIB_MISSING", source="HW_BRIDGE")
             return False
 
         # Ścieżka do biblioteki PoKeys (zależna od platformy)
         lib_path = self._get_lib_path()
         if not lib_path or not os.path.exists(lib_path):
             self.logger.error(f"PoKeys library file not found at: {lib_path}")
-            self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
+            self.bus.force_signal("hardware_state", "POKEYS_LIB_MISSING", source="HW_BRIDGE")
             return False
 
         try:
@@ -99,7 +99,11 @@ class TarzanHardwareBridge:
             return True
         except Exception as exc:
             self.logger.error(f"Hardware Bridge failed to start: {exc}")
-            self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
+            # Sprawdzamy czy to nie błąd biblioteki (np. brak zależności .so)
+            if "libPoKeys" in str(exc) or "load library" in str(exc).lower():
+                self.bus.force_signal("hardware_state", "POKEYS_LIB_MISSING", source="HW_BRIDGE")
+            else:
+                self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
             return False
 
     def stop(self) -> None:

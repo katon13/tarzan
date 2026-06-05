@@ -40,6 +40,21 @@ class TarzanParBridge:
         # TSP CLIENT: dla trybu LIVE
         self.tsp_client: Optional[TarzanTspClient] = None
         self._tsp_thread: Optional[threading.Thread] = None
+        self._tsp_subscribed: bool = False
+        # ETAP 1C: na starcie LIVE nie bierzemy FAST/*, bo PAR może zostać zalany
+        # paczkami i TSP rozłącza klienta przez send_failed timed out.
+        self._tsp_boot_signals = [
+            "system_state",
+            "runtime_state",
+            "tsp_state",
+            "lks_state",
+            "par_state",
+            "ehr_state",
+            "hardware_state",
+            "control_owner",
+            "tarzan_ready",
+            "safety_axis_unlock",
+        ]
 
     def set_mode(self, mode: str) -> None:
         self.bus.set_mode(mode)
@@ -90,6 +105,7 @@ class TarzanParBridge:
 
                 try:
                     self.tsp_client = TarzanTspClient(host=self.tsp_host, name="tarzanPAR")
+                    self._tsp_subscribed = False
                     self.tsp_client.on_message = self._handle_tsp_message
                     self.tsp_client.connect()
                     
@@ -110,6 +126,7 @@ class TarzanParBridge:
             self.bus.log("TSP", "Disconnecting from MiniPC...")
             self.tsp_client.close()
             self.tsp_client = None
+            self._tsp_subscribed = False
             self._tsp_thread = None
 
     def _handle_tsp_message(self, message: Dict[str, Any]) -> None:
@@ -133,11 +150,16 @@ class TarzanParBridge:
         elif (event == "hello") or (cmd == "hello" and ok):
             node = message.get("node") or message.get("node_name") or message.get("node_id", "unknown")
             self.bus.log("TSP", f"Handshake OK: {node}")
-            # Pełna sekwencja po połączeniu
-            if self.tsp_client:
+            # ETAP 1C: pierwszy LIVE ma być lekki. Nie subskrybujemy FAST ani "*".
+            # Najpierw potwierdzamy stabilny most PAR <-> TSP na sygnałach systemowych.
+            if self.tsp_client and not self._tsp_subscribed:
+                self._tsp_subscribed = True
                 self.tsp_client.ping()
                 self.tsp_client.get_state()
-                self.tsp_client.subscribe(lanes=["fast", "normal", "slow", "health", "urgent"])
+                self.tsp_client.subscribe(
+                    lanes=["normal", "slow", "health", "urgent"],
+                    signals=self._tsp_boot_signals,
+                )
         
         elif cmd == "subscribe" and ok:
             self.bus.log("TSP", "SUBSCRIBE OK: receiving live updates.")

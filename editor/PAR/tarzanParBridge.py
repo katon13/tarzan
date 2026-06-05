@@ -113,6 +113,18 @@ class TarzanParBridge:
         except Exception:
             return False
 
+    def _drop_tsp_client(self, reason: str = "connection_lost") -> None:
+        """Zamyka martwego klienta i pozwala pętli LIVE połączyć się ponownie."""
+        client = self.tsp_client
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
+        self.tsp_client = None
+        self._tsp_subscribed = False
+        self._bus_log("TSP", f"Client dropped: {reason}. Reconnect pending...")
+
     def _send_to_tsp_if_ready(self, send_fn: Callable[[TarzanTspClient], Any], action_name: str) -> bool:
         """Wysyła do TSP tylko po pełnym połączeniu; w fazie LIVE-start nie wolno wywalać UI."""
         if self.bus.mode != "LIVE" or not self._client_is_connected():
@@ -122,7 +134,8 @@ class TarzanParBridge:
             send_fn(self.tsp_client)
             return True
         except Exception as exc:
-            self.bus.log("TSP_ERROR", f"{action_name} failed: {exc}")
+            self._bus_log("TSP_ERROR", f"{action_name} failed: {exc}")
+            self._drop_tsp_client(reason=f"send_failed:{action_name}")
             return False
 
     def _tsp_connector_loop(self) -> None:
@@ -154,17 +167,20 @@ class TarzanParBridge:
                     self._bus_log("TSP", f"Connected to {self.tsp_host}. Sending HELLO...")
                     self._bus_set_input("par_state", "CONNECTED", source="TSP_LIVE")
                     client.hello()
+                else:
+                    # ETAP 1F: LIVE ma się trzymać. Wysyłamy lekki heartbeat,
+                    # żeby martwy socket został wykryty i pętla mogła zrobić reconnect.
+                    try:
+                        assert self.tsp_client is not None
+                        self.tsp_client.ping()
+                    except Exception as exc:
+                        self._bus_log("TSP_ERROR", f"Heartbeat failed: {exc}")
+                        self._drop_tsp_client(reason="heartbeat_failed")
 
             except Exception as exc:
                 self._bus_log("TSP_ERROR", f"Connector loop error: {exc}")
                 self._bus_set_input("par_state", "OFFLINE", source="TSP_LIVE")
-                if self.tsp_client is not None:
-                    try:
-                        self.tsp_client.close()
-                    except Exception:
-                        pass
-                self.tsp_client = None
-                self._tsp_subscribed = False
+                self._drop_tsp_client(reason="connector_exception")
 
             time.sleep(1.0)
 
@@ -231,6 +247,7 @@ class TarzanParBridge:
 
         elif event == "disconnect":
             self.bus.log("TSP", "Server disconnected.")
+            self._drop_tsp_client(reason="server_disconnect_event")
 
         elif event == "log_event":
             # ETAP 16: Odbieranie logów z MiniPC

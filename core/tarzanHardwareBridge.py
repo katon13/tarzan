@@ -16,6 +16,7 @@ from core.tarzanZmienneSygnalowe import (
     TarzanSygnal
 )
 from core.TSP.tarzanTspLog import setup_tsp_logger
+from core.tarzanHardwareAccessGuard import TarzanHardwareAccessGuard
 
 # Próba importu biblioteki PoKeys
 try:
@@ -46,6 +47,7 @@ class TarzanHardwareBridge:
         self.logger = setup_tsp_logger("HW.BRIDGE")
         self.running = False
         self._lock = threading.Lock()
+        self._hardware_guard: Optional[TarzanHardwareAccessGuard] = None
         
         self.devices: Dict[str, Any] = {
             "PLAY": None,
@@ -92,6 +94,9 @@ class TarzanHardwareBridge:
             return False
 
         try:
+            self._hardware_guard = TarzanHardwareAccessGuard("TSP_HW_BRIDGE_RUNTIME", blocking=True)
+            self._hardware_guard.acquire()
+            self.logger.info("Hardware access guard acquired by TSP runtime.")
             self._init_devices(lib_path)
             self.running = True
             self.bus.set_live_adapter(self)
@@ -106,6 +111,12 @@ class TarzanHardwareBridge:
             self.logger.info("Hardware Bridge STARTED and linked to SignalBus.")
             return True
         except Exception as exc:
+            if self._hardware_guard is not None:
+                try:
+                    self._hardware_guard.release()
+                except Exception:
+                    pass
+                self._hardware_guard = None
             self.logger.error(f"Hardware Bridge failed to start: {exc}")
             self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
             return False
@@ -125,6 +136,14 @@ class TarzanHardwareBridge:
                         pass
                     self.devices[board] = None
         
+        if self._hardware_guard is not None:
+            try:
+                self._hardware_guard.release()
+                self.logger.info("Hardware access guard released by TSP runtime.")
+            except Exception:
+                pass
+            self._hardware_guard = None
+
         self.bus.set_live_adapter(None)
         self.logger.info("Hardware Bridge STOPPED.")
 

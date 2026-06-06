@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from core.tarzanHardwareAccessGuard import TarzanHardwareAccessGuard
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POKEYS_DIR = REPO_ROOT / "hardware" / "pokeys"
@@ -60,8 +61,12 @@ class _PoKeysSession:
         self.serial = int(POKEYS57U_PLAY_DEVICE_SERIAL if self.board == "PLAY" else POKEYS57U_REC_DEVICE_SERIAL)
         PoKeysDevice, _ = _import_pokeys()
         self.device = PoKeysDevice(self.lib_path)
+        self._guard: Optional[TarzanHardwareAccessGuard] = None
 
     def __enter__(self) -> "_PoKeysSession":
+        self._guard = TarzanHardwareAccessGuard(f"LKS_HW_TEST_{self.board}", blocking=False)
+        if not self._guard.acquire():
+            raise RuntimeError(f"PoKeys {self.board} BUSY — runtime TSP/HardwareBridge ma globalną blokadę sprzętu ({TarzanHardwareAccessGuard.current_owner()})")
         # Zabezpieczenie przed zbyt szybkim ponownym połączeniem (libusb stability)
         since_last = time.time() - _PoKeysSession._last_disconnect_at
         if since_last < 0.2:
@@ -77,6 +82,9 @@ class _PoKeysSession:
             self.refresh()
             return self
         except Exception as exc:
+            if self._guard is not None:
+                self._guard.release()
+                self._guard = None
             # Jeśli PK_ConnectToDeviceWSerial sypie crashem natywnym, to try-except go nie złapie,
             # ale jeśli to zwykły wyjątek pythonowy z ctypes, to go logujemy.
             raise RuntimeError(f"Błąd połączenia PoKeys {self.board}: {exc}")
@@ -93,6 +101,10 @@ class _PoKeysSession:
             _PoKeysSession._last_disconnect_at = time.time()
         except Exception:
             pass
+        finally:
+            if self._guard is not None:
+                self._guard.release()
+                self._guard = None
 
     _last_disconnect_at: float = 0.0
 

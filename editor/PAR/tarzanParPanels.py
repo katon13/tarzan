@@ -2336,20 +2336,43 @@ class TarzanParPanels:
             f_led = tk.Frame(c, bg="#30424f", height=4)
             f_led.pack(fill="x", padx=7, pady=(0, 7))
 
-            def _f_button_press(_e, s=sw):
-                # ETAP 1S-FIX: przycisk F symuluje tylko wejście przycisku.
-                # Dioda F jest osobnym wyjściem i ma własny klik/test na kontrolce LED.
-                self._set_signal(s, 1, "PAR_UI")
+            def _par_ui_log(kind, msg):
+                try:
+                    self.bus.log(kind, msg)
+                    self.update_log()
+                except Exception:
+                    pass
 
-            def _f_button_release(_e, s=sw):
-                self._set_signal(s, 0, "PAR_UI")
+            def _restore_led_visual(ld=led, led_sig=ls):
+                try:
+                    ld.set(self.bus.get(led_sig, 0))
+                except Exception:
+                    ld.set(0)
 
-            def _f_led_press(_e, led_sig=ls):
+            def _f_button_press(_e, label=l, s=sw, ld=led):
+                # ETAP 1S-FIX2: przycisk F symuluje tylko wejście przycisku.
+                # Nie zapala fizycznego wyjścia LED. Zmienia tylko kontrolkę UI na czas naciśnięcia
+                # i zapisuje zdarzenie do logów PAR.
+                try:
+                    ld.set(1)
+                except Exception:
+                    pass
+                _par_ui_log("PRZYCISK", f"{label} PRESS -> {s}")
+                self._set_signal(s, 1, "PAR_UI_BUTTON")
+
+            def _f_button_release(_e, label=l, s=sw, ld=led, led_sig=ls):
+                self._set_signal(s, 0, "PAR_UI_BUTTON")
+                _par_ui_log("PRZYCISK", f"{label} RELEASE -> {s}")
+                _restore_led_visual(ld, led_sig)
+
+            def _f_led_press(_e, label=l, led_sig=ls):
                 # Osobny fizyczny test diody F.
-                self._set_signal(led_sig, 1, "PAR_UI")
+                _par_ui_log("F_LED", f"{label} LED ON -> {led_sig}")
+                self._set_signal(led_sig, 1, "PAR_UI_LED")
 
-            def _f_led_release(_e, led_sig=ls):
-                self._set_signal(led_sig, 0, "PAR_UI")
+            def _f_led_release(_e, label=l, led_sig=ls):
+                self._set_signal(led_sig, 0, "PAR_UI_LED")
+                _par_ui_log("F_LED", f"{label} LED OFF -> {led_sig}")
 
             b.bind("<ButtonPress-1>", _f_button_press)
             b.bind("<ButtonRelease-1>", _f_button_release)

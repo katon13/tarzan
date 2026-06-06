@@ -1837,8 +1837,10 @@ class TarzanParPanels:
         def tg(_e):
             nv = 0 if self.bus.get(sig, 0) else 1
             if nv:
+                _par_auto_log("SENT PLAY P37=1 — nagrywanie ręczne, żądanie odłączenia STEP")
                 _par_auto_log("NAGRYWANIE RAMIENIA: PLAY P37=1, styczniki/odłączenie STEP aktywne, silniki odłączone")
             else:
+                _par_auto_log("SENT PLAY P37=0 — automatyka aktywna, żądanie przywrócenia STEP")
                 _par_auto_log("AUTOMATYKA: PLAY P37=0, automatyka aktywna, zakaz ręcznego ruchu ramieniem")
             self._set_signal(sig, nv, "PAR_AUTOMATYKA")
             draw_bolt(nv)

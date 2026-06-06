@@ -512,8 +512,16 @@ class TarzanTspServer:
                 from core.tarzanSignalBus import get_signal_bus
                 _bus = get_signal_bus()
                 _p37_ack = _bus.read("poksyg_play_p37_ack_ok", None)
+                _last_forced_ack = _bus.read("poksyg_last_forced_ack_ok", None)
             except Exception:
                 _p37_ack = None
+                _last_forced_ack = None
+
+            _pok_play_status = True
+            if _last_forced_ack is not None:
+                _pok_play_status = bool(_last_forced_ack)
+            elif _p37_ack is not None:
+                _pok_play_status = bool(_p37_ack)
 
             desired_statuses: Dict[str, bool] = {
                 "linux_sys": True,
@@ -521,7 +529,7 @@ class TarzanTspServer:
                 "take_sys": True,
                 "par_sys": client_count > 0,
                 "ehr_sys": client_count > 0,
-                "pok_play": bool(_p37_ack) if _p37_ack is not None else True,
+                "pok_play": _pok_play_status,
                 "pok_rec": True,
             }
 
@@ -1253,15 +1261,12 @@ class TarzanTspServer:
         }
         self.broadcast(event, lane=LANE_URGENT)
 
-        # ETAP 1X: prosta kontrolka LKS dla odpowiedzi POKSYG PLAY P37.
+        # ETAP 1V: prosta kontrolka LKS dla odpowiedzi POKSYG PLAY P37.
         # Bez nowej sekcji i bez rozbudowy HMI: używamy istniejącej kontrolki pok_play.
-        # ACK OK daje krótkie odświeżenie kontrolki, żeby operator widział odpowiedź z POKSYG.
         try:
             if str(source).upper() == "POKSYG" and "PLAY P37" in str(message):
                 ok = "ACK OK" in str(message)
                 if self.lks_n5 is not None:
-                    if ok:
-                        self.lks_n5.set_status("pok_play", False)
                     self.lks_n5.set_status("pok_play", ok)
                     self._lks_n5_status_cache["pok_play"] = ok
         except Exception:

@@ -339,6 +339,33 @@ class TarzanTspLksNextion5:
         for component, ok in statuses.items():
             self.set_status(component, bool(ok))
 
+
+    def set_poksyg_last_forced_status(self, signal: str, value: object, ack_ok: bool, message: str = "") -> None:
+        """Pokazuje trwały status ostatniego wymuszonego sygnału POKSYG na istniejącej kontrolce.
+
+        Aktualny eksport Nextion 5 status_main ma wyłącznie 30 dual-state buttonów,
+        bez osobnego dolnego pola tekstowego. Nie wysyłamy więc komend do
+        nieistniejących komponentów. Używamy istniejącej kontrolki pok_play:
+        - .val pokazuje OK/ERROR,
+        - .txt trzyma krótki opis ostatniego ACK.
+        Po dodaniu pola tekstowego w HMI można rozszerzyć tę metodę bez zmiany toru.
+        """
+        sig = str(signal or "").strip()
+        val = str(value)
+        ok_txt = "OK" if bool(ack_ok) else "ERR"
+        if sig == "play_p37_step_disconnect_manual":
+            short = f"P37={val} {ok_txt}"
+        else:
+            short = f"{sig[:8]}={val} {ok_txt}"
+        try:
+            self.set_status("pok_play", bool(ack_ok))
+        except Exception:
+            pass
+        try:
+            self.txt("pok_play", short[:20])
+        except Exception:
+            pass
+
     def reset_status_main(self, components: Optional[Iterable[str]] = None) -> None:
         for component in components or all_components():
             self.set_status(str(component), False)

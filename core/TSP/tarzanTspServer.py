@@ -496,6 +496,42 @@ class TarzanTspServer:
             except Exception:
                 pass
 
+
+    def _read_poksyg_last_forced_status(self) -> Optional[Dict[str, Any]]:
+        """Czyta trwały status ostatniego wymuszonego sygnału POKSYG z SignalBus."""
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            signal = bus.read("poksyg_last_forced_signal", "")
+            if not signal:
+                return None
+            return {
+                "signal": signal,
+                "value": bus.read("poksyg_last_forced_value", ""),
+                "ack_ok": bool(bus.read("poksyg_last_forced_ack_ok", 0)),
+                "message": bus.read("poksyg_last_forced_message", ""),
+            }
+        except Exception:
+            return None
+
+    def _push_poksyg_last_forced_to_lks_n5(self) -> None:
+        """Utrzymuje na LKS-N5 ostatni wymuszony sygnał, żeby ACK nie znikał po sekundzie."""
+        if self.lks_n5 is None:
+            return
+        status = self._read_poksyg_last_forced_status()
+        if not status:
+            return
+        try:
+            self.lks_n5.set_poksyg_last_forced_status(
+                str(status.get("signal", "")),
+                status.get("value", ""),
+                bool(status.get("ack_ok", False)),
+                str(status.get("message", "")),
+            )
+            self._lks_n5_status_cache["pok_play"] = bool(status.get("ack_ok", False))
+        except Exception as exc:
+            self.debug.record_error("lks_n5_poksyg_last_forced_failed", {"error": str(exc)})
+
     def _refresh_lks_n5(self, reason: str = "cycle", immediate: bool = False) -> None:
         if self._stopping or self.lks_n5 is None:
             return
@@ -508,20 +544,8 @@ class TarzanTspServer:
             client_count = len(clients)
             reason_low = reason.lower()
 
-            try:
-                from core.tarzanSignalBus import get_signal_bus
-                _bus = get_signal_bus()
-                _p37_ack = _bus.read("poksyg_play_p37_ack_ok", None)
-                _last_forced_ack = _bus.read("poksyg_last_forced_ack_ok", None)
-            except Exception:
-                _p37_ack = None
-                _last_forced_ack = None
-
-            _pok_play_status = True
-            if _last_forced_ack is not None:
-                _pok_play_status = bool(_last_forced_ack)
-            elif _p37_ack is not None:
-                _pok_play_status = bool(_p37_ack)
+            _poksyg_last = self._read_poksyg_last_forced_status()
+            _pok_play_status = bool(_poksyg_last.get("ack_ok")) if _poksyg_last else True
 
             desired_statuses: Dict[str, bool] = {
                 "linux_sys": True,
@@ -551,6 +575,8 @@ class TarzanTspServer:
             if changed_statuses:
                 self.lks_n5.set_many_statuses(changed_statuses)
                 self._lks_n5_status_cache.update(changed_statuses)
+
+            self._push_poksyg_last_forced_to_lks_n5()
 
             self._lks_n5_last_refresh_ms = now
             self._lks_n5_dirty = False
@@ -1269,6 +1295,7 @@ class TarzanTspServer:
                 if self.lks_n5 is not None:
                     self.lks_n5.set_status("pok_play", ok)
                     self._lks_n5_status_cache["pok_play"] = ok
+                    self._push_poksyg_last_forced_to_lks_n5()
         except Exception:
             pass
 

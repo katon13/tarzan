@@ -646,59 +646,6 @@ poksyg_play_p37_last_error = _sygnal(
     uwaga_logiki="Status tekstowy błędu; tylko do logów/odczytu w PAR/LKS."
 )
 
-# --- Ostatnie wymuszenie PAR -> POKSYG ---
-# Stały status dla LKS/PAR: ostatni sygnał wymuszony fizycznie przez PAR
-# i potwierdzony przez HardwareBridge. Nie jest to zdarzenie chwilowe,
-# tylko trwały status ostatniego ACK, żeby LKS nie gubił potwierdzenia
-# podczas cyklicznego odświeżania status_main.
-poksyg_last_forced_signal = _sygnal(
-    nazwa="poksyg_last_forced_signal",
-    plytka="SYSTEM", pin=None, kanal=None, typ="TEXT", kierunek="IN", default="",
-    opis="Ostatni fizyczny sygnał wymuszony przez PAR i obsłużony przez POKSYG/HardwareBridge.",
-    zrodlo="POKSYG_ACK",
-    hardware_function=HW_SYSTEM, hardware_label="POKSYG Last Forced Signal",
-    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
-    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
-    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
-    uwaga_logiki="Trwały status ostatniego wymuszenia PAR; tylko do odczytu/logów/LKS."
-)
-
-poksyg_last_forced_value = _sygnal(
-    nazwa="poksyg_last_forced_value",
-    plytka="SYSTEM", pin=None, kanal=None, typ="TEXT", kierunek="IN", default="",
-    opis="Ostatnia wartość fizycznego sygnału wymuszonego przez PAR i potwierdzonego przez POKSYG.",
-    zrodlo="POKSYG_ACK",
-    hardware_function=HW_SYSTEM, hardware_label="POKSYG Last Forced Value",
-    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
-    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
-    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
-    uwaga_logiki="Trwały status ostatniej potwierdzonej wartości; nie idzie przez write_output."
-)
-
-poksyg_last_forced_ack_ok = _sygnal(
-    nazwa="poksyg_last_forced_ack_ok",
-    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
-    opis="ACK ostatniego wymuszenia PAR -> POKSYG: 1=OK, 0=błąd/brak potwierdzenia.",
-    zrodlo="POKSYG_ACK",
-    hardware_function=HW_SYSTEM, hardware_label="POKSYG Last Forced ACK",
-    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
-    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
-    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
-    uwaga_logiki="Trwały status dla LKS; PAR/LKS tylko czytają."
-)
-
-poksyg_last_forced_message = _sygnal(
-    nazwa="poksyg_last_forced_message",
-    plytka="SYSTEM", pin=None, kanal=None, typ="TEXT", kierunek="IN", default="",
-    opis="Tekst ostatniej odpowiedzi POKSYG po wymuszeniu sygnału z PAR.",
-    zrodlo="POKSYG_ACK",
-    hardware_function=HW_SYSTEM, hardware_label="POKSYG Last Forced Message",
-    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
-    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
-    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
-    uwaga_logiki="Trwały opis ostatniego ACK; używany przez logi i przyszłą sekcję LKS."
-)
-
 lks_state = _sygnal(
     nazwa="lks_state",
     plytka="SYSTEM",
@@ -1341,6 +1288,53 @@ def _gen_axis_status_signals(axes_list: List[str]) -> List[TarzanSygnal]:
 
 LISTA_NAZW_OSI = ["cam_h", "cam_v", "cam_t", "cam_f", "arm_h", "arm_v", "tilt", "cart"]
 SYGNALY_STATUSU_OSI = _gen_axis_status_signals(LISTA_NAZW_OSI)
+
+
+# --- Trwały status ostatniego wymuszonego sygnału POKSYG ---
+
+poksyg_last_forced_signal = _sygnal(
+    nazwa="poksyg_last_forced_signal",
+    plytka="SYSTEM", pin=None, kanal=None, typ="TEXT", kierunek="IN", default="",
+    opis="Nazwa ostatniego sygnału wymuszonego przez PAR i potwierdzonego przez POKSYG.", zrodlo="POKSYG",
+    hardware_function=HW_SYSTEM, hardware_label="POKSYG Last Forced Signal",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
+    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
+    uwaga_logiki="Trwały status dla LKS/PAR; nie jest wyjściem wykonawczym.",
+)
+
+poksyg_last_forced_value = _sygnal(
+    nazwa="poksyg_last_forced_value",
+    plytka="SYSTEM", pin=None, kanal=None, typ="TEXT", kierunek="IN", default="",
+    opis="Ostatnia wartość wymuszonego sygnału POKSYG.", zrodlo="POKSYG",
+    hardware_function=HW_SYSTEM, hardware_label="POKSYG Last Forced Value",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
+    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
+    uwaga_logiki="Trwały status dla LKS/PAR; nie jest wyjściem wykonawczym.",
+)
+
+poksyg_last_forced_ack_ok = _sygnal(
+    nazwa="poksyg_last_forced_ack_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Ostatnie potwierdzenie ACK dla wymuszonego sygnału POKSYG (1=OK, 0=ERROR).", zrodlo="POKSYG",
+    hardware_function=HW_SYSTEM, hardware_label="POKSYG Last Forced ACK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
+    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
+    uwaga_logiki="Trwały status dla LKS/PAR; nie jest wyjściem wykonawczym.",
+)
+
+poksyg_last_forced_message = _sygnal(
+    nazwa="poksyg_last_forced_message",
+    plytka="SYSTEM", pin=None, kanal=None, typ="TEXT", kierunek="IN", default="",
+    opis="Opis ostatniego potwierdzenia POKSYG pokazywany w LKS/PAR.", zrodlo="POKSYG",
+    hardware_function=HW_SYSTEM, hardware_label="POKSYG Last Forced Message",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
+    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
+    uwaga_logiki="Trwały status dla LKS/PAR; nie jest wyjściem wykonawczym.",
+)
 
 SYGNALY_SYSTEMOWE: Dict[str, TarzanSygnal] = {
     sygnal.nazwa: sygnal

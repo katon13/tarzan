@@ -718,15 +718,12 @@ class TarzanHardwareBridge:
                 self.bus.set_input("poksyg_play_p37_ack_ok", 1 if ok else 0, source="POKSYG")
                 self.bus.set_input("poksyg_play_p37_last_value", state, source="POKSYG")
                 self.bus.set_input("poksyg_play_p37_last_error", "" if ok else str(error or message), source="POKSYG")
-
-                # Trwały status ostatniego wymuszenia PAR -> POKSYG.
-                # Nie jest zdarzeniem chwilowym ani OUT. LKS/PAR mogą go czytać
-                # po cyklicznym odświeżeniu i mieć pewność ostatniego ACK.
+                # Trwały status ostatniego wymuszonego sygnału dla LKS/PAR.
+                # To są statusy IN, nie wyjścia, więc nie przechodzą przez write_output.
                 self.bus.set_input("poksyg_last_forced_signal", "play_p37_step_disconnect_manual", source="POKSYG")
                 self.bus.set_input("poksyg_last_forced_value", state, source="POKSYG")
                 self.bus.set_input("poksyg_last_forced_ack_ok", 1 if ok else 0, source="POKSYG")
-                self.bus.set_input("poksyg_last_forced_message", message, source="POKSYG")
-
+                self.bus.set_input("poksyg_last_forced_message", message if ok else str(error or message), source="POKSYG")
                 self.bus.log("POKSYG", message)
             except Exception as exc:
                 self.logger.warning("HW AUTOMATYKA PLAY P37 ACK status update failed: %s", exc)

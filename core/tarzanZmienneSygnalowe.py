@@ -416,26 +416,6 @@ par_state = _sygnal(
     klasa_wykonawcza="tarzanTspServer.py",
 )
 
-par_mode = _sygnal(
-    nazwa="par_mode",
-    plytka="SYSTEM",
-    pin=None,
-    kanal=None,
-    typ="LH",
-    kierunek="IN",
-    default="1",
-    opis="Tryb pracy PAR (0=TEST, 1=LIVE, 2=MIX).",
-    zrodlo="RUNTIME",
-    hardware_function=HW_SYSTEM,
-    hardware_label="PAR Mode",
-    pin_is_fixed=True,
-    is_shared_pin=False,
-    conflict_group=None,
-    panel_port=None,
-    grupa="SYSTEM",
-    klasa_wykonawcza="tarzanParApp.py",
-)
-
 par_last_error = _sygnal(
     nazwa="par_last_error",
     plytka="SYSTEM",
@@ -624,6 +604,46 @@ hardware_ready = _sygnal(
     hardware_function=HW_SYSTEM, hardware_label="Hardware Ready",
     pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
     grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py"
+)
+
+# --- Statusy odpowiedzi POKSYG / HardwareBridge ---
+# To są stałe statusy systemowe, nie wirtualne OUT.
+# MiniPC ustawia je po fizycznym wykonaniu sygnału na sprzęcie,
+# PAR/LKS tylko je czytają i logują.
+poksyg_play_p37_ack_ok = _sygnal(
+    nazwa="poksyg_play_p37_ack_ok",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="ACK POKSYG dla PLAY P37: 1=HardwareBridge potwierdził wykonanie aktywnego systemowego odłączenia STEP, 0=błąd/brak potwierdzenia.",
+    zrodlo="POKSYG_ACK",
+    hardware_function=HW_SYSTEM, hardware_label="POKSYG PLAY P37 ACK OK",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
+    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
+    uwaga_logiki="Status odpowiedzi z miniPC/POKSYG; nie jest wyjściem i nie może trafiać do write_output."
+)
+
+poksyg_play_p37_last_value = _sygnal(
+    nazwa="poksyg_play_p37_last_value",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Ostatnia wartość PLAY P37 potwierdzona przez HardwareBridge/POKSYG: 1=odłączenie STEP aktywne, 0=automatyka aktywna.",
+    zrodlo="POKSYG_ACK",
+    hardware_function=HW_SYSTEM, hardware_label="POKSYG PLAY P37 Last Value",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
+    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
+    uwaga_logiki="Status ostatniej potwierdzonej wartości; aktualizowany przez miniPC po wykonaniu P37."
+)
+
+poksyg_play_p37_last_error = _sygnal(
+    nazwa="poksyg_play_p37_last_error",
+    plytka="SYSTEM", pin=None, kanal=None, typ="TEXT", kierunek="IN", default="",
+    opis="Ostatni błąd ACK POKSYG dla PLAY P37.",
+    zrodlo="POKSYG_ACK",
+    hardware_function=HW_SYSTEM, hardware_label="POKSYG PLAY P37 Last Error",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
+    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
+    uwaga_logiki="Status tekstowy błędu; tylko do logów/odczytu w PAR/LKS."
 )
 
 lks_state = _sygnal(
@@ -1276,7 +1296,6 @@ SYGNALY_SYSTEMOWE: Dict[str, TarzanSygnal] = {
         runtime_state,
         tsp_state,
         par_state,
-        par_mode,
         par_last_error,
         par_write_denied_event,
         ehr_state,
@@ -1294,6 +1313,9 @@ SYGNALY_SYSTEMOWE: Dict[str, TarzanSygnal] = {
         matrix_led_ok,
         f_led_ok,
         hardware_ready,
+        poksyg_play_p37_ack_ok,
+        poksyg_play_p37_last_value,
+        poksyg_play_p37_last_error,
         nextion5_state,
         nextion7_state,
         hardware_state,

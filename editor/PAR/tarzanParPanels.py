@@ -2340,19 +2340,28 @@ class TarzanParPanels:
             f_led = tk.Frame(c, bg="#30424f", height=4)
             f_led.pack(fill="x", padx=7, pady=(0, 7))
 
-            def _f_button_press(_event=None, sig=sw, label=l):
+            def _par_ui_log(kind, msg):
                 try:
-                    self.bus.log("UI_PANEL", f"{label} BUTTON PRESS -> {sig}=1")
+                    self.bus.log(kind, msg)
+                    self.update_log()
                 except Exception:
                     pass
-                self._set_signal(sig, 1, "PAR_UI")
+
+            def _f_button_press(_event=None, sig=sw, label=l):
+                _par_ui_log("UI_PANEL", f"{label} BUTTON PRESS -> {sig}=1")
+                self._set_signal(sig, 1, "PAR_UI_BUTTON")
+                try:
+                    self.update_log()
+                except Exception:
+                    pass
 
             def _f_button_release(_event=None, sig=sw, label=l):
+                _par_ui_log("UI_PANEL", f"{label} BUTTON RELEASE -> {sig}=0")
+                self._set_signal(sig, 0, "PAR_UI_BUTTON")
                 try:
-                    self.bus.log("UI_PANEL", f"{label} BUTTON RELEASE -> {sig}=0")
+                    self.update_log()
                 except Exception:
                     pass
-                self._set_signal(sig, 0, "PAR_UI")
 
             def _f_led_toggle(_event=None, sig=ls, label=l, ld=led):
                 try:
@@ -2365,11 +2374,12 @@ class TarzanParPanels:
                     ld.set(nv)
                 except Exception:
                     pass
+                _par_ui_log("UI_PANEL", f"{label} LED {'ON' if nv else 'OFF'} -> {sig}={nv}")
+                self._set_signal(sig, nv, "PAR_UI_LED")
                 try:
-                    self.bus.log("UI_PANEL", f"{label} LED {'ON' if nv else 'OFF'} -> {sig}={nv}")
+                    self.update_log()
                 except Exception:
                     pass
-                self._set_signal(sig, nv, "PAR_UI_LED")
 
             b.bind("<ButtonPress-1>", _f_button_press)
             b.bind("<ButtonRelease-1>", _f_button_release)

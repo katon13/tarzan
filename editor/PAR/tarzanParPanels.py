@@ -1800,24 +1800,54 @@ class TarzanParPanels:
         panel = self.panel("automatyka", parent, "AUTOMATYKA")
         can = tk.Canvas(panel.body, width=80, height=80, bg=COLORS["panel"], highlightthickness=0)
         can.pack(pady=5)
+        status_l = tk.Label(panel.body, text="", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 9, "bold"), justify="center")
+        status_l.pack(fill="x", pady=(0, 4))
+
+        # PLAY P37: krytyczny sygnał bezpieczeństwa mechaniki ramienia.
+        # 0 = AUTOMATYKA aktywna, nie wolno ręcznie ruszać ramieniem, piorun czerwony.
+        # 1 = NAGRYWANIE RĘCZNE, sterowniki STEP odłączone, automatyka szara.
+        sig = "play_p37_step_disconnect_manual"
+
+        def _par_auto_log(msg):
+            try:
+                self.bus.log("AUTOMATYKA", msg)
+                self.update_log()
+            except Exception:
+                pass
 
         def draw_bolt(v):
+            try:
+                manual_disconnect = 1 if int(v or 0) else 0
+            except Exception:
+                manual_disconnect = 0
             can.delete("all")
-            glow = "#5a1613" if v else "#2c343a"
-            body = COLORS["red"] if v else "#66707a"
+            auto_active = not bool(manual_disconnect)
+            glow = "#5a1613" if auto_active else "#2c343a"
+            body = COLORS["red"] if auto_active else "#66707a"
             can.create_oval(8, 8, 70, 70, fill=glow, outline="")
             can.create_polygon([39, 12, 26, 39, 34, 39, 29, 65, 53, 31, 42, 31, 50, 12], fill=body, outline="#111",
                                width=1)
+            if manual_disconnect:
+                status_l.configure(text="NAGRYWANIE RĘCZNE\nPLAY P37=HIGH — STEP ODŁĄCZONE", fg=COLORS["muted"])
+            else:
+                status_l.configure(text="AUTOMATYKA AKTYWNA\nPLAY P37=LOW — NIE RUSZAĆ RĘCZNIE", fg=COLORS["red"])
 
-        sig = "par_manual_disconnect"
         draw_bolt(self.bus.get(sig, 0))
 
         def tg(_e):
             nv = 0 if self.bus.get(sig, 0) else 1
-            self._set_signal(sig, nv)
+            if nv:
+                _par_auto_log("NAGRYWANIE RAMIENIA: PLAY P37=1, styczniki/odłączenie STEP aktywne, silniki odłączone")
+            else:
+                _par_auto_log("AUTOMATYKA: PLAY P37=0, automatyka aktywna, zakaz ręcznego ruchu ramieniem")
+            self._set_signal(sig, nv, "PAR_AUTOMATYKA")
             draw_bolt(nv)
 
         can.bind("<Button-1>", tg)
+        try:
+            can.configure(cursor="hand2")
+        except Exception:
+            pass
         self._register_signal_proxy(sig, draw_bolt)
         return panel
 

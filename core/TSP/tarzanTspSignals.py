@@ -240,6 +240,9 @@ class TarzanTspSignalProvider:
         par_exec_prefixes = ("par_lcd_", "par_matrix_", "par_f_led_")
         par_exec_names = {
             "rec_p46_led_f1", "rec_p48_led_f2", "rec_p50_led_f3", "rec_p52_led_f4",
+            # AUTOMATYKA / mechanika ramienia: PLAY P37 musi wykonać fizyczne
+            # odłączenie STEP w trybie nagrywania ręcznego, mimo historycznego IN.
+            "play_p37_step_disconnect_manual",
         }
         is_par_exec = name.startswith(par_exec_prefixes) or name in par_exec_names
 

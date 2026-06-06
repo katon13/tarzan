@@ -16,7 +16,6 @@ from core.tarzanZmienneSygnalowe import (
     TarzanSygnal
 )
 from core.TSP.tarzanTspLog import setup_tsp_logger
-from core.tarzanHardwareAccessGuard import TarzanHardwareAccessGuard
 
 # Próba importu biblioteki PoKeys
 try:
@@ -47,7 +46,6 @@ class TarzanHardwareBridge:
         self.logger = setup_tsp_logger("HW.BRIDGE")
         self.running = False
         self._lock = threading.Lock()
-        self._hardware_guard: Optional[TarzanHardwareAccessGuard] = None
         
         self.devices: Dict[str, Any] = {
             "PLAY": None,
@@ -94,9 +92,6 @@ class TarzanHardwareBridge:
             return False
 
         try:
-            self._hardware_guard = TarzanHardwareAccessGuard("TSP_HW_BRIDGE_RUNTIME", blocking=True)
-            self._hardware_guard.acquire()
-            self.logger.info("Hardware access guard acquired by TSP runtime.")
             self._init_devices(lib_path)
             self.running = True
             self.bus.set_live_adapter(self)
@@ -111,12 +106,6 @@ class TarzanHardwareBridge:
             self.logger.info("Hardware Bridge STARTED and linked to SignalBus.")
             return True
         except Exception as exc:
-            if self._hardware_guard is not None:
-                try:
-                    self._hardware_guard.release()
-                except Exception:
-                    pass
-                self._hardware_guard = None
             self.logger.error(f"Hardware Bridge failed to start: {exc}")
             self.bus.force_signal("hardware_state", "ERROR", source="HW_BRIDGE")
             return False
@@ -136,14 +125,6 @@ class TarzanHardwareBridge:
                         pass
                     self.devices[board] = None
         
-        if self._hardware_guard is not None:
-            try:
-                self._hardware_guard.release()
-                self.logger.info("Hardware access guard released by TSP runtime.")
-            except Exception:
-                pass
-            self._hardware_guard = None
-
         self.bus.set_live_adapter(None)
         self.logger.info("Hardware Bridge STOPPED.")
 
@@ -724,6 +705,26 @@ class TarzanHardwareBridge:
                 self.logger.warning("HW F_LED WRITE P%s failed: %s", pin, exc)
         return True
 
+    def _write_automation_safety_signal(self, name: str, value: Any) -> bool:
+        """AUTOMATYKA: PLAY P37 odłącza STEP osi ramienia w trybie nagrywania ręcznego."""
+        if name != "play_p37_step_disconnect_manual":
+            return False
+        state = 1 if str(value).strip().lower() not in {"", "0", "false", "off", "none"} else 0
+        with self._lock:
+            device = self.devices.get("PLAY")
+            if not device:
+                self.logger.warning("HW AUTOMATYKA PLAY P37 skipped: PLAY board not connected")
+                return True
+            try:
+                self._lks_set_led_pin(device, 37, state)
+                if state:
+                    self.logger.info("HW AUTOMATYKA PLAY P37=1 manual_record_step_disconnect_active")
+                else:
+                    self.logger.info("HW AUTOMATYKA PLAY P37=0 automation_active_manual_move_forbidden")
+            except Exception as exc:
+                self.logger.warning("HW AUTOMATYKA PLAY P37 failed: %s", exc)
+        return True
+
     def write(self, name: str, value: Any) -> None:
         """Zapis sygnału bezpośrednio do hardware."""
         if self._write_par_lcd_signal(name, value):
@@ -731,6 +732,8 @@ class TarzanHardwareBridge:
         if self._write_par_matrix_signal(name, value):
             return
         if self._write_par_f_led_signal(name, value):
+            return
+        if self._write_automation_safety_signal(name, value):
             return
 
         syg = self._signal_map.get(name)

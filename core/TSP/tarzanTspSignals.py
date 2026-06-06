@@ -518,6 +518,12 @@ class TarzanTspSignalProvider:
                 "ehr_state": bus.read("ehr_state"),
                 "khr_state": bus.read("khr_state"),
                 "hardware_state": bus.read("hardware_state"),
+                # ETAP 1ZA: trwały status POKSYG w ramce GET_STATE/TSP.
+                # To są istniejące statusy SignalBus, nie nowy tor sterowania.
+                "poksyg_last_forced_signal": bus.read("poksyg_last_forced_signal", ""),
+                "poksyg_last_forced_value": bus.read("poksyg_last_forced_value", ""),
+                "poksyg_last_forced_ack_ok": bus.read("poksyg_last_forced_ack_ok", 0),
+                "poksyg_last_forced_message": bus.read("poksyg_last_forced_message", ""),
                 "uptime_ms": bus.read("node_uptime_ms"),
             }
         except Exception:

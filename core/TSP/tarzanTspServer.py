@@ -406,6 +406,32 @@ class TarzanTspServer:
         self.mark_lks_n5_dirty(reason, immediate=immediate_n5)
 
 
+    def _handle_bus_signal_change_for_lks(self, name: str, state: Any) -> None:
+        """Budzi LKS po zmianie trwałego statusu POKSYG.
+
+        ETAP 1ZA: nie budujemy nowego toru i nie ruszamy P37.
+        Reagujemy tylko na istniejące statusy ``poksyg_last_forced_*``
+        zapisane przez HardwareBridge do SignalBus. Dzięki temu LKS pokazuje
+        ostatni ACK stale, a nie tylko jako chwilowy log/event.
+        """
+        if str(name) not in {
+            "poksyg_last_forced_signal",
+            "poksyg_last_forced_value",
+            "poksyg_last_forced_ack_ok",
+            "poksyg_last_forced_message",
+        }:
+            return
+        try:
+            if self.lks:
+                self.lks.mark_dirty("poksyg_last_forced")
+        except Exception:
+            pass
+        try:
+            self.mark_lks_n5_dirty("poksyg_last_forced", immediate=True)
+        except Exception:
+            pass
+
+
     def _decode_lks_n5_touch_event(self, event: object) -> Optional[str]:
         """Dekoduje kliknięcie status_main z Nextiona 5.
 
@@ -623,6 +649,9 @@ class TarzanTspServer:
             self.snajper = create_default_tarzan_snajper()
             # Na miniPC Snajper subskrybuje SignalBus i strzela do zarejestrowanych adapterów (hardware)
             bus.subscribe(lambda name, state: self.snajper.fire_from_signal(name, state.value))
+            # ETAP 1ZA: osobna lekka subskrypcja tylko dla trwałego statusu POKSYG/LKS.
+            # Nie steruje elektroniką i nie dotyka P37; tylko budzi istniejące wyjścia LKS.
+            bus.subscribe(self._handle_bus_signal_change_for_lks)
             bus.log("TSP", "Hardware Bridge and Snajper connected to SignalBus on miniPC.")
         except Exception as e:
             self.logger.error("Could not init Hardware Bridge/Snajper on miniPC: %s", e)

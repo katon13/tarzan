@@ -145,6 +145,7 @@ class TarzanTspLks:
             f"NODE: {self.server.node_name}   TSP: RUNNING {self.server.host}:{self.server.port}   TIME: {now_txt}",
             f"CLIENTS: {len(clients)}   RX: {stats.get('packets_rx', 0)}   TX: {stats.get('packets_tx', 0)}   ERR: {stats.get('errors', 0)}   DROP: {stats.get('dropped', 0)}",
             f"LAST: {self._last_reason}",
+            self._format_poksyg_last_forced(),
         ]
 
         if clients:
@@ -171,6 +172,28 @@ class TarzanTspLks:
         ]
 
         return "\n".join(self._clip(row, width) for row in [*header, *body]) + "\n"
+
+    def _format_poksyg_last_forced(self) -> str:
+        """Jedna trwała linia statusu POKSYG dla LKS-TTY.
+
+        Korzysta z istniejących statusów SignalBus przez metodę serwera.
+        Nie odpytuje sprzętu i nie uruchamia diagnostyki w pętli.
+        """
+        try:
+            reader = getattr(self.server, "_read_poksyg_last_forced_status", None)
+            status = reader() if callable(reader) else None
+        except Exception:
+            status = None
+        if not status:
+            return "POKSYG: brak ostatniego ACK"
+
+        signal = str(status.get("signal", "")).strip()
+        value = str(status.get("value", "")).strip()
+        ack_txt = "ACK OK" if bool(status.get("ack_ok", False)) else "ACK ERROR"
+        if signal == "play_p37_step_disconnect_manual":
+            return f"POKSYG: PLAY P37={value} {ack_txt}"
+        short_signal = signal or "UNKNOWN"
+        return f"POKSYG: {short_signal}={value} {ack_txt}"
 
     def _clients_snapshot(self) -> list[str]:
         try:

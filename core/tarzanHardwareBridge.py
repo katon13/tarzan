@@ -711,34 +711,32 @@ class TarzanHardwareBridge:
             return False
         state = 1 if str(value).strip().lower() not in {"", "0", "false", "off", "none"} else 0
 
-        def _ack(ok: bool, message: str, error: str = "") -> None:
-            # ACK to status systemowy z POKSYG/HardwareBridge.
-            # Nie jest wyjściem, nie idzie przez write_output, PAR/LKS tylko go czytają.
+        def _ack(ok: bool, message: str) -> None:
             try:
                 self.bus.set_input("poksyg_play_p37_ack_ok", 1 if ok else 0, source="POKSYG")
                 self.bus.set_input("poksyg_play_p37_last_value", state, source="POKSYG")
-                self.bus.set_input("poksyg_play_p37_last_error", "" if ok else str(error or message), source="POKSYG")
+                self.bus.set_input("poksyg_play_p37_last_error", "" if ok else str(message), source="POKSYG")
                 self.bus.log("POKSYG", message)
-            except Exception as exc:
-                self.logger.warning("HW AUTOMATYKA PLAY P37 ACK status update failed: %s", exc)
+            except Exception:
+                pass
 
         with self._lock:
             device = self.devices.get("PLAY")
             if not device:
                 self.logger.warning("HW AUTOMATYKA PLAY P37 skipped: PLAY board not connected")
-                _ack(False, f"ACK ERROR PLAY P37={state} PLAY board not connected", "PLAY board not connected")
+                _ack(False, f"ACK ERROR PLAY P37={state} PLAY board not connected")
                 return True
             try:
                 self._lks_set_led_pin(device, 37, state)
                 if state:
-                    self.logger.info("HW AUTOMATYKA PLAY P37=1 step_disconnect_active")
+                    self.logger.info("HW AUTOMATYKA PLAY P37=1 step_disconnect_system_signal_active")
                     _ack(True, "ACK OK PLAY P37=1 STEP odłączone / sygnał aktywny")
                 else:
-                    self.logger.info("HW AUTOMATYKA PLAY P37=0 automation_active_manual_move_forbidden")
-                    _ack(True, "ACK OK PLAY P37=0 automatyka aktywna / zakaz ręcznego ruchu")
+                    self.logger.info("HW AUTOMATYKA PLAY P37=0 automation_active_step_connected")
+                    _ack(True, "ACK OK PLAY P37=0 automatyka aktywna / sygnał nieaktywny")
             except Exception as exc:
                 self.logger.warning("HW AUTOMATYKA PLAY P37 failed: %s", exc)
-                _ack(False, f"ACK ERROR PLAY P37={state} {exc}", str(exc))
+                _ack(False, f"ACK ERROR PLAY P37={state} {exc}")
         return True
 
     def write(self, name: str, value: Any) -> None:

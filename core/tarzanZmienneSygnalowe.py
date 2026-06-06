@@ -606,45 +606,77 @@ hardware_ready = _sygnal(
     grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py"
 )
 
-# --- Statusy odpowiedzi POKSYG / HardwareBridge ---
-# To są stałe statusy systemowe, nie wirtualne OUT.
-# MiniPC ustawia je po fizycznym wykonaniu sygnału na sprzęcie,
-# PAR/LKS tylko je czytają i logują.
+# --- STATUSY ODPOWIEDZI POKSYG / ACK ---
+
 poksyg_play_p37_ack_ok = _sygnal(
     nazwa="poksyg_play_p37_ack_ok",
-    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
-    opis="ACK POKSYG dla PLAY P37: 1=HardwareBridge potwierdził wykonanie aktywnego systemowego odłączenia STEP, 0=błąd/brak potwierdzenia.",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Status ACK z POKSYG dla PLAY P37: aktywny systemowy sygnał odłączenia STEP został wykonany poprawnie.",
     zrodlo="POKSYG_ACK",
-    hardware_function=HW_SYSTEM, hardware_label="POKSYG PLAY P37 ACK OK",
-    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
-    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
-    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
-    uwaga_logiki="Status odpowiedzi z miniPC/POKSYG; nie jest wyjściem i nie może trafiać do write_output."
+    hardware_function=HW_SYSTEM,
+    hardware_label="POKSYG ACK PLAY P37 OK",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="STATUS",
+    klasa_wykonawcza="tarzanHardwareBridge.py",
+    logika_trybow=LOGIKA_TYLKO_ODCZYT,
+    rola_logiki=ROLA_STATUS,
+    uwaga_logiki="Odpowiedź/status z miniPC/POKSYG. Nie jest wyjściem i nie wolno wykonywać przez write_output.",
 )
 
 poksyg_play_p37_last_value = _sygnal(
     nazwa="poksyg_play_p37_last_value",
-    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
-    opis="Ostatnia wartość PLAY P37 potwierdzona przez HardwareBridge/POKSYG: 1=odłączenie STEP aktywne, 0=automatyka aktywna.",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="LH",
+    kierunek="IN",
+    default="0",
+    opis="Ostatnia wartość PLAY P37 potwierdzona przez POKSYG: 1=STEP odłączone, 0=automatyka aktywna.",
     zrodlo="POKSYG_ACK",
-    hardware_function=HW_SYSTEM, hardware_label="POKSYG PLAY P37 Last Value",
-    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
-    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
-    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
-    uwaga_logiki="Status ostatniej potwierdzonej wartości; aktualizowany przez miniPC po wykonaniu P37."
+    hardware_function=HW_SYSTEM,
+    hardware_label="POKSYG ACK PLAY P37 VALUE",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="STATUS",
+    klasa_wykonawcza="tarzanHardwareBridge.py",
+    logika_trybow=LOGIKA_TYLKO_ODCZYT,
+    rola_logiki=ROLA_STATUS,
+    uwaga_logiki="Odpowiedź/status z miniPC/POKSYG. Nie jest wyjściem i nie wolno wykonywać przez write_output.",
 )
 
 poksyg_play_p37_last_error = _sygnal(
     nazwa="poksyg_play_p37_last_error",
-    plytka="SYSTEM", pin=None, kanal=None, typ="TEXT", kierunek="IN", default="",
-    opis="Ostatni błąd ACK POKSYG dla PLAY P37.",
+    plytka="SYSTEM",
+    pin=None,
+    kanal=None,
+    typ="TEXT",
+    kierunek="IN",
+    default="",
+    opis="Ostatni błąd ACK z POKSYG dla PLAY P37.",
     zrodlo="POKSYG_ACK",
-    hardware_function=HW_SYSTEM, hardware_label="POKSYG PLAY P37 Last Error",
-    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
-    grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py",
-    logika_trybow=LOGIKA_TYLKO_ODCZYT, rola_logiki=ROLA_STATUS,
-    uwaga_logiki="Status tekstowy błędu; tylko do logów/odczytu w PAR/LKS."
+    hardware_function=HW_SYSTEM,
+    hardware_label="POKSYG ACK PLAY P37 ERROR",
+    pin_is_fixed=True,
+    is_shared_pin=False,
+    conflict_group=None,
+    panel_port=None,
+    grupa="STATUS",
+    klasa_wykonawcza="tarzanHardwareBridge.py",
+    logika_trybow=LOGIKA_TYLKO_ODCZYT,
+    rola_logiki=ROLA_STATUS,
+    uwaga_logiki="Odpowiedź/status z miniPC/POKSYG. Nie jest wyjściem i nie wolno wykonywać przez write_output.",
 )
+
 
 lks_state = _sygnal(
     nazwa="lks_state",

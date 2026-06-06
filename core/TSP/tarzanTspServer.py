@@ -1253,12 +1253,15 @@ class TarzanTspServer:
         }
         self.broadcast(event, lane=LANE_URGENT)
 
-        # ETAP 1V: prosta kontrolka LKS dla odpowiedzi POKSYG PLAY P37.
+        # ETAP 1X: prosta kontrolka LKS dla odpowiedzi POKSYG PLAY P37.
         # Bez nowej sekcji i bez rozbudowy HMI: używamy istniejącej kontrolki pok_play.
+        # ACK OK daje krótkie odświeżenie kontrolki, żeby operator widział odpowiedź z POKSYG.
         try:
             if str(source).upper() == "POKSYG" and "PLAY P37" in str(message):
                 ok = "ACK OK" in str(message)
                 if self.lks_n5 is not None:
+                    if ok:
+                        self.lks_n5.set_status("pok_play", False)
                     self.lks_n5.set_status("pok_play", ok)
                     self._lks_n5_status_cache["pok_play"] = ok
         except Exception:

@@ -2349,21 +2349,16 @@ class TarzanParPanels:
                 except Exception:
                     ld.set(0)
 
-            def _f_button_press(_e, label=l, s=sw, ld=led):
-                # ETAP 1S-FIX2: przycisk F symuluje tylko wejście przycisku.
-                # Nie zapala fizycznego wyjścia LED. Zmienia tylko kontrolkę UI na czas naciśnięcia
-                # i zapisuje zdarzenie do logów PAR.
-                try:
-                    ld.set(1)
-                except Exception:
-                    pass
+            def _f_button_press(_e, label=l, s=sw):
+                # ETAP 1S-FIX3: przycisk F i dioda F to dwa osobne sygnały PoKeys.
+                # Klik przycisku symuluje wyłącznie wejście przycisku.
+                # Nie zmienia okrągłej kontrolki LED i nie zapala fizycznej diody.
                 _par_ui_log("PRZYCISK", f"{label} PRESS -> {s}")
                 self._set_signal(s, 1, "PAR_UI_BUTTON")
 
-            def _f_button_release(_e, label=l, s=sw, ld=led, led_sig=ls):
+            def _f_button_release(_e, label=l, s=sw):
                 self._set_signal(s, 0, "PAR_UI_BUTTON")
                 _par_ui_log("PRZYCISK", f"{label} RELEASE -> {s}")
-                _restore_led_visual(ld, led_sig)
 
             def _f_led_press(_e, label=l, led_sig=ls):
                 # Osobny fizyczny test diody F.

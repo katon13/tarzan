@@ -1844,17 +1844,21 @@ class TarzanParPanels:
 
     def _set_signal(self, name, value, source="PAR_SIM"):
         try:
-            # Centralna zasada: panel PAR nie rozstrzyga kierunku par_*/IN/OUT.
-            # Wszystkie zapisy idą przez TarzanParBridge; Bridge/TSP/miniPC decydują dalej.
+            # ETAP 8: Delegacja przez Bridge (który obsłuży LIVE)
             if hasattr(self.app, "bridge"):
-                self.app.bridge.set_signal(name, value, source=source)
+                m = self.bus.get_meta(name)
+                is_input = getattr(m, "is_input", False) or name.startswith("par_")
+                if is_input:
+                    self.app.bridge.set_input(name, value, source=source)
+                else:
+                    self.app.bridge.write_output(name, value, source=source)
                 return
 
             m = self.bus.get_meta(name)
             if not m:
                 self.bus.force_signal(name, value, source=source)
                 return
-            if getattr(m, "is_input", False):
+            if getattr(m, "is_input", False) or name.startswith("par_"):
                 self.bus.set_input(name, value, source=source)
             else:
                 self.bus.write_output(name, value, source=source)
@@ -2336,45 +2340,45 @@ class TarzanParPanels:
             f_led = tk.Frame(c, bg="#30424f", height=4)
             f_led.pack(fill="x", padx=7, pady=(0, 7))
 
-            def _par_ui_log(kind, msg):
+            def _f_button_press(_event=None, sig=sw, label=l):
                 try:
-                    self.bus.log(kind, msg)
-                    self.update_log()
+                    self.bus.log("UI_PANEL", f"{label} BUTTON PRESS -> {sig}=1")
                 except Exception:
                     pass
+                self._set_signal(sig, 1, "PAR_UI")
 
-            def _restore_led_visual(ld=led, led_sig=ls):
+            def _f_button_release(_event=None, sig=sw, label=l):
                 try:
-                    ld.set(self.bus.get(led_sig, 0))
+                    self.bus.log("UI_PANEL", f"{label} BUTTON RELEASE -> {sig}=0")
                 except Exception:
-                    ld.set(0)
+                    pass
+                self._set_signal(sig, 0, "PAR_UI")
 
-            def _f_button_press(_e, label=l, s=sw):
-                # ETAP 1S-FIX3: przycisk F i dioda F to dwa osobne sygnały PoKeys.
-                # Klik przycisku symuluje wyłącznie wejście przycisku.
-                # Nie zmienia okrągłej kontrolki LED i nie zapala fizycznej diody.
-                _par_ui_log("PRZYCISK", f"{label} PRESS -> {s}")
-                self._set_signal(s, 1, "PAR_UI_BUTTON")
-
-            def _f_button_release(_e, label=l, s=sw):
-                self._set_signal(s, 0, "PAR_UI_BUTTON")
-                _par_ui_log("PRZYCISK", f"{label} RELEASE -> {s}")
-
-            def _f_led_press(_e, label=l, led_sig=ls):
-                # Osobny fizyczny test diody F.
-                _par_ui_log("F_LED", f"{label} LED ON -> {led_sig}")
-                self._set_signal(led_sig, 1, "PAR_UI_LED")
-
-            def _f_led_release(_e, label=l, led_sig=ls):
-                self._set_signal(led_sig, 0, "PAR_UI_LED")
-                _par_ui_log("F_LED", f"{label} LED OFF -> {led_sig}")
+            def _f_led_toggle(_event=None, sig=ls, label=l, ld=led):
+                try:
+                    nv = 0 if int(getattr(ld, "state", self.bus.get(sig, 0)) or 0) else 1
+                except Exception:
+                    nv = 1
+                # To jest osobny sygnał PoKeys LED.
+                # Kliknięcie diody zmienia UI od razu i dopiero wysyła fizyczny test LED przez Bridge/TSP.
+                try:
+                    ld.set(nv)
+                except Exception:
+                    pass
+                try:
+                    self.bus.log("UI_PANEL", f"{label} LED {'ON' if nv else 'OFF'} -> {sig}={nv}")
+                except Exception:
+                    pass
+                self._set_signal(sig, nv, "PAR_UI_LED")
 
             b.bind("<ButtonPress-1>", _f_button_press)
             b.bind("<ButtonRelease-1>", _f_button_release)
             b.bind("<Leave>", _f_button_release)
-            led.bind("<ButtonPress-1>", _f_led_press)
-            led.bind("<ButtonRelease-1>", _f_led_release)
-            led.bind("<Leave>", _f_led_release)
+            led.bind("<Button-1>", _f_led_toggle)
+            try:
+                led.configure(cursor="hand2")
+            except Exception:
+                pass
             
             self.rows[ls] = _ParValueProxy(lambda v, ld=led: ld.set(v))
             self.rows[sw] = _ParValueProxy(lambda v, bt=b, fl=f_led: (

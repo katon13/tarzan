@@ -2336,19 +2336,27 @@ class TarzanParPanels:
             f_led = tk.Frame(c, bg="#30424f", height=4)
             f_led.pack(fill="x", padx=7, pady=(0, 7))
 
-            def _f_press(_e, s=sw, led_sig=ls):
-                # ETAP 1S: test F z PAR idzie fizycznie przez miniPC.
-                # Klik symuluje przycisk i jednocześnie zapala odpowiadającą mu diodę testową.
+            def _f_button_press(_e, s=sw):
+                # ETAP 1S-FIX: przycisk F symuluje tylko wejście przycisku.
+                # Dioda F jest osobnym wyjściem i ma własny klik/test na kontrolce LED.
                 self._set_signal(s, 1, "PAR_UI")
+
+            def _f_button_release(_e, s=sw):
+                self._set_signal(s, 0, "PAR_UI")
+
+            def _f_led_press(_e, led_sig=ls):
+                # Osobny fizyczny test diody F.
                 self._set_signal(led_sig, 1, "PAR_UI")
 
-            def _f_release(_e, s=sw, led_sig=ls):
-                self._set_signal(s, 0, "PAR_UI")
+            def _f_led_release(_e, led_sig=ls):
                 self._set_signal(led_sig, 0, "PAR_UI")
 
-            b.bind("<ButtonPress-1>", _f_press)
-            b.bind("<ButtonRelease-1>", _f_release)
-            b.bind("<Leave>", _f_release)
+            b.bind("<ButtonPress-1>", _f_button_press)
+            b.bind("<ButtonRelease-1>", _f_button_release)
+            b.bind("<Leave>", _f_button_release)
+            led.bind("<ButtonPress-1>", _f_led_press)
+            led.bind("<ButtonRelease-1>", _f_led_release)
+            led.bind("<Leave>", _f_led_release)
             
             self.rows[ls] = _ParValueProxy(lambda v, ld=led: ld.set(v))
             self.rows[sw] = _ParValueProxy(lambda v, bt=b, fl=f_led: (

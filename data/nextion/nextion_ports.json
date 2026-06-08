@@ -1,16 +1,16 @@
 {
-  "nextion_5": {
-    "port": "COM5",
-    "baudrate": 115200,
-    "enabled": false,
-    "description": "Nextion NX8048P050 — komunikaty i szybkie akcje"
-  },
-  "nextion_7": {
-    "port": "COM7",
-    "baudrate": 9600,
-    "enabled": true,
-    "description": "Nextion NX8048P070 — ustawienia strategiczne PAR / KHR / tracking"
-  },
-  "poll_interval_ms": 100,
-  "sync_interval_ms": 100
+    "nextion_5":  {
+                      "port":  "COM5",
+                      "baudrate":  115200,
+                      "enabled":  false,
+                      "description":  "Nextion NX8048P050 — komunikaty i szybkie akcje"
+                  },
+    "nextion_7":  {
+                      "port":  "/dev/serial/by-path/pci-0000:00:14.0-usb-0:2:1.0-port0",
+                      "baudrate":  9600,
+                      "enabled":  true,
+                      "description":  "Nextion NX8048P070 — ustawienia strategiczne PAR / KHR / tracking"
+                  },
+    "poll_interval_ms":  100,
+    "sync_interval_ms":  100
 }

@@ -49,7 +49,7 @@ def main():
     
     # Domyślne porty dla miniPC (na Windowsie używamy dry_run)
     lks_tty = "-" if is_windows else "/dev/tty1"
-    n5_port = "COM5" if is_windows else "/dev/ttyUSB0"
+    n5_port = "COM5" if is_windows else "/dev/serial/by-path/pci-0000:00:14.0-usb-0:3.2:1.0-port0"
     n5_dry_run = is_windows
     
     print(f"Initializing TSP Server (LKS={lks_tty}, N5={n5_port}, DryRun={n5_dry_run})...")

@@ -250,23 +250,18 @@ class TarzanParApp(tk.Tk):
             pass
         self.after_idle(self.snajper_render_initial_structure)
         self.after(30, self.nextion_snajper_tick)
+        # USUNIĘTE: PAR_APP.tick wyłączony
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def on_close(self):
-        """Obsługa bezpiecznego zamykania aplikacji."""
+        """Zamyka aplikację i sprząta procesy (Etap 4)."""
         try:
-            print("PAR: Closing application...")
-            if hasattr(self, 'bridge'):
-                self.bridge.shutdown()
-        except Exception as e:
-            print(f"PAR: Error during shutdown: {e}")
-        finally:
-            try:
-                self.destroy()
-            except Exception:
-                pass
-            sys.exit(0)
-        # USUNIĘTE: PAR_APP.tick wyłączony
+            if hasattr(self, "bridge") and self.bridge:
+                self.bridge.set_mode("TEST") # To wywoła _stop_tsp()
+        except Exception:
+            pass
+        self.destroy()
+        sys.exit(0)
 
     def load_layout(self):
         try:
@@ -435,19 +430,12 @@ class TarzanParApp(tk.Tk):
         slot.grid_propagate(False)
         slot.pack_propagate(False)
 
+        widget = builder(slot)
         try:
-            widget = builder(slot)
-            if widget:
-                widget.pack(fill="both", expand=True)
-        except Exception as e:
-            # Jeżeli panel rzuci błąd przy budowaniu (np. błąd koloru w diagnostics), 
-            # logujemy to, ale nie przerywamy budowania reszty layoutu.
-            print(f"CRITICAL ERROR building panel {key}: {e}")
-            try:
-                err_lbl = tk.Label(slot, text=f"PANEL ERROR: {key}\n{e}", fg="red", bg="#101010", font=("Consolas", 8))
-                err_lbl.pack(fill="both", expand=True)
-            except Exception:
-                pass
+            widget.pack(fill="both", expand=True)
+        except Exception:
+            # Jeżeli panel sam się spakował lub jest już zarządzany, nie zabijaj całego pulpitu.
+            pass
 
         for c in range(columns):
             zone_frame.grid_columnconfigure(
@@ -531,32 +519,6 @@ class TarzanParApp(tk.Tk):
             tk.Label(box, text=text, bg="#070b0e", fg=COLORS["text"], font=("Segoe UI", 10)).pack(side="left", padx=8)
 
         tk.Button(self.header, text="⚙", bg="#11191f", fg="#fff", relief="flat", font=("Segoe UI", 16), command=self.panel_menu).pack(side="right", padx=7)
-        
-        # Przycisk RESET SYGNAŁÓW
-        tk.Button(
-            self.header, 
-            text="RESET SYGNAŁÓW", 
-            bg="#7a251f", 
-            fg="white", 
-            activebackground="#9b2f27", 
-            activeforeground="white", 
-            relief="flat", 
-            font=("Segoe UI", 8, "bold"), 
-            command=lambda: self.panels.reset_signals() if hasattr(self, 'panels') else None
-        ).pack(side="right", padx=3)
-        
-        # Przycisk ODŁĄCZ TSP
-        tk.Button(
-            self.header, 
-            text="ODŁĄCZ TSP", 
-            bg="#3e4451", 
-            fg="white", 
-            activebackground="#4b5263", 
-            activeforeground="white", 
-            relief="flat", 
-            font=("Segoe UI", 8, "bold"), 
-            command=lambda: self.bridge.disconnect_tsp() if hasattr(self, 'bridge') else None
-        ).pack(side="right", padx=3)
 
         self.layout_master = tk.Frame(self.body, bg=COLORS["bg"])
         self.layout_master.pack(fill="both", expand=True)

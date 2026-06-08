@@ -25,7 +25,7 @@ EHR_PROFILER_TOP_N = int(os.environ.get("TARZAN_PAR_PROFILER_TOP_N", "20"))
 if ENABLE_EHR_PROFILER:
     try:
         from core.tarzanProfiler import clear_profiler, enable_profiler, start_profiler_reporting
-        enable_profiler(1)
+        enable_profiler(0)
         clear_profiler()
         start_profiler_reporting(interval_s=EHR_PROFILER_INTERVAL_S, top_n=EHR_PROFILER_TOP_N)
     except Exception:
@@ -83,18 +83,6 @@ def launch_par() -> None:
         traceback.print_exc()
 
     app = TarzanParApp()
-    
-    # Obsługa argumentów linii komend (np. --live)
-    # Domyślnie wchodzimy w tryb LIVE, aby spiąć się z miniPC (zgodnie z zasadą automatyzacji)
-    # Wyjątek: jawne podanie --test
-    if "--test" in sys.argv:
-        app.after(100, lambda: app.set_mode("TEST"))
-    elif "--mix" in sys.argv:
-        app.after(100, lambda: app.set_mode("MIX"))
-    else:
-        # Domyślnie LIVE (lub jawne --live)
-        app.after(100, lambda: app.set_mode("LIVE"))
-
     app.mainloop()
 
 

@@ -21,7 +21,6 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from core.TSP.tarzanTspLksStatusMap import empty_statuses
 from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
-from core.TSP.tarzanTspLksHardwareTests import TarzanTspLksHardwareTests
 from core.TSP.tarzanTspLksMessages import (
     SCENE_BOOT_LINUX,
     SCENE_BOOT_SERVICES,
@@ -380,33 +379,19 @@ class TarzanTspLksBootProgress:
         # W TARZANIE LKS-N5 podstawowa magistrala I2C/BUS dla operatora
         # jest testowana przez aktywny HardwareBridge, bez drugiego connect PoKeys.
         bridge_bus = self._bridge_test("i2c_bus", visible=False)
-        if bridge_bus is not None and bridge_bus[0]:
+        if bridge_bus is not None:
+            if bridge_bus[0]:
+                return bridge_bus
+            bridge_bh = self._bridge_test("light_bh1750", visible=False)
+            if bridge_bh is not None and bridge_bh[0]:
+                return True, ("BH1750 OK; " + bridge_bh[1])[:180], ""
+            # Runtime z HardwareBridge nie może spadać do TarzanTspLksHardwareTests,
+            # bo to otwiera drugi tor PoKeys/libusb.
             return bridge_bus
-        bridge_bh = self._bridge_test("light_bh1750", visible=False)
-        if bridge_bh is not None and bridge_bh[0]:
-            return True, ("BH1750 OK; " + bridge_bh[1])[:180], ""
 
         nodes = sorted(glob.glob("/dev/i2c-*"))
-        if nodes:
-            return True, ", ".join(nodes[:6]), ""
-
-        # Runtime main.py/TSP nie może tworzyć bocznego TarzanTspLksHardwareTests,
-        # bo to otwiera drugi tor PoKeys poza HardwareBridge. Offline tester zostaje
-        # tylko wtedy, gdy boot progress uruchomiono bez aktywnego bridge.
-        if self.hardware_bridge is None:
-            try:
-                tester = TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
-                probe = tester.test_i2c_bus(visible=False)
-                if probe.ok:
-                    return True, probe.detail[:180], ""
-                bh = tester.test_bh1750(visible=False)
-                if bh.ok:
-                    return True, ("BH1750 OK via PoKeys BUS/I2C; " + bh.detail)[:180], ""
-                return False, probe.detail[:120], probe.error or bh.error or "PoKeys BUS/I2C not confirmed"
-            except Exception as exc:
-                return False, "", f"PoKeys BUS/I2C offline tester error: {exc}"
-
-        return False, "", "PoKeys BUS/I2C not confirmed by active HardwareBridge"
+        ok = bool(nodes)
+        return ok, ", ".join(nodes[:6]), "" if ok else "no /dev/i2c-* and no active HardwareBridge"
 
     def _check_video_nodes(self) -> Tuple[bool, str, str]:
         nodes = sorted(glob.glob("/dev/video*"))
@@ -414,13 +399,9 @@ class TarzanTspLksBootProgress:
         return ok, ", ".join(nodes[:6]), "no /dev/video*" if not ok else ""
 
     def _check_diagnostics(self) -> Tuple[bool, str, str]:
-        """Jeden realny test urządzeń w fazie boot_test.
-
-        Nie wolno tego zamieniać na samo podsumowanie: wtedy LKS przechodzi
-        ekrany startowe, ale nie wykonuje faktycznej diagnostyki urządzeń.
-        Ten krok jest właściwym, jedynym pełnym testem LKS podczas bootu.
-        Klik operatora później uruchamia tylko test punktowy komponentu.
-        """
+        # Pełna diagnostyka status_main ma zostać pełna. Jeżeli HardwareBridge
+        # istnieje, TarzanTspLksDiagnostics użyje go dla PoKeys/LCD/matrix/I2C,
+        # więc nie powstanie druga sesja USB i nie wróci obciążenie CPU.
         diagnostics = TarzanTspLksDiagnostics(
             repo_root=str(self.repo_root),
             hardware_bridge=self.hardware_bridge,
@@ -451,7 +432,7 @@ class TarzanTspLksBootProgress:
         bridge = self.hardware_bridge
         if bridge is not None and hasattr(bridge, "begin_hardware_batch"):
             try:
-                bridge.begin_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=18000, ensure=False)
+                bridge.begin_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=18000, ensure=True)
                 bridge_batch_started = True
             except Exception:
                 bridge_batch_started = False

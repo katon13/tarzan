@@ -69,6 +69,8 @@ from .tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
 from .tarzanTspLksInventory import TarzanTspLksInventory
 
 
+# Runtime miniPC nie używa już osobnego procesu diagnostycznego PoKeys.
+# Wszystkie testy LKS/boot/klik idą przez aktywny HardwareBridge.
 
 try:
     from .tarzanTspLksNextion5 import TarzanTspLksNextion5
@@ -497,10 +499,7 @@ class TarzanTspServer:
                     if detail:
                         self.logger.info("LKS-N5 POINT TEST DETAIL component=%s %s", name, detail)
                 else:
-                    diagnostics = TarzanTspLksDiagnostics(
-                        hardware_bridge=getattr(self, "hw_bridge", None),
-                        allow_offline_hardware_tests=False,
-                    )
+                    diagnostics = TarzanTspLksDiagnostics()
                     diagnostics.run_component(name)
                     ok = bool(diagnostics.status_map().get(name, False))
 
@@ -672,14 +671,8 @@ class TarzanTspServer:
         except Exception:
             pass
 
-        # LKS boot progress wykonał już jeden realny test urządzeń.
-        # Nie uruchamiamy drugiego automatycznego TSP-DIAG po READY,
-        # bo spawn/HardwareTests otwiera drugi tor PoKeys poza HardwareBridge.
-        try:
-            bus.set_input("runtime_state", "READY_FOR_PAR", source="TSP_START")
-            bus.set_input("tarzan_ready", 1, source="TSP_START")
-        except Exception:
-            pass
+        # Diagnostyka startowa LKS jest wykonywana przez boot progress / aktywny HardwareBridge.
+        # Nie odpalamy drugiej automatycznej diagnostyki po READY, bo tworzył boczny tor PoKeys.
 
         # Etap 12: Uruchomienie logiki trybów (MODE)
         try:
@@ -728,61 +721,55 @@ class TarzanTspServer:
     def _run_diagnostics(self) -> None:
         """Diagnostyka na żądanie przez aktywny HardwareBridge.
 
-        Runtime main.py/TSP nie może odpalać bocznego procesu ani drugiego
-        TarzanTspLksHardwareTests dla PoKeys. Boot wykonuje jeden test w
-        TarzanTspLksBootProgress. Ta metoda zostaje tylko dla komendy
-        operatora/cmd_run_diagnostics i używa istniejącego self.hw_bridge.
+        Runtime nie uruchamia już multiprocessing/spawn ani TarzanTspLksHardwareTests
+        jako drugiego toru PoKeys. Boot i klik LKS mają iść przez jeden aktywny
+        HardwareBridge, a testery offline zostają tylko dla ręcznego CLI.
         """
         from core.tarzanSignalBus import get_signal_bus
         bus = get_signal_bus()
-        previous_runtime = bus.read("runtime_state", "READY_FOR_PAR") if hasattr(bus, "read") else "READY_FOR_PAR"
-
+        diag_results: Dict[str, bool] = {}
+        diag_crashed = False
         try:
-            bus.set_input("runtime_state", "TESTING", source="TSP_DIAG_MANUAL")
-            bus.log("TSP", "Starting LKS diagnostics through active HardwareBridge...")
+            bus.set_input("runtime_state", "TESTING", source="TSP_DIAG")
+            bus.log("TSP", "Starting LKS diagnostics through active HardwareBridge only...")
 
-            inventory = TarzanTspLksInventory()
-            inventory.collect()
             diagnostics = TarzanTspLksDiagnostics(
                 collect_inventory_if_missing=False,
                 hardware_bridge=getattr(self, "hw_bridge", None),
-                allow_offline_hardware_tests=False,
             )
-            diagnostics._inventory = inventory.to_dict()
-            diagnostics.inventory = diagnostics.inventory.__class__(diagnostics._inventory)
             diagnostics.run_all(operator_visible=True)
             diag_results = diagnostics.status_map()
 
             mapping = {
-                "linux_sys": "linux_ok",
-                "tsp_lan": "tsp_ok",
-                "signalbus_core": "signalbus_ok",
-                "snajper_sys": "snajper_ok",
-                "next_5": "nextion5_ok",
-                "pok_play": "pokeys_ok",
+                "linux": "linux_ok",
+                "tsp": "tsp_ok",
+                "signalbus": "signalbus_ok",
+                "snajper": "snajper_ok",
+                "nextion5": "nextion5_ok",
+                "pokeys": "pokeys_ok",
                 "i2c_bus": "i2c_bus_ok",
                 "lcd_1602": "lcd_1602_ok",
                 "matrix_led": "matrix_led_ok",
                 "f_led": "f_led_ok",
+                "axis_inventory": "axis_inventory_ok",
             }
-            for component, sig_name in mapping.items():
+            for lks_key, sig_name in mapping.items():
                 if bus.exists(sig_name):
-                    bus.set_input(sig_name, 1 if diag_results.get(component, False) else 0, source="TSP_DIAG_MANUAL")
+                    bus.set_input(sig_name, 1 if diag_results.get(lks_key, False) else 0, source="TSP_DIAG")
 
-            if diag_results.get("pok_play", False) or diag_results.get("pok_rec", False):
-                bus.set_input("hardware_state", "READY", source="TSP_DIAG_MANUAL")
-                bus.log("TSP", "LKS diagnostics through HardwareBridge: DONE.")
-            else:
-                bus.set_input("hardware_state", "PARTIAL_ERROR", source="TSP_DIAG_MANUAL")
-                bus.log("TSP", "LKS diagnostics through HardwareBridge: DONE with issues.")
-
+            all_ok = all(diag_results.get(k, False) for k in ["linux", "tsp", "signalbus", "pokeys"])
+            bus.set_input("hardware_state", "READY" if all_ok else "PARTIAL_ERROR", source="TSP_DIAG")
+            bus.log("TSP", f"LKS Diagnostics: HardwareBridge path completed ok={all_ok}.")
+            bus.set_input("runtime_state", "READY_FOR_PAR", source="TSP_DIAG")
+            bus.set_input("tarzan_ready", 1, source="TSP_DIAG")
             self.mark_lks_outputs_dirty("diag_finished", immediate_n5=True)
         except Exception as exc:
-            self.logger.error("LKS diagnostics through HardwareBridge failed: %s", exc)
-        finally:
+            diag_crashed = True
+            self.logger.error("LKS Diagnostics through HardwareBridge failed: %s", exc)
             try:
-                bus.set_input("runtime_state", previous_runtime or "READY_FOR_PAR", source="TSP_DIAG_MANUAL")
-                bus.set_input("tarzan_ready", 1, source="TSP_DIAG_MANUAL")
+                bus.set_input("hardware_state", "ERROR", source="TSP_DIAG")
+                bus.set_input("runtime_state", "READY_FOR_PAR", source="TSP_DIAG")
+                bus.set_input("tarzan_ready", 1, source="TSP_DIAG")
             except Exception:
                 pass
 
@@ -794,8 +781,8 @@ class TarzanTspServer:
             
             # 1. Diagnostyka
             if bus.read("cmd_run_diagnostics", 0):
-                bus.set_input("cmd_run_diagnostics", 0, source="TSP_SYSTEM") # Reset flagi
-                diag_thread = threading.Thread(target=self._run_diagnostics, name="TSP-DIAG-MANUAL", daemon=True)
+                bus.set_input("cmd_run_diagnostics", 0, source="TSP_SYSTEM")  # Reset flagi
+                diag_thread = threading.Thread(target=self._run_diagnostics, name="LKS-MANUAL-HWBRIDGE", daemon=True)
                 diag_thread.start()
             
             # 2. Reboot (tylko na Linuxie)
@@ -1080,11 +1067,10 @@ class TarzanTspServer:
                         
                     if not is_take_active and not self.provider.has_urgent_events():
                         # Tick providera (uptime) robimy tylko co 1s w idle.
-                        # Czekamy reaktywnie na zmianę w SignalBus (ZASADA SNAJPERA).
+                        # IDLE nie używa bus-change-wait, bo drobne zmiany SignalBus
+                        # budziły pętlę i psuły CPU. Akcja budzi się przez rzadki poll.
                         if now - last_health < TSP_HEALTH_INTERVAL_MS:
-                            # IDLE śpi czasowo: częste zdarzenia SignalBus
-                            # potrafią wybudzać pętlę bez realnej akcji i podbijać CPU.
-                            time.sleep(0.75)
+                            time.sleep(0.25)
                             continue
 
                 # ETAP 14: Obsługa playbacku TAKE na MiniPC
@@ -1141,11 +1127,7 @@ class TarzanTspServer:
                         last_health = now
 
                 # 3. Logi statystyk
-                # W IDLE nie zalewamy journalctl co sekundę. Długie logowanie samo
-                # podbija koszt CPU i zaciemnia diagnostykę. Przy klientach zostaje
-                # normalny rytm, w ciszy tylko rzadki heartbeat.
-                stats_interval_ms = TSP_STATS_LOG_INTERVAL_MS if client_count > 0 else max(TSP_STATS_LOG_INTERVAL_MS, 30000)
-                if now - self._last_stats_ms >= stats_interval_ms:
+                if now - self._last_stats_ms >= TSP_STATS_LOG_INTERVAL_MS:
                     self._last_stats_ms = now
                     stats = self.debug.stats.as_dict()
                     self.logger.info(
@@ -1198,9 +1180,8 @@ class TarzanTspServer:
         # Zgodnie z wymaganiem: Brak klientów i brak ruchu = głęboki sen (ZASADA SNAJPERA).
         is_take_playing = getattr(self, "_take_playback_start_ms", 0) > 0
         if client_count == 0 and not is_take_playing:
-            # Brak klientów i brak TAKE = spokojny sen czasowy.
-            # Nie śpimy reaktywnie na BUS, żeby drobne wpisy statusowe
-            # nie robiły z IDLE gorącej pętli.
+            # Głęboki IDLE: brak bus-change-wait, bo SignalBus dirty potrafił
+            # wybudzać główną pętlę bez realnej akcji operatora.
             time.sleep(0.2)
             return
 
@@ -1238,7 +1219,9 @@ class TarzanTspServer:
         except Exception:
             hw_realtime = False
         
-        # Jeśli brak aktywności hardware, śpimy do 50-100ms lub do zmiany w Bus.
+        # Jeśli brak aktywności hardware, śpimy do 50-100ms.
+        # Nie używamy bus-change-wait: przy statusach/logach SignalBus robił
+        # fałszywe wybudzenia i podnosił CPU w IDLE.
         if not hw_realtime:
             sleep_s = min(0.1, remaining_ms / 1000.0)
             if sleep_s > 0.01:

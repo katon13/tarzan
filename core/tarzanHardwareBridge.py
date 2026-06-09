@@ -888,14 +888,11 @@ class TarzanHardwareBridge:
         if logical is not None:
             return logical
 
-        # Fallback dla pozostałych kontrolek status_main: pełna stara diagnostyka,
-        # ale tylko read-only / repo-status. Nie wykonujemy ruchu osi.
+        # Fallback dla pozostałych kontrolek status_main: tylko diagnostyka logiczna/read-only
+        # przez ten sam aktywny HardwareBridge. Nie tworzymy bocznego TarzanTspLksHardwareTests.
         try:
             from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
-            diagnostics = TarzanTspLksDiagnostics(
-                hardware_bridge=None,
-                allow_offline_hardware_tests=False,
-            )
+            diagnostics = TarzanTspLksDiagnostics(hardware_bridge=self)
             results = diagnostics.run_component(name, operator_visible=visible)
             ok = bool(diagnostics.status_map().get(name, False))
             detail = "; ".join([str(getattr(r, "detail", "") or getattr(r, "error", "")) for r in results])[:180]

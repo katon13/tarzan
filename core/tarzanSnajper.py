@@ -864,11 +864,16 @@ class TarzanSnajperHardwarePolicy:
         return False
 
     def grace_ms_for(self, kind: str = "default") -> int:
+        """Krótki czas wybudzenia hardware po strzale Snajpera.
+
+        Nie trzymamy PoKeys długo po teście. Klik LKS/PAR ma szybko dostać
+        reakcję, a po zakończeniu akcji hardware wraca do IDLE.
+        """
         key = str(kind or "default").lower()
         if key in {"lks", "diagnostic", "test"}:
-            return 4500
+            return 1500
         if key in {"move", "axis", "take", "rec", "play"}:
-            return 5000
+            return 2500
         if key in {"par", "nextion7", "ui"}:
-            return 3000
-        return 3000
+            return 1200
+        return 1500

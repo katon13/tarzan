@@ -67,7 +67,7 @@ class TarzanHardwareBridge:
         # ZASADA SNAJPERA (ETAP 17): Dynamiczne połączenie
         self._last_activity_ms = 0 # Startujemy w IDLE
         self._reconnect_cooldown_ms = 0
-        self._idle_timeout_ms = 3000  # Grace period 3s (2-5s wg wytycznych)
+        self._idle_timeout_ms = 1500  # Krótki grace: akcja -> reakcja, po chwili IDLE
         self._hardware_awake_until_ms = 0.0
         self._snajper_policy = TarzanSnajperHardwarePolicy()
         self._last_connect_failed = False # Flaga dla selektywnego cooldownu
@@ -221,7 +221,7 @@ class TarzanHardwareBridge:
         with self._lock:
             return any(dev is not None for dev in self.devices.values())
 
-    def request_hardware_awake(self, source: str = "SNAJPER", grace_ms: int = 3000, ensure: bool = False) -> None:
+    def request_hardware_awake(self, source: str = "SNAJPER", grace_ms: int = 1500, ensure: bool = False) -> None:
         """Krótki strzał Snajpera w hardware: akcja -> reakcja.
 
         Nie jest to stały tryb pracy. Metoda daje okno aktywności, opcjonalnie
@@ -316,7 +316,7 @@ class TarzanHardwareBridge:
                 cmd_hardware_awake=cmd,
             ):
                 if self._snajper_policy.truthy(cmd):
-                    self.request_hardware_awake(source="SIGNALBUS_CMD", grace_ms=3000, ensure=False)
+                    self.request_hardware_awake(source="SIGNALBUS_CMD", grace_ms=self._snajper_policy.grace_ms_for("default"), ensure=False)
                 return True
 
             # Realtime z ModeLogic jest pomocniczy. Nie może zostać wiecznie

@@ -98,6 +98,7 @@ def main():
             parcore = TarzanParCore(
                 bus=bus,
                 hardware_bridge=getattr(server, "hw_bridge", None),
+                snajper=getattr(server, "snajper", None),
                 mode="LIVE",
                 enable_nextion_bridge=True,
             )

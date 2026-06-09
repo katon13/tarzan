@@ -332,7 +332,8 @@ class TarzanParBridge:
                 self._remote_nextion_log = [str(line) for line in result]
 
     def _is_minipc_screen(self, screen_key: str = "nextion_7") -> bool:
-        return str(screen_key or "").lower() in {"nextion_7", "nextion7", "n7"}
+        key = str(screen_key or "").lower()
+        return key in {"nextion_7", "nextion7", "n7", "nextion_5", "nextion5", "n5"}
 
     def _block_minipc_owned(self, what: str) -> bool:
         self.bus.log("MINIPC", f"{what} blocked: miniPC/PARcore not connected")
@@ -341,42 +342,44 @@ class TarzanParBridge:
 
     def connect_screen(self, screen_key: str = "nextion_7") -> bool:
         if self._is_minipc_screen(screen_key):
-            if self.parcore_action("connect_screen", {"screen_key": "nextion_7"}):
+            if self.parcore_action("connect_screen", {"screen_key": screen_key}):
                 return True
-            return self._block_minipc_owned("nextion_7.connect_screen")
+            return self._block_minipc_owned(f"{screen_key}.connect_screen")
         if hasattr(self.nextion, "connect_screen"):
             return bool(self.nextion.connect_screen(screen_key))
         return bool(self.nextion_connect())
 
     def disconnect_screen(self, screen_key: str = "nextion_7") -> bool:
         if self._is_minipc_screen(screen_key):
-            if self.parcore_action("disconnect_screen", {"screen_key": "nextion_7"}):
+            if self.parcore_action("disconnect_screen", {"screen_key": screen_key}):
                 return True
-            return self._block_minipc_owned("nextion_7.disconnect_screen")
+            return self._block_minipc_owned(f"{screen_key}.disconnect_screen")
         if hasattr(self.nextion, "disconnect_screen"):
             self.nextion.disconnect_screen(screen_key)
             return True
         return False
 
-    def sync(self, force: bool = False) -> Any:
-        # Globalna zasada: fizyczny Nextion 7 należy do miniPC/PARcore.
-        if self.parcore_action("sync", {"force": bool(force), "screen_key": "nextion_7"}):
-            return True
-        return self._block_minipc_owned("nextion_7.sync")
+    def sync(self, force: bool = False, screen_key: str = "nextion_7") -> Any:
+        # Globalna zasada: fizyczny Nextion należy do miniPC/PARcore.
+        if self._is_minipc_screen(screen_key):
+            if self.parcore_action("sync", {"force": bool(force), "screen_key": screen_key}):
+                return True
+            return self._block_minipc_owned(f"{screen_key}.sync")
+        return False
 
     def get_nextion_monitor_state(self, screen_key: str = "nextion_7") -> Dict[str, Any]:
         if self._is_minipc_screen(screen_key):
-            self.parcore_action("get_nextion_monitor_state", {"screen_key": "nextion_7"})
+            self.parcore_action("get_nextion_monitor_state", {"screen_key": screen_key})
             if self._remote_nextion_monitor:
                 return dict(self._remote_nextion_monitor)
-            return {"screen_key": "nextion_7", "connected": False, "port": "miniPC", "baudrate": 115200, "last_error": "remote status pending", "page": "", "ui_cut": 0, "pending": 0}
+            return {"screen_key": screen_key, "connected": False, "port": "miniPC", "baudrate": 115200, "last_error": "remote status pending", "page": "", "ui_cut": 0, "pending": 0}
         if hasattr(self.nextion, "get_nextion_monitor_state"):
             return dict(self.nextion.get_nextion_monitor_state(screen_key))
         return {}
 
     def get_recent_transport_log(self, screen_key: str = "nextion_7", limit: int = 120) -> list[str]:
         if self._is_minipc_screen(screen_key):
-            self.parcore_action("build_nextion7_log_preview", {"limit": int(limit), "screen_key": "nextion_7"})
+            self.parcore_action("build_nextion7_log_preview", {"limit": int(limit), "screen_key": screen_key})
             return list(self._remote_nextion_log)[-int(limit):]
         if hasattr(self.nextion, "get_recent_transport_log"):
             return list(self.nextion.get_recent_transport_log(screen_key, limit=limit))
@@ -386,7 +389,7 @@ class TarzanParBridge:
         self._remote_nextion_log.clear()
         target = screen_key or "nextion_7"
         if self._is_minipc_screen(target):
-            self.parcore_action("clear_transport_log", {"screen_key": "nextion_7"})
+            self.parcore_action("clear_transport_log", {"screen_key": target})
             return
         if hasattr(self.nextion, "clear_transport_log"):
             try:

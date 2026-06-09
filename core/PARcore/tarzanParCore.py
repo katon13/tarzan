@@ -844,6 +844,7 @@ class TarzanParCore:
         enable_headless_take_scheduler: bool = True,
         nextion_bridge: Any = None,
         enable_nextion_bridge: bool = False,
+        snajper: Optional[Any] = None,
     ) -> None:
         self.bus = bus or get_signal_bus(mode)
         # Adaptery zgodności dla starego PAR i Snajpera; nie tworzą drugiej prawdy.
@@ -909,7 +910,7 @@ class TarzanParCore:
         self.mode_logic: Optional[Any] = None
         self._mode_running: bool = False
         self._mode_thread: Optional[threading.Thread] = None
-        self.snajper: Optional[Any] = None
+        self.snajper: Optional[Any] = snajper
         self._snajper_adapters_registered: bool = False
         self._transport_log: List[str] = []
         self._transport_log_limit: int = 500
@@ -3442,6 +3443,9 @@ class TarzanParCore:
                 # Blokujący odczyt RX jednego ekranu. To nie jest cykliczne
                 # odświeżanie UI i nie zastępuje Snajpera. Wątek śpi w UART.
                 self.poll_nextion7_once(block=True)
+                # Po odebraniu (lub timeout) wypychamy zaległe komendy Snajpera
+                # na fizyczny ekran, żeby odświeżanie było płynne.
+                self.flush_snajper_commands()
             except Exception as exc:
                 self.force_signal("nextion7_state", "ERROR", source="PARCORE_N7")
                 self.force_signal("par_last_error", f"Nextion7 event poll failed: {exc}", source="PARCORE_N7")
@@ -3783,6 +3787,7 @@ class TarzanParCore:
     def ensure_system_snajper(self) -> Any:
         """Zapewnia realny Snajper z core/tarzanSnajper.py albo headless fallback."""
         if self.snajper is not None:
+            self.register_system_snajper_defaults()
             return self.snajper
         candidate = None
         for src in (self.tsp_server, self.hardware_bridge):

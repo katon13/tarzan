@@ -67,8 +67,10 @@ class TarzanHardwareBridge:
         # ZASADA SNAJPERA (ETAP 17): Dynamiczne połączenie
         self._last_activity_ms = 0 # Startujemy w IDLE
         self._reconnect_cooldown_ms = 0
-        self._idle_timeout_ms = 1500  # Krótki grace: akcja -> reakcja, po chwili IDLE
+        self._idle_timeout_ms = 2000  # Krótki, ale nie zrywa połączenia w środku serii testów LKS.
         self._hardware_awake_until_ms = 0.0
+        self._hardware_batch_depth = 0
+        self._hardware_batch_source = ""
         self._snajper_policy = TarzanSnajperHardwarePolicy()
         self._last_connect_failed = False # Flaga dla selektywnego cooldownu
         
@@ -221,6 +223,41 @@ class TarzanHardwareBridge:
         with self._lock:
             return any(dev is not None for dev in self.devices.values())
 
+
+    def begin_hardware_batch(self, source: str = "SNAJPER_BATCH", grace_ms: int = 12000, ensure: bool = False) -> None:
+        """Sesja wielu strzałów Snajpera bez reconnect-spinu.
+
+        Używane dla boot diagnostyki / pełnej diagnostyki LKS. Nie przywraca
+        stałej pracy PoKeys — tylko trzyma hardware między kolejnymi testami,
+        żeby nie łączyć i rozłączać USB co sekundę.
+        """
+        try:
+            now = time.time() * 1000.0
+            grace = max(2000, int(grace_ms or 12000))
+            with self._lock:
+                self._hardware_batch_depth += 1
+                self._hardware_batch_source = str(source or "SNAJPER_BATCH")
+                self._hardware_awake_until_ms = max(self._hardware_awake_until_ms, now + grace)
+                self._last_activity_ms = now
+            if ensure:
+                self._ensure_connected()
+        except Exception as exc:
+            self.logger.debug("begin_hardware_batch failed source=%s error=%s", source, exc)
+
+    def end_hardware_batch(self, source: str = "SNAJPER_BATCH", grace_ms: int = 2000) -> None:
+        """Kończy serię testów i pozwala hardware wrócić do IDLE po krótkim grace."""
+        try:
+            now = time.time() * 1000.0
+            grace = max(500, int(grace_ms or 2000))
+            with self._lock:
+                self._hardware_batch_depth = max(0, self._hardware_batch_depth - 1)
+                self._hardware_awake_until_ms = max(self._hardware_awake_until_ms, now + grace)
+                self._last_activity_ms = now
+                if self._hardware_batch_depth == 0:
+                    self._hardware_batch_source = ""
+        except Exception as exc:
+            self.logger.debug("end_hardware_batch failed source=%s error=%s", source, exc)
+
     def request_hardware_awake(self, source: str = "SNAJPER", grace_ms: int = 1500, ensure: bool = False) -> None:
         """Krótki strzał Snajpera w hardware: akcja -> reakcja.
 
@@ -302,6 +339,8 @@ class TarzanHardwareBridge:
         """
         try:
             now = time.time() * 1000.0
+            if int(getattr(self, "_hardware_batch_depth", 0) or 0) > 0:
+                return True
             if now < float(self._hardware_awake_until_ms):
                 return True
 

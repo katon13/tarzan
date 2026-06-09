@@ -534,6 +534,14 @@ class TarzanTspLksDiagnostics:
         self.statuses = empty_statuses(False)
         previous_visible = self._operator_visible_run_all
         self._operator_visible_run_all = bool(operator_visible)
+        bridge_batch_started = False
+        bridge = getattr(self, "hardware_bridge", None)
+        if bridge is not None and hasattr(bridge, "begin_hardware_batch"):
+            try:
+                bridge.begin_hardware_batch("LKS_FULL_DIAGNOSTICS", grace_ms=15000, ensure=True)
+                bridge_batch_started = True
+            except Exception:
+                bridge_batch_started = False
         try:
             self.check_system()
             self.check_pokeys()
@@ -544,6 +552,11 @@ class TarzanTspLksDiagnostics:
             self._finalize_statuses_for()
             return list(self.results)
         finally:
+            if bridge_batch_started and bridge is not None and hasattr(bridge, "end_hardware_batch"):
+                try:
+                    bridge.end_hardware_batch("LKS_FULL_DIAGNOSTICS", grace_ms=2000)
+                except Exception:
+                    pass
             self._operator_visible_run_all = previous_visible
 
     def status_map(self) -> Dict[str, bool]:

@@ -871,9 +871,9 @@ class TarzanSnajperHardwarePolicy:
         """
         key = str(kind or "default").lower()
         if key in {"lks", "diagnostic", "test"}:
-            return 1500
+            return 2500
         if key in {"move", "axis", "take", "rec", "play"}:
             return 2500
         if key in {"par", "nextion7", "ui"}:
             return 1200
-        return 1500
+        return 1200

@@ -436,6 +436,17 @@ class TarzanTspLksBootProgress:
         self._global_progress = 0
         self.n5.bkcmd(3)
 
+        # Boot diagnostyka jest serią testów. Trzymamy hardware przez serię,
+        # żeby Snajper nie robił reconnect-spinu PoKeys między komponentami.
+        bridge_batch_started = False
+        bridge = self.hardware_bridge
+        if bridge is not None and hasattr(bridge, "begin_hardware_batch"):
+            try:
+                bridge.begin_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=18000, ensure=True)
+                bridge_batch_started = True
+            except Exception:
+                bridge_batch_started = False
+
         steps = [
             (SCENE_BOOT_LINUX, 10, "linux_alive", "linux_sys", "Linux alive", self._check_linux_alive),
             (SCENE_BOOT_LINUX, 20, "repo_structure", "linux_sys", "Repo OK", self._check_repo),
@@ -452,8 +463,15 @@ class TarzanTspLksBootProgress:
             (SCENE_BOOT_TEST, 94, "diagnostics", "linux_sys", "Real diagnostics", self._check_diagnostics),
         ]
 
-        for scene, progress, key, component, label, fn in steps:
-            self._step(scene=scene, progress=progress, key=key, component=component, label=label, fn=fn)
+        try:
+            for scene, progress, key, component, label, fn in steps:
+                self._step(scene=scene, progress=progress, key=key, component=component, label=label, fn=fn)
+        finally:
+            if bridge_batch_started and bridge is not None and hasattr(bridge, "end_hardware_batch"):
+                try:
+                    bridge.end_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=2000)
+                except Exception:
+                    pass
 
         # Końcówka ma iść zgodnie z fizycznym układem stron operatora:
         # boot_test -> ready_main -> intro_status -> status_main.

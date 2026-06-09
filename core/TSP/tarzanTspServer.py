@@ -1147,7 +1147,11 @@ class TarzanTspServer:
                         # Tick providera (uptime) robimy tylko co 1s w idle.
                         # Czekamy reaktywnie na zmianę w SignalBus (ZASADA SNAJPERA).
                         if now - last_health < TSP_HEALTH_INTERVAL_MS:
-                            self.provider.bus.wait_for_change(timeout=0.25)
+                            try:
+                                from core.tarzanSignalBus import get_signal_bus
+                                get_signal_bus().wait_for_change(timeout=0.25)
+                            except Exception:
+                                time.sleep(0.25)
                             continue
 
                 # ETAP 14: Obsługa playbacku TAKE na MiniPC
@@ -1257,7 +1261,11 @@ class TarzanTspServer:
         # Zgodnie z wymaganiem: Brak klientów i brak ruchu = głęboki sen (ZASADA SNAJPERA).
         is_take_playing = getattr(self, "_take_playback_start_ms", 0) > 0
         if client_count == 0 and not is_take_playing:
-            self.provider.bus.wait_for_change(timeout=0.2)
+            try:
+                from core.tarzanSignalBus import get_signal_bus
+                get_signal_bus().wait_for_change(timeout=0.2)
+            except Exception:
+                time.sleep(0.2)
             return
 
         # Jeśli trwa ruch (TAKE), wymuszamy rytm 10ms dla płynności.
@@ -1288,13 +1296,21 @@ class TarzanTspServer:
 
         # ZASADA SNAJPERA: Nawet przy podłączonych klientach, jeśli hardware nie wymaga 
         # trybu realtime (10ms), możemy pozwolić pętli TSP na reaktywne uśpienie. (Etap 17)
-        hw_realtime = int(self.provider.bus.read("hardware_realtime_required", 0)) == 1
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            hw_realtime = int(get_signal_bus().read("hardware_realtime_required", 0)) == 1
+        except Exception:
+            hw_realtime = False
         
         # Jeśli brak aktywności hardware, śpimy do 50-100ms lub do zmiany w Bus.
         if not hw_realtime:
             sleep_s = min(0.1, remaining_ms / 1000.0)
             if sleep_s > 0.01:
-                self.provider.bus.wait_for_change(timeout=sleep_s)
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    get_signal_bus().wait_for_change(timeout=sleep_s)
+                except Exception:
+                    time.sleep(sleep_s)
                 return
 
         # Aktywny tryb realtime (np. ruch osi, PAR_LIVE): śpimy precyzyjnie do pasma.

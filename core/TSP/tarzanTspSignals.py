@@ -229,11 +229,22 @@ class TarzanTspSignalProvider:
         from core.tarzanSignalBus import get_signal_bus
         bus = get_signal_bus()
         
-        # ZASADA SNAJPERA: Wybudzamy hardware tylko dla istotnych sygnałów sprzętowych. (Etap 18)
+        # ZASADA SNAJPERA: Wybudzamy hardware tylko dla realnych komend wykonawczych.
+        # Nie wolno budzić PoKeys od statusów, STOP, tM, hello/get_state/health ani inicjalizacji.
         from core.tarzanZmienneSygnalowe import AWAKE_SIGNAL_PREFIXES, AWAKE_SIGNAL_NAMES
-        is_awake_signal = name.startswith(AWAKE_SIGNAL_PREFIXES) or name in AWAKE_SIGNAL_NAMES
-        
-        if is_awake_signal and name != "cmd_hardware_awake":
+
+        def _is_awake_signal(sig_name: str, sig_value: Any) -> bool:
+            if sig_name == "cmd_hardware_awake":
+                return False
+            if sig_name == "transport_state":
+                # PLAY/REC wymagają realtime; STOP/PAUSE/status nie wybudza hardware.
+                return str(sig_value).upper() in {"PLAY", "REC"}
+            if sig_name == "active_mode":
+                # tM to spoczynek/manual bez wykonywania; wybudza tylko tryb wykonawczy.
+                return str(sig_value) not in {"", "tM", "TM", "None", "none"}
+            return sig_name.startswith(AWAKE_SIGNAL_PREFIXES) or sig_name in AWAKE_SIGNAL_NAMES
+
+        if _is_awake_signal(name, value):
             bus.set_input("cmd_hardware_awake", 1, source=f"ACT_{source}")
         
         if not bus.exists(name):

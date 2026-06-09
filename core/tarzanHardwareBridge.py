@@ -279,8 +279,9 @@ class TarzanHardwareBridge:
             return False
             
         except Exception:
-            # W razie błędu czytania sygnałów, bezpieczniej jest założyć aktywność
-            return True
+            # W razie błędu czytania sygnałów NIE budzimy PoKeys w IDLE.
+            # Realtime może włączyć tylko jawny sygnał z Mode/SignalBus/Snajper.
+            return False
 
     def _handle_manual_generator(self) -> bool:
         """Generuje impulsy STEP w trybie manualnym na podstawie kierunków w SignalBus."""

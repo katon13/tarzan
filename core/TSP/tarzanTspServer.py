@@ -1212,6 +1212,13 @@ class TarzanTspServer:
             time.sleep(0.001)
             return
 
+        # Zgodnie z wymaganiem: brak akcji = system śpi.
+        # Jeśli nie ma klientów, nie musimy trzymać rytmu TSP_FAST_INTERVAL_MS (10ms).
+        # Możemy spać dłużej, oszczędzając CPU w trybie IDLE.
+        if len(self.clients()) == 0:
+            time.sleep(0.1)
+            return
+
         # Obliczamy czas do najbliższego wymaganego pasma
         next_due_ms = min(
             last_fast + TSP_FAST_INTERVAL_MS,

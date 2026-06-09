@@ -648,7 +648,7 @@ class TarzanNextionBridge:
             return True
         return scope in set(self.active_pages.values())
 
-    def sync(self, force: bool = False) -> None:
+    def sync(self, force: bool = False, screen_key: str = "nextion_7", **kwargs: Any) -> None:
         return self.flush_snajper_commands()
 
     def poll_screen(self, screen_key: str = "nextion_7", block: bool = False, timeout_s: float = 0.25) -> List[str]:
@@ -1783,5 +1783,5 @@ class TarzanNextionBridge:
         self.rrp_state["rrp_rev"] += 1
         self._update_bus_from_rrp()
 
-    def nextion_sync(self, force: bool = False) -> None:
+    def nextion_sync(self, force: bool = False, screen_key: str = "nextion_7", **kwargs: Any) -> None:
         return self.flush_snajper_commands()

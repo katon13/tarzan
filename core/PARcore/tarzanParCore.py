@@ -3229,9 +3229,9 @@ class TarzanParCore:
         buf = list(getattr(self, "_par_text_log_buffer", []))[-max(1, int(limit)):]
         return "\n".join(buf)
 
-    def build_nextion7_log_preview(self, limit: int = 20, screen_key: str = "nextion_7", **kwargs: Any) -> str:
+    def build_nextion7_log_preview(self, limit: int = 20, screen_key: str = "nextion_7", **kwargs: Any) -> List[str]:
         buf = list(getattr(self, "_nextion7_text_log_buffer", []))[-max(1, int(limit)):]
-        return "\n".join(buf)
+        return buf
 
     def _append_preview_buffer(self, attr: str, entry: str, limit: int = 80) -> List[str]:
         buf = list(getattr(self, attr, []))
@@ -3537,12 +3537,18 @@ class TarzanParCore:
                     continue
                 try:
                     if name == "poll_screen":
-                        result = fn("nextion_7", block=True, timeout_s=0.25)
-                        # poll_screen zwraca logi, a strukturalne zdarzenia są w kolejce.
+                        logs = fn("nextion_7", block=True, timeout_s=0.25)
+                        # ETAP 14: poll_screen zwraca logi tekstowe (TX/RX/ERR).
+                        # Musimy je zapisać, zanim nadpiszemy result eventami strukturalnymi.
+                        if logs and isinstance(logs, list):
+                            for line in logs:
+                                self._append_transport_log(line)
+                        
                         pull = getattr(bridge, "read_events", None)
-                        result = pull("nextion_7") if callable(pull) else result
+                        result = pull("nextion_7") if callable(pull) else logs
                     else:
                         result = fn("nextion_7", block=True, timeout_s=0.25)
+                    
                     events.extend(self._normalize_nextion7_event_result(result))
                     if events:
                         return events
@@ -3592,7 +3598,11 @@ class TarzanParCore:
         poll_screen = getattr(bridge, "poll_screen", None)
         if callable(poll_screen):
             try:
-                poll_screen("nextion_7", block=False, timeout_s=0.0)
+                logs = poll_screen("nextion_7", block=False, timeout_s=0.0)
+                if logs and isinstance(logs, list):
+                    for line in logs:
+                        self._append_transport_log(line)
+                
                 pull = getattr(bridge, "read_events", None)
                 if callable(pull):
                     events.extend(self._normalize_nextion7_event_result(pull("nextion_7")))
@@ -4184,6 +4194,10 @@ class TarzanParCore:
         self._transport_log.append(entry)
         if len(self._transport_log) > self._transport_log_limit:
             self._transport_log = self._transport_log[-self._transport_log_limit:]
+        
+        # ETAP 14: Logi transportu do podglądu tekstowego (dla PAR STACJA / TSP)
+        self.log_nextion7_event(text, source="TRANS")
+        
         self.force_signal("nextion7_transport_log_last", entry, source="PARCORE_NEXTION_LOG")
         self.force_signal("nextion7_transport_log", "\n".join(self._transport_log[-20:]), source="PARCORE_NEXTION_LOG")
 

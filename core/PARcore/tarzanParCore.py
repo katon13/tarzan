@@ -1455,11 +1455,25 @@ class TarzanParCore:
         return self._set_signal(name, value, source=source)
 
     def set_input(self, name: str, value: Any, source: str = "PARCORE_INPUT") -> bool:
+        # ZASADA SNAJPERA: Wybudzamy hardware tylko dla istotnych sygnałów sprzętowych. (Etap 18)
+        if self.bus:
+            from core.tarzanZmienneSygnalowe import AWAKE_SIGNAL_PREFIXES, AWAKE_SIGNAL_NAMES
+            if name.startswith(AWAKE_SIGNAL_PREFIXES) or name in AWAKE_SIGNAL_NAMES:
+                if name != "cmd_hardware_awake":
+                    self.bus.set_input("cmd_hardware_awake", 1, source=f"ACT_{source}")
+        
         ok = bool(self.bus.set_input(name, value, source=source))
         self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"set_input:{name}")
         return ok
 
     def write_output(self, name: str, value: Any, source: str = "PARCORE_OUTPUT") -> bool:
+        # ZASADA SNAJPERA: Wybudzamy hardware tylko dla istotnych sygnałów sprzętowych. (Etap 18)
+        if self.bus:
+            from core.tarzanZmienneSygnalowe import AWAKE_SIGNAL_PREFIXES, AWAKE_SIGNAL_NAMES
+            if name.startswith(AWAKE_SIGNAL_PREFIXES) or name in AWAKE_SIGNAL_NAMES:
+                if name != "cmd_hardware_awake":
+                    self.bus.set_input("cmd_hardware_awake", 1, source=f"ACT_{source}")
+                    
         ok = bool(self.bus.write_output(name, value, source=source))
         if self.hardware_bridge is not None:
             self._write_hardware(name, value)
@@ -1467,6 +1481,13 @@ class TarzanParCore:
         return ok
 
     def force_signal(self, name: str, value: Any, source: str = "PARCORE_FORCE") -> bool:
+        # ZASADA SNAJPERA: Wybudzamy hardware tylko dla istotnych sygnałów sprzętowych. (Etap 18)
+        if self.bus:
+            from core.tarzanZmienneSygnalowe import AWAKE_SIGNAL_PREFIXES, AWAKE_SIGNAL_NAMES
+            if name.startswith(AWAKE_SIGNAL_PREFIXES) or name in AWAKE_SIGNAL_NAMES:
+                if name != "cmd_hardware_awake":
+                    self.bus.set_input("cmd_hardware_awake", 1, source=f"ACT_{source}")
+                    
         ok = bool(self.bus.force_signal(name, value, source=source))
         if self.hardware_bridge is not None:
             self._write_hardware(name, value)
@@ -2329,12 +2350,34 @@ class TarzanParCore:
         sample_ms = max(1, int(CZAS_PROBKOWANIA_MS))
         while self._rrp_active:
             start = time.monotonic()
+            
+            # ZASADA SNAJPERA: brak aktywności = spokojny sen.
+            # Nie czekamy na globalne zmiany SignalBus, bo drobne wpisy statusowe
+            # potrafią wybudzać pętlę w IDLE bez realnej akcji.
+            is_active = self._is_system_active()
+            if not is_active:
+                time.sleep(0.25)
+                continue
+
             try:
                 self._rrp_tick_all()
             except Exception as exc:
                 self._bus_log("RRP_ERROR", str(exc))
             elapsed_ms = int((time.monotonic() - start) * 1000)
             time.sleep(max(0.001, (sample_ms - elapsed_ms) / 1000.0))
+
+    def _is_system_active(self) -> bool:
+        """Szybki test aktywności dla oszczędzania CPU w pętlach."""
+        try:
+            if int(self.bus.read("tsp_clients", 0)) > 0:
+                return True
+            if self.bus.read("transport_state", "STOP") != "STOP":
+                return True
+            if self.bus.read("active_mode", "tM") != "tM":
+                return True
+        except Exception:
+            return True
+        return False
 
     def _rrp_tick_all(self) -> None:
         for player in ("p1", "p2"):
@@ -2719,6 +2762,12 @@ class TarzanParCore:
     # Komendy wspólne dla TSP / PARtext / Nextion7.
     # ------------------------------------------------------------------
     def call_action(self, action: str, args: Optional[Dict[str, Any]] = None) -> Any:
+        # ZASADA SNAJPERA: Wybudzamy hardware tylko dla realnych akcji sprzętowych. (Etap 18)
+        if self.bus:
+            from core.tarzanZmienneSygnalowe import AWAKE_ACTION_NAMES
+            if action in AWAKE_ACTION_NAMES:
+                self.bus.set_input("cmd_hardware_awake", 1, source=f"LOCAL_CMD_{action}")
+            
         args = dict(args or {})
         action_norm = str(action or "").strip().lower()
         aliases = {
@@ -2992,16 +3041,22 @@ class TarzanParCore:
 
     def dispatch_nextion7(self, event: str, value: Any = None) -> Any:
         """Lokalny adapter Nextion 7 → PARcore, bez UI.
-
-        Obsługuje formaty z Nextiona i proste komendy tekstowe:
-        rrp:p1_ax=4, rrp:p1_dir=1, rrp:p1_pot=2048, mode:live, take:play,
-        sensor:light, safety:unlock, manual_record_arm=1.
+        
+        ZASADA SNAJPERA: Zdarzenia z fizycznego ekranu budzą hardware realtime tylko dla akcji. (Etap 18)
         """
         raw = str(event or "").strip()
         if "=" in raw:
             raw, value = raw.split("=", 1)
         key = raw.lower().strip()
         key = key.replace("rrp:", "")
+
+        # Sprawdzamy czy to akcja wybudzająca
+        if self.bus:
+            from core.tarzanZmienneSygnalowe import AWAKE_ACTION_NAMES
+            # Nextion wysyła klucze, które często mapują się na akcje
+            is_awake = key in AWAKE_ACTION_NAMES or any(prefix in key for prefix in ["mode", "take", "axis", "sensor", "sok", "safety"])
+            if is_awake:
+                self.bus.set_input("cmd_hardware_awake", 1, source="LOCAL_N7")
 
         if key in {"stop"} and str(value) in {"1", "true", "True", "ON", "on"}:
             return self._handle_rrp_event("rrp:stop=1")
@@ -3495,7 +3550,9 @@ class TarzanParCore:
                 if should_flush:
                     self.flush_snajper_commands()
                 else:
-                    import time; time.sleep(0.01)
+                    # Dodatkowe uśpienie dla pętli IDLE bez aktywności.
+                    # Nie czekamy na SignalBus, bo statusy/pingi nie są akcją.
+                    time.sleep(0.25)
             except Exception as exc:
                 self.force_signal("nextion7_state", "ERROR", source="PARCORE_N7")
                 self.force_signal("par_last_error", f"Nextion7 event poll failed: {exc}", source="PARCORE_N7")
@@ -3763,6 +3820,9 @@ class TarzanParCore:
     def _mode_loop(self) -> None:
         while self._mode_running:
             try:
+                # ZASADA SNAJPERA: rzadsza logika trybów w IDLE
+                is_active = self._is_system_active()
+                
                 if not self._bus_read("tarzan_ready", 1):
                     time.sleep(0.5)
                     continue
@@ -3779,9 +3839,16 @@ class TarzanParCore:
                         self._handle_auto_playback()
                 self.write_output("rec_p09_led_data", 1 if transport == "REC" else 0, source="MODE_LOGIC")
                 self._update_clap_tc_for_snajper()
+                
+                # Adaptacyjny interwał: 50ms (20Hz) przy pracy, spokojny sen w IDLE.
+                # Brudzenie busa przez statusy nie może mielić CPU.
+                if is_active:
+                    time.sleep(0.05)
+                else:
+                    time.sleep(0.5)
             except Exception as exc:
                 self._bus_log("MODE_ERROR", str(exc))
-            time.sleep(0.05)
+                time.sleep(0.5)
 
     def _bus_read(self, name: str, default: Any = 0) -> Any:
         for method in ("read", "get"):

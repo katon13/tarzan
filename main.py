@@ -26,6 +26,15 @@ from core.tarzanSignalBus import get_signal_bus
 from core.tarzanUstawienia import CZAS_PROBKOWANIA_MS
 
 def main():
+    # Produkcyjny miniPC nie uruchamia profilera domyślnie.
+    # Profiler wolno włączyć ręcznie tylko diagnostycznie:
+    # set TARZAN_PROFILE=1 przed startem procesu.
+    if os.environ.get("TARZAN_PROFILE", "0") == "1":
+        from core.tarzanProfiler import clear_profiler, enable_profiler, start_profiler_reporting
+        enable_profiler(True)
+        clear_profiler()
+        start_profiler_reporting(interval_s=15.0, top_n=10)
+
     print("MAIN Runtime START")
     print("SignalBus OK")
     print("TSP SERVER START")

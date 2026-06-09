@@ -326,6 +326,7 @@ PARCORE_PUBLIC_ENTRYPOINTS: Tuple[str, ...] = (
     "manual_record_arm",
     "set_signal",
     "snapshot",
+    "clear_nextion7_log",
 )
 
 PARCORE_FORBIDDEN_UI_MARKERS: Tuple[str, ...] = (
@@ -2487,8 +2488,14 @@ class TarzanParCore:
         return False
 
     def nextion_sync(self, force: bool = False, screen_key: str = "nextion_7", **kwargs: Any) -> Any:
+        self.log_nextion7_event("SYNC requested", source="SYS")
         if self.nextion is None:
             return False
+            
+        # Dopisujemy widoczny wpis do logu transportu na miniPC
+        if hasattr(self.nextion, "_append_transport_log"):
+            self.nextion._append_transport_log(f"TX {screen_key}: SYS SYNC force={force}")
+            
         if hasattr(self.nextion, "sync"):
             try:
                 return self.nextion.sync(force=force, screen_key=screen_key)
@@ -2977,6 +2984,8 @@ class TarzanParCore:
             return fn(args.get("message", args.get("value", "")), args.get("source", "PAR"))  # type: ignore[misc]
         if action_norm == "log_nextion7_event":
             return fn(args.get("message", args.get("value", "")), args.get("source", "NEXTION7"))  # type: ignore[misc]
+        if action_norm == "clear_nextion7_log":
+            return fn(args.get("screen_key", args.get("value", "nextion_7")))  # type: ignore[misc]
         if action_norm in {"set_signal", "force_signal"}:
             return fn(args.get("name", args.get("signal", "")), args.get("value"))  # type: ignore[misc]
         return fn(**args)  # type: ignore[misc]
@@ -3052,7 +3061,7 @@ class TarzanParCore:
 
     def snapshot(self, include_meta: bool = False) -> Dict[str, Any]:
         snap = self.bus.snapshot(include_meta=include_meta)
-        snap["parcore"] = {
+        parcore_snap = {
             "state": self.bus.get("parcore_state", "READY"),
             "mode": getattr(self.bus, "mode", "TEST"),
             "take_loaded": str(getattr(self.bus, "loaded_take_path", "") or ""),
@@ -3069,6 +3078,13 @@ class TarzanParCore:
             "last_client": self.bus.get("parcore_last_client", ""),
             "last_action": self.bus.get("parcore_last_action", ""),
         }
+        
+        # ETAP 14: Logi transportu Nextion 7 dla stacji REMOTE
+        if self.nextion is not None:
+            if hasattr(self.nextion, "get_recent_transport_log"):
+                parcore_snap["nextion7_transport_log"] = self.nextion.get_recent_transport_log("nextion_7", limit=100)
+            
+        snap["parcore"] = parcore_snap
         return snap
 
 
@@ -3208,6 +3224,20 @@ class TarzanParCore:
             f"state={self._preview_get('snajper_state', '')}",
         ]
         return self._join_preview(lines)
+
+    def clear_nextion7_log(self, screen_key: str = "nextion_7") -> bool:
+        """Czyści bufor logów transportu na miniPC."""
+        if self.nextion is not None and hasattr(self.nextion, "clear_transport_log"):
+            try:
+                self.nextion.clear_transport_log(screen_key)
+            except Exception:
+                pass
+        
+        # Czyścimy też lokalny bufor sformatowanych eventów
+        setattr(self, "_nextion7_text_log_buffer", [])
+        self.force_signal("nextion7_log_preview", "", source="PARCORE_N7_LOG")
+        self.log_nextion7_event("LOG CLEARED", source="SYS")
+        return True
 
     def log_par_event(self, message: Any, source: str = "PAR") -> str:
         entry = self._format_log_entry(source, message)

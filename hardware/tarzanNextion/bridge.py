@@ -416,6 +416,8 @@ class TarzanNextionBridge:
             base[f"{key}.ui_cut"] = int(bool(self._nextion_ui_cut))
             base[f"{key}.snajper_pending"] = len(self._snajper_pending)
             base[f"{key}.transport_log_count"] = len(self._transport_log)
+            # DODANE: transport_log dla REMOTE/PAR STACJA
+            base[f"{key}.transport_log"] = self.get_recent_transport_log(key, limit=50)
             
             # Dodajemy stan RRP do sekcji ekranu (wymagane przez PAR)
             if key == "nextion_7":
@@ -572,6 +574,7 @@ class TarzanNextionBridge:
             "ui_cut": int(bool(self._nextion_ui_cut)),
             "pending": len(self._snajper_pending),
             "log_count": len(self._transport_log),
+            "transport_log": self.get_recent_transport_log(screen_key, limit=50),
         }
 
     def queue_snajper_command(self, scope: str, component: str, prop: str, value) -> None:
@@ -652,6 +655,7 @@ class TarzanNextionBridge:
         return scope in set(self.active_pages.values())
 
     def sync(self, force: bool = False, screen_key: str = "nextion_7", **kwargs: Any) -> None:
+        self._append_transport_log(f"EV {screen_key}: SYNC requested")
         return self.flush_snajper_commands()
 
     def poll_screen(self, screen_key: str = "nextion_7", block: bool = False, timeout_s: float = 0.25) -> List[str]:

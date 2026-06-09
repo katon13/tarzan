@@ -62,6 +62,7 @@ from .tarzanTspProtocol import (
     ok_response,
     snajper_packet,
 )
+from core.tarzanProfiler import profile_block, profile_method
 from .tarzanTspSignals import TarzanTspSignalProvider
 from .tarzanTspLks import TarzanTspLks
 from .tarzanTspLksStatusMap import component_from_nextion_id, validate_component
@@ -1109,93 +1110,106 @@ class TarzanTspServer:
         self._last_stats_ms = last_fast
 
         while self.running:
-            now = monotonic_ms()
+            with profile_block("TSP._lane_loop"):
+                now = monotonic_ms()
 
-            # ETAP 14: Obsługa playbacku TAKE na MiniPC
-            self._handle_take_playback()
-
-            # Pobieramy listę klientów raz na obieg pętli
-            clients = self.clients()
-            client_count = len(clients)
-
-            # Tick providera wykonujemy przed pasmami, żeby dane były świeże
-            self.provider.tick(client_count=client_count)
-
-            # 1. Obsługa URGENT — najwyższy priorytet, bez celowego opóźniania
-            urgent_items = self.provider.pop_urgent_events()
-            has_urgent = len(urgent_items) > 0
-            for item in urgent_items:
-                self.broadcast(item, lane=LANE_URGENT, immediate=True, clients=clients)
-
-            # 2. Pasma regularne (FAST, NORMAL, SLOW, HEALTH)
-            # FAST ~10ms
-            if now - last_fast >= TSP_FAST_INTERVAL_MS:
-                dt = now - last_fast
-                last_fast = now
-                self.broadcast_lane(LANE_FAST, dt, clients=clients)
-
-            # NORMAL ~50ms
-            if now - last_normal >= TSP_NORMAL_INTERVAL_MS:
-                dt = now - last_normal
-                last_normal = now
-                self.broadcast_lane(LANE_NORMAL, dt, clients=clients)
-
-            # SLOW ~500ms
-            if now - last_slow >= TSP_SLOW_INTERVAL_MS:
-                dt = now - last_slow
-                last_slow = now
-                self.broadcast_lane(LANE_SLOW, dt, clients=clients)
-
-            # HEALTH ~1000ms
-            if now - last_health >= TSP_HEALTH_INTERVAL_MS:
-                last_health = now
-                health = health_packet(
-                    node=self.node_name,
-                    clients=client_count,
-                    stats=self.debug.stats.as_dict(),
-                    state=self.provider.state_summary(),
-                )
-                self.broadcast(health, lane=LANE_HEALTH, clients=clients)
-
-            # 3. Logi statystyk
-            if now - self._last_stats_ms >= TSP_STATS_LOG_INTERVAL_MS:
-                self._last_stats_ms = now
-                stats = self.debug.stats.as_dict()
-                self.logger.info(
-                    "TSP_STATS clients=%s tx=%s rx=%s errors=%s dropped=%s lanes=%s",
-                    client_count, stats["packets_tx"], stats["packets_rx"], stats["errors"], stats["dropped"], stats["lane_packets"],
-                )
+                # Pobieramy listę klientów raz na obieg pętli
+                clients = self.clients()
+                client_count = len(clients)
                 
-                # Etap 16: Publikacja FAST_STATS do SignalBus
-                try:
-                    from core.tarzanSignalBus import get_signal_bus
-                    bus = get_signal_bus()
-                    if bus.exists("tsp_fast_stats"):
-                        bus.set_input("tsp_fast_stats", json.dumps(stats), source="TSP_STATS")
-                except Exception:
-                    pass
+                # ETAP 14: Obsługa playbacku TAKE na MiniPC
+                self._handle_take_playback()
+                is_take_playing = getattr(self, "_take_playback_start_ms", 0) > 0
 
-            # 4. LKS-N5 — spokojna praca:
-            if not self._stopping and self.lks_n5 is not None:
-                self._poll_lks_n5_events()
-                if self._lks_n5_dirty:
-                    self._refresh_lks_n5(reason=self._lks_n5_dirty_reason or "event", immediate=False)
+                # Tick providera wykonujemy rzadziej (np. co 1s), bo to tylko uptime i clients.
+                # Wyjątek: jeśli coś wymusza odświeżenie (np. zmiana liczby klientów).
+                if now - last_health >= TSP_HEALTH_INTERVAL_MS or client_count != getattr(self, "_last_client_count", -1):
+                    self.provider.tick(client_count=client_count)
+                    self._last_client_count = client_count
 
-            # 5. Komendy systemowe (ETAP 8)
-            self._poll_system_commands()
+                # 1. Obsługa URGENT — najwyższy priorytet, bez celowego opóźniania
+                urgent_items = self.provider.pop_urgent_events()
+                has_urgent = len(urgent_items) > 0
+                if client_count > 0:
+                    for item in urgent_items:
+                        self.broadcast(item, lane=LANE_URGENT, immediate=True, clients=clients)
 
-            # 6. Traces
-            self._emit_traces(clients=clients, now=now)
+                # 2. Pasma regularne (FAST, NORMAL, SLOW, HEALTH) — tylko gdy są klienci
+                if client_count > 0:
+                    # FAST ~10ms
+                    if now - last_fast >= TSP_FAST_INTERVAL_MS:
+                        dt = now - last_fast
+                        last_fast = now
+                        self.broadcast_lane(LANE_FAST, dt, clients=clients)
 
-            # 5. Adaptacyjne usypianie pętli
-            self._sleep_until_next_lane(
-                now_ms=monotonic_ms(),
-                last_fast=last_fast,
-                last_normal=last_normal,
-                last_slow=last_slow,
-                last_health=last_health,
-                has_urgent=has_urgent
-            )
+                    # NORMAL ~50ms
+                    if now - last_normal >= TSP_NORMAL_INTERVAL_MS:
+                        dt = now - last_normal
+                        last_normal = now
+                        self.broadcast_lane(LANE_NORMAL, dt, clients=clients)
+
+                    # SLOW ~500ms
+                    if now - last_slow >= TSP_SLOW_INTERVAL_MS:
+                        dt = now - last_slow
+                        last_slow = now
+                        self.broadcast_lane(LANE_SLOW, dt, clients=clients)
+
+                    # HEALTH ~1000ms
+                    if now - last_health >= TSP_HEALTH_INTERVAL_MS:
+                        last_health = now
+                        health = health_packet(
+                            node=self.node_name,
+                            clients=client_count,
+                            stats=self.debug.stats.as_dict(),
+                            state=self.provider.state_summary(),
+                        )
+                        self.broadcast(health, lane=LANE_HEALTH, clients=clients)
+                else:
+                    # Jeśli nie ma klientów, pasma mogą "płynąć", ale resetujemy last_health
+                    # żeby provider.tick powyżej działał poprawnie co sekundę.
+                    if now - last_health >= TSP_HEALTH_INTERVAL_MS:
+                        last_health = now
+
+                # 3. Logi statystyk
+                if now - self._last_stats_ms >= TSP_STATS_LOG_INTERVAL_MS:
+                    self._last_stats_ms = now
+                    stats = self.debug.stats.as_dict()
+                    self.logger.info(
+                        "TSP_STATS clients=%s tx=%s rx=%s errors=%s dropped=%s lanes=%s",
+                        client_count, stats["packets_tx"], stats["packets_rx"], stats["errors"], stats["dropped"], stats["lane_packets"],
+                    )
+                    
+                    # Etap 16: Publikacja FAST_STATS do SignalBus
+                    try:
+                        from core.tarzanSignalBus import get_signal_bus
+                        bus = get_signal_bus()
+                        if bus.exists("tsp_fast_stats"):
+                            bus.set_input("tsp_fast_stats", json.dumps(stats), source="TSP_STATS")
+                    except Exception:
+                        pass
+
+                # 4. LKS-N5 — spokojna praca:
+                if not self._stopping and self.lks_n5 is not None:
+                    self._poll_lks_n5_events()
+                    if self._lks_n5_dirty:
+                        self._refresh_lks_n5(reason=self._lks_n5_dirty_reason or "event", immediate=False)
+
+                # 5. Komendy systemowe (ETAP 8)
+                self._poll_system_commands()
+
+                # 6. Traces
+                self._emit_traces(clients=clients, now=now)
+
+                # 5. Adaptacyjne usypianie pętli
+                self._sleep_until_next_lane(
+                    now_ms=monotonic_ms(),
+                    last_fast=last_fast,
+                    last_normal=last_normal,
+                    last_slow=last_slow,
+                    last_health=last_health,
+                    has_urgent=has_urgent,
+                    client_count=client_count
+                )
 
     def _sleep_until_next_lane(
         self,
@@ -1205,18 +1219,22 @@ class TarzanTspServer:
         last_slow: int,
         last_health: int,
         has_urgent: bool = False,
+        client_count: int = 0,
     ) -> None:
-        # Jeśli właśnie wysłaliśmy pilne zdarzenia, śpimy bardzo krótko (1ms),
-        # żeby sprawdzić czy nie ma kolejnych w buforze providera.
-        if has_urgent:
-            time.sleep(0.001)
+        # Zgodnie z wymaganiem: Brak klientów i brak ruchu = głęboki sen.
+        is_take_playing = getattr(self, "_take_playback_start_ms", 0) > 0
+        if client_count == 0 and not is_take_playing:
+            time.sleep(0.2)
             return
 
-        # Zgodnie z wymaganiem: brak akcji = system śpi.
-        # Jeśli nie ma klientów, nie musimy trzymać rytmu TSP_FAST_INTERVAL_MS (10ms).
-        # Możemy spać dłużej, oszczędzając CPU w trybie IDLE.
-        if len(self.clients()) == 0:
-            time.sleep(0.1)
+        # Jeśli trwa ruch (TAKE), wymuszamy rytm 10ms dla płynności.
+        if is_take_playing:
+            time.sleep(0.01)
+            return
+
+        # Jeśli właśnie wysłaliśmy pilne zdarzenia, śpimy krótko, ale nie 1ms.
+        if has_urgent:
+            time.sleep(0.005)
             return
 
         # Obliczamy czas do najbliższego wymaganego pasma
@@ -1230,18 +1248,16 @@ class TarzanTspServer:
 
         remaining_ms = next_due_ms - now_ms
 
-        # Jeśli już czas na pasmo (lub spóźnienie), nie śpimy długo.
+        # Jeśli już czas na pasmo (lub spóźnienie), nie śpimy 1ms (zgodnie z wymogiem).
         if remaining_ms <= 0:
-            time.sleep(0.001)
+            time.sleep(0.005)
             return
 
-        # Adaptacyjny sleep: śpimy do najbliższego pasma, ale nie więcej niż 10ms (FAST),
-        # aby zachować responsywność na nowe URGENT z providera.
-        sleep_s = min(0.010, remaining_ms / 1000.0)
-
-        # Zgodnie z wymaganiem: sleep zazwyczaj w zakresie kilku ms.
-        if sleep_s < 0.002:
-            sleep_s = 0.002
+        # Adaptacyjny sleep: śpimy do najbliższego pasma, ale w granicach 10-50ms (aktywny klient).
+        sleep_s = min(0.050, remaining_ms / 1000.0)
+        
+        if sleep_s < 0.010:
+            sleep_s = 0.010
 
         time.sleep(sleep_s)
 

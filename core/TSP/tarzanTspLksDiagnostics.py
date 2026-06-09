@@ -106,12 +106,14 @@ class TarzanTspLksDiagnostics:
         inventory_path: Optional[str] = None,
         requirements_path: Optional[str] = None,
         collect_inventory_if_missing: bool = True,
+        hardware_bridge: Optional[Any] = None,
     ) -> None:
         self.repo_root = Path(repo_root or self._detect_repo_root()).resolve()
         self.required_bus_devices = tuple(required_bus_devices or REQUIRED_BUS_DEVICES)
         self.inventory_path = self._resolve_path(inventory_path or DEFAULT_INVENTORY_PATH)
         self.requirements_path = self._resolve_path(requirements_path or DEFAULT_REQUIREMENTS_PATH)
         self.collect_inventory_if_missing = bool(collect_inventory_if_missing)
+        self.hardware_bridge = hardware_bridge
         self.results: List[LksCheckResult] = []
         self.statuses: Dict[str, bool] = empty_statuses(False)
         self.inventory = _InventoryView(self._load_or_collect_inventory())
@@ -216,11 +218,33 @@ class TarzanTspLksDiagnostics:
         )
 
     def _try_hardware_probe(self, component: str, visible: bool = False) -> Optional[LksHardwareTestResult]:
+        """Test fizyczny przez aktywny HardwareBridge, jeśli istnieje.
+
+        Nie otwieramy drugiej sesji PoKeys, gdy bridge już zarządza USB. To
+        utrzymuje zasadę Snajpera: akcja punktowa budzi istniejący tor i wraca
+        do IDLE, bez dublowania PoKeys i bez "Requested device not found".
+        """
+        bridge = getattr(self, "hardware_bridge", None)
+        if bridge is not None and hasattr(bridge, "test_lks_component"):
+            try:
+                result = bridge.test_lks_component(component, visible=visible)
+                if isinstance(result, Mapping):
+                    return LksHardwareTestResult(
+                        component=str(result.get("component") or component),
+                        ok=bool(result.get("ok", False)),
+                        supported=True,
+                        label=f"{component} HardwareBridge/Snajper test",
+                        detail=str(result.get("detail", "") or ""),
+                        error=str(result.get("error", "") or ""),
+                    )
+            except Exception as exc:
+                return LksHardwareTestResult(component=component, ok=False, supported=True, label=f"{component} HardwareBridge/Snajper test", error=str(exc))
+
         try:
             probe = self.hardware_tests.test_component(component, visible=visible)
+            return probe if probe.supported else None
         except Exception as exc:
             return LksHardwareTestResult(component=component, ok=False, supported=True, label=f"{component} sovereign hardware test", error=str(exc))
-        return probe if probe.supported else None
 
     def _check_import(self, module_name: str, key: str, component: str, label: str, required: bool = True) -> LksCheckResult:
         start = time.time()

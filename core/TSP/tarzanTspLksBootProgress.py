@@ -409,41 +409,23 @@ class TarzanTspLksBootProgress:
         return ok, ", ".join(nodes[:6]), "no /dev/video*" if not ok else ""
 
     def _check_diagnostics(self) -> Tuple[bool, str, str]:
-        # Jeżeli HardwareBridge już trzyma PLAY/REC, diagnostyka startowa idzie tym samym torem.
-        # Nie wolno tutaj otwierać drugiej sesji PoKeys, bo wtedy pojawia się fałszywe
-        # "Requested device not found!" i status_main nie dostaje poprawnych testów fizycznych.
-        if self.hardware_bridge is not None and hasattr(self.hardware_bridge, "test_lks_component"):
-            tests = [
-                ("pok_play", False),
-                ("pok_rec", False),
-                ("i2c_bus", False),
-                ("light_bh1750", False),
-                ("lcd_1602", True),
-                ("matrix_led", True),
-                ("f_led", True),
-                ("f_button", False),
-                ("keypad", False),
-            ]
-            ok_count = 0
-            fail_count = 0
-            details: List[str] = []
-            for component, visible in tests:
-                result = self._bridge_test(component, visible=visible)
-                ok = bool(result and result[0])
-                self.statuses[component] = ok
-                ok_count += 1 if ok else 0
-                fail_count += 0 if ok else 1
-                if result and result[1]:
-                    details.append(f"{component}:{result[1]}")
-            # i2c_bus jest agregatem USB/UART/I2C/BUS — ma zostać zielony, jeśli realny BUS odpowiada.
-            return True, f"bridge diagnostics ok={ok_count} off/fail={fail_count}", "; ".join(details)[:180]
-
-        diagnostics = TarzanTspLksDiagnostics(repo_root=str(self.repo_root))
+        # Pełna diagnostyka status_main ma zostać pełna. Jeżeli HardwareBridge
+        # istnieje, TarzanTspLksDiagnostics użyje go dla PoKeys/LCD/matrix/I2C,
+        # więc nie powstanie druga sesja USB i nie wróci obciążenie CPU.
+        diagnostics = TarzanTspLksDiagnostics(
+            repo_root=str(self.repo_root),
+            hardware_bridge=self.hardware_bridge,
+        )
         results = diagnostics.run_all(operator_visible=True)
         self.statuses.update(diagnostics.status_map())
         ok_count = sum(1 for item in results if item.ok)
         fail_count = sum(1 for item in results if not item.ok)
-        return True, f"diagnostics ok={ok_count} off/fail={fail_count}", ""
+        details = "; ".join(
+            f"{item.component}:{item.detail or item.error}"
+            for item in results
+            if item.detail or item.error
+        )[:180]
+        return True, f"diagnostics full ok={ok_count} off/fail={fail_count}", details
 
     # ------------------------------------------------------------------
 

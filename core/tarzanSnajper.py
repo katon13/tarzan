@@ -634,3 +634,241 @@ TARZAN_SNAJPER_USAGE_CONTRACT = """
 9. Bridge obsługuje fizyczny Nextion.
 10. Jedna zmiana = jeden strzał w konkretne cele.
 """
+
+
+# ======================================================================
+# SNAJPER HARDWARE POLICY — AKCJA -> REAKCJA, BRAK AKCJI -> IDLE
+# ======================================================================
+class TarzanSnajperHardwarePolicy:
+    """Centralna polityka wybudzania hardware.
+
+    To nie jest sterownik USB. Snajper wyznacza, czy dana zmiana/akcja jest
+    fizycznym strzałem w hardware. HardwareBridge dopiero wykonuje połączenie
+    PoKeys/I2C/wyjście i po krótkim oknie wraca do IDLE.
+    """
+
+    IDLE_MODES = {"", "tm", "idle", "stop", "none", "null", "manual_idle"}
+    EXEC_MODES = {"taa", "tat", "auto", "play", "rec", "take", "ehr", "khr", "live_exec"}
+    EXEC_TRANSPORT = {"PLAY", "REC", "RUN", "ACTIVE"}
+
+    # Fizyczne zapisy/komendy, które wymagają PoKeys albo toru wykonawczego.
+    PHYSICAL_SIGNAL_PREFIXES = (
+        "par_lcd_",
+        "par_matrix_",
+        "par_f_led_",
+    )
+    PHYSICAL_SIGNAL_NAMES = {
+        "play_p37_step_disconnect_manual",
+        "cmd_run_diagnostics",
+        "cmd_clear_alarms",
+        "cmd_unlock_axes",
+        "safety_axis_unlock",
+        "rec_p46_led_f1",
+        "rec_p48_led_f2",
+        "rec_p50_led_f3",
+        "rec_p52_led_f4",
+    }
+    PHYSICAL_ACTIONS = {
+        "play_take",
+        "take_play",
+        "record_take",
+        "take_record",
+        "run_diagnostics",
+        "test_lks_component",
+        "lks_test_component",
+        "test_component",
+        "test_axis",
+        "axis_test",
+        "sensor_test",
+        "sensor_read",
+        "manual_record_arm",
+        "manual_axis_step",
+        "axis_enable",
+        "clear_axis_errors",
+        "set_mode_exec",
+        "ehr_cmd",
+        "khr_cmd",
+        "camera_mode",
+        "remote_action",
+        "sok_set",
+    }
+    LIGHT_ACTIONS = {
+        "hello",
+        "get_state",
+        "health",
+        "ping",
+        "connect",
+        "disconnect",
+        "nextion_connect",
+        "nextion_sync",
+        "sync",
+        "set_page",
+        "clear_transport_log",
+        "preview_rrp_tap",
+        "preview_rrp_set_value",
+        "clap",
+        "load_take",
+        "take_load",
+        "pause_take",
+        "take_pause",
+        "stop_take",
+        "take_stop",
+        "stop",
+    }
+    LKS_POKEYS_COMPONENTS = {
+        "pok_play",
+        "pok_rec",
+        "lcd_1602",
+        "matrix_led",
+        "f_led",
+        "f_button",
+        "keypad",
+        "i2c_bus",
+        "light_bh1750",
+    }
+    LKS_LIGHT_COMPONENTS = {
+        "linux_sys",
+        "tsp_lan",
+        "signalbus_sys",
+        "snajper_sys",
+        "next_5",
+        "next_7",
+        "cam_main",
+        "cam_track",
+        "par_sys",
+        "ehr_sys",
+        "take_sys",
+    }
+
+    @staticmethod
+    def truthy(value: Any) -> bool:
+        text = str(value).strip().lower()
+        return text not in {"", "0", "false", "off", "none", "null", "stop", "idle", "tm"}
+
+    @staticmethod
+    def normalize_component(component: Any) -> str:
+        raw = str(component or "").strip().lower()
+        aliases = {
+            "play": "pok_play",
+            "pokeys_play": "pok_play",
+            "pokeys_player": "pok_play",
+            "player": "pok_play",
+            "rec": "pok_rec",
+            "reck": "pok_rec",
+            "pokeys_rec": "pok_rec",
+            "pokeys_reck": "pok_rec",
+            "lcd": "lcd_1602",
+            "lcd1602": "lcd_1602",
+            "matrix": "matrix_led",
+            "matrix8x8": "matrix_led",
+            "led_matrix": "matrix_led",
+            "f_buttons": "f_button",
+            "buttons": "f_button",
+            "f_leds": "f_led",
+            "leds": "f_led",
+            "bh1750": "light_bh1750",
+            "light": "light_bh1750",
+            "i2c": "i2c_bus",
+            "bus": "i2c_bus",
+            "nextion7": "next_7",
+            "nextion_7": "next_7",
+            "n7": "next_7",
+            "nextion5": "next_5",
+            "nextion_5": "next_5",
+            "n5": "next_5",
+            "par": "par_sys",
+            "ehr": "ehr_sys",
+            "take": "take_sys",
+        }
+        return aliases.get(raw, raw)
+
+    def lks_component_needs_pokeys(self, component: Any) -> bool:
+        return self.normalize_component(component) in self.LKS_POKEYS_COMPONENTS
+
+    def lks_component_is_light(self, component: Any) -> bool:
+        return self.normalize_component(component) in self.LKS_LIGHT_COMPONENTS
+
+    def should_wake_for_signal(self, name: Any, value: Any, source: str = "") -> bool:
+        sig = str(name or "").strip()
+        if not sig:
+            return False
+
+        # Impuls wybudzenia sam w sobie jest obsługiwany przez HardwareBridge.
+        if sig in {"cmd_hardware_awake", "hardware_realtime_required", "hardware_connected"}:
+            return False
+
+        if sig == "transport_state":
+            return str(value).strip().upper() in {"PLAY", "REC"}
+
+        if sig == "active_mode":
+            mode = str(value).strip().lower()
+            return mode in self.EXEC_MODES and mode not in self.IDLE_MODES
+
+        # Ruch osi budzi tylko wtedy, gdy jest realna wartość wykonawcza.
+        if sig.startswith("axis_"):
+            if sig.endswith(("_dir", "_step", "_pulses", "_enable", "_speed", "_target")):
+                return self.truthy(value)
+            return False
+
+        # RRP/SOK budzą tylko przy realnym ruchu/wartości, nie przy samym wyborze osi/statusie.
+        if sig.startswith("rrp_"):
+            if any(token in sig for token in ("value", "speed", "dir", "move", "step", "pulse")):
+                return self.truthy(value)
+            return False
+
+        if sig.startswith("sok_"):
+            if any(token in sig for token in ("value", "speed", "dir", "move", "step", "pulse", "set")):
+                return self.truthy(value)
+            return False
+
+        if sig.startswith(self.PHYSICAL_SIGNAL_PREFIXES):
+            return True
+
+        if sig in self.PHYSICAL_SIGNAL_NAMES:
+            return self.truthy(value)
+
+        return False
+
+    def should_wake_for_action(self, name: Any, payload: Any = None, source: str = "") -> bool:
+        action = str(name or "").strip()
+        if not action:
+            return False
+        if action in self.LIGHT_ACTIONS:
+            return False
+
+        data = payload if isinstance(payload, dict) else {}
+        component = data.get("component") or data.get("name") or data.get("target") or data.get("device")
+        if component and self.lks_component_needs_pokeys(component):
+            return True
+        if action in self.PHYSICAL_ACTIONS:
+            return True
+        if action.startswith(("axis_", "manual_axis_", "test_axis_", "sensor_", "hardware_", "lks_test")):
+            return True
+        return False
+
+    def runtime_requires_realtime(
+        self,
+        *,
+        active_mode: Any = "tM",
+        transport_state: Any = "STOP",
+        control_owner: Any = "",
+        cmd_hardware_awake: Any = 0,
+    ) -> bool:
+        if self.truthy(cmd_hardware_awake):
+            return True
+        if str(transport_state or "").strip().upper() in {"PLAY", "REC"}:
+            return True
+        mode = str(active_mode or "").strip().lower()
+        if mode in self.EXEC_MODES and mode not in self.IDLE_MODES:
+            return True
+        return False
+
+    def grace_ms_for(self, kind: str = "default") -> int:
+        key = str(kind or "default").lower()
+        if key in {"lks", "diagnostic", "test"}:
+            return 4500
+        if key in {"move", "axis", "take", "rec", "play"}:
+            return 5000
+        if key in {"par", "nextion7", "ui"}:
+            return 3000
+        return 3000

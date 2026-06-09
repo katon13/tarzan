@@ -16,6 +16,7 @@ from core.tarzanZmienneSygnalowe import (
     TarzanSygnal
 )
 from core.TSP.tarzanTspLog import setup_tsp_logger
+from core.tarzanSnajper import TarzanSnajperHardwarePolicy
 
 # Próba importu biblioteki PoKeys
 try:
@@ -67,6 +68,8 @@ class TarzanHardwareBridge:
         self._last_activity_ms = 0 # Startujemy w IDLE
         self._reconnect_cooldown_ms = 0
         self._idle_timeout_ms = 3000  # Grace period 3s (2-5s wg wytycznych)
+        self._hardware_awake_until_ms = 0.0
+        self._snajper_policy = TarzanSnajperHardwarePolicy()
         self._last_connect_failed = False # Flaga dla selektywnego cooldownu
         
         # Optymalizacja (Etap 17): cache wejść hardware'owych
@@ -210,12 +213,37 @@ class TarzanHardwareBridge:
             elif is_active:
                 time.sleep(0.01)  # 100Hz realtime (10ms)
             else:
-                # W głębokim IDLE nie robimy pollingu.
-                self.bus.wait_for_change(timeout=1.0)
+                # W głębokim IDLE nie ma SignalBus wait zależnego od wersji SignalBus.
+                # Brak akcji = spokój, bez libusb/PoKeys i bez kręcenia CPU.
+                time.sleep(1.0)
 
     def _is_any_connected(self) -> bool:
         with self._lock:
             return any(dev is not None for dev in self.devices.values())
+
+    def request_hardware_awake(self, source: str = "SNAJPER", grace_ms: int = 3000, ensure: bool = False) -> None:
+        """Krótki strzał Snajpera w hardware: akcja -> reakcja.
+
+        Nie jest to stały tryb pracy. Metoda daje okno aktywności, opcjonalnie
+        łączy PoKeys natychmiast na czas testu/akcji i po grace wraca do IDLE.
+        """
+        try:
+            now = time.time() * 1000.0
+            grace = max(500, int(grace_ms or self._snajper_policy.grace_ms_for("default")))
+            self._hardware_awake_until_ms = max(self._hardware_awake_until_ms, now + grace)
+            self._last_activity_ms = now
+            try:
+                self.bus.set_input("hardware_realtime_required", 1, source=f"HW_AWAKE_{source}")
+            except Exception:
+                pass
+            try:
+                self.bus.set_input("cmd_hardware_awake", 0, source=f"HW_AWAKE_{source}_ACK")
+            except Exception:
+                pass
+            if ensure:
+                self._ensure_connected()
+        except Exception as exc:
+            self.logger.debug("request_hardware_awake failed source=%s error=%s", source, exc)
 
     def _ensure_connected(self) -> None:
         """Nawiązuje połączenie z PoKeys jeśli system jest aktywny a hardware uśpiony."""
@@ -267,20 +295,44 @@ class TarzanHardwareBridge:
             self.bus.set_input("hardware_connected", 0, source="HW_BRIDGE")
 
     def _is_system_active(self) -> bool:
-        """Szybki test aktywności systemu dla adaptacyjnego pollingu."""
+        """Szybki test aktywności systemu dla adaptacyjnego pollingu.
+
+        Zasada: sama obecność PAR/EHR/Nextiona nie budzi PoKeys. Budzi tylko
+        jawny strzał Snajpera, PLAY/REC, tryb wykonawczy albo realny ruch osi.
+        """
         try:
-            # GŁÓWNY WYZWALACZ: Sygnał z Snajper/Mode/SignalBus (ZASADA SNAJPERA)
-            # HardwareBridge czeka na jawne żądanie pracy realtime.
-            if int(self.bus.read("hardware_realtime_required", 0)) == 1:
+            now = time.time() * 1000.0
+            if now < float(self._hardware_awake_until_ms):
                 return True
-            
-            # W trybie IDLE hardware jest odłączony, więc nie wykryjemy ruchu 
-            # na wejściach PoKeys. Wybudzenie musi przyjść drogą logiczną (z góry).
+
+            cmd = self.bus.read("cmd_hardware_awake", 0)
+            active_mode = self.bus.read("active_mode", "tM")
+            transport = self.bus.read("transport_state", "STOP")
+            owner = self.bus.read("control_owner", "TSP_BOOT")
+            if self._snajper_policy.runtime_requires_realtime(
+                active_mode=active_mode,
+                transport_state=transport,
+                control_owner=owner,
+                cmd_hardware_awake=cmd,
+            ):
+                if self._snajper_policy.truthy(cmd):
+                    self.request_hardware_awake(source="SIGNALBUS_CMD", grace_ms=3000, ensure=False)
+                return True
+
+            # Realtime z ModeLogic jest pomocniczy. Nie może zostać wiecznie
+            # przyklejony po krótkim teście LKS/PAR.
+            if int(self.bus.read("hardware_realtime_required", 0) or 0) == 1:
+                # Jeżeli nie ma już transportu/trybu/impulsu i lokalne okno wygasło,
+                # gasimy stan, żeby PoKeys mógł zasnąć.
+                try:
+                    self.bus.set_input("hardware_realtime_required", 0, source="HW_IDLE_EXPIRE")
+                except Exception:
+                    pass
+                return False
+
             return False
-            
         except Exception:
-            # W razie błędu czytania sygnałów NIE budzimy PoKeys w IDLE.
-            # Realtime może włączyć tylko jawny sygnał z Mode/SignalBus/Snajper.
+            # Błąd odczytu nie może wybudzać PoKeys w IDLE.
             return False
 
     def _handle_manual_generator(self) -> bool:
@@ -705,14 +757,69 @@ class TarzanHardwareBridge:
         except Exception as exc:
             return self._lks_test_result("light_bh1750", False, error=str(exc))
 
-    def test_lks_component(self, component: str, visible: bool = True) -> Dict[str, Any]:
-        """Punktowy test LKS-N5 bez otwierania drugiej sesji PoKeys.
+    def _normalize_lks_component(self, component: str) -> str:
+        raw = str(component or "").strip()
+        aliases = {
+            "nextion7": "next_7",
+            "nextion_7": "next_7",
+            "n7": "next_7",
+            "pokeys_play": "pok_play",
+            "pokeys_rec": "pok_rec",
+            "play": "pok_play",
+            "rec": "pok_rec",
+            "lcd": "lcd_1602",
+            "matrix": "matrix_led",
+            "f_buttons": "f_button",
+            "f_leds": "f_led",
+            "bh1750": "light_bh1750",
+            "i2c": "i2c_bus",
+        }
+        return aliases.get(raw, raw)
 
-        Używa urządzeń PLAY/REC już trzymanych przez aktywny HardwareBridge,
-        więc kliknięcie status_main nie dubluje połączeń USB i nie generuje
-        fałszywego "Requested device not found!".
+    def _lks_status_from_bus(self, name: str) -> Optional[Dict[str, Any]]:
+        """Lekki status logiczny bez budzenia PoKeys."""
+        try:
+            if name == "linux_sys":
+                return self._lks_test_result(name, True, detail="Linux/runtime active")
+            if name == "snajper_sys":
+                return self._lks_test_result(name, True, detail="SignalBus/Snajper active")
+            if name == "take_sys":
+                return self._lks_test_result(name, True, detail=str(self.bus.read("transport_state", "STOP")))
+            if name == "par_sys":
+                state = str(self.bus.read("par_state", self.bus.read("par_status", "NOT_CONNECTED")))
+                ok = state.upper() in {"CONNECTED", "PAR_CONNECTED", "ACTIVE", "LIVE"}
+                return self._lks_test_result(name, ok, detail=state, error="PAR not connected" if not ok else "")
+            if name == "ehr_sys":
+                state = str(self.bus.read("ehr_state", self.bus.read("ehr_status", "NOT_CONNECTED")))
+                ok = state.upper() in {"CONNECTED", "EHR_CONNECTED", "ACTIVE", "LIVE"}
+                return self._lks_test_result(name, ok, detail=state, error="EHR not connected" if not ok else "")
+            if name in {"cam_main", "cam_track"}:
+                nodes = sorted(glob.glob("/dev/video*"))
+                need = 1 if name == "cam_main" else 2
+                ok = len(nodes) >= need
+                return self._lks_test_result(name, ok, detail=", ".join(nodes[:4]), error="no camera node" if not ok else "")
+            if name in {"rrp", "sok_poz", "sok_pion", "kam_poz", "kam_pion", "kam_ostr", "kam_poch", "ram_poziom", "ram_pion", "kranc", "level_xyz", "shock_alarm", "light_laser"}:
+                # Te elementy sprawdza konserwatywna diagnostyka read-only poniżej.
+                return None
+        except Exception as exc:
+            return self._lks_test_result(name, False, error=str(exc))
+        return None
+
+    def test_lks_component(self, component: str, visible: bool = True) -> Dict[str, Any]:
+        """Punktowy test LKS-N5: akcja -> reakcja, bez ADHD-loop.
+
+        Klik status_main budzi tylko potrzebny tor na czas testu. Po grace period
+        HardwareBridge wraca do IDLE i PoKeys zostaje odpięty.
         """
-        name = str(component)
+        name = self._normalize_lks_component(component)
+
+        if self._snajper_policy.lks_component_needs_pokeys(name):
+            self.request_hardware_awake(
+                source=f"LKS_{name}",
+                grace_ms=self._snajper_policy.grace_ms_for("lks"),
+                ensure=True,
+            )
+
         with self._lock:
             if name == "pok_play":
                 dev = self._device_ready("PLAY")
@@ -735,8 +842,25 @@ class TarzanHardwareBridge:
             if name == "light_bh1750":
                 return self._lks_test_bh1750()
             if name == "next_7":
+                # Nextion 7 jest UART/HMI: test portu nie wymaga PoKeys.
                 return self._lks_test_nextion7()
-            return self._lks_test_result(name, False, error="component not handled by active HardwareBridge point test")
+
+        logical = self._lks_status_from_bus(name)
+        if logical is not None:
+            return logical
+
+        # Fallback dla pozostałych kontrolek status_main: pełna stara diagnostyka,
+        # ale tylko read-only / repo-status. Nie wykonujemy ruchu osi.
+        try:
+            from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
+            diagnostics = TarzanTspLksDiagnostics(hardware_bridge=None)
+            results = diagnostics.run_component(name, operator_visible=visible)
+            ok = bool(diagnostics.status_map().get(name, False))
+            detail = "; ".join([str(getattr(r, "detail", "") or getattr(r, "error", "")) for r in results])[:180]
+            return self._lks_test_result(name, ok, detail=detail, error="" if ok else detail)
+        except Exception as exc:
+            return self._lks_test_result(name, False, error=f"component not handled by active HardwareBridge point test: {exc}")
+
 
     # ------------------------------------------------------------------
     # SignalBus LIVE Adapter Interface

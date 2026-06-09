@@ -229,23 +229,12 @@ class TarzanTspSignalProvider:
         from core.tarzanSignalBus import get_signal_bus
         bus = get_signal_bus()
         
-        # ZASADA SNAJPERA: Wybudzamy hardware tylko dla realnych komend wykonawczych.
-        # Nie wolno budzić PoKeys od statusów, STOP, tM, hello/get_state/health ani inicjalizacji.
-        from core.tarzanZmienneSygnalowe import AWAKE_SIGNAL_PREFIXES, AWAKE_SIGNAL_NAMES
-
-        def _is_awake_signal(sig_name: str, sig_value: Any) -> bool:
-            if sig_name == "cmd_hardware_awake":
-                return False
-            if sig_name == "transport_state":
-                # PLAY/REC wymagają realtime; STOP/PAUSE/status nie wybudza hardware.
-                return str(sig_value).upper() in {"PLAY", "REC"}
-            if sig_name == "active_mode":
-                # tM to spoczynek/manual bez wykonywania; wybudza tylko tryb wykonawczy.
-                return str(sig_value) not in {"", "tM", "TM", "None", "none"}
-            return sig_name.startswith(AWAKE_SIGNAL_PREFIXES) or sig_name in AWAKE_SIGNAL_NAMES
-
-        if _is_awake_signal(name, value):
-            bus.set_input("cmd_hardware_awake", 1, source=f"ACT_{source}")
+        # ZASADA SNAJPERA: wybudzamy hardware tylko dla realnych strzałów.
+        # Handshake PAR/EHR, statusy, STOP, tM i odświeżenia UI są lekkie.
+        from core.tarzanSnajper import TarzanSnajperHardwarePolicy
+        snajper_policy = TarzanSnajperHardwarePolicy()
+        if snajper_policy.should_wake_for_signal(name, value, source=source):
+            bus.set_input("cmd_hardware_awake", 1, source=f"SNAJPER_SIG_{source}")
         
         if not bus.exists(name):
             with self._lock:
@@ -358,10 +347,12 @@ class TarzanTspSignalProvider:
         from core.tarzanSignalBus import get_signal_bus
         bus = get_signal_bus()
         
-        # ZASADA SNAJPERA: Wybudzamy hardware tylko dla realnych akcji sprzętowych. (Etap 18)
-        from core.tarzanZmienneSygnalowe import AWAKE_ACTION_NAMES
-        if name in AWAKE_ACTION_NAMES:
-            bus.set_input("cmd_hardware_awake", 1, source=f"ACT_CMD_{name}")
+        # ZASADA SNAJPERA: tylko akcja wykonawcza budzi hardware.
+        # Samo PAR connect/get_state/Nextion page nie trzyma PoKeys.
+        from core.tarzanSnajper import TarzanSnajperHardwarePolicy
+        snajper_policy = TarzanSnajperHardwarePolicy()
+        if snajper_policy.should_wake_for_action(name, payload, source="TSP_ACTION"):
+            bus.set_input("cmd_hardware_awake", 1, source=f"SNAJPER_ACT_{name}")
         
         payload = payload or {}
         parcore = getattr(self, "parcore", None)

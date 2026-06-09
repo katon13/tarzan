@@ -4,14 +4,18 @@ Spięcie sygnałów logicznych z torami wykonawczymi.
 """
 import threading
 import time
-from typing import Optional
+from typing import Optional, Any
 from core.tarzanSignalBus import get_signal_bus
+from core.tarzanSnajper import TarzanSnajperHardwarePolicy
 
 class TarzanModeLogic:
     def __init__(self):
         self.bus = get_signal_bus()
         self.running = False
         self._thread: Optional[threading.Thread] = None
+        self._snajper_policy = TarzanSnajperHardwarePolicy()
+        self._hardware_awake_until_ms = 0.0
+        self._last_realtime_required: Optional[int] = None
 
     def start(self):
         if self.running:
@@ -35,8 +39,13 @@ class TarzanModeLogic:
             # ETAP 8 i 9: Obsługa komend systemowych
             self._handle_system_commands()
 
-            # ZASADA SNAJPERA: Auto-reset impulsu wybudzenia od klientów TSP (Etap 17)
-            if self.bus.read("cmd_hardware_awake", 0):
+            cmd_awake = self.bus.read("cmd_hardware_awake", 0)
+            if self._snajper_policy.truthy(cmd_awake):
+                now = time.time() * 1000.0
+                self._hardware_awake_until_ms = max(
+                    self._hardware_awake_until_ms,
+                    now + self._snajper_policy.grace_ms_for("default"),
+                )
                 self.bus.set_input("cmd_hardware_awake", 0, source="MODE_AUTO_RESET")
 
             active_mode = self.bus.read("active_mode", "tM")
@@ -51,63 +60,72 @@ class TarzanModeLogic:
                 # Tryb MANUAL — rRP/SOK sterują bezpośrednio (Etap 13)
                 if owner in {"PAR_LIVE", "TSP_SERVICE", "LKS_DIAGNOSTIC"}:
                     self._handle_manual_control()
-            
+
             elif active_mode == "tAA":
                 # Tryb ALL AUTO — EHR/TAKE steruje osiami (Etap 14)
                 if owner == "EHR_PLAYBACK" and transport == "PLAY":
                     self._handle_auto_playback()
-            
+
             # Przykład: Jeśli transport = REC, zapalamy LED nagrywania
             if transport == "REC":
                 self.bus.write_output("rec_p09_led_data", 1, source="MODE_LOGIC")
             else:
                 self.bus.write_output("rec_p09_led_data", 0, source="MODE_LOGIC")
 
-            # GŁÓWNY WYZWALACZ REALTIME DLA HARDWARE (ZASADA SNAJPERA)
-            # Jeśli system jest aktywny, żądamy od HardwareBridge trybu realtime (PoKeys USB connect).
-            is_active = self._is_system_active()
-            self.bus.set_input("hardware_realtime_required", 1 if is_active else 0, source="MODE_LOGIC")
+            is_active = self._is_system_active(
+                active_mode=active_mode,
+                transport=transport,
+                owner=owner,
+            )
+            realtime_required = 1 if is_active else 0
+            if realtime_required != self._last_realtime_required:
+                self.bus.set_input("hardware_realtime_required", realtime_required, source="MODE_LOGIC")
+                self._last_realtime_required = realtime_required
 
-            # Adaptacyjny sleep zgodny z Zasadą Snajpera (Etap 17)
-            if is_active:
-                time.sleep(0.05) # 20Hz aktywnie
-            else:
-                # W IDLE nie mielimy procesora (ZASADA SNAJPERA) - reaktywne budzenie
-                self.bus.wait_for_change(timeout=1.0)
+            # Adaptacyjny sleep: aktywnie lekko, IDLE spokojnie. Bez SignalBus wait.
+            time.sleep(0.05 if is_active else 1.0)
 
-    def _is_system_active(self) -> bool:
-        """Szybki test aktywności dla optymalizacji pętli mode."""
+    def _is_system_active(self, active_mode: Any = None, transport: Any = None, owner: Any = None) -> bool:
+        """Czy system wymaga realtime hardware.
+
+        Sam PAR_CONNECTED/EHR_CONNECTED/Nextion status nie wystarcza. Wymagany
+        jest strzał Snajpera, PLAY/REC, tryb wykonawczy albo realny ruch osi.
+        """
         try:
-            # 1. Czy są aktywne żądania wybudzenia od klientów?
-            if int(self.bus.read("cmd_hardware_awake", 0)) > 0:
+            now = time.time() * 1000.0
+            if now < float(self._hardware_awake_until_ms):
                 return True
-            # 2. Czy trwa ruch lub nagrywanie?
-            if self.bus.read("transport_state", "STOP") != "STOP":
+
+            active_mode = self.bus.read("active_mode", "tM") if active_mode is None else active_mode
+            transport = self.bus.read("transport_state", "STOP") if transport is None else transport
+            owner = self.bus.read("control_owner", "TSP_BOOT") if owner is None else owner
+            if self._snajper_policy.runtime_requires_realtime(
+                active_mode=active_mode,
+                transport_state=transport,
+                control_owner=owner,
+                cmd_hardware_awake=0,
+            ):
                 return True
-            # 3. Czy tryb inny niż manualny?
-            if self.bus.read("active_mode", "tM") != "tM":
-                return True
-            # 4. Czy dowolna oś ma nadany kierunek lub impulsy?
+
             from core.tarzanZmienneSygnalowe import LISTA_NAZW_OSI
             for ax in LISTA_NAZW_OSI:
-                if self.bus.read(f"axis_{ax}_dir", 0) != 0:
+                if self._snajper_policy.truthy(self.bus.read(f"axis_{ax}_dir", 0)):
                     return True
-                if self.bus.read(f"axis_{ax}_step", 0) != 0:
+                if self._snajper_policy.truthy(self.bus.read(f"axis_{ax}_step", 0)):
                     return True
-            
-            # 5. Czy są oczekujące komendy?
+
             for sig in ["cmd_unlock_axes", "cmd_clear_alarms", "cmd_ehr_start", "cmd_khr_start", "cmd_run_diagnostics"]:
-                if self.bus.read(sig, 0):
+                if self._snajper_policy.truthy(self.bus.read(sig, 0)):
                     return True
-            
-            # 6. Czy moduły wykonawcze są w stanie aktywnym? (Etap 17)
-            if self.bus.read("ehr_state", "OFFLINE") == "ACTIVE":
+
+            if str(self.bus.read("ehr_state", "OFFLINE")).upper() == "ACTIVE":
                 return True
-            if self.bus.read("khr_state", "OFFLINE") == "ACTIVE":
+            if str(self.bus.read("khr_state", "OFFLINE")).upper() == "ACTIVE":
                 return True
-            
+
         except Exception:
-            return True
+            # Błąd logiki trybu nie może wrzucać PoKeys w stałą pętlę.
+            return False
         return False
 
     def _handle_system_commands(self):

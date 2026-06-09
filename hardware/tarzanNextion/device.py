@@ -147,8 +147,8 @@ class TarzanNextionDevice:
                     out = self._drain_packets()
                     if out:
                         return out
-                    continue
-                return self._drain_packets()
+                # Jeśli read(1) wrócił pusty (timeout portu), to kontynuujemy pętlę do deadline.
+                # Nie wracamy przedwcześnie, żeby nie obciążać pętli nadrzędnej (CPU).
             except Exception as exc:
                 self.last_error = f"Błąd odczytu blokującego: {exc}"
                 self.close()

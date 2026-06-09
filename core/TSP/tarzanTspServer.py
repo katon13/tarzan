@@ -460,6 +460,10 @@ class TarzanTspServer:
         """
         if self._stopping or self.lks_n5 is None:
             return
+        now = monotonic_ms()
+        if now - self._lks_n5_last_poll_ms < 100:
+            return
+        self._lks_n5_last_poll_ms = now
         try:
             for event in self.lks_n5.read_events():
                 component = self._decode_lks_n5_touch_event(event)

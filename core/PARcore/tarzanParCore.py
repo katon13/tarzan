@@ -2068,13 +2068,16 @@ class TarzanParCore:
     def get_rrp_state(self) -> Dict[str, Any]:
         return dict(self._rrp_nextion_state)
 
-    def get_nextion_monitor_state(self) -> Dict[str, Any]:
+    def get_nextion_monitor_state(self, screen_key: str = "nextion_7", **kwargs: Any) -> Dict[str, Any]:
         bridge = self._nextion7_bridge or self.nextion
         for method in ("get_nextion_monitor_state", "snapshot"):
             fn = getattr(bridge, method, None) if bridge is not None else None
             if callable(fn):
                 try:
-                    state = fn()
+                    try:
+                        state = fn(screen_key)
+                    except TypeError:
+                        state = fn()
                     if isinstance(state, dict):
                         return state
                 except Exception:
@@ -2749,6 +2752,15 @@ class TarzanParCore:
             "nextion_connect": self.nextion_connect,
             "nextion_sync": self.nextion_sync,
             "nextion_poll": self.nextion_poll,
+            "connect_screen": self.connect_screen,
+            "disconnect_screen": self.disconnect_screen,
+            "sync": self.sync,
+            "get_page": self.get_page,
+            "set_page": self.set_page,
+            "next_page": self.next_page,
+            "prev_page": self.prev_page,
+            "clear_transport_log": self.clear_transport_log,
+            "connect_enabled": self.connect_enabled,
             "poll": self.poll,
             "read_input": self.read_input,
             "reset_signals": self.reset_signals,
@@ -3214,7 +3226,7 @@ class TarzanParCore:
         buf = list(getattr(self, "_par_text_log_buffer", []))[-max(1, int(limit)):]
         return "\n".join(buf)
 
-    def build_nextion7_log_preview(self, limit: int = 20) -> str:
+    def build_nextion7_log_preview(self, limit: int = 20, screen_key: str = "nextion_7", **kwargs: Any) -> str:
         buf = list(getattr(self, "_nextion7_text_log_buffer", []))[-max(1, int(limit)):]
         return "\n".join(buf)
 
@@ -3996,7 +4008,7 @@ class TarzanParCore:
         self.disconnect_screen("nextion_7")
         return True
 
-    def sync(self, force: bool = False) -> bool:
+    def sync(self, force: bool = False, screen_key: str = "nextion_7", **kwargs: Any) -> bool:
         return self.nextion_sync(force=force)
 
     def get_page(self, screen_key: str = "nextion_7") -> str:
@@ -4180,7 +4192,7 @@ class TarzanParCore:
                 pass
         return list(self._transport_log[-max(1, int(limit)):])
 
-    def clear_transport_log(self) -> None:
+    def clear_transport_log(self, screen_key: str = "nextion_7", **kwargs: Any) -> None:
         if self.nextion is not None and hasattr(self.nextion, "clear_transport_log"):
             try:
                 self.nextion.clear_transport_log()

@@ -934,7 +934,6 @@ class TarzanTspServer:
                     session = TarzanTspClientSession(client_id, sock, address, self)
                     self._clients[client_id] = session
                 self.logger.info("CONNECT %s", session.name)
-                self._update_clients_count_signal()
                 self.mark_lks_outputs_dirty("connect", immediate_n5=True)
                 session.start()
                 session.send(hello_response(self.node_name, "server", self.provider.signal_count()))
@@ -950,8 +949,6 @@ class TarzanTspServer:
     def remove_client(self, client: TarzanTspClientSession) -> None:
         with self._clients_lock:
             self._clients.pop(client.client_id, None)
-        
-        self._update_clients_count_signal()
         
         # ETAP 4 i 9: Aktualizacja stanu klienta po rozłączeniu
         if client.node_name:
@@ -974,16 +971,6 @@ class TarzanTspServer:
     def clients(self) -> list[TarzanTspClientSession]:
         with self._clients_lock:
             return [c for c in self._clients.values() if c.active]
-
-    def _update_clients_count_signal(self) -> None:
-        """Aktualizuje liczbę aktywnych klientów w SignalBus (Etap 10)."""
-        try:
-            from core.tarzanSignalBus import get_signal_bus
-            bus = get_signal_bus()
-            count = len(self.clients())
-            bus.set_input("tsp_clients_count", count, source="TSP_SERVER")
-        except Exception:
-            pass
 
     # ------------------------------------------------------------------
     # KOMENDY
@@ -1121,6 +1108,7 @@ class TarzanTspServer:
         # Stabilne czasy pasm
         last_fast = last_normal = last_slow = last_health = last_system_poll = monotonic_ms()
         self._last_stats_ms = last_fast
+        self._last_client_count_bus = -1
 
         while self.running:
             with profile_block("TSP._lane_loop"):
@@ -1130,40 +1118,33 @@ class TarzanTspServer:
                 clients = self.clients()
                 client_count = len(clients)
 
-                # --- ZASADA IDLE (ETAP 17): Głęboki sen przy braku pracy ---
-                is_take_active = getattr(self, "_take_playback_start_ms", 0) > 0
-                
-                # Ulepszona detekcja aktywności dla IDLE (Etap 10)
-                if not is_take_active:
+                # Aktualizujemy stan klientów w SignalBus dla innych komponentów (np. HardwareBridge)
+                if client_count != self._last_client_count_bus:
                     try:
-                        if not hasattr(self, "_idle_bus") or self._idle_bus is None:
-                            from core.tarzanSignalBus import get_signal_bus
-                            self._idle_bus = get_signal_bus()
-                        
-                        bus = self._idle_bus
-                        # Sprawdzamy stan transportu i tryb pracy w SignalBus
-                        if bus.read("transport_state", "STOP") == "PLAY":
-                            is_take_active = True
-                        elif bus.read("active_mode", "IDLE") in {"TEST", "LIVE", "tM"}:
-                            # Tryb pracy wymusza responsywność
-                            is_take_active = True
+                        from core.tarzanSignalBus import get_signal_bus
+                        bus = get_signal_bus()
+                        bus.set_input("tsp_clients", client_count, source="TSP_STATS")
+                        self._last_client_count_bus = client_count
                     except Exception:
                         pass
 
+                # --- ZASADA IDLE (ETAP 17): Głęboki sen przy braku pracy ---
+                is_take_active = getattr(self, "_take_playback_start_ms", 0) > 0
                 has_urgent = self.provider.has_urgent_events()
                 
-                # Jeśli brak klientów i brak aktywnego playbacku, śpimy oszczędzając CPU
+                # Jeśli brak klientów i brak aktywnego playbacku, śpimy oszczędzając CPU.
+                # ZASADA SNAJPERA: system budzi się tylko na realne zdarzenie lub rzadki poll.
                 if client_count == 0 and not is_take_active and not has_urgent and not self._lks_n5_dirty:
-                    # Rzadsze sprawdzanie komend systemowych, LKS i Bus (co 200ms)
-                    if now - last_system_poll >= 200:
+                    # Rzadsze sprawdzanie komend systemowych, LKS i Bus (co 250ms)
+                    if now - last_system_poll >= 250:
                         last_system_poll = now
                         self._handle_take_playback()
                         self._poll_lks_n5_events()
                         self._poll_system_commands()
                         is_take_active = getattr(self, "_take_playback_start_ms", 0) > 0
                         
-                    if not is_take_active:
-                        # Tick providera (uptime) i statusy zdrowia robimy co 1s
+                    if not is_take_active and not self.provider.has_urgent_events():
+                        # Tick providera (uptime) robimy tylko co 1s w idle
                         if now - last_health < TSP_HEALTH_INTERVAL_MS:
                             time.sleep(0.2)
                             continue

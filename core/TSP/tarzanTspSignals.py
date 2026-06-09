@@ -332,6 +332,10 @@ class TarzanTspSignalProvider:
             self._urgent_queue.clear()
             return items
 
+    def has_urgent_events(self) -> bool:
+        with self._lock:
+            return len(self._urgent_queue) > 0
+
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         payload = payload or {}
         parcore = getattr(self, "parcore", None)

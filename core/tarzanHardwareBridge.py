@@ -61,7 +61,12 @@ class TarzanHardwareBridge:
         self._abs_positions: Dict[str, int] = {}
         
         self._last_poll_ms = 0
-        self._poll_interval_ms = 50  # 20Hz dla wejść
+        self._poll_interval_ms = 50  # 20Hz dla wejść (tryb aktywny)
+        
+        # Optymalizacja (Etap 17): cache wejść hardware'owych
+        # ZASADA SNAJPERA: nie brudzimy SignalBus jeśli na pinach cisza.
+        self._gpio_inputs: List[Any] = []
+        self._input_cache: Dict[str, Any] = {}
         
         # FLAGA BEZPIECZEŃSTWA - musi być True, aby generować impulsy na fizycznym sprzęcie
         # ETAP 13: Aktywacja mięśni (odblokowanie osi po weryfikacji logicznej i komunikacyjnej)
@@ -70,12 +75,9 @@ class TarzanHardwareBridge:
         
         # Mapa sygnałów dla szybkiego dostępu w metodzie write/read
         self._signal_map = WSZYSTKIE_SYGNALY
-        
-        # Filtrowane zestawy sygnałów dla optymalizacji pollingu (Etap 10)
-        self._in_gpio_signals: List[TarzanSygnal] = [
-            s for s in self._signal_map.values() 
-            if s.kierunek == "IN" and s.hardware_function == "GPIO" and s.pin is not None
-        ]
+        for syg in self._signal_map.values():
+            if syg.kierunek == "IN" and syg.hardware_function == "GPIO" and syg.pin is not None:
+                self._gpio_inputs.append(syg)
         
         self._thread: Optional[threading.Thread] = None
 
@@ -165,56 +167,48 @@ class TarzanHardwareBridge:
     def _run(self) -> None:
         while self.running:
             now = time.time() * 1000
-            
-            # Adaptacyjne ustawienie interwału pollingu (Etap 10: Oszczędzanie CPU)
-            # Jeśli brak klientów i aktywności -> poll co 500ms zamiast 50ms.
-            is_active = self._is_system_active()
-            self._poll_interval_ms = 50 if is_active else 500
 
-            # 1. Polling wejść
-            if now - self._last_poll_ms >= self._poll_interval_ms:
+            # 1. ZASADA SNAJPERA (ETAP 17): Adaptacyjny polling wejść
+            # Jeśli brak klientów i brak ruchu - polling 1Hz (watchdog).
+            # Jeśli aktywność - polling 20Hz (50ms).
+            is_active = self._is_system_active()
+            interval = self._poll_interval_ms if is_active else 1000
+
+            if now - self._last_poll_ms >= interval:
                 self._poll_hardware()
                 self._last_poll_ms = now
-                
+
             # 2. Generator trybu manualnego (tM) - ETAP 13
-            # Adaptacyjny sleep: 5ms (200Hz) przy ruchu, 20ms (50Hz) w IDLE.
-            # Zgodnie z zasadą Snajpera - pracujemy szybko tylko gdy jest zmiana.
+            # Adaptacyjny sleep zgodny z Zasadą Snajpera (Etap 17).
             has_motion = self._handle_manual_generator()
-            
-            # Dodatkowy hamulec dla pętli głównej w głębokim IDLE
-            if not is_active and not has_motion:
-                time.sleep(0.05)
+
+            if has_motion:
+                time.sleep(0.005) # 200Hz przy ruchu
+            elif is_active:
+                time.sleep(0.02)  # 50Hz aktywnie (IDLE operatora)
             else:
-                time.sleep(0.005 if has_motion else 0.02)
+                time.sleep(0.1)   # 10Hz w głębokim IDLE (brak klientów/ruchu)
 
     def _is_system_active(self) -> bool:
-        """Sprawdza czy system wykonuje akcje wymagające szybkiego pollingu wejść."""
+        """Szybki test aktywności systemu dla adaptacyjnego pollingu."""
         try:
-            # 1. Sprawdzamy liczbę klientów TSP (Mirroring HMI)
-            if int(self.bus.read("tsp_clients_count", 0)) > 0:
+            # Czy są klienci TSP?
+            if int(self.bus.read("tsp_clients", 0)) > 0:
                 return True
-            
-            # 2. Sprawdzamy stan transportu (Playback TAKE)
-            if self.bus.read("transport_state", "STOP") == "PLAY":
+            # Czy trwa playback?
+            if self.bus.read("transport_state", "STOP") != "STOP":
                 return True
-            
-            # 3. Sprawdzamy tryb pracy (TEST/LIVE/Manual)
-            mode = self.bus.read("active_mode", "IDLE")
-            if mode in {"TEST", "LIVE", "tM"}:
-                # Jeśli tryb manualny, to sprawdzamy czy ma kontrolę wykonawczą
-                owner = self.bus.read("control_owner", "TSP_BOOT")
-                if owner in {"PAR_LIVE", "TSP_SERVICE", "LKS_DIAGNOSTIC"}:
-                    return True
-            
-            # 4. Sprawdzamy czy jakaś oś się rusza (Status z Hardware)
+            # Czy tryb inny niż manualny?
+            if self.bus.read("active_mode", "tM") != "tM":
+                return True
+            # Czy dowolna oś ma nadany kierunek (ruch manualny)?
             from core.tarzanZmienneSygnalowe import LISTA_NAZW_OSI
-            for ax_name in LISTA_NAZW_OSI:
-                if self.bus.read(f"axis_{ax_name}_running", 0):
+            for ax in LISTA_NAZW_OSI:
+                if self.bus.read(f"axis_{ax}_dir", 0) != 0:
                     return True
-                
-            return False
         except Exception:
-            return True # Bezpieczny fallback dla trybu wysokiej responsywności
+            return True # Fallback do aktywnego na wszelki wypadek
+        return False
 
     def _handle_manual_generator(self) -> bool:
         """Generuje impulsy STEP w trybie manualnym na podstawie kierunków w SignalBus."""
@@ -249,14 +243,22 @@ class TarzanHardwareBridge:
             for board_name, device in self.devices.items():
                 if not device:
                     continue
-                
+
                 try:
-                    # 1. Odczyt wejść cyfrowych GPIO (Optymalizacja: tylko pre-filtrowane)
+                    # 1. ZASADA SNAJPERA: Odczyt masowy wejść cyfrowych GPIO
+                    # Zamiast PK_DigitalIOGetSingle (ctypes), czytamy bity bezpośrednio z bufora lib.
                     device.PK_DigitalIOGet()
-                    for syg in self._in_gpio_signals:
+                    pins_ptr = device.device.contents.Pins
+                    
+                    for syg in self._gpio_inputs:
                         if syg.plytka == board_name:
-                            val = device.PK_DigitalIOGetSingle(syg.pin)
-                            self.bus.set_input(syg.nazwa, 1 if val else 0, source=f"HW.{board_name}", forced=True)
+                            # SZYBKI ODCZYT: bezpośrednio z pola DigitalValueGet struktury C
+                            val = 1 if pins_ptr[syg.pin].DigitalValueGet else 0
+                            
+                            # Aktualizujemy SignalBus TYLKO przy zmianie (lokalny cache)
+                            if self._input_cache.get(syg.nazwa) != val:
+                                self._input_cache[syg.nazwa] = val
+                                self.bus.set_input(syg.nazwa, val, source=f"HW.{board_name}", forced=True)
 
                     # 2. Odczyt statusu Pulse Engine (Etap 13 - Statusy osi)
                     if board_name == "PLAY": # Zakładamy, że PE działa na płycie PLAY
@@ -269,39 +271,42 @@ class TarzanHardwareBridge:
         """Czyta READY, ALARM i pozycję z Pulse Engine v2."""
         try:
             device.PK_PEv2_StatusGet()
-            
+
             # Mapowanie osi TARZAN na kanały PE
             from core.tarzanZmienneSygnalowe import LISTA_NAZW_OSI
-            
+
             for idx, ax_name in enumerate(LISTA_NAZW_OSI):
                 if idx >= 8: break # PoKeys obsługuje do 8 osi
-                
+
                 axis_state = device.PEv2.AxesState[idx]
                 axis_pos = device.PEv2.CurrentPosition[idx]
-                
+
                 # Bity statusu PE v2:
-                # Bit 0: Axis enabled
-                # Bit 1: Axis running
-                # Bit 2: Axis error/alarm
-                # Bit 3: Home sensor status
-                
+                # Bit 0: Axis enabled, Bit 1: Axis running, Bit 2: Axis error/alarm
                 is_enabled = (axis_state & 0x01) == 0x01
                 is_running = (axis_state & 0x02) == 0x02
                 has_alarm = (axis_state & 0x04) == 0x04
-                
-                # axis_ready w TARZAN oznacza: włączona, brak błędu, gotowa do pracy
                 axis_ready = 1 if (is_enabled and not has_alarm) else 0
-                
-                # Sygnały statusowe
-                self.bus.set_input(f"axis_{ax_name}_ready", axis_ready, source="HW.PE")
-                self.bus.set_input(f"axis_{ax_name}_alarm", 1 if has_alarm else 0, source="HW.PE")
-                self.bus.set_input(f"axis_{ax_name}_running", 1 if is_running else 0, source="HW.PE")
-                
-                # Aktualizacja pozycji w SignalBus
-                self.bus.force_signal(f"axis_{ax_name}_pos", axis_pos, source="HW.PE")
-                
+
+                # ZASADA SNAJPERA: Aktualizacja SignalBus TYLKO przy zmianie
+                self._update_if_changed(f"axis_{ax_name}_ready", axis_ready, source="HW.PE", is_input=True)
+                self._update_if_changed(f"axis_{ax_name}_alarm", 1 if has_alarm else 0, source="HW.PE", is_input=True)
+                self._update_if_changed(f"axis_{ax_name}_running", 1 if is_running else 0, source="HW.PE", is_input=True)
+                self._update_if_changed(f"axis_{ax_name}_pos", axis_pos, source="HW.PE", force_signal=True)
+
         except Exception as e:
             self.logger.debug(f"Pulse Engine poll error: {e}")
+
+    def _update_if_changed(self, name: str, value: Any, source: str, is_input: bool = False, force_signal: bool = False) -> None:
+        """Pomocnik aktualizujący sygnał tylko przy realnej zmianie hardware."""
+        if self._input_cache.get(name) != value:
+            self._input_cache[name] = value
+            if is_input:
+                self.bus.set_input(name, value, source=source)
+            elif force_signal:
+                self.bus.force_signal(name, value, source=source)
+            else:
+                self.bus.write_output(name, value, source=source)
 
 
     # ------------------------------------------------------------------

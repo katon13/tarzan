@@ -18,14 +18,7 @@ from core.tarzanZmienneSygnalowe import (
 from core.TSP.tarzanTspLog import setup_tsp_logger
 from core.tarzanSnajper import TarzanSnajperHardwarePolicy
 
-# Próba importu biblioteki PoKeys
-try:
-    from hardware.pokeys.PoKeys import PoKeysDevice, ePK_PinCap
-    LIB_POKEYS_AVAILABLE = True
-except ImportError:
-    LIB_POKEYS_AVAILABLE = False
-    PoKeysDevice = None
-    ePK_PinCap = None
+from core.tarzanPoKeys import TarzanPoKeys, LIB_POKEYS_AVAILABLE
 
 class TarzanHardwareBridge:
     """
@@ -47,11 +40,10 @@ class TarzanHardwareBridge:
         self.logger = setup_tsp_logger("HW.BRIDGE")
         self.running = False
         self._lock = threading.Lock()
-        
-        self.devices: Dict[str, Any] = {
-            "PLAY": None,
-            "REC": None
-        }
+        self.pokeys = TarzanPoKeys(self.logger)
+        # Własny adapter core/tarzanPoKeys.py trzyma uchwyty PLAY/REC.
+        # hardware/pokeys/PoKeys.py jest tylko bindingiem niskiego poziomu.
+        self.devices: Dict[str, Any] = self.pokeys.devices
         self._lcd_lines: Dict[str, List[str]] = {
             "PLAY": ["", ""],
             "REC": ["", ""],
@@ -78,6 +70,8 @@ class TarzanHardwareBridge:
         # Optymalizacja (Etap 17): cache wejść hardware'owych
         # ZASADA SNAJPERA: nie brudzimy SignalBus jeśli na pinach cisza.
         self._gpio_inputs: List[Any] = []
+        self._analog_inputs: List[Any] = []
+        self._cnc_signals: List[Any] = []
         self._input_cache: Dict[str, Any] = {}
         
         # FLAGA BEZPIECZEŃSTWA - musi być True, aby generować impulsy na fizycznym sprzęcie
@@ -90,6 +84,12 @@ class TarzanHardwareBridge:
         for syg in self._signal_map.values():
             if syg.kierunek == "IN" and syg.hardware_function == "GPIO" and syg.pin is not None:
                 self._gpio_inputs.append(syg)
+            if (syg.hardware_function == "ANALOG" or syg.typ == "ANALOG") and syg.pin is not None:
+                self._analog_inputs.append(syg)
+            if syg.plytka == "CNC" or syg.hardware_function == "PULSE_ENGINE":
+                self._cnc_signals.append(syg)
+
+        self.logger.info("tarzanPoKeys inventory: %s", self.pokeys.inventory())
         
         self._thread: Optional[threading.Thread] = None
 
@@ -137,76 +137,21 @@ class TarzanHardwareBridge:
         if self._thread:
             self._thread.join(timeout=1.0)
         
-        with self._lock:
-            for board, device in self.devices.items():
-                if device:
-                    try:
-                        device.Disconnect()
-                        self.logger.info(f"Disconnected {board} board.")
-                    except:
-                        pass
-                    self.devices[board] = None
+        # Fizyczny disconnect tylko przy STOP usługi, przez własną warstwę PoKeys.
+        self.pokeys.safe_stop()
         
         self.bus.set_live_adapter(None)
         self.logger.info("Hardware Bridge STOPPED.")
 
     def _get_lib_path(self) -> str:
-        """Zwraca realna sciezke do biblioteki PoKeys.
-
-        Runtime miniPC nie moze zakladac, ze libPoKeys.so zawsze lezy
-        w repo pod hardware/pokeys. Na miniPC biblioteka bywa instalowana
-        systemowo, np. /opt/PoKeysLib/libPoKeys.so albo /usr/lib/libPoKeys.so.
-        Brak fallbacku blokowal start testow PLAY/REC i LKS widzial tylko
-        czesc ikon.
-        """
-        from pathlib import Path
-        repo_root = Path(__file__).resolve().parents[1]
-        if platform.system() == "Windows":
-            candidates = [
-                repo_root / "hardware" / "pokeys" / "PoKeysDevice_x64.dll",
-            ]
-        else:
-            candidates = [
-                repo_root / "hardware" / "pokeys" / "libPoKeys.so",
-                Path("/opt/PoKeysLib/libPoKeys.so"),
-                Path("/usr/lib/libPoKeys.so"),
-                Path("/usr/local/lib/libPoKeys.so"),
-                Path("/usr/lib/x86_64-linux-gnu/libPoKeys.so"),
-            ]
-
-        for candidate in candidates:
-            try:
-                if candidate.exists():
-                    return str(candidate)
-            except Exception:
-                continue
-
-        # Zwracamy standardowa sciezke repo, zeby log bledow jasno pokazywal
-        # czego szukal runtime, ale start nie ma udawac sukcesu bez biblioteki.
-        if platform.system() == "Windows":
-            return str(repo_root / "hardware" / "pokeys" / "PoKeysDevice_x64.dll")
-        return str(repo_root / "hardware" / "pokeys" / "libPoKeys.so")
+        """Zwraca realną ścieżkę do biblioteki PoKeys przez core/tarzanPoKeys.py."""
+        return self.pokeys.get_lib_path()
 
     def _init_devices(self, lib_path: str) -> None:
-        # PLAY Board
-        self.devices["PLAY"] = self._connect_board("PLAY", POKEYS57U_PLAY_DEVICE_SERIAL, lib_path)
-        # REC Board
-        self.devices["REC"] = self._connect_board("REC", POKEYS57U_REC_DEVICE_SERIAL, lib_path)
+        self.pokeys.connect_all(lib_path)
 
     def _connect_board(self, name: str, serial: int, lib_path: str) -> Any:
-        device = PoKeysDevice(lib_path)
-        # ZASADA SNAJPERA: Połączenie bezpośrednio przez USB (useUDP=False), 
-        # aby uniknąć agresywnego skanowania sieci przez bibliotekę.
-        ok = device.PK_ConnectToDeviceWSerial(serial, 1, False)
-        if not ok:
-            self.logger.warning(f"Failed to connect to {name} board (serial={serial})")
-            return None
-        
-        # Pobieramy dane początkowe
-        device.PK_DeviceDataGet()
-        device.PK_PinConfigurationGet()
-        self.logger.info(f"Connected to {name} board (serial={serial}).")
-        return device
+        return self.pokeys.connect_board(name, serial, lib_path)
 
     def _run(self) -> None:
         while self.running:
@@ -229,11 +174,10 @@ class TarzanHardwareBridge:
             # 2. Adaptacyjny polling wejść
             is_connected = self._is_any_connected()
             
-            if is_connected:
-                # Jeśli połączone, działamy wg interwału aktywności (10ms)
-                interval = self._poll_interval_ms if is_active else 2000
-                if now - self._last_poll_ms >= interval:
-                    self._poll_hardware(is_active=is_active)
+            if is_connected and is_active:
+                # PoKeys GPIO/PE tylko w aktywnym oknie. W IDLE brak pollingu.
+                if now - self._last_poll_ms >= self._poll_interval_ms:
+                    self._poll_hardware(is_active=True)
                     self._last_poll_ms = now
             
             # 3. Generator trybu manualnego (tM) - ETAP 13
@@ -252,8 +196,7 @@ class TarzanHardwareBridge:
                 time.sleep(1.0)
 
     def _is_any_connected(self) -> bool:
-        with self._lock:
-            return any(dev is not None for dev in self.devices.values())
+        return self.pokeys.is_any_connected()
 
 
     def begin_hardware_batch(self, source: str = "SNAJPER_BATCH", grace_ms: int = 12000, ensure: bool = False) -> None:
@@ -317,14 +260,14 @@ class TarzanHardwareBridge:
     def _ensure_connected(self) -> None:
         """Nawiązuje połączenie z PoKeys jeśli system jest aktywny a hardware uśpiony."""
         with self._lock:
-            if all(dev is not None for dev in self.devices.values()):
+            if self.pokeys.is_all_connected():
                 if self._hardware_logical_sleep:
                     self._hardware_logical_sleep = False
+                    self.pokeys.logical_wake()
                     try:
                         self.bus.set_input("hardware_sleep", 0, source="HW_BRIDGE")
                     except Exception:
                         pass
-                    self.logger.info("USB WAKE: logical wake; PoKeys handles already open.")
                 return
             
             # Cooldown 5s stosować wyłącznie po błędzie connect,
@@ -341,7 +284,7 @@ class TarzanHardwareBridge:
             self._hardware_logical_sleep = False
             self._init_devices(lib_path)
             
-            connected_count = sum(1 for dev in self.devices.values() if dev is not None)
+            connected_count = self.pokeys.connected_count()
             
             # Sprawdzamy czy wszystkie się połączyły
             if connected_count < len(self.devices):
@@ -368,7 +311,7 @@ class TarzanHardwareBridge:
             self._hardware_logical_sleep = True
             self._last_connect_failed = False
             self.logger.info("ZASADA SNAJPERA: Hardware przechodzi w tryb uśpienia logicznego (grace period end)...")
-            self.logger.info("USB SLEEP: logical sleep; PoKeys handles kept open (no PK_DisconnectDevice in IDLE).")
+            self.pokeys.logical_idle()
             try:
                 self.bus.set_input("hardware_sleep", 1, source="HW_BRIDGE")
             except Exception:
@@ -445,40 +388,30 @@ class TarzanHardwareBridge:
         return has_any_motion
 
     def _poll_hardware(self, is_active: bool = True) -> None:
-        """Odczytuje stany wejść z hardware i wpisuje do SignalBus."""
+        """Jednorazowy odczyt wejść. W IDLE nie dotykamy PoKeys."""
+        if not is_active or self._hardware_logical_sleep:
+            return
+
+        def _update(name: str, val: Any, source: str) -> None:
+            if self._input_cache.get(name) != val:
+                self._input_cache[name] = val
+                self.bus.set_input(name, val, source=source, forced=True)
+
+        self.pokeys.poll_gpio_inputs_once(self._gpio_inputs, _update)
+        self.pokeys.poll_analog_inputs_once(self._analog_inputs, _update)
+
+        # Potencjometry RRP są wejściami analogowymi; czytamy je tylko w aktywnym oknie,
+        # nigdy w bezczynnej pętli IDLE.
+        try:
+            self.pokeys.test_potentiometers_once(_update)
+        except Exception as exc:
+            self.logger.debug("RRP pots one-shot read skipped: %s", exc)
+
+        # Pulse Engine tylko w aktywnym oknie ruchu/testu.
         with self._lock:
-            for board_name, device in self.devices.items():
-                if not device:
-                    continue
-
-                try:
-                    # 1. ZASADA SNAJPERA: Odczyt masowy wejść cyfrowych GPIO
-                    # W głębokim IDLE bez klientów odczytujemy piny tylko jako watchdog.
-                    # Zamiast PK_DigitalIOGetSingle (ctypes), czytamy bity bezpośrednio z bufora lib.
-                    device.PK_DigitalIOGet()
-                    pins_ptr = device.device.contents.Pins
-                    
-                    for syg in self._gpio_inputs:
-                        if syg.plytka == board_name:
-                            # SZYBKI ODCZYT: bezpośrednio z pola DigitalValueGet struktury C
-                            val = 1 if pins_ptr[syg.pin].DigitalValueGet else 0
-                            
-                            # Aktualizujemy SignalBus TYLKO przy zmianie (lokalny cache)
-                            if self._input_cache.get(syg.nazwa) != val:
-                                self._input_cache[syg.nazwa] = val
-                                self.bus.set_input(syg.nazwa, val, source=f"HW.{board_name}", forced=True)
-
-                    # 2. Odczyt statusu Pulse Engine (Etap 13 - Statusy osi)
-                    # W IDLE nie odpytujemy Pulse Engine o pozycję, chyba że jest ruch.
-                    if board_name == "PLAY": 
-                        if is_active:
-                            self._poll_pulse_engine_status(device)
-                        else:
-                            # Raz na watchdog tick (rzadko) sprawdzamy tylko czy PE żyje
-                            pass
-
-                except Exception as exc:
-                    self.logger.debug(f"Poll hardware error ({board_name}): {exc}")
+            play = self.devices.get("PLAY")
+            if play is not None:
+                self._poll_pulse_engine_status(play)
 
     def _poll_pulse_engine_status(self, device: Any) -> None:
         """Czyta READY, ALARM i pozycję z Pulse Engine v2."""
@@ -528,35 +461,17 @@ class TarzanHardwareBridge:
 
     def _device_ready(self, board: str) -> Optional[Any]:
         board = str(board).upper()
-        device = self.devices.get(board)
+        device = self.pokeys.get_device(board)
         return device if self.running and device is not None else None
 
     def _device_identity_text(self, board: str, device: Any) -> str:
-        try:
-            data = device.device.contents.DeviceData
-            serial = int(getattr(data, "SerialNumber", 0))
-            name = data.DeviceName.decode("ascii", errors="ignore").strip("\x00")
-            typ = data.DeviceTypeName.decode("ascii", errors="ignore").strip("\x00")
-            return f"{board} serial={serial} name='{name}' type='{typ}'"
-        except Exception:
-            return f"{board} connected"
+        return self.pokeys.identity_text(board, device)
 
     def _lks_test_result(self, component: str, ok: bool, detail: str = "", error: str = "", supported: bool = True) -> Dict[str, Any]:
         return {"component": str(component), "ok": bool(ok), "detail": str(detail or ""), "error": str(error or ""), "supported": bool(supported)}
 
     def _lks_refresh_device(self, device: Any) -> None:
-        try:
-            device.PK_PinConfigurationGet()
-        except Exception:
-            pass
-        try:
-            device.PK_DigitalIOGet()
-        except Exception:
-            pass
-        try:
-            device.PK_AnalogIOGet()
-        except Exception:
-            pass
+        self.pokeys.refresh_device(device)
 
     def _lcd_text(self, value: str, width: int = 16) -> str:
         repl = str(value)
@@ -684,26 +599,10 @@ class TarzanHardwareBridge:
             return self._lks_test_result("matrix_led", False, error=str(exc))
 
     def _lks_read_pin(self, device: Any, pin: int) -> int:
-        self._lks_refresh_device(device)
-        return int(device.device.contents.Pins[int(pin) - 1].DigitalValueGet)
+        return self.pokeys.read_pin(device, pin)
 
     def _lks_set_led_pin(self, device: Any, pin: int, value: int) -> None:
-        if ePK_PinCap is None:
-            raise RuntimeError("ePK_PinCap unavailable")
-        pin_index = int(pin) - 1
-        pin_data = device.device.contents.Pins[pin_index]
-        pin_data.PinFunction = int(ePK_PinCap.PK_PinCap_digitalOutput)
-        pin_data.DigitalValueSet = 1 if value else 0
-        rc = device.PK_PinConfigurationSet()
-        if rc != 0:
-            raise RuntimeError(f"PK_PinConfigurationSet P{pin} zwróciło {rc}")
-        rc = device.PK_DigitalIOSetSingle(pin_index, 1 if value else 0)
-        if rc != 0:
-            raise RuntimeError(f"PK_DigitalIOSetSingle P{pin} zwróciło {rc}")
-        try:
-            device.PK_DigitalIOGet()
-        except Exception:
-            pass
+        self.pokeys.set_digital_output(device, pin, value)
 
     def _lks_test_f_led(self, visible: bool = True) -> Dict[str, Any]:
         device = self._device_ready("REC")
@@ -1112,7 +1011,7 @@ class TarzanHardwareBridge:
             try:
                 # Obsługa wyjść cyfrowych
                 if syg.hardware_function == "GPIO" and syg.pin is not None:
-                    device.PK_DigitalIOSetSingle(syg.pin, 1 if value else 0)
+                    self.pokeys.set_output_by_signal(syg, value)
                 
                 # Obsługa sygnału ENABLE dla osi (Etap 13)
                 elif syg.nazwa.startswith("axis_") and syg.nazwa.endswith("_en"):

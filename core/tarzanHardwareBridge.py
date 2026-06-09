@@ -301,6 +301,10 @@ class TarzanHardwareBridge:
             self.logger.info("ZASADA SNAJPERA: Wybudzanie hardware (realtime required)...")
             self._init_devices(lib_path)
             
+            # Po wybudzeniu (USB connect) synchronizujemy stan wyświetlaczy i LED,
+            # aby pierwszy "strzał" Snajpera nie przepadł w czasie nawiązywania połączenia.
+            self._sync_physical_outputs()
+            
             connected_count = sum(1 for dev in self.devices.values() if dev is not None)
             
             # Sprawdzamy czy wszystkie się połączyły
@@ -310,6 +314,31 @@ class TarzanHardwareBridge:
                 self._last_connect_failed = False
                 
             self.bus.set_input("hardware_connected", connected_count, source="HW_BRIDGE")
+
+    def _sync_physical_outputs(self) -> None:
+        """Pobiera aktualny stan z SignalBus i wymusza zapis do hardware (LCD, Matrix, LED)."""
+        self.logger.info("HW RE-SYNC: Odświeżanie stanu wyświetlaczy i LED po wybudzeniu...")
+        
+        # Lista sygnałów, które wymagają odświeżenia po połączeniu USB
+        outputs_to_sync = [
+            "par_lcd_play_line1", "par_lcd_play_line2",
+            "par_lcd_rec_line1", "par_lcd_rec_line2",
+            "par_lcd_line1", "par_lcd_line2",
+            "par_matrix_pattern",
+            "par_f_led_f1", "par_f_led_f2", "par_f_led_f3", "par_f_led_f4",
+            "rec_p46_led_f1", "rec_p48_led_f2", "rec_p50_led_f3", "rec_p52_led_f4"
+        ]
+        
+        for name in outputs_to_sync:
+            if self.bus.exists(name):
+                val = self.bus.read(name)
+                # Wywołujemy bezpośrednio zapisy specjalistyczne
+                if name.startswith("par_lcd"):
+                    self._write_par_lcd_signal(name, val)
+                elif name == "par_matrix_pattern":
+                    self._write_par_matrix_signal(name, val)
+                elif "led" in name:
+                    self._write_par_f_led_signal(name, val)
 
     def _ensure_disconnected(self) -> None:
         """Zrywa połączenie USB w trybie IDLE aby zredukować CPU (libusb poll)."""

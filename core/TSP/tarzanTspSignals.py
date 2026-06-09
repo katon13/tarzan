@@ -373,10 +373,22 @@ class TarzanTspSignalProvider:
         bus = get_signal_bus()
         
         with self._lock:
+            if name == "force_signal":
+                sig_name = payload.get("name")
+                sig_value = payload.get("value")
+                sig_source = payload.get("source", "TSP_FORCE")
+                try:
+                    from core.tarzanSignalBus import get_signal_bus
+                    bus = get_signal_bus()
+                    bus.force_signal(sig_name, sig_value, source=sig_source)
+                    return {"ok": True, "action": name, "name": sig_name, "value": sig_value}
+                except Exception as e:
+                    return {"ok": False, "error": str(e), "action": name}
+
             if name == "clap":
                 count = int(bus.read("clap_event", 0)) + 1
-                bus.set_input("clap_event", count, source="TSP_ACTION")
-                bus.set_input("take_marker", f"CLAP_{count:03d}", source="TSP_ACTION")
+                bus.force_signal("clap_event", count, source="TSP_ACTION")
+                bus.force_signal("take_marker", f"CLAP_{count:03d}", source="TSP_ACTION")
                 self._urgent_queue.append(
                     urgent_event("clap_event", count, "operator_clap", PRIORITY_MARKER, marker=f"CLAP_{count:03d}")
                 )
@@ -422,7 +434,7 @@ class TarzanTspSignalProvider:
                 try:
                     from core.tarzanSignalBus import get_signal_bus
                     bus = get_signal_bus()
-                    bus.set_input("cmd_run_diagnostics", 1, source="TSP_ACTION")
+                    bus.force_signal("cmd_run_diagnostics", 1, source="TSP_ACTION")
                     bus.log("TSP", "Action: Manual Diagnostics requested by PAR.")
                     return {"ok": True, "action": name, "status": "requested"}
                 except Exception as e:
@@ -433,7 +445,7 @@ class TarzanTspSignalProvider:
                 try:
                     from core.tarzanSignalBus import get_signal_bus
                     bus = get_signal_bus()
-                    bus.set_input("control_owner", owner, source="TSP_ACTION")
+                    bus.force_signal("control_owner", owner, source="TSP_ACTION")
                     bus.log("TSP", f"Action: Control owner changed to {owner} by PAR.")
                     return {"ok": True, "action": name, "owner": owner}
                 except Exception as e:
@@ -443,7 +455,7 @@ class TarzanTspSignalProvider:
                 try:
                     from core.tarzanSignalBus import get_signal_bus
                     bus = get_signal_bus()
-                    bus.set_input("cmd_system_reboot", 1, source="TSP_ACTION")
+                    bus.force_signal("cmd_system_reboot", 1, source="TSP_ACTION")
                     bus.log("TSP", "Action: System REBOOT requested by PAR.")
                     return {"ok": True, "action": name, "status": "requested"}
                 except Exception as e:
@@ -477,7 +489,7 @@ class TarzanTspSignalProvider:
                     bus = get_signal_bus()
                     signal_name = f"rrp_{player}_axis_index"
                     if bus.exists(signal_name):
-                        bus.set_input(signal_name, axis_idx, source="TSP_ACTION")
+                        bus.force_signal(signal_name, axis_idx, source="TSP_ACTION")
                         return {"ok": True, "action": name, "player": player, "axis_index": axis_idx}
                     return {"ok": False, "error": "unknown_player", "player": player}
                 except Exception as e:
@@ -492,7 +504,7 @@ class TarzanTspSignalProvider:
                     # SOK to zazwyczaj włącznik/blokada dla osi
                     signal_name = f"sok_{axis}_active"
                     if bus.exists(signal_name):
-                        bus.set_input(signal_name, state, source="TSP_ACTION")
+                        bus.force_signal(signal_name, state, source="TSP_ACTION")
                         return {"ok": True, "action": name, "axis": axis, "state": state}
                     return {"ok": False, "error": "unknown_axis", "axis": axis}
                 except Exception as e:
@@ -518,7 +530,7 @@ class TarzanTspSignalProvider:
                 try:
                     from core.tarzanSignalBus import get_signal_bus
                     bus = get_signal_bus()
-                    bus.set_input("cmd_run_diagnostics", 1, source="TSP_ACTION")
+                    bus.force_signal("cmd_run_diagnostics", 1, source="TSP_ACTION")
                     # Zwracamy listę osi z SignalBus (klasyfikacja)
                     axes = [n for n in bus.names() if n.startswith("axis_") and n.endswith("_step")]
                     return {"ok": True, "action": name, "status": "requested", "axes": axes}
@@ -533,7 +545,7 @@ class TarzanTspSignalProvider:
                     bus = get_signal_bus()
                     
                     if cmd_param == "clear_alarms":
-                        bus.set_input("cmd_clear_alarms", 1, source="TSP_ACTION")
+                        bus.force_signal("cmd_clear_alarms", 1, source="TSP_ACTION")
                         return {"ok": True, "action": name, "status": "clear_requested"}
 
                     if not axis:
@@ -555,32 +567,27 @@ class TarzanTspSignalProvider:
             return {"ok": False, "error": "unknown_action", "action": name}
 
     def state_summary(self) -> Dict[str, Any]:
-        # W trybie MAIN/LIVE pobieramy rozszerzony stan z SignalBus
+        # W trybie MAIN/LIVE pobieramy pełny stan z SignalBus dla synchronizacji HMI
         try:
             from core.tarzanSignalBus import get_signal_bus
             bus = get_signal_bus()
-            return {
+            
+            # Pobieramy snapshot wszystkich wartości
+            all_values = bus.values_snapshot()
+            
+            # Podstawowe metadane sesji
+            summary = {
                 "node": self.node_name,
                 "signal_count": bus.names_count() if hasattr(bus, "names_count") else len(bus.names()),
-                "system_state": bus.read("system_state"),
-                "runtime_state": bus.read("runtime_state"),
-                "control_owner": bus.read("control_owner"),
-                "tarzan_ready": bus.read("tarzan_ready"),
-                "active_mode": bus.read("active_mode"),
-                "transport_state": bus.read("transport_state"),
-                "par_state": bus.read("par_state"),
-                "ehr_state": bus.read("ehr_state"),
-                "khr_state": bus.read("khr_state"),
-                "hardware_state": bus.read("hardware_state"),
-                # trwały status POKSYG w ramce GET_STATE/TSP.
-                # To są istniejące statusy SignalBus, nie nowy tor sterowania.
-                "poksyg_last_forced_signal": bus.read("poksyg_last_forced_signal", ""),
-                "poksyg_last_forced_value": bus.read("poksyg_last_forced_value", ""),
-                "poksyg_last_forced_ack_ok": bus.read("poksyg_last_forced_ack_ok", 0),
-                "poksyg_last_forced_message": bus.read("poksyg_last_forced_message", ""),
-                "uptime_ms": bus.read("node_uptime_ms"),
+                "uptime_ms": bus.read("node_uptime_ms", 0),
             }
-        except Exception:
+            
+            # Łączymy w jedną płaską strukturę (zgodnie z Mapą: miniPC to prawda stanu)
+            summary.update(all_values)
+            return summary
+            
+        except Exception as exc:
+            self.logger.error("state_summary error: %s", exc)
             with self._lock:
                 return {
                     "node": self.node_name,
@@ -588,7 +595,7 @@ class TarzanTspSignalProvider:
                     "active_mode": self._signals.get("active_mode"),
                     "transport_state": self._signals.get("transport_state"),
                     "nextion_page": self._signals.get("nextion_page"),
-                    "uptime_ms": self._signals.get("node_uptime_ms"),
+                    "uptime_ms": self._signals.get("node_uptime_ms", 0),
                 }
 
     @staticmethod

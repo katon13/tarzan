@@ -65,6 +65,8 @@ class TarzanParBridge:
         self._remote_nextion_log: list[str] = []
         self._last_remote_poll_ts: float = 0.0
         self._remote_poll_interval_s: float = 0.25
+        self._start_time = time.time()
+        self._stopping = False
 
     def _ui_call(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
         """Wykonuje zmianę UI/SignalBus bezpiecznie w wątku Tkintera, gdy mamy scheduler."""
@@ -262,8 +264,14 @@ class TarzanParBridge:
             # Synchronizacja stanu początkowego
             state = message.get("state", {})
             if state:
+                # miniPC zwraca teraz pełny stan SignalBus (prawda stanu)
                 self.bus.log("TSP", f"GET_STATE OK: signals={len(state.get('signals', state))}")
                 self.bus.apply_snapshot(state, source="TSP_INITIAL")
+                
+                # Zgodnie z Mapą Wykonawczą: po synchronizacji stanu HMI,
+                # wymuszamy synchronizację fizycznego Nextion 7 na miniPC.
+                self.bus.log("TSP", "Handshake domknięty. Synchronizacja Nextion 7...")
+                self.sync(force=True, screen_key="nextion_7")
 
         elif (event == "hello") or (cmd == "hello" and ok):
             node = message.get("node") or message.get("node_name") or message.get("node_id", "unknown")
@@ -339,8 +347,14 @@ class TarzanParBridge:
         return key in {"nextion_7", "nextion7", "n7", "nextion_5", "nextion5", "n5"}
 
     def _block_minipc_owned(self, what: str) -> bool:
-        self.bus.log("MINIPC", f"{what} blocked: miniPC/PARcore not connected")
-        self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {what}", source="PAR_BRIDGE")
+        # Nie logujemy błędu "blocked" podczas startu aplikacji (pierwsze 5 sekund), 
+        # bo UI inicjalizuje się szybciej niż nawiązuje połączenie TSP.
+        if time.time() - self._start_time < 5.0:
+            return False
+            
+        if not self._stopping:
+            self.bus.log("MINIPC", f"{what} blocked: miniPC/PARcore not connected")
+            self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {what}", source="PAR_BRIDGE")
         return False
 
     def connect_screen(self, screen_key: str = "nextion_7") -> bool:
@@ -454,10 +468,24 @@ class TarzanParBridge:
         return self._parcore_call(action, payload)
 
     def parcore_set_signal(self, name: str, value: Any, source: str = "PAR_GUI") -> bool:
-        return self._parcore_call("set_signal", {"name": name, "value": value, "source": source})
+        if self.parcore_available():
+            try:
+                # Używamy bezpośredniego polecenia SET_SIGNAL protokołu TSP, nie call_action
+                self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"set_signal {name}")
+                return True
+            except Exception as exc:
+                self.bus.log("TSP_ERROR", f"SET_SIGNAL {name} failed: {exc}")
+        return False
 
     def parcore_force_signal(self, name: str, value: Any, source: str = "PAR_GUI_FORCE") -> bool:
-        return self._parcore_call("force_signal", {"name": name, "value": value, "source": source})
+        if self.parcore_available():
+            try:
+                # TSP nie ma jawnego force_signal, więc używamy call_action "force_signal" lub SET_SIGNAL.
+                # Zgodnie z implementacją tarzanTspSignals, force_signal jest obsłużone jako akcja.
+                return self._parcore_call("force_signal", {"name": name, "value": value, "source": source})
+            except Exception as exc:
+                self.bus.log("TSP_ERROR", f"FORCE_SIGNAL {name} failed: {exc}")
+        return False
 
     def read_input(self, name: str, default: Any = 0) -> Any:
         return self.bus.read_input(name, default)
@@ -548,6 +576,7 @@ class TarzanParBridge:
 
     def shutdown(self) -> None:
         """Bezpieczne zamknięcie połączenia TSP."""
+        self._stopping = True
         self._stop_tsp()
 
     def snapshot(self, include_meta: bool = False) -> Dict[str, Any]:

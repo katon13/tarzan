@@ -618,9 +618,9 @@ class TarzanTspServer:
         try:
             from core.tarzanSignalBus import get_signal_bus
             bus = get_signal_bus()
-            bus.set_input("system_state", "BOOTING", source="TSP_START")
-            bus.set_input("runtime_state", "STARTING", source="TSP_START")
-            bus.set_input("control_owner", "TSP_BOOT", source="TSP_START")
+            bus.force_signal("system_state", "BOOTING", source="TSP_START")
+            bus.force_signal("runtime_state", "STARTING", source="TSP_START")
+            bus.force_signal("control_owner", "TSP_BOOT", source="TSP_START")
             bus.log("TSP", "TARZAN MAIN RUNTIME Starting...")
         except Exception as exc:
             self.logger.error("Could not init SignalBus in TarzanTspServer: %s", exc)
@@ -666,7 +666,7 @@ class TarzanTspServer:
 
         # ETAP 2-3: Ustawienie statusów gotowości TCP dla PAR (BOOTING jest już widoczny)
         try:
-            bus.set_input("tsp_state", "READY", source="TSP_START")
+            bus.force_signal("tsp_state", "READY", source="TSP_START")
             bus.log("TSP", "TSP Server is now available for clients.")
         except Exception:
             pass
@@ -710,10 +710,9 @@ class TarzanTspServer:
             res = subprocess.call(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if res == 0:
                 bus.log("TSP", f"PAR station {TSP_STACJA_HOST} is ONLINE.")
-                bus.set_input("par_state", "AVAILABLE", source="TSP_CHECK")
+                bus.force_signal("par_state", "AVAILABLE", source="TSP_CHECK")
             else:
-                bus.log("TSP", f"PAR station {TSP_STACJA_HOST} is OFFLINE or unreachable.")
-                bus.set_input("par_state", "OFFLINE", source="TSP_CHECK")
+                bus.force_signal("par_state", "OFFLINE", source="TSP_CHECK")
                 
         except Exception as exc:
             self.logger.debug("PAR check failed: %s", exc)
@@ -730,7 +729,7 @@ class TarzanTspServer:
         diag_results: Dict[str, bool] = {}
         diag_crashed = False
         try:
-            bus.set_input("runtime_state", "TESTING", source="TSP_DIAG")
+            bus.force_signal("runtime_state", "TESTING", source="TSP_DIAG")
             bus.log("TSP", "Starting LKS diagnostics through active HardwareBridge only...")
 
             diagnostics = TarzanTspLksDiagnostics(
@@ -755,21 +754,21 @@ class TarzanTspServer:
             }
             for lks_key, sig_name in mapping.items():
                 if bus.exists(sig_name):
-                    bus.set_input(sig_name, 1 if diag_results.get(lks_key, False) else 0, source="TSP_DIAG")
+                    bus.force_signal(sig_name, 1 if diag_results.get(lks_key, False) else 0, source="TSP_DIAG")
 
             all_ok = all(diag_results.get(k, False) for k in ["linux", "tsp", "signalbus", "pokeys"])
-            bus.set_input("hardware_state", "READY" if all_ok else "PARTIAL_ERROR", source="TSP_DIAG")
+            bus.force_signal("hardware_state", "READY" if all_ok else "PARTIAL_ERROR", source="TSP_DIAG")
             bus.log("TSP", f"LKS Diagnostics: HardwareBridge path completed ok={all_ok}.")
-            bus.set_input("runtime_state", "READY_FOR_PAR", source="TSP_DIAG")
-            bus.set_input("tarzan_ready", 1, source="TSP_DIAG")
+            bus.force_signal("runtime_state", "READY_FOR_PAR", source="TSP_DIAG")
+            bus.force_signal("tarzan_ready", 1, source="TSP_DIAG")
             self.mark_lks_outputs_dirty("diag_finished", immediate_n5=True)
         except Exception as exc:
             diag_crashed = True
             self.logger.error("LKS Diagnostics through HardwareBridge failed: %s", exc)
             try:
-                bus.set_input("hardware_state", "ERROR", source="TSP_DIAG")
-                bus.set_input("runtime_state", "READY_FOR_PAR", source="TSP_DIAG")
-                bus.set_input("tarzan_ready", 1, source="TSP_DIAG")
+                bus.force_signal("hardware_state", "ERROR", source="TSP_DIAG")
+                bus.force_signal("runtime_state", "READY_FOR_PAR", source="TSP_DIAG")
+                bus.force_signal("tarzan_ready", 1, source="TSP_DIAG")
             except Exception:
                 pass
 
@@ -781,13 +780,13 @@ class TarzanTspServer:
             
             # 1. Diagnostyka
             if bus.read("cmd_run_diagnostics", 0):
-                bus.set_input("cmd_run_diagnostics", 0, source="TSP_SYSTEM")  # Reset flagi
+                bus.force_signal("cmd_run_diagnostics", 0, source="TSP_SYSTEM")  # Reset flagi
                 diag_thread = threading.Thread(target=self._run_diagnostics, name="LKS-MANUAL-HWBRIDGE", daemon=True)
                 diag_thread.start()
             
             # 2. Reboot (tylko na Linuxie)
             if bus.read("cmd_system_reboot", 0):
-                bus.set_input("cmd_system_reboot", 0, source="TSP_SYSTEM")
+                bus.force_signal("cmd_system_reboot", 0, source="TSP_SYSTEM")
                 bus.log("TSP", "SYSTEM REBOOT INITIATED!")
                 if platform.system().lower() != "windows":
                     os.system("sudo reboot")
@@ -878,11 +877,11 @@ class TarzanTspServer:
                 from core.tarzanSignalBus import get_signal_bus
                 bus = get_signal_bus()
                 if "tarzanPAR" in client.node_name:
-                    bus.set_input("par_state", "OFFLINE", source="TSP_DISCONNECT")
+                    bus.force_signal("par_state", "OFFLINE", source="TSP_DISCONNECT")
                 elif "tarzanEHR" in client.node_name:
-                    bus.set_input("ehr_state", "OFFLINE", source="TSP_DISCONNECT")
+                    bus.force_signal("ehr_state", "OFFLINE", source="TSP_DISCONNECT")
                 elif "tarzanKHR" in client.node_name:
-                    bus.set_input("khr_state", "OFFLINE", source="TSP_DISCONNECT")
+                    bus.force_signal("khr_state", "OFFLINE", source="TSP_DISCONNECT")
             except Exception:
                 pass
 
@@ -911,14 +910,14 @@ class TarzanTspServer:
                 from core.tarzanSignalBus import get_signal_bus
                 bus = get_signal_bus()
                 if "tarzanPAR" in node:
-                    bus.set_input("par_state", "CONNECTED", source="TSP_HELLO")
+                    bus.force_signal("par_state", "CONNECTED", source="TSP_HELLO")
                     # PAR przejmuje kontrolę administracyjną
                     if bus.read("control_owner") in {"TSP_BOOT", "TSP_SERVICE"}:
-                        bus.set_input("control_owner", "PAR_LIVE", source="TSP_HELLO")
+                        bus.force_signal("control_owner", "PAR_LIVE", source="TSP_HELLO")
                 elif "tarzanEHR" in node:
-                    bus.set_input("ehr_state", "CONNECTED", source="TSP_HELLO")
+                    bus.force_signal("ehr_state", "CONNECTED", source="TSP_HELLO")
                 elif "tarzanKHR" in node:
-                    bus.set_input("khr_state", "CONNECTED", source="TSP_HELLO")
+                    bus.force_signal("khr_state", "CONNECTED", source="TSP_HELLO")
                 bus.log("TSP", f"Client HELLO: {node}")
             except Exception:
                 pass
@@ -1045,7 +1044,7 @@ class TarzanTspServer:
                     try:
                         from core.tarzanSignalBus import get_signal_bus
                         bus = get_signal_bus()
-                        bus.set_input("tsp_clients", client_count, source="TSP_STATS")
+                        bus.force_signal("tsp_clients", client_count, source="TSP_STATS")
                         self._last_client_count_bus = client_count
                     except Exception:
                         pass
@@ -1140,7 +1139,7 @@ class TarzanTspServer:
                         from core.tarzanSignalBus import get_signal_bus
                         bus = get_signal_bus()
                         if bus.exists("tsp_fast_stats"):
-                            bus.set_input("tsp_fast_stats", json.dumps(stats), source="TSP_STATS")
+                            bus.force_signal("tsp_fast_stats", json.dumps(stats), source="TSP_STATS")
                     except Exception:
                         pass
 

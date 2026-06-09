@@ -498,8 +498,8 @@ class TarzanHardwareBridge:
         except Exception:
             return f"{board} connected"
 
-    def _lks_test_result(self, component: str, ok: bool, detail: str = "", error: str = "") -> Dict[str, Any]:
-        return {"component": str(component), "ok": bool(ok), "detail": str(detail or ""), "error": str(error or "")}
+    def _lks_test_result(self, component: str, ok: bool, detail: str = "", error: str = "", supported: bool = True) -> Dict[str, Any]:
+        return {"component": str(component), "ok": bool(ok), "detail": str(detail or ""), "error": str(error or ""), "supported": bool(supported)}
 
     def _lks_refresh_device(self, device: Any) -> None:
         try:
@@ -558,7 +558,7 @@ class TarzanHardwareBridge:
                 if visible:
                     self._lks_lcd_init(device)
                     self._lks_lcd_write_lines(device, f"LKS-N5 {board}", "TEST LCD")
-                    time.sleep(0.35)
+                    time.sleep(0.60)
                     try:
                         device.PK_LCDClear()
                     except Exception:
@@ -628,9 +628,9 @@ class TarzanHardwareBridge:
                     except Exception:
                         pass
                     self._lks_matrix_write_frame(device, self._matrix_rows_from_text("OK"))
-                    time.sleep(0.25)
+                    time.sleep(0.45)
                     self._lks_matrix_write_frame(device, [0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55])
-                    time.sleep(0.20)
+                    time.sleep(0.35)
                 finally:
                     try:
                         self._lks_matrix_write_frame(device, [0] * 8)
@@ -674,7 +674,7 @@ class TarzanHardwareBridge:
                         self._lks_set_led_pin(device, pin, 0)
                     for pin in pins:
                         self._lks_set_led_pin(device, pin, 1)
-                        time.sleep(0.10)
+                        time.sleep(0.18)
                         self._lks_set_led_pin(device, pin, 0)
                 finally:
                     for pin in pins:
@@ -888,16 +888,16 @@ class TarzanHardwareBridge:
         if logical is not None:
             return logical
 
-        # NIE WCHODZIMY z HardwareBridge z powrotem do TarzanTspLksDiagnostics.
-        # To robiło pętlę: Diagnostics -> HardwareBridge.test_lks_component -> Diagnostics
-        # dla komponentów typu level_xyz/shock_alarm/light_laser i blokowało boot na DEVICE TEST.
-        # Nieobsługiwany komponent ma dostać szybki wynik read-only/unsupported, bez drugiego testera
-        # PoKeys i bez rekurencji.
+        # Pozostałe kontrolki NIE wracają do TarzanTspLksDiagnostics.
+        # Inaczej powstaje pętla Diagnostics -> HardwareBridge -> Diagnostics,
+        # która blokowała boot na DEVICE TEST i odpalała ciężkie skanowanie repo.
+        # Diagnostyka read-only tych elementów zostaje po stronie Diagnostics.
         return self._lks_test_result(
             name,
             False,
-            detail="active HardwareBridge has no direct point test for this component",
-            error="no direct HardwareBridge point test",
+            detail="no direct active HardwareBridge point test",
+            error="",
+            supported=False,
         )
 
 

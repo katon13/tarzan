@@ -21,6 +21,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from core.TSP.tarzanTspLksStatusMap import empty_statuses
 from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
+from core.TSP.tarzanTspLksHardwareTests import TarzanTspLksHardwareTests
 from core.TSP.tarzanTspLksMessages import (
     SCENE_BOOT_LINUX,
     SCENE_BOOT_SERVICES,
@@ -379,19 +380,36 @@ class TarzanTspLksBootProgress:
         # W TARZANIE LKS-N5 podstawowa magistrala I2C/BUS dla operatora
         # jest testowana przez aktywny HardwareBridge, bez drugiego connect PoKeys.
         bridge_bus = self._bridge_test("i2c_bus", visible=False)
-        if bridge_bus is not None:
-            if bridge_bus[0]:
-                return bridge_bus
-            bridge_bh = self._bridge_test("light_bh1750", visible=False)
-            if bridge_bh is not None and bridge_bh[0]:
-                return True, ("BH1750 OK; " + bridge_bh[1])[:180], ""
-            # Runtime z HardwareBridge nie może spadać do TarzanTspLksHardwareTests,
-            # bo to otwiera drugi tor PoKeys/libusb.
+        if bridge_bus is not None and bridge_bus[0]:
             return bridge_bus
+        bridge_bh = self._bridge_test("light_bh1750", visible=False)
+        if bridge_bh is not None and bridge_bh[0]:
+            return True, ("BH1750 OK; " + bridge_bh[1])[:180], ""
 
-        nodes = sorted(glob.glob("/dev/i2c-*"))
-        ok = bool(nodes)
-        return ok, ", ".join(nodes[:6]), "" if ok else "no /dev/i2c-* and no active HardwareBridge"
+        # Runtime z HardwareBridge nie może odpalać bocznego TarzanTspLksHardwareTests,
+        # bo to otwiera drugi tor PoKeys/libusb i daje "Requested device not found".
+        if self.hardware_bridge is not None:
+            nodes = sorted(glob.glob("/dev/i2c-*"))
+            if nodes:
+                return True, ", ".join(nodes[:6]), ""
+            return False, "HardwareBridge did not confirm I2C", "PoKeys BUS/I2C not confirmed through HardwareBridge"
+
+        try:
+            tester = TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
+            probe = tester.test_i2c_bus(visible=False)
+            if probe.ok:
+                return True, probe.detail[:180], ""
+            bh = tester.test_bh1750(visible=False)
+            if bh.ok:
+                return True, ("BH1750 OK via PoKeys BUS/I2C; " + bh.detail)[:180], ""
+            nodes = sorted(glob.glob("/dev/i2c-*"))
+            if nodes:
+                return True, ", ".join(nodes[:6]), ""
+            return False, probe.detail[:120], probe.error or bh.error or "PoKeys BUS/I2C not confirmed"
+        except Exception as exc:
+            nodes = sorted(glob.glob("/dev/i2c-*"))
+            ok = bool(nodes)
+            return ok, ", ".join(nodes[:6]), "" if ok else f"PoKeys BUS/I2C error: {exc}"
 
     def _check_video_nodes(self) -> Tuple[bool, str, str]:
         nodes = sorted(glob.glob("/dev/video*"))
@@ -406,7 +424,7 @@ class TarzanTspLksBootProgress:
             repo_root=str(self.repo_root),
             hardware_bridge=self.hardware_bridge,
         )
-        results = diagnostics.run_all(operator_visible=False)
+        results = diagnostics.run_all(operator_visible=True)
         self.statuses.update(diagnostics.status_map())
         ok_count = sum(1 for item in results if item.ok)
         fail_count = sum(1 for item in results if not item.ok)
@@ -432,7 +450,7 @@ class TarzanTspLksBootProgress:
         bridge = self.hardware_bridge
         if bridge is not None and hasattr(bridge, "begin_hardware_batch"):
             try:
-                bridge.begin_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=8000, ensure=True)
+                bridge.begin_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=18000, ensure=False)
                 bridge_batch_started = True
             except Exception:
                 bridge_batch_started = False
@@ -459,7 +477,7 @@ class TarzanTspLksBootProgress:
         finally:
             if bridge_batch_started and bridge is not None and hasattr(bridge, "end_hardware_batch"):
                 try:
-                    bridge.end_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=1000)
+                    bridge.end_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=2000)
                 except Exception:
                     pass
 

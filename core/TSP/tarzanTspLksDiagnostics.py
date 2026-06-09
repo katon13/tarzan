@@ -42,6 +42,22 @@ from core.TSP.tarzanTspLksHardwareTests import TarzanTspLksHardwareTests, LksHar
 DEFAULT_INVENTORY_PATH = "data/lks_n5/lks_n5_hardware_inventory.json"
 DEFAULT_REQUIREMENTS_PATH = "data/lks_n5/lks_n5_hardware_requirements.json"
 
+# Tylko te komponenty wolno kierować w runtime przez aktywny HardwareBridge.
+# Reszta idzie diagnostyką read-only/statusową, bez zapętlenia
+# Diagnostics -> HardwareBridge -> Diagnostics i bez bocznego PoKeys.
+HARDWAREBRIDGE_POINT_COMPONENTS = {
+    "pok_play",
+    "pok_rec",
+    "lcd_1602",
+    "matrix_led",
+    "f_led",
+    "f_button",
+    "keypad",
+    "i2c_bus",
+    "light_bh1750",
+    "next_7",
+}
+
 
 @dataclass
 class LksCheckResult:
@@ -112,14 +128,17 @@ class TarzanTspLksDiagnostics:
         self.required_bus_devices = tuple(required_bus_devices or REQUIRED_BUS_DEVICES)
         self.inventory_path = self._resolve_path(inventory_path or DEFAULT_INVENTORY_PATH)
         self.requirements_path = self._resolve_path(requirements_path or DEFAULT_REQUIREMENTS_PATH)
-        self.collect_inventory_if_missing = bool(collect_inventory_if_missing)
         self.hardware_bridge = hardware_bridge
+        # Runtime z aktywnym HardwareBridge nie może w razie braku JSON robić
+        # ciężkiego kolektora repo/inventory. To wcześniej blokowało DEVICE TEST
+        # na glob("**/*axis*") i wyglądało jak zawieszenie testów. Offline CLI
+        # nadal może zbierać inventory, gdy nie przekazano HardwareBridge.
+        self.collect_inventory_if_missing = bool(collect_inventory_if_missing) and hardware_bridge is None
         self.results: List[LksCheckResult] = []
         self.statuses: Dict[str, bool] = empty_statuses(False)
         self.inventory = _InventoryView(self._load_or_collect_inventory())
         self.requirements = self._load_requirements()
-        # W runtime z aktywnym HardwareBridge nie wolno tworzyć bocznego testera PoKeys.
-        self.hardware_tests = None if hardware_bridge is not None else TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
+        self.hardware_tests = None
         # Domyślnie pełna diagnostyka jest cicha. Boot może świadomie włączyć
         # krótkie, widoczne wzorce tylko dla wyjść operatorskich: LCD, Matrix, LED.
         self._operator_visible_run_all = False
@@ -227,23 +246,17 @@ class TarzanTspLksDiagnostics:
         """
         bridge = getattr(self, "hardware_bridge", None)
         if bridge is not None and hasattr(bridge, "test_lks_component"):
-            # W runtime pytamy HardwareBridge tylko o komponenty, które ma bezpośrednio obsłużyć.
-            # Reszta zostaje diagnostyką read-only z plików/statusów, bez pętli Diagnostics<->Bridge.
-            try:
-                normalized = component
-                if hasattr(bridge, "_normalize_lks_component"):
-                    normalized = bridge._normalize_lks_component(component)
-                needs_pokeys = False
-                if hasattr(bridge, "_snajper_policy") and hasattr(bridge._snajper_policy, "lks_component_needs_pokeys"):
-                    needs_pokeys = bool(bridge._snajper_policy.lks_component_needs_pokeys(normalized))
-                directly_supported = str(normalized) in {"pok_play", "pok_rec", "next_7", "cam_main", "cam_track", "linux_sys", "snajper_sys", "take_sys", "par_sys", "ehr_sys"}
-                if not needs_pokeys and not directly_supported:
-                    return None
-            except Exception:
-                pass
+            # W runtime pytamy HardwareBridge wyłącznie o komponenty, które ma
+            # bezpośrednio obsłużyć. Dla pozostałych nie wolno robić fallbacku
+            # z powrotem do Diagnostics, bo to tworzy rekurencję i sztuczne
+            # opóźnienia na DEVICE TEST.
+            if component not in HARDWAREBRIDGE_POINT_COMPONENTS:
+                return None
             try:
                 result = bridge.test_lks_component(component, visible=visible)
                 if isinstance(result, Mapping):
+                    if result.get("supported") is False:
+                        return None
                     return LksHardwareTestResult(
                         component=str(result.get("component") or component),
                         ok=bool(result.get("ok", False)),
@@ -255,11 +268,17 @@ class TarzanTspLksDiagnostics:
             except Exception as exc:
                 return LksHardwareTestResult(component=component, ok=False, supported=True, label=f"{component} HardwareBridge/Snajper test", error=str(exc))
 
+        # Offline TarzanTspLksHardwareTests wolno użyć tylko poza runtime, gdy nie
+        # przekazano HardwareBridge. W runtime nie otwieramy drugiej sesji PoKeys.
+        if bridge is not None:
+            return None
         try:
+            if self.hardware_tests is None:
+                self.hardware_tests = TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
             probe = self.hardware_tests.test_component(component, visible=visible)
             return probe if probe.supported else None
         except Exception as exc:
-            return LksHardwareTestResult(component=component, ok=False, supported=True, label=f"{component} sovereign hardware test", error=str(exc))
+            return LksHardwareTestResult(component=component, ok=False, supported=True, label=f"{component} offline hardware test", error=str(exc))
 
     def _check_import(self, module_name: str, key: str, component: str, label: str, required: bool = True) -> LksCheckResult:
         start = time.time()
@@ -553,7 +572,7 @@ class TarzanTspLksDiagnostics:
         bridge = getattr(self, "hardware_bridge", None)
         if bridge is not None and hasattr(bridge, "begin_hardware_batch"):
             try:
-                bridge.begin_hardware_batch("LKS_FULL_DIAGNOSTICS", grace_ms=8000, ensure=False)
+                bridge.begin_hardware_batch("LKS_FULL_DIAGNOSTICS", grace_ms=15000, ensure=False)
                 bridge_batch_started = True
             except Exception:
                 bridge_batch_started = False
@@ -569,7 +588,7 @@ class TarzanTspLksDiagnostics:
         finally:
             if bridge_batch_started and bridge is not None and hasattr(bridge, "end_hardware_batch"):
                 try:
-                    bridge.end_hardware_batch("LKS_FULL_DIAGNOSTICS", grace_ms=1000)
+                    bridge.end_hardware_batch("LKS_FULL_DIAGNOSTICS", grace_ms=2000)
                 except Exception:
                     pass
             self._operator_visible_run_all = previous_visible

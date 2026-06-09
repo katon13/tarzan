@@ -409,23 +409,21 @@ class TarzanTspLksBootProgress:
         return ok, ", ".join(nodes[:6]), "no /dev/video*" if not ok else ""
 
     def _check_diagnostics(self) -> Tuple[bool, str, str]:
-        # Pełna diagnostyka status_main ma zostać pełna. Jeżeli HardwareBridge
-        # istnieje, TarzanTspLksDiagnostics użyje go dla PoKeys/LCD/matrix/I2C,
-        # więc nie powstanie druga sesja USB i nie wróci obciążenie CPU.
-        diagnostics = TarzanTspLksDiagnostics(
-            repo_root=str(self.repo_root),
-            hardware_bridge=self.hardware_bridge,
-        )
-        results = diagnostics.run_all(operator_visible=True)
-        self.statuses.update(diagnostics.status_map())
-        ok_count = sum(1 for item in results if item.ok)
-        fail_count = sum(1 for item in results if not item.ok)
-        details = "; ".join(
-            f"{item.component}:{item.detail or item.error}"
-            for item in results
-            if item.detail or item.error
-        )[:180]
-        return True, f"diagnostics full ok={ok_count} off/fail={fail_count}", details
+        """Końcowe podsumowanie bootu bez uruchamiania drugiego pełnego testu.
+
+        Zasada LKS-N5:
+        - start systemu robi jeden liniowy boot-check,
+        - klik operatora robi jeden test punktowy,
+        - pełna diagnostyka nie startuje drugi raz automatycznie po boot-checku.
+
+        Poprzedni kod wywoływał tutaj TarzanTspLksDiagnostics.run_all(), przez co
+        po pierwszym przejściu ekranów startował drugi przebieg testów LKS. To
+        mieszało statusy, wydłużało boot i mogło niepotrzebnie budzić hardware.
+        """
+        ok_count = sum(1 for value in self.statuses.values() if bool(value))
+        total_count = len(self.statuses)
+        fail_count = max(0, total_count - ok_count)
+        return True, f"boot summary ok={ok_count} off/fail={fail_count}", "no second full diagnostics during boot"
 
     # ------------------------------------------------------------------
 

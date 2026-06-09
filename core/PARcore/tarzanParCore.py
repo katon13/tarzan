@@ -2351,12 +2351,12 @@ class TarzanParCore:
         while self._rrp_active:
             start = time.monotonic()
             
-            # ZASADA SNAJPERA: brak aktywności = spokojny sen.
-            # Nie czekamy na globalne zmiany SignalBus, bo drobne wpisy statusowe
-            # potrafią wybudzać pętlę w IDLE bez realnej akcji.
+            # ZASADA SNAJPERA: brak aktywności = spokój.
+            # Nie czekamy na każdy "dirty" SignalBus, bo statusowe wpisy potrafią
+            # budzić pętlę bez realnej akcji.
             is_active = self._is_system_active()
             if not is_active:
-                time.sleep(0.25)
+                time.sleep(1.0)
                 continue
 
             try:
@@ -3551,8 +3551,8 @@ class TarzanParCore:
                     self.flush_snajper_commands()
                 else:
                     # Dodatkowe uśpienie dla pętli IDLE bez aktywności.
-                    # Nie czekamy na SignalBus, bo statusy/pingi nie są akcją.
-                    time.sleep(0.25)
+                    # Nie budzimy Nextion7/PARcore od zwykłych wpisów statusowych SignalBus.
+                    time.sleep(0.2)
             except Exception as exc:
                 self.force_signal("nextion7_state", "ERROR", source="PARCORE_N7")
                 self.force_signal("par_last_error", f"Nextion7 event poll failed: {exc}", source="PARCORE_N7")
@@ -3840,12 +3840,12 @@ class TarzanParCore:
                 self.write_output("rec_p09_led_data", 1 if transport == "REC" else 0, source="MODE_LOGIC")
                 self._update_clap_tc_for_snajper()
                 
-                # Adaptacyjny interwał: 50ms (20Hz) przy pracy, spokojny sen w IDLE.
-                # Brudzenie busa przez statusy nie może mielić CPU.
+                # Adaptacyjny interwał: 50ms (20Hz) przy pracy, spokój w IDLE.
+                # SignalBus dirty nie jest rozkazem pracy.
                 if is_active:
                     time.sleep(0.05)
                 else:
-                    time.sleep(0.5)
+                    time.sleep(1.0)
             except Exception as exc:
                 self._bus_log("MODE_ERROR", str(exc))
                 time.sleep(0.5)

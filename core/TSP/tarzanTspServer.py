@@ -1149,7 +1149,7 @@ class TarzanTspServer:
                         if now - last_health < TSP_HEALTH_INTERVAL_MS:
                             # IDLE śpi czasowo: częste zdarzenia SignalBus
                             # potrafią wybudzać pętlę bez realnej akcji i podbijać CPU.
-                            time.sleep(0.25)
+                            time.sleep(0.75)
                             continue
 
                 # ETAP 14: Obsługa playbacku TAKE na MiniPC
@@ -1206,7 +1206,11 @@ class TarzanTspServer:
                         last_health = now
 
                 # 3. Logi statystyk
-                if now - self._last_stats_ms >= TSP_STATS_LOG_INTERVAL_MS:
+                # W IDLE nie zalewamy journalctl co sekundę. Długie logowanie samo
+                # podbija koszt CPU i zaciemnia diagnostykę. Przy klientach zostaje
+                # normalny rytm, w ciszy tylko rzadki heartbeat.
+                stats_interval_ms = TSP_STATS_LOG_INTERVAL_MS if client_count > 0 else max(TSP_STATS_LOG_INTERVAL_MS, 30000)
+                if now - self._last_stats_ms >= stats_interval_ms:
                     self._last_stats_ms = now
                     stats = self.debug.stats.as_dict()
                     self.logger.info(

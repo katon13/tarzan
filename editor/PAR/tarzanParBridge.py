@@ -63,6 +63,8 @@ class TarzanParBridge:
         ]
         self._remote_nextion_monitor: Dict[str, Any] = {}
         self._remote_nextion_log: list[str] = []
+        self._last_remote_poll_ts: float = 0.0
+        self._remote_poll_interval_s: float = 0.25
 
     def _ui_call(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
         """Wykonuje zmianę UI/SignalBus bezpiecznie w wątku Tkintera, gdy mamy scheduler."""
@@ -367,7 +369,7 @@ class TarzanParBridge:
             self.parcore_action("get_nextion_monitor_state", {"screen_key": "nextion_7"})
             if self._remote_nextion_monitor:
                 return dict(self._remote_nextion_monitor)
-            return {"screen_key": "nextion_7", "connected": False, "port": "miniPC", "baudrate": 9600, "last_error": "remote status pending", "page": "", "ui_cut": 0, "pending": 0}
+            return {"screen_key": "nextion_7", "connected": False, "port": "miniPC", "baudrate": 115200, "last_error": "remote status pending", "page": "", "ui_cut": 0, "pending": 0}
         if hasattr(self.nextion, "get_nextion_monitor_state"):
             return dict(self.nextion.get_nextion_monitor_state(screen_key))
         return {}
@@ -401,6 +403,13 @@ class TarzanParBridge:
         return self.sync(force=force)
 
     def poll(self):
+        # PAR-GUI jest klonem/REMOTE. Nie wolno spamować call_action co tick
+        # podglądu; miniPC/PARcore ma własną pętlę RX Nextion 7. Tu tylko
+        # okresowy lekki poll na żądanie podglądu.
+        now = time.monotonic()
+        if (now - self._last_remote_poll_ts) < self._remote_poll_interval_s:
+            return True
+        self._last_remote_poll_ts = now
         if self.parcore_action("nextion_poll", {"screen_key": "nextion_7"}):
             return True
         return False

@@ -2496,10 +2496,8 @@ class TarzanParCore:
             return self.nextion.poll()
         return None
 
-    # alias 1:1 z Bridge
-    poll = nextion_poll
-
-
+    # UWAGA: nie robimy aliasu poll = nextion_poll.
+    # PARcore ma pełny poll runtime wyżej; Nextion 7 ma osobne nextion_poll().
 
     # ------------------------------------------------------------------
     # Oś / SOK / sensory / P37

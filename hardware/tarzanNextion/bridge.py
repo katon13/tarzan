@@ -5,7 +5,7 @@ from pathlib import Path
 
 import json
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .config import load_ports
 from .device import TarzanNextionDevice
@@ -107,6 +107,11 @@ class TarzanNextionBridge:
         self.last_commands: List[str] = []
         self._transport_log: List[str] = []
         self._transport_log_limit = 500
+        # NEXTION7 REMOTE: strukturalna kolejka zdarzeń dla PARcore/TSP.
+        # Nie parsujemy już logów tekstowych jako zdarzeń; bridge sam publikuje
+        # to, co faktycznie przyszło z UART albo zostało obsłużone w poll().
+        self._event_queue: List[Dict[str, Any]] = []
+        self._event_queue_limit = 300
         self._nextion_ui_cut = bool(getattr(tfd_state, "nextion_ui_cut", False)) if tfd_state is not None else False
         self._snapshot_cache = {}
         self._snapshot_time = 0.0
@@ -348,16 +353,44 @@ class TarzanNextionBridge:
         device = self.devices.get(screen_key)
         if device is None:
             return False
-        ok = device.handshake(wait_ms=100)
-        self._append_transport_log(f"EV {screen_key}: CONNECT {'OK' if ok else 'FAIL'} port={device.port} baud={device.baudrate}")
-        if ok:
-            page_id = self.active_pages.get(screen_key, "")
-            if page_id:
-                self._append_transport_log(f"TX {screen_key}: page {page_id}")
-                device.send_raw(cmd_page(page_id))
-                self._refresh_physical_nextion_page_from_state(screen_key, page_id)
-            self._request_current_page(screen_key, device)
-        return ok
+
+        # Nextion 7 na miniPC ma pracować jak Nextion 5: port otwarty = aktywny
+        # transport. Handshake/comok jest diagnostyką, nie warunkiem uruchomienia
+        # pętli RX. Stary Windows często działał bez czekania na comok.
+        port_ok = device.open()
+        if not port_ok:
+            self._append_transport_log(f"EV {screen_key}: CONNECT FAIL port={device.port} baud={device.baudrate} err={device.last_error}")
+            self._push_event(screen_key, "connect", 0, raw=None, detail=device.last_error or "open_failed")
+            return False
+
+        handshake_ok = False
+        try:
+            # Krótki connect tylko do informacji. Nie zamyka portu przy braku comok.
+            handshake_ok = bool(device.handshake(wait_ms=120))
+        except Exception as exc:
+            device.last_error = f"handshake warning: {exc}"
+
+        # Utrzymujemy aktywny port nawet gdy comok nie wrócił. Dzięki temu poll()
+        # nadal czyta touch/page/print z fizycznego ekranu.
+        device.connected = True
+        if handshake_ok:
+            device.handshake_ok = True
+            device.last_error = None
+        elif not device.last_error:
+            device.last_error = "port open; no comok handshake"
+
+        self._append_transport_log(
+            f"EV {screen_key}: CONNECT {'OK' if handshake_ok else 'PORT_OPEN'} port={device.port} baud={device.baudrate}"
+        )
+        self._push_event(screen_key, "connect", 1 if port_ok else 0, raw=None, detail="handshake_ok" if handshake_ok else "port_open")
+
+        page_id = self.active_pages.get(screen_key, "")
+        if page_id:
+            self._append_transport_log(f"TX {screen_key}: page {page_id}")
+            device.send_raw(cmd_page(page_id))
+            self._refresh_physical_nextion_page_from_state(screen_key, page_id)
+        self._request_current_page(screen_key, device)
+        return True
 
     def disconnect_screen(self, screen_key: str) -> None:
         device = self.devices.get(screen_key)
@@ -480,6 +513,52 @@ class TarzanNextionBridge:
             if not (prefix_a in line or prefix_b in line or prefix_c in line or prefix_d in line)
         ]
 
+    def _push_event(self, screen_key: str, event: str, value: Any = None, raw: Any = None, **extra: Any) -> None:
+        """Strukturalne zdarzenie dla PARcore/TSP, bez parsowania logów tekstowych."""
+        item: Dict[str, Any] = {
+            "screen": str(screen_key),
+            "event": str(event),
+            "value": value,
+            "ts": time.time(),
+        }
+        if raw is not None:
+            try:
+                item["raw"] = bytes(raw) if isinstance(raw, (bytes, bytearray)) else raw
+            except Exception:
+                item["raw"] = repr(raw)
+        item.update(extra)
+        self._event_queue.append(item)
+        if len(self._event_queue) > self._event_queue_limit:
+            del self._event_queue[:len(self._event_queue) - self._event_queue_limit]
+
+    def read_events(self, screen_key: str = "nextion_7") -> List[Dict[str, Any]]:
+        wanted = str(screen_key or "nextion_7").lower()
+        out: List[Dict[str, Any]] = []
+        rest: List[Dict[str, Any]] = []
+        for item in self._event_queue:
+            screen = str(item.get("screen") or "").lower()
+            if screen in {wanted, wanted.replace("_", ""), "nextion_7", "nextion7"} and wanted in {"nextion_7", "nextion7", "n7", "7"}:
+                out.append(item)
+            elif screen == wanted:
+                out.append(item)
+            else:
+                rest.append(item)
+        self._event_queue = rest
+        return out
+
+    def get_events(self, screen_key: str = "nextion_7") -> List[Dict[str, Any]]:
+        return self.read_events(screen_key)
+
+    def poll_events(self, screen_key: str = "nextion_7") -> List[Dict[str, Any]]:
+        self.poll()
+        return self.read_events(screen_key)
+
+    def read_nextion7_events(self, screen_key: str = "nextion_7") -> List[Dict[str, Any]]:
+        return self.read_events(screen_key)
+
+    def get_nextion7_events(self, screen_key: str = "nextion_7") -> List[Dict[str, Any]]:
+        return self.read_events(screen_key)
+
     def get_nextion_monitor_state(self, screen_key: str = "nextion_7") -> Dict[str, Any]:
         """Jedno miejsce odczytu stanu dla uproszczonego panelu Nextiona."""
         device = self.devices.get(screen_key)
@@ -575,10 +654,19 @@ class TarzanNextionBridge:
     def poll(self) -> List[str]:
         logs: List[str] = []
         for key, device in self.devices.items():
+            if self._enabled(key) and device.serial_port is None:
+                try:
+                    if device.open():
+                        device.connected = True
+                        self._append_transport_log(f"EV {key}: PORT_OPEN port={device.port} baud={device.baudrate}")
+                        self._push_event(key, "port_open", 1, port=device.port, baudrate=device.baudrate)
+                except Exception as exc:
+                    self._append_transport_log(f"EV {key}: PORT_OPEN_ERROR {exc}")
             for event in device.poll():
                 raw = event.raw
                 logs.append(f"{key} EVENT {raw!r}")
                 self._append_transport_log(f"RX {key}: {raw!r}")
+                self._push_event(key, "raw", None, raw=raw)
 
                 # Obsługa zdarzeń tekstowych (np. rrp:, set:, take:)
                 try:
@@ -599,11 +687,13 @@ class TarzanNextionBridge:
                             payload = part[clap_pos + len(clap_prefix):]
                             value = 1 if payload and payload[0] == 1 else 0
                             messages.append(f"take:clap={value}")
+                            self._push_event(key, "take:clap", value, raw=part)
                             continue
 
                         msg = part.decode("cp1250", errors="replace").strip("\x00\x1a\r\n ")
                         if msg:
                             messages.append(msg)
+                            self._push_event(key, msg, None, raw=part)
 
                     if not messages:
                         clean_raw = raw.replace(b'\xff', b'')
@@ -617,6 +707,7 @@ class TarzanNextionBridge:
                             msg = clean_raw.decode("cp1250", errors="replace").strip("\x00\x1a\r\n ")
                             if msg:
                                 messages.append(msg)
+                                self._push_event(key, msg, None, raw=clean_raw)
 
                     handled_text = False
                     for msg in messages:
@@ -667,6 +758,7 @@ class TarzanNextionBridge:
                     page_index = int(raw[1])
                     page_id = self._page_id_from_index(key, page_index)
                     self.active_pages[key] = page_id
+                    self._push_event(key, "page", page_id, raw=raw, page_index=page_index)
                     self._refresh_physical_nextion_page_from_state(key, page_id)
                     logs.append(f"{key} PAGE {page_id}")
                     continue
@@ -680,6 +772,9 @@ class TarzanNextionBridge:
                     page_index = int(raw[1])
                     component_id = int(raw[2])
                     event_type = int(raw[3])
+                    component_name = self._component_name_from_touch(key, page_index, component_id)
+                    page_id = self._page_id_from_index(key, page_index)
+                    self._push_event(key, component_name or "touch", event_type, raw=raw, page=page_id, page_index=page_index, component_id=component_id)
                     if self._handle_touch_event(key, page_index, component_id, event_type, logs):
                         continue
                     logs.append(f"{key} TOUCH page={page_index} comp={component_id} event={event_type}")

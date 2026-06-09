@@ -41,8 +41,10 @@ class TarzanNextionDevice:
             return False
         try:
             self.serial_port = serial.Serial(self.port, self.baudrate, timeout=0.05, write_timeout=0.2)
+            # Jak w Nextion 5: samo otwarcie portu oznacza aktywny transport.
+            # comok/handshake to diagnostyka, a nie warunek działania RX.
             self.last_error = None
-            self.connected = False
+            self.connected = True
             self.handshake_ok = False
             self.last_handshake = ""
             return True
@@ -77,6 +79,11 @@ class TarzanNextionDevice:
         try:
             assert self.serial_port is not None
             self.serial_port.write(payload)
+            try:
+                self.serial_port.flush()
+            except Exception:
+                pass
+            self.connected = True
             return True
         except Exception as exc:
             self.last_error = str(exc)
@@ -125,23 +132,32 @@ class TarzanNextionDevice:
         self.clear_rx()
         if not self.send_command("connect"):
             return False
-        time.sleep(max(0.01, wait_ms / 1000.0))
-        # Czytamy wszystko co przyszło
-        if self.serial_port and self.serial_port.in_waiting:
-            self.read_buffer.extend(self.serial_port.read(self.serial_port.in_waiting))
-        
-        events = self.poll()
-        for ev in events:
-            if ev.raw.startswith(b"comok"):
-                try:
-                    self.last_handshake = ev.raw.decode("ascii", errors="replace")
-                except Exception:
-                    self.last_handshake = repr(ev.raw)
-                self.connected = True
-                self.handshake_ok = True
-                self.last_error = None
-                return True
-        self.connected = False
+
+        # Nextion może odpowiedzieć po chwili, a nie zawsze odsyła comok przy
+        # każdej konfiguracji HMI. Portu nie zamykamy i nie uznajemy za martwy
+        # tylko dlatego, że comok nie wrócił.
+        deadline = time.time() + max(0.02, wait_ms / 1000.0)
+        while time.time() < deadline:
+            try:
+                if self.serial_port and self.serial_port.in_waiting:
+                    self.read_buffer.extend(self.serial_port.read(self.serial_port.in_waiting))
+            except Exception as exc:
+                self.last_error = f"Błąd handshake: {exc}"
+                return False
+            events = self.poll()
+            for ev in events:
+                if ev.raw.startswith(b"comok"):
+                    try:
+                        self.last_handshake = ev.raw.decode("ascii", errors="replace")
+                    except Exception:
+                        self.last_handshake = repr(ev.raw)
+                    self.connected = True
+                    self.handshake_ok = True
+                    self.last_error = None
+                    return True
+            time.sleep(0.01)
+
+        self.connected = bool(self.serial_port is not None)
         self.handshake_ok = False
-        self.last_error = self.last_error or f"Brak odpowiedzi na connect w {wait_ms} ms"
+        self.last_error = self.last_error or f"Port otwarty; brak comok w {wait_ms} ms"
         return False

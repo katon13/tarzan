@@ -46,7 +46,7 @@ class TarzanHardwareBridge:
         self.bus = bus
         self.logger = setup_tsp_logger("HW.BRIDGE")
         self.running = False
-        self._lock = threading.RLock()
+        self._lock = threading.Lock()
         
         self.devices: Dict[str, Any] = {
             "PLAY": None,
@@ -150,13 +150,41 @@ class TarzanHardwareBridge:
         self.logger.info("Hardware Bridge STOPPED.")
 
     def _get_lib_path(self) -> str:
-        # Taka sama logika jak w tarzanTspLksHardwareTests
+        """Zwraca realna sciezke do biblioteki PoKeys.
+
+        Runtime miniPC nie moze zakladac, ze libPoKeys.so zawsze lezy
+        w repo pod hardware/pokeys. Na miniPC biblioteka bywa instalowana
+        systemowo, np. /opt/PoKeysLib/libPoKeys.so albo /usr/lib/libPoKeys.so.
+        Brak fallbacku blokowal start testow PLAY/REC i LKS widzial tylko
+        czesc ikon.
+        """
         from pathlib import Path
         repo_root = Path(__file__).resolve().parents[1]
         if platform.system() == "Windows":
-            return str(repo_root / "hardware" / "pokeys" / "PoKeysDevice_x64.dll")
+            candidates = [
+                repo_root / "hardware" / "pokeys" / "PoKeysDevice_x64.dll",
+            ]
         else:
-            return str(repo_root / "hardware" / "pokeys" / "libPoKeys.so")
+            candidates = [
+                repo_root / "hardware" / "pokeys" / "libPoKeys.so",
+                Path("/opt/PoKeysLib/libPoKeys.so"),
+                Path("/usr/lib/libPoKeys.so"),
+                Path("/usr/local/lib/libPoKeys.so"),
+                Path("/usr/lib/x86_64-linux-gnu/libPoKeys.so"),
+            ]
+
+        for candidate in candidates:
+            try:
+                if candidate.exists():
+                    return str(candidate)
+            except Exception:
+                continue
+
+        # Zwracamy standardowa sciezke repo, zeby log bledow jasno pokazywal
+        # czego szukal runtime, ale start nie ma udawac sukcesu bez biblioteki.
+        if platform.system() == "Windows":
+            return str(repo_root / "hardware" / "pokeys" / "PoKeysDevice_x64.dll")
+        return str(repo_root / "hardware" / "pokeys" / "libPoKeys.so")
 
     def _init_devices(self, lib_path: str) -> None:
         # PLAY Board
@@ -274,7 +302,7 @@ class TarzanHardwareBridge:
             except Exception:
                 pass
             try:
-                self.bus.force_signal("cmd_hardware_awake", 0, source=f"HW_AWAKE_{source}_ACK")
+                self.bus.set_input("cmd_hardware_awake", 0, source=f"HW_AWAKE_{source}_ACK")
             except Exception:
                 pass
             if ensure:
@@ -301,10 +329,6 @@ class TarzanHardwareBridge:
             self.logger.info("ZASADA SNAJPERA: Wybudzanie hardware (realtime required)...")
             self._init_devices(lib_path)
             
-            # Po wybudzeniu (USB connect) synchronizujemy stan wyświetlaczy i LED,
-            # aby pierwszy "strzał" Snajpera nie przepadł w czasie nawiązywania połączenia.
-            self._sync_physical_outputs()
-            
             connected_count = sum(1 for dev in self.devices.values() if dev is not None)
             
             # Sprawdzamy czy wszystkie się połączyły
@@ -314,40 +338,6 @@ class TarzanHardwareBridge:
                 self._last_connect_failed = False
                 
             self.bus.set_input("hardware_connected", connected_count, source="HW_BRIDGE")
-
-    def _sync_physical_outputs(self) -> None:
-        """Pobiera aktualny stan z SignalBus i wymusza zapis do hardware (LCD, Matrix, LED)."""
-        self.logger.info("HW RE-SYNC: Odświeżanie stanu wyświetlaczy i LED po wybudzeniu...")
-        
-        # Lista sygnałów, które wymagają odświeżenia po połączeniu USB
-        outputs_to_sync = [
-            "par_lcd_play_line1", "par_lcd_play_line2",
-            "par_lcd_rec_line1", "par_lcd_rec_line2",
-            "par_lcd_line1", "par_lcd_line2",
-            "par_matrix_pattern",
-            "par_f_led_f1", "par_f_led_f2", "par_f_led_f3", "par_f_led_f4",
-            "rec_p46_led_f1", "rec_p48_led_f2", "rec_p50_led_f3", "rec_p52_led_f4"
-        ]
-        
-        start_t = time.time()
-        for name in outputs_to_sync:
-            # Nie blokujemy pętli głównej na zbyt długo (max 0.4s na cały re-sync)
-            if time.time() - start_t > 0.4:
-                self.logger.warning("HW RE-SYNC: Timeout (0.4s). Pomijam resztę sygnałów.")
-                break
-                
-            try:
-                if self.bus.exists(name):
-                    val = self.bus.read(name)
-                    # Wywołujemy bezpośrednio zapisy specjalistyczne (korzystają z RLock)
-                    if name.startswith("par_lcd"):
-                        self._write_par_lcd_signal(name, val)
-                    elif name == "par_matrix_pattern":
-                        self._write_par_matrix_signal(name, val)
-                    elif "led" in name:
-                        self._write_par_f_led_signal(name, val)
-            except Exception as exc:
-                self.logger.error(f"HW RE-SYNC ERROR for {name}: {exc}")
 
     def _ensure_disconnected(self) -> None:
         """Zrywa połączenie USB w trybie IDLE aby zredukować CPU (libusb poll)."""

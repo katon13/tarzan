@@ -234,7 +234,7 @@ class TarzanTspSignalProvider:
         from core.tarzanSnajper import TarzanSnajperHardwarePolicy
         snajper_policy = TarzanSnajperHardwarePolicy()
         if snajper_policy.should_wake_for_signal(name, value, source=source):
-            bus.set_input("cmd_hardware_awake", 1, source=f"SNAJPER_SIG_{source}")
+            bus.force_signal("cmd_hardware_awake", 1, source=f"SNAJPER_SIG_{source}")
         
         if not bus.exists(name):
             with self._lock:
@@ -352,7 +352,7 @@ class TarzanTspSignalProvider:
         from core.tarzanSnajper import TarzanSnajperHardwarePolicy
         snajper_policy = TarzanSnajperHardwarePolicy()
         if snajper_policy.should_wake_for_action(name, payload, source="TSP_ACTION"):
-            bus.set_input("cmd_hardware_awake", 1, source=f"SNAJPER_ACT_{name}")
+            bus.force_signal("cmd_hardware_awake", 1, source=f"SNAJPER_ACT_{name}")
         
         payload = payload or {}
         parcore = getattr(self, "parcore", None)

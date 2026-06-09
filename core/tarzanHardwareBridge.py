@@ -274,7 +274,7 @@ class TarzanHardwareBridge:
             except Exception:
                 pass
             try:
-                self.bus.set_input("cmd_hardware_awake", 0, source=f"HW_AWAKE_{source}_ACK")
+                self.bus.force_signal("cmd_hardware_awake", 0, source=f"HW_AWAKE_{source}_ACK")
             except Exception:
                 pass
             if ensure:

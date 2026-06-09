@@ -46,7 +46,7 @@ class TarzanModeLogic:
                     self._hardware_awake_until_ms,
                     now + self._snajper_policy.grace_ms_for("default"),
                 )
-                self.bus.set_input("cmd_hardware_awake", 0, source="MODE_AUTO_RESET")
+                self.bus.force_signal("cmd_hardware_awake", 0, source="MODE_AUTO_RESET")
 
             active_mode = self.bus.read("active_mode", "tM")
             transport = self.bus.read("transport_state", "STOP")

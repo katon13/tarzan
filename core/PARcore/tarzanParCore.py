@@ -1460,7 +1460,7 @@ class TarzanParCore:
             from core.tarzanZmienneSygnalowe import AWAKE_SIGNAL_PREFIXES, AWAKE_SIGNAL_NAMES
             if name.startswith(AWAKE_SIGNAL_PREFIXES) or name in AWAKE_SIGNAL_NAMES:
                 if name != "cmd_hardware_awake":
-                    self.bus.set_input("cmd_hardware_awake", 1, source=f"ACT_{source}")
+                    self.bus.force_signal("cmd_hardware_awake", 1, source=f"ACT_{source}")
         
         ok = bool(self.bus.set_input(name, value, source=source))
         self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"set_input:{name}")
@@ -1472,7 +1472,7 @@ class TarzanParCore:
             from core.tarzanZmienneSygnalowe import AWAKE_SIGNAL_PREFIXES, AWAKE_SIGNAL_NAMES
             if name.startswith(AWAKE_SIGNAL_PREFIXES) or name in AWAKE_SIGNAL_NAMES:
                 if name != "cmd_hardware_awake":
-                    self.bus.set_input("cmd_hardware_awake", 1, source=f"ACT_{source}")
+                    self.bus.force_signal("cmd_hardware_awake", 1, source=f"ACT_{source}")
                     
         ok = bool(self.bus.write_output(name, value, source=source))
         if self.hardware_bridge is not None:
@@ -1486,7 +1486,7 @@ class TarzanParCore:
             from core.tarzanZmienneSygnalowe import AWAKE_SIGNAL_PREFIXES, AWAKE_SIGNAL_NAMES
             if name.startswith(AWAKE_SIGNAL_PREFIXES) or name in AWAKE_SIGNAL_NAMES:
                 if name != "cmd_hardware_awake":
-                    self.bus.set_input("cmd_hardware_awake", 1, source=f"ACT_{source}")
+                    self.bus.force_signal("cmd_hardware_awake", 1, source=f"ACT_{source}")
                     
         ok = bool(self.bus.force_signal(name, value, source=source))
         if self.hardware_bridge is not None:
@@ -2766,7 +2766,7 @@ class TarzanParCore:
         if self.bus:
             from core.tarzanZmienneSygnalowe import AWAKE_ACTION_NAMES
             if action in AWAKE_ACTION_NAMES:
-                self.bus.set_input("cmd_hardware_awake", 1, source=f"LOCAL_CMD_{action}")
+                self.force_signal("cmd_hardware_awake", 1, source=f"LOCAL_CMD_{action}")
             
         args = dict(args or {})
         action_norm = str(action or "").strip().lower()
@@ -3056,7 +3056,7 @@ class TarzanParCore:
             # Nextion wysyła klucze, które często mapują się na akcje
             is_awake = key in AWAKE_ACTION_NAMES or any(prefix in key for prefix in ["mode", "take", "axis", "sensor", "sok", "safety"])
             if is_awake:
-                self.bus.set_input("cmd_hardware_awake", 1, source="LOCAL_N7")
+                self.bus.force_signal("cmd_hardware_awake", 1, source="LOCAL_N7")
 
         if key in {"stop"} and str(value) in {"1", "true", "True", "ON", "on"}:
             return self._handle_rrp_event("rrp:stop=1")

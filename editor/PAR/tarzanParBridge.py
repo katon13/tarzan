@@ -94,6 +94,9 @@ class TarzanParBridge:
 
     def set_mode(self, mode: str) -> None:
         self.bus.set_mode(mode)
+        # Informujemy PARcore o zmianie trybu
+        self.parcore_action("set_mode", {"mode": mode})
+        
         # PAR ma tylko dwa robocze tryby TEST/LIVE, ale oba pracują przez miniPC/TSP,
         # jeżeli połączenie jest dostępne. Różni się rola pracy, nie tor komunikacji.
         if mode in {"TEST", "LIVE", "MIX"}:
@@ -272,8 +275,8 @@ class TarzanParBridge:
                 self.tsp_client.ping()
                 self.tsp_client.get_state()
                 self.tsp_client.subscribe(
-                    lanes=["normal", "slow", "health", "urgent"],
-                    signals=self._tsp_boot_signals,
+                    lanes=["fast", "normal", "slow", "health", "urgent"],
+                    signals=["*"],
                 )
         
         elif cmd == "subscribe" and ok:
@@ -542,6 +545,10 @@ class TarzanParBridge:
         self.bus.log("PAR", f"Action {name} ignored (TSP/PARcore not connected)")
         self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED_ACTION: {name}", source="PAR_BRIDGE")
         return False
+
+    def shutdown(self) -> None:
+        """Bezpieczne zamknięcie połączenia TSP."""
+        self._stop_tsp()
 
     def snapshot(self, include_meta: bool = False) -> Dict[str, Any]:
         return self.bus.snapshot(include_meta=include_meta)

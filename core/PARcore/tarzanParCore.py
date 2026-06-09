@@ -2490,11 +2490,9 @@ class TarzanParCore:
         return False
 
     def nextion_poll(self) -> Any:
-        if self.nextion is None:
-            return None
-        if hasattr(self.nextion, "poll"):
-            return self.nextion.poll()
-        return None
+        # Publiczne wywołanie z PAR STACJA/PARtext: jednorazowy, nieblokujący
+        # odbiór zdarzeń Nextion 7. Nie tworzy własnego refreshu UI i nie omija Snajpera.
+        return self.poll_nextion7_once(block=False)
 
     # UWAGA: nie robimy aliasu poll = nextion_poll.
     # PARcore ma pełny poll runtime wyżej; Nextion 7 ma osobne nextion_poll().
@@ -3441,11 +3439,13 @@ class TarzanParCore:
     def _nextion7_poll_loop(self) -> None:
         while self._nextion7_active:
             try:
-                self.poll_nextion7_once()
+                # Blokujący odczyt RX jednego ekranu. To nie jest cykliczne
+                # odświeżanie UI i nie zastępuje Snajpera. Wątek śpi w UART.
+                self.poll_nextion7_once(block=True)
             except Exception as exc:
                 self.force_signal("nextion7_state", "ERROR", source="PARCORE_N7")
                 self.force_signal("par_last_error", f"Nextion7 event poll failed: {exc}", source="PARCORE_N7")
-            time.sleep(0.03)
+                time.sleep(0.5)
 
     def handle_nextion7_event(self, event: Any = None, value: Any = None, **kwargs: Any) -> Any:
         """Realny callback adaptera Nextion 7 -> PARcore.
@@ -3472,7 +3472,7 @@ class TarzanParCore:
             pass
         return True
 
-    def poll_nextion7_once(self) -> List[str]:
+    def poll_nextion7_once(self, block: bool = False) -> List[str]:
         bridge = self._nextion7_bridge
         raw_events: List[Any] = []
         with self._nextion7_event_lock:
@@ -3480,11 +3480,13 @@ class TarzanParCore:
                 raw_events.extend(self._nextion7_event_queue)
                 self._nextion7_event_queue.clear()
         if bridge is not None:
-            raw_events.extend(self._read_nextion7_bridge_events(bridge))
+            raw_events.extend(self._read_nextion7_bridge_events(bridge, block=block))
         routed: List[str] = []
         for raw_event in raw_events:
             event, value = self._coerce_nextion7_event(raw_event)
             if not event:
+                continue
+            if self._is_nextion7_transport_event(event):
                 continue
             try:
                 self.route_nextion7_local(event, value)
@@ -3501,16 +3503,45 @@ class TarzanParCore:
                 pass
         return routed
 
-    def _read_nextion7_bridge_events(self, bridge: Any) -> List[Any]:
-        """Odczyt realnych eventów z adaptera; bez parsowania logów tekstowych."""
+    def _read_nextion7_bridge_events(self, bridge: Any, block: bool = False) -> List[Any]:
+        """Odczyt realnych eventów z adaptera; bez parsowania logów tekstowych.
+
+        W trybie wątku lokalnego używamy blokującego odczytu UART jednego ekranu
+        Nextion 7. To nie jest refresh UI; Snajper nadal decyduje o tym, co ma
+        zostać wysłane na fizyczny ekran.
+        """
         events: List[Any] = []
+        if block:
+            for name in ("poll_nextion7_events", "poll_screen"):
+                fn = getattr(bridge, name, None)
+                if not callable(fn):
+                    continue
+                try:
+                    if name == "poll_screen":
+                        result = fn("nextion_7", block=True, timeout_s=0.25)
+                        # poll_screen zwraca logi, a strukturalne zdarzenia są w kolejce.
+                        pull = getattr(bridge, "read_events", None)
+                        result = pull("nextion_7") if callable(pull) else result
+                    else:
+                        result = fn("nextion_7", block=True, timeout_s=0.25)
+                    events.extend(self._normalize_nextion7_event_result(result))
+                    if events:
+                        return events
+                except TypeError:
+                    try:
+                        result = fn("nextion_7")
+                        events.extend(self._normalize_nextion7_event_result(result))
+                        if events:
+                            return events
+                    except Exception as exc:
+                        self._bus_log("NEXTION7_EVENT_READ_ERROR", f"{name}: {exc}")
+                except Exception as exc:
+                    self._bus_log("NEXTION7_EVENT_READ_ERROR", f"{name}: {exc}")
         for name in (
             "read_nextion7_events",
             "get_nextion7_events",
-            "poll_nextion7_events",
             "read_events",
             "get_events",
-            "poll_events",
         ):
             fn = getattr(bridge, name, None)
             if not callable(fn):
@@ -3539,15 +3570,15 @@ class TarzanParCore:
                     return events
             except Exception as exc:
                 self._bus_log("NEXTION7_EVENT_READ_ERROR", f"{name}: {exc}")
-        # Bridge może nadal mieć poll() dla fizycznego UART, ale PARcore nie
-        # parsuje z tego logów. Przyjmujemy tylko struktury/eventy, nie tekst logu.
-        poll = getattr(bridge, "poll", None)
-        if callable(poll):
+        poll_screen = getattr(bridge, "poll_screen", None)
+        if callable(poll_screen):
             try:
-                result = poll()
-                events.extend(self._normalize_nextion7_event_result(result, accept_plain_text=False))
+                poll_screen("nextion_7", block=False, timeout_s=0.0)
+                pull = getattr(bridge, "read_events", None)
+                if callable(pull):
+                    events.extend(self._normalize_nextion7_event_result(pull("nextion_7")))
             except Exception as exc:
-                self._bus_log("NEXTION7_EVENT_READ_ERROR", f"poll: {exc}")
+                self._bus_log("NEXTION7_EVENT_READ_ERROR", f"poll_screen: {exc}")
         return events
 
     def _normalize_nextion7_event_result(self, result: Any, accept_plain_text: bool = True) -> List[Any]:
@@ -3601,6 +3632,10 @@ class TarzanParCore:
     def _looks_like_nextion7_command(self, text: str) -> bool:
         low = text.lower().strip()
         return low.startswith(("rrp:", "take:", "mode:", "sensor:", "sok:", "axis:", "safety:", "manual_record_arm"))
+
+    def _is_nextion7_transport_event(self, event: Any) -> bool:
+        low = str(event or "").strip().lower()
+        return low in {"raw", "port_open", "connect", "connected", "disconnect", "page", "touch"}
 
     def main_runtime_status(self) -> Dict[str, Any]:
         return {

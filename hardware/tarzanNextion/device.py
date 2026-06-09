@@ -93,38 +93,67 @@ class TarzanNextionDevice:
     def send_command(self, command: str) -> bool:
         return self.send_raw(command_bytes(command))
 
+    def _drain_packets(self) -> List[NextionEvent]:
+        out: List[NextionEvent] = []
+        while TERMINATOR in self.read_buffer:
+            idx = self.read_buffer.index(TERMINATOR)
+            packet = bytes(self.read_buffer[:idx])
+            del self.read_buffer[: idx + len(TERMINATOR)]
+            if packet:
+                out.append(NextionEvent(packet))
+        # Ochrona przed śmieciami na RX bez terminatora. Nie wolno dopuścić,
+        # żeby szum UART zjadał CPU i pamięć. Zostawiamy końcówkę bufora,
+        # bo terminator może przyjść w następnym odczycie.
+        if len(self.read_buffer) > 2048:
+            del self.read_buffer[:-256]
+        if out:
+            self.events.extend(out)
+            self.events = self.events[-50:]
+        return out
+
     def poll(self) -> List[NextionEvent]:
         if self.serial_port is None:
             return []
-        
-        # Czytamy dostępne dane z portu
+
         try:
-            if self.serial_port.in_waiting > 0:
-                self.read_buffer.extend(self.serial_port.read(self.serial_port.in_waiting))
+            waiting = int(getattr(self.serial_port, "in_waiting", 0) or 0)
+            if waiting > 0:
+                self.read_buffer.extend(self.serial_port.read(waiting))
         except Exception as exc:
             self.last_error = f"Błąd odczytu: {exc}"
             self.close()
             return []
 
-        out: List[NextionEvent] = []
-        
-        # Szukamy pakietów w buforze
-        while True:
-            # 1. Standardowy terminator Nextion
-            if TERMINATOR in self.read_buffer:
-                idx = self.read_buffer.index(TERMINATOR)
-                packet = bytes(self.read_buffer[:idx])
-                del self.read_buffer[: idx + len(TERMINATOR)]
-                out.append(NextionEvent(packet))
-                continue
-            
+        return self._drain_packets()
 
-            break
+    def poll_blocking(self, timeout_s: float = 0.25) -> List[NextionEvent]:
+        """Blokujący odczyt RX dla lokalnego HMI.
 
-        if out:
-            self.events.extend(out)
-            self.events = self.events[-50:]
-        return out
+        To nie jest nowe odświeżanie UI. To odpowiednik spokojnego czekania
+        na UART: wątek śpi w serial.read(), a Snajper nadal decyduje o wysyłce
+        zmian na ekran.
+        """
+        if self.serial_port is None:
+            return []
+        deadline = time.monotonic() + max(0.02, float(timeout_s or 0.25))
+        while time.monotonic() < deadline:
+            try:
+                chunk = self.serial_port.read(1)
+                if chunk:
+                    self.read_buffer.extend(chunk)
+                    waiting = int(getattr(self.serial_port, "in_waiting", 0) or 0)
+                    if waiting > 0:
+                        self.read_buffer.extend(self.serial_port.read(waiting))
+                    out = self._drain_packets()
+                    if out:
+                        return out
+                    continue
+                return self._drain_packets()
+            except Exception as exc:
+                self.last_error = f"Błąd odczytu blokującego: {exc}"
+                self.close()
+                return []
+        return self._drain_packets()
 
     def handshake(self, wait_ms: int = 100) -> bool:
         if self.serial_port is None and not self.open():

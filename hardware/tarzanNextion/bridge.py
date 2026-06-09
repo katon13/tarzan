@@ -651,6 +651,120 @@ class TarzanNextionBridge:
     def sync(self, force: bool = False) -> None:
         return self.flush_snajper_commands()
 
+    def poll_screen(self, screen_key: str = "nextion_7", block: bool = False, timeout_s: float = 0.25) -> List[str]:
+        """Odczyt jednego fizycznego ekranu bez globalnego refreshu.
+
+        Używane przez PARcore dla Nextion 7 na miniPC. To jest tor zdarzeń
+        UART -> bridge -> PARcore -> SignalBus/Snajper, a nie własny rytm UI.
+        """
+        key = str(screen_key or "nextion_7")
+        device = self.devices.get(key)
+        if device is None:
+            return []
+        logs: List[str] = []
+        if self._enabled(key) and device.serial_port is None:
+            try:
+                if device.open():
+                    device.connected = True
+                    self._append_transport_log(f"EV {key}: PORT_OPEN port={device.port} baud={device.baudrate}")
+                    self._push_event(key, "port_open", 1, port=device.port, baudrate=device.baudrate)
+            except Exception as exc:
+                self._append_transport_log(f"EV {key}: PORT_OPEN_ERROR {exc}")
+                self._push_event(key, "port_open", 0, detail=str(exc))
+                return []
+        events = device.poll_blocking(timeout_s) if block and hasattr(device, "poll_blocking") else device.poll()
+        for event in events:
+            self._process_device_event(key, event, logs)
+        if logs:
+            self.flush_snajper_commands()
+            for line in logs:
+                self._append_transport_log(f"EV {line}")
+        return logs
+
+    def poll_nextion7_events(self, screen_key: str = "nextion_7", block: bool = False, timeout_s: float = 0.25) -> List[Dict[str, Any]]:
+        self.poll_screen("nextion_7", block=block, timeout_s=timeout_s)
+        return self.read_events("nextion_7")
+
+    def _process_device_event(self, key: str, event, logs: List[str]) -> None:
+        raw = event.raw
+        logs.append(f"{key} EVENT {raw!r}")
+        self._append_transport_log(f"RX {key}: {raw!r}")
+        self._push_event(key, "raw", None, raw=raw)
+
+        try:
+            messages = []
+            for part in raw.split(b'\xff\xff\xff'):
+                if not part:
+                    continue
+                clap_prefix = b"take:clap="
+                clap_pos = part.find(clap_prefix)
+                if clap_pos >= 0:
+                    payload = part[clap_pos + len(clap_prefix):]
+                    value = 1 if payload and payload[0] == 1 else 0
+                    messages.append(f"take:clap={value}")
+                    self._push_event(key, "take:clap", value, raw=part)
+                    continue
+                msg = part.decode("cp1250", errors="replace").strip("\x00\x1a\r\n ")
+                if msg:
+                    messages.append(msg)
+                    self._push_event(key, msg, None, raw=part)
+            if not messages:
+                clean_raw = raw.replace(b'\xff', b'')
+                clap_prefix = b"take:clap="
+                clap_pos = clean_raw.find(clap_prefix)
+                if clap_pos >= 0:
+                    payload = clean_raw[clap_pos + len(clap_prefix):]
+                    value = 1 if payload and payload[0] == 1 else 0
+                    messages.append(f"take:clap={value}")
+                    self._push_event(key, "take:clap", value, raw=clean_raw)
+                else:
+                    msg = clean_raw.decode("cp1250", errors="replace").strip("\x00\x1a\r\n ")
+                    if msg:
+                        messages.append(msg)
+                        self._push_event(key, msg, None, raw=clean_raw)
+            for msg in messages:
+                if self._handle_snajper_text_message(msg, logs, key):
+                    continue
+                if msg.startswith("sys:ui_cut="):
+                    self.active_pages[key] = "settings_main"
+                    enabled = 1 if msg.split("=", 1)[1].strip() == "1" else 0
+                    self._nextion_ui_cut = bool(enabled)
+                    try:
+                        self.bus.force_signal("nextion_ui_cut", enabled, source="NEXTION_SYS")
+                    except Exception:
+                        pass
+                    self._fire_snajper_signal("nextion_ui_cut", enabled, source="NEXTION_SYS", force_physical=True)
+                    logs.append(f"{key} TFD SYS UI_CUT: {enabled}")
+                    continue
+                if msg.startswith("rrp:"):
+                    self._handle_rrp_event(msg)
+                    logs.append(f"{key} RRP EVENT: {msg}")
+                    continue
+                if self._handle_tfd_meta_event(msg, logs, key):
+                    continue
+        except Exception as exc:
+            logs.append(f"{key} DECODE ERROR: {exc}")
+
+        if len(raw) >= 2 and raw[0] == 0x66:
+            page_index = int(raw[1])
+            page_id = self._page_id_from_index(key, page_index)
+            self.active_pages[key] = page_id
+            self._push_event(key, "page", page_id, raw=raw, page_index=page_index)
+            self._refresh_physical_nextion_page_from_state(key, page_id)
+            logs.append(f"{key} PAGE {page_id}")
+            return
+
+        if len(raw) >= 4 and raw[0] == 0x65:
+            page_index = int(raw[1])
+            component_id = int(raw[2])
+            event_type = int(raw[3])
+            component_name = self._component_name_from_touch(key, page_index, component_id)
+            page_id = self._page_id_from_index(key, page_index)
+            self._push_event(key, component_name or "touch", event_type, raw=raw, page=page_id, page_index=page_index, component_id=component_id)
+            if self._handle_touch_event(key, page_index, component_id, event_type, logs):
+                return
+            logs.append(f"{key} TOUCH page={page_index} comp={component_id} event={event_type}")
+
     def poll(self) -> List[str]:
         logs: List[str] = []
         for key, device in self.devices.items():
@@ -779,11 +893,12 @@ class TarzanNextionBridge:
                         continue
                     logs.append(f"{key} TOUCH page={page_index} comp={component_id} event={event_type}")
 
-        # Jeżeli PAR ma lekki poll Nextiona, ten sam poll przepycha kolejkę Snajpera.
-        # To nie jest refresh_all ani PAR_APP.tick: wysyła tylko pending po konkretnych strzałach.
-        self.flush_snajper_commands()
-        for line in logs:
-            self._append_transport_log(f"EV {line}")
+        # Flush Snajpera tylko po realnym zdarzeniu. Pusta pętla RX nie może
+        # odświeżać ekranu ani mielić CPU.
+        if logs:
+            self.flush_snajper_commands()
+            for line in logs:
+                self._append_transport_log(f"EV {line}")
         return logs
 
 

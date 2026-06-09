@@ -73,6 +73,7 @@ class TarzanHardwareBridge:
         self._hardware_batch_source = ""
         self._snajper_policy = TarzanSnajperHardwarePolicy()
         self._last_connect_failed = False # Flaga dla selektywnego cooldownu
+        self._hardware_logical_sleep = False  # IDLE: pauza logiczna bez PK_DisconnectDevice.
         
         # Optymalizacja (Etap 17): cache wejść hardware'owych
         # ZASADA SNAJPERA: nie brudzimy SignalBus jeśli na pinach cisza.
@@ -218,7 +219,10 @@ class TarzanHardwareBridge:
                 self._last_activity_ms = now
                 self._ensure_connected()
             else:
-                # Grace period (2-5s) przed rozłączeniem
+                # Grace period przed snem logicznym.
+                # Nie zamykamy uchwytow PoKeys w IDLE: PK_DisconnectDevice/libusb
+                # potrafi zrobic ABRT przy concurrent close. Cel CPU osiagamy przez
+                # zatrzymanie pollingu, nie przez agresywne USB disconnect.
                 if now - self._last_activity_ms > self._idle_timeout_ms:
                     self._ensure_disconnected()
 
@@ -314,6 +318,13 @@ class TarzanHardwareBridge:
         """Nawiązuje połączenie z PoKeys jeśli system jest aktywny a hardware uśpiony."""
         with self._lock:
             if all(dev is not None for dev in self.devices.values()):
+                if self._hardware_logical_sleep:
+                    self._hardware_logical_sleep = False
+                    try:
+                        self.bus.set_input("hardware_sleep", 0, source="HW_BRIDGE")
+                    except Exception:
+                        pass
+                    self.logger.info("USB WAKE: logical wake; PoKeys handles already open.")
                 return
             
             # Cooldown 5s stosować wyłącznie po błędzie connect,
@@ -327,6 +338,7 @@ class TarzanHardwareBridge:
             
             lib_path = self._get_lib_path()
             self.logger.info("ZASADA SNAJPERA: Wybudzanie hardware (realtime required)...")
+            self._hardware_logical_sleep = False
             self._init_devices(lib_path)
             
             connected_count = sum(1 for dev in self.devices.values() if dev is not None)
@@ -340,24 +352,27 @@ class TarzanHardwareBridge:
             self.bus.set_input("hardware_connected", connected_count, source="HW_BRIDGE")
 
     def _ensure_disconnected(self) -> None:
-        """Zrywa połączenie USB w trybie IDLE aby zredukować CPU (libusb poll)."""
+        """Przełącza hardware w IDLE bez fizycznego zamykania PoKeys.
+
+        Poprzednia wersja wykonywała PK_DisconnectDevice po grace period.
+        Runtime pokazał core-dump w libusb/hid_close podczas USB SLEEP.
+        Dlatego IDLE oznacza teraz sen logiczny: brak pollingu, brak testów
+        w pętli, uchwyty PoKeys zostają stabilne do STOP usługi.
+        """
         with self._lock:
             if all(dev is None for dev in self.devices.values()):
                 return
-            
-            self.logger.info("ZASADA SNAJPERA: Hardware przechodzi w tryb uśpienia (grace period end)...")
-            for board, device in self.devices.items():
-                if device:
-                    try:
-                        device.Disconnect()
-                        self.logger.info(f"USB SLEEP: Disconnected {board} board.")
-                    except:
-                        pass
-                    self.devices[board] = None
-            
-            # Normalny disconnect nie jest błędem
+            if self._hardware_logical_sleep:
+                return
+
+            self._hardware_logical_sleep = True
             self._last_connect_failed = False
-            self.bus.set_input("hardware_connected", 0, source="HW_BRIDGE")
+            self.logger.info("ZASADA SNAJPERA: Hardware przechodzi w tryb uśpienia logicznego (grace period end)...")
+            self.logger.info("USB SLEEP: logical sleep; PoKeys handles kept open (no PK_DisconnectDevice in IDLE).")
+            try:
+                self.bus.set_input("hardware_sleep", 1, source="HW_BRIDGE")
+            except Exception:
+                pass
 
     def _is_system_active(self) -> bool:
         """Szybki test aktywności systemu dla adaptacyjnego pollingu.

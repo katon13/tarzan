@@ -934,6 +934,7 @@ class TarzanTspServer:
                     session = TarzanTspClientSession(client_id, sock, address, self)
                     self._clients[client_id] = session
                 self.logger.info("CONNECT %s", session.name)
+                self._update_clients_count_signal()
                 self.mark_lks_outputs_dirty("connect", immediate_n5=True)
                 session.start()
                 session.send(hello_response(self.node_name, "server", self.provider.signal_count()))
@@ -949,6 +950,8 @@ class TarzanTspServer:
     def remove_client(self, client: TarzanTspClientSession) -> None:
         with self._clients_lock:
             self._clients.pop(client.client_id, None)
+        
+        self._update_clients_count_signal()
         
         # ETAP 4 i 9: Aktualizacja stanu klienta po rozłączeniu
         if client.node_name:
@@ -971,6 +974,16 @@ class TarzanTspServer:
     def clients(self) -> list[TarzanTspClientSession]:
         with self._clients_lock:
             return [c for c in self._clients.values() if c.active]
+
+    def _update_clients_count_signal(self) -> None:
+        """Aktualizuje liczbę aktywnych klientów w SignalBus (Etap 10)."""
+        try:
+            from core.tarzanSignalBus import get_signal_bus
+            bus = get_signal_bus()
+            count = len(self.clients())
+            bus.set_input("tsp_clients_count", count, source="TSP_SERVER")
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # KOMENDY
@@ -1119,6 +1132,24 @@ class TarzanTspServer:
 
                 # --- ZASADA IDLE (ETAP 17): Głęboki sen przy braku pracy ---
                 is_take_active = getattr(self, "_take_playback_start_ms", 0) > 0
+                
+                # Ulepszona detekcja aktywności dla IDLE (Etap 10)
+                if not is_take_active:
+                    try:
+                        if not hasattr(self, "_idle_bus") or self._idle_bus is None:
+                            from core.tarzanSignalBus import get_signal_bus
+                            self._idle_bus = get_signal_bus()
+                        
+                        bus = self._idle_bus
+                        # Sprawdzamy stan transportu i tryb pracy w SignalBus
+                        if bus.read("transport_state", "STOP") == "PLAY":
+                            is_take_active = True
+                        elif bus.read("active_mode", "IDLE") in {"TEST", "LIVE", "tM"}:
+                            # Tryb pracy wymusza responsywność
+                            is_take_active = True
+                    except Exception:
+                        pass
+
                 has_urgent = self.provider.has_urgent_events()
                 
                 # Jeśli brak klientów i brak aktywnego playbacku, śpimy oszczędzając CPU

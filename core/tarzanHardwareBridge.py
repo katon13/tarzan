@@ -71,6 +71,12 @@ class TarzanHardwareBridge:
         # Mapa sygnałów dla szybkiego dostępu w metodzie write/read
         self._signal_map = WSZYSTKIE_SYGNALY
         
+        # Filtrowane zestawy sygnałów dla optymalizacji pollingu (Etap 10)
+        self._in_gpio_signals: List[TarzanSygnal] = [
+            s for s in self._signal_map.values() 
+            if s.kierunek == "IN" and s.hardware_function == "GPIO" and s.pin is not None
+        ]
+        
         self._thread: Optional[threading.Thread] = None
 
     def start(self) -> bool:
@@ -160,7 +166,12 @@ class TarzanHardwareBridge:
         while self.running:
             now = time.time() * 1000
             
-            # 1. Polling wejść (20Hz)
+            # Adaptacyjne ustawienie interwału pollingu (Etap 10: Oszczędzanie CPU)
+            # Jeśli brak klientów i aktywności -> poll co 500ms zamiast 50ms.
+            is_active = self._is_system_active()
+            self._poll_interval_ms = 50 if is_active else 500
+
+            # 1. Polling wejść
             if now - self._last_poll_ms >= self._poll_interval_ms:
                 self._poll_hardware()
                 self._last_poll_ms = now
@@ -170,7 +181,40 @@ class TarzanHardwareBridge:
             # Zgodnie z zasadą Snajpera - pracujemy szybko tylko gdy jest zmiana.
             has_motion = self._handle_manual_generator()
             
-            time.sleep(0.005 if has_motion else 0.02)
+            # Dodatkowy hamulec dla pętli głównej w głębokim IDLE
+            if not is_active and not has_motion:
+                time.sleep(0.05)
+            else:
+                time.sleep(0.005 if has_motion else 0.02)
+
+    def _is_system_active(self) -> bool:
+        """Sprawdza czy system wykonuje akcje wymagające szybkiego pollingu wejść."""
+        try:
+            # 1. Sprawdzamy liczbę klientów TSP (Mirroring HMI)
+            if int(self.bus.read("tsp_clients_count", 0)) > 0:
+                return True
+            
+            # 2. Sprawdzamy stan transportu (Playback TAKE)
+            if self.bus.read("transport_state", "STOP") == "PLAY":
+                return True
+            
+            # 3. Sprawdzamy tryb pracy (TEST/LIVE/Manual)
+            mode = self.bus.read("active_mode", "IDLE")
+            if mode in {"TEST", "LIVE", "tM"}:
+                # Jeśli tryb manualny, to sprawdzamy czy ma kontrolę wykonawczą
+                owner = self.bus.read("control_owner", "TSP_BOOT")
+                if owner in {"PAR_LIVE", "TSP_SERVICE", "LKS_DIAGNOSTIC"}:
+                    return True
+            
+            # 4. Sprawdzamy czy jakaś oś się rusza (Status z Hardware)
+            from core.tarzanZmienneSygnalowe import LISTA_NAZW_OSI
+            for ax_name in LISTA_NAZW_OSI:
+                if self.bus.read(f"axis_{ax_name}_running", 0):
+                    return True
+                
+            return False
+        except Exception:
+            return True # Bezpieczny fallback dla trybu wysokiej responsywności
 
     def _handle_manual_generator(self) -> bool:
         """Generuje impulsy STEP w trybie manualnym na podstawie kierunków w SignalBus."""
@@ -207,13 +251,12 @@ class TarzanHardwareBridge:
                     continue
                 
                 try:
-                    # 1. Odczyt wejść cyfrowych GPIO
+                    # 1. Odczyt wejść cyfrowych GPIO (Optymalizacja: tylko pre-filtrowane)
                     device.PK_DigitalIOGet()
-                    for syg in self._signal_map.values():
-                        if syg.plytka == board_name and syg.kierunek == "IN":
-                            if syg.hardware_function == "GPIO" and syg.pin is not None:
-                                val = device.PK_DigitalIOGetSingle(syg.pin)
-                                self.bus.set_input(syg.nazwa, 1 if val else 0, source=f"HW.{board_name}", forced=True)
+                    for syg in self._in_gpio_signals:
+                        if syg.plytka == board_name:
+                            val = device.PK_DigitalIOGetSingle(syg.pin)
+                            self.bus.set_input(syg.nazwa, 1 if val else 0, source=f"HW.{board_name}", forced=True)
 
                     # 2. Odczyt statusu Pulse Engine (Etap 13 - Statusy osi)
                     if board_name == "PLAY": # Zakładamy, że PE działa na płycie PLAY

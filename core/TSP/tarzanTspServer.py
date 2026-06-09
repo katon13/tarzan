@@ -1106,7 +1106,7 @@ class TarzanTspServer:
 
     def _lane_loop(self) -> None:
         # Stabilne czasy pasm
-        last_fast = last_normal = last_slow = last_health = monotonic_ms()
+        last_fast = last_normal = last_slow = last_health = last_system_poll = monotonic_ms()
         self._last_stats_ms = last_fast
 
         while self.running:
@@ -1116,7 +1116,27 @@ class TarzanTspServer:
                 # Pobieramy listę klientów raz na obieg pętli
                 clients = self.clients()
                 client_count = len(clients)
+
+                # --- ZASADA IDLE (ETAP 17): Głęboki sen przy braku pracy ---
+                is_take_active = getattr(self, "_take_playback_start_ms", 0) > 0
+                has_urgent = self.provider.has_urgent_events()
                 
+                # Jeśli brak klientów i brak aktywnego playbacku, śpimy oszczędzając CPU
+                if client_count == 0 and not is_take_active and not has_urgent and not self._lks_n5_dirty:
+                    # Rzadsze sprawdzanie komend systemowych, LKS i Bus (co 200ms)
+                    if now - last_system_poll >= 200:
+                        last_system_poll = now
+                        self._handle_take_playback()
+                        self._poll_lks_n5_events()
+                        self._poll_system_commands()
+                        is_take_active = getattr(self, "_take_playback_start_ms", 0) > 0
+                        
+                    if not is_take_active:
+                        # Tick providera (uptime) i statusy zdrowia robimy co 1s
+                        if now - last_health < TSP_HEALTH_INTERVAL_MS:
+                            time.sleep(0.2)
+                            continue
+
                 # ETAP 14: Obsługa playbacku TAKE na MiniPC
                 self._handle_take_playback()
                 is_take_playing = getattr(self, "_take_playback_start_ms", 0) > 0
@@ -1267,8 +1287,12 @@ class TarzanTspServer:
             return
 
         try:
-            from core.tarzanSignalBus import get_signal_bus
-            bus = get_signal_bus()
+            # Optymalizacja: pobieramy bus raz
+            if not hasattr(self, "_playback_bus") or self._playback_bus is None:
+                from core.tarzanSignalBus import get_signal_bus
+                self._playback_bus = get_signal_bus()
+            
+            bus = self._playback_bus
             
             # Pobieramy transport_state z SignalBus
             transport = str(bus.read("transport_state", "STOP")).upper()

@@ -505,6 +505,7 @@ class TarzanNextionBridge:
         """Czyści log transportu. Jeśli podano screen_key, czyści tylko wpisy tego ekranu."""
         if not screen_key:
             self._transport_log.clear()
+            self._append_transport_log("EV SYS: LOG CLEARED")
             return
         prefix_a = f"TX {screen_key}:"
         prefix_b = f"RX {screen_key}:"
@@ -514,6 +515,7 @@ class TarzanNextionBridge:
             line for line in self._transport_log
             if not (prefix_a in line or prefix_b in line or prefix_c in line or prefix_d in line)
         ]
+        self._append_transport_log(f"EV {screen_key}: LOG CLEARED")
 
     def _push_event(self, screen_key: str, event: str, value: Any = None, raw: Any = None, **extra: Any) -> None:
         """Strukturalne zdarzenie dla PARcore/TSP, bez parsowania logów tekstowych."""
@@ -655,7 +657,11 @@ class TarzanNextionBridge:
         return scope in set(self.active_pages.values())
 
     def sync(self, force: bool = False, screen_key: str = "nextion_7", **kwargs: Any) -> None:
-        self._append_transport_log(f"EV {screen_key}: SYNC requested")
+        self._append_transport_log(f"TX {screen_key}: SYS SYNC")
+        # Komenda comok 1 to prosta diagnostyka potwierdzająca, że bridge żyje i wysyła.
+        device = self.devices.get(screen_key)
+        if device is not None and device.connected:
+            device.send_command("comok 1")
         return self.flush_snajper_commands()
 
     def poll_screen(self, screen_key: str = "nextion_7", block: bool = False, timeout_s: float = 0.25) -> List[str]:

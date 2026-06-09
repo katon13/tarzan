@@ -1144,9 +1144,10 @@ class TarzanTspServer:
                         is_take_active = getattr(self, "_take_playback_start_ms", 0) > 0
                         
                     if not is_take_active and not self.provider.has_urgent_events():
-                        # Tick providera (uptime) robimy tylko co 1s w idle
+                        # Tick providera (uptime) robimy tylko co 1s w idle.
+                        # Czekamy reaktywnie na zmianę w SignalBus (ZASADA SNAJPERA).
                         if now - last_health < TSP_HEALTH_INTERVAL_MS:
-                            time.sleep(0.2)
+                            self.provider.bus.wait_for_change(timeout=0.25)
                             continue
 
                 # ETAP 14: Obsługa playbacku TAKE na MiniPC
@@ -1253,10 +1254,10 @@ class TarzanTspServer:
         has_urgent: bool = False,
         client_count: int = 0,
     ) -> None:
-        # Zgodnie z wymaganiem: Brak klientów i brak ruchu = głęboki sen.
+        # Zgodnie z wymaganiem: Brak klientów i brak ruchu = głęboki sen (ZASADA SNAJPERA).
         is_take_playing = getattr(self, "_take_playback_start_ms", 0) > 0
         if client_count == 0 and not is_take_playing:
-            time.sleep(0.2)
+            self.provider.bus.wait_for_change(timeout=0.2)
             return
 
         # Jeśli trwa ruch (TAKE), wymuszamy rytm 10ms dla płynności.
@@ -1285,12 +1286,21 @@ class TarzanTspServer:
             time.sleep(0.005)
             return
 
-        # Adaptacyjny sleep: śpimy do najbliższego pasma, ale w granicach 10-50ms (aktywny klient).
-        sleep_s = min(0.050, remaining_ms / 1000.0)
+        # ZASADA SNAJPERA: Nawet przy podłączonych klientach, jeśli hardware nie wymaga 
+        # trybu realtime (10ms), możemy pozwolić pętli TSP na reaktywne uśpienie. (Etap 17)
+        hw_realtime = int(self.provider.bus.read("hardware_realtime_required", 0)) == 1
         
+        # Jeśli brak aktywności hardware, śpimy do 50-100ms lub do zmiany w Bus.
+        if not hw_realtime:
+            sleep_s = min(0.1, remaining_ms / 1000.0)
+            if sleep_s > 0.01:
+                self.provider.bus.wait_for_change(timeout=sleep_s)
+                return
+
+        # Aktywny tryb realtime (np. ruch osi, PAR_LIVE): śpimy precyzyjnie do pasma.
+        sleep_s = min(0.050, remaining_ms / 1000.0)
         if sleep_s < 0.010:
             sleep_s = 0.010
-
         time.sleep(sleep_s)
 
     def _handle_take_playback(self) -> None:

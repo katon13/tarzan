@@ -229,6 +229,10 @@ class TarzanTspSignalProvider:
         from core.tarzanSignalBus import get_signal_bus
         bus = get_signal_bus()
         
+        # ZASADA SNAJPERA: Każda próba zapisu sygnału od klienta wybudza hardware realtime. (Etap 17)
+        if name != "cmd_hardware_awake":
+            bus.set_input("cmd_hardware_awake", 1, source=f"ACT_{source}")
+        
         if not bus.exists(name):
             with self._lock:
                 if name not in self._catalog:
@@ -337,6 +341,12 @@ class TarzanTspSignalProvider:
             return len(self._urgent_queue) > 0
 
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        from core.tarzanSignalBus import get_signal_bus
+        bus = get_signal_bus()
+        
+        # ZASADA SNAJPERA: Każde wywołanie akcji od klienta wybudza hardware realtime. (Etap 17)
+        bus.set_input("cmd_hardware_awake", 1, source="ACT_CMD")
+        
         payload = payload or {}
         parcore = getattr(self, "parcore", None)
         if parcore is not None:

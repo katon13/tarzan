@@ -35,6 +35,10 @@ class TarzanModeLogic:
             # ETAP 8 i 9: Obsługa komend systemowych
             self._handle_system_commands()
 
+            # ZASADA SNAJPERA: Auto-reset impulsu wybudzenia od klientów TSP (Etap 17)
+            if self.bus.read("cmd_hardware_awake", 0):
+                self.bus.set_input("cmd_hardware_awake", 0, source="MODE_AUTO_RESET")
+
             active_mode = self.bus.read("active_mode", "tM")
             transport = self.bus.read("transport_state", "STOP")
             owner = self.bus.read("control_owner", "TSP_BOOT")
@@ -59,7 +63,52 @@ class TarzanModeLogic:
             else:
                 self.bus.write_output("rec_p09_led_data", 0, source="MODE_LOGIC")
 
-            time.sleep(0.05) # 20Hz wystarczy dla logiki trybów
+            # GŁÓWNY WYZWALACZ REALTIME DLA HARDWARE (ZASADA SNAJPERA)
+            # Jeśli system jest aktywny, żądamy od HardwareBridge trybu realtime (PoKeys USB connect).
+            is_active = self._is_system_active()
+            self.bus.set_input("hardware_realtime_required", 1 if is_active else 0, source="MODE_LOGIC")
+
+            # Adaptacyjny sleep zgodny z Zasadą Snajpera (Etap 17)
+            if is_active:
+                time.sleep(0.05) # 20Hz aktywnie
+            else:
+                # W IDLE nie mielimy procesora (ZASADA SNAJPERA) - reaktywne budzenie
+                self.bus.wait_for_change(timeout=1.0)
+
+    def _is_system_active(self) -> bool:
+        """Szybki test aktywności dla optymalizacji pętli mode."""
+        try:
+            # 1. Czy są aktywne żądania wybudzenia od klientów?
+            if int(self.bus.read("cmd_hardware_awake", 0)) > 0:
+                return True
+            # 2. Czy trwa ruch lub nagrywanie?
+            if self.bus.read("transport_state", "STOP") != "STOP":
+                return True
+            # 3. Czy tryb inny niż manualny?
+            if self.bus.read("active_mode", "tM") != "tM":
+                return True
+            # 4. Czy dowolna oś ma nadany kierunek lub impulsy?
+            from core.tarzanZmienneSygnalowe import LISTA_NAZW_OSI
+            for ax in LISTA_NAZW_OSI:
+                if self.bus.read(f"axis_{ax}_dir", 0) != 0:
+                    return True
+                if self.bus.read(f"axis_{ax}_step", 0) != 0:
+                    return True
+            
+            # 5. Czy są oczekujące komendy?
+            for sig in ["cmd_unlock_axes", "cmd_clear_alarms", "cmd_ehr_start", "cmd_khr_start", "cmd_run_diagnostics"]:
+                if self.bus.read(sig, 0):
+                    return True
+            
+            # 6. Czy moduły wykonawcze są w stanie aktywnym? (Etap 17)
+            if self.bus.read("ehr_state", "OFFLINE") == "ACTIVE":
+                return True
+            if self.bus.read("khr_state", "OFFLINE") == "ACTIVE":
+                return True
+            
+        except Exception:
+            return True
+        return False
 
     def _handle_system_commands(self):
         """Obsługuje komendy start/stop modułów EHR/KHR."""

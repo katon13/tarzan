@@ -336,6 +336,15 @@ cmd_unlock_axes = _sygnal(
     grupa="SYSTEM", klasa_wykonawcza="tarzanHardwareBridge.py"
 )
 
+cmd_hardware_awake = _sygnal(
+    nazwa="cmd_hardware_awake",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="IN", default="0",
+    opis="Jawne żądanie wybudzenia hardware (akcja klienta TSP / Snajpera).", zrodlo="TSP",
+    hardware_function=HW_SYSTEM, hardware_label="Hardware Awake Request",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="COMMAND", klasa_wykonawcza="tarzanTspSignals.py"
+)
+
 system_state = _sygnal(
     nazwa="system_state",
     plytka="SYSTEM",
@@ -604,6 +613,15 @@ hardware_ready = _sygnal(
     hardware_function=HW_SYSTEM, hardware_label="Hardware Ready",
     pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
     grupa="STATUS", klasa_wykonawcza="tarzanHardwareBridge.py"
+)
+
+hardware_realtime_required = _sygnal(
+    nazwa="hardware_realtime_required",
+    plytka="SYSTEM", pin=None, kanal=None, typ="LH", kierunek="OUT", default="0",
+    opis="Żądanie pracy hardware w trybie realtime (PoKeys USB connect).", zrodlo="RUNTIME",
+    hardware_function=HW_SYSTEM, hardware_label="HW Realtime Required",
+    pin_is_fixed=True, is_shared_pin=False, conflict_group=None, panel_port=None,
+    grupa="SYSTEM", klasa_wykonawcza="tarzanHardwareBridge.py"
 )
 
 # --- Statusy odpowiedzi POKSYG / HardwareBridge ---

@@ -61,7 +61,13 @@ class TarzanHardwareBridge:
         self._abs_positions: Dict[str, int] = {}
         
         self._last_poll_ms = 0
-        self._poll_interval_ms = 50  # 20Hz dla wejść (tryb aktywny)
+        self._poll_interval_ms = 10  # 100Hz dla wejść (tryb realtime 10ms)
+        
+        # ZASADA SNAJPERA (ETAP 17): Dynamiczne połączenie
+        self._last_activity_ms = 0 # Startujemy w IDLE
+        self._reconnect_cooldown_ms = 0
+        self._idle_timeout_ms = 3000  # Grace period 3s (2-5s wg wytycznych)
+        self._last_connect_failed = False # Flaga dla selektywnego cooldownu
         
         # Optymalizacja (Etap 17): cache wejść hardware'owych
         # ZASADA SNAJPERA: nie brudzimy SignalBus jeśli na pinach cisza.
@@ -100,18 +106,20 @@ class TarzanHardwareBridge:
             return False
 
         try:
-            self._init_devices(lib_path)
+            # ZASADA SNAJPERA: Nie łączymy od razu, pętla _run zajmie się tym
+            # gdy wykryje aktywność lub wymusi startowy test.
             self.running = True
+            self.bus.set_input("hardware_connected", 0, source="HW_BRIDGE")
             self.bus.set_live_adapter(self)
             
-            # Subskrypcja offsetów KHR (Etap 15) - reagujemy na zmiany offsetu nawet bez impulsów STEP
+            # Subskrypcja offsetów KHR (Etap 15)
             self.bus.subscribe(self._on_signal_change)
             
             self._thread = threading.Thread(target=self._run, daemon=True, name="HW_Bridge_Loop")
             self._thread.start()
             
             self.bus.force_signal("hardware_state", "READY", source="HW_BRIDGE")
-            self.logger.info("Hardware Bridge STARTED and linked to SignalBus.")
+            self.logger.info("Hardware Bridge STARTED (Pending Connection).")
             return True
         except Exception as exc:
             self.logger.error(f"Hardware Bridge failed to start: {exc}")
@@ -153,7 +161,9 @@ class TarzanHardwareBridge:
 
     def _connect_board(self, name: str, serial: int, lib_path: str) -> Any:
         device = PoKeysDevice(lib_path)
-        ok = device.PK_ConnectToDeviceWSerial(serial, 1, True)
+        # ZASADA SNAJPERA: Połączenie bezpośrednio przez USB (useUDP=False), 
+        # aby uniknąć agresywnego skanowania sieci przez bibliotekę.
+        ok = device.PK_ConnectToDeviceWSerial(serial, 1, False)
         if not ok:
             self.logger.warning(f"Failed to connect to {name} board (serial={serial})")
             return None
@@ -168,47 +178,109 @@ class TarzanHardwareBridge:
         while self.running:
             now = time.time() * 1000
 
-            # 1. ZASADA SNAJPERA (ETAP 17): Adaptacyjny polling wejść
-            # Jeśli brak klientów i brak ruchu - polling 1Hz (watchdog).
-            # Jeśli aktywność - polling 20Hz (50ms).
+            # 1. ZASADA SNAJPERA (ETAP 17): Zarządzanie aktywnością i połączeniem
             is_active = self._is_system_active()
-            interval = self._poll_interval_ms if is_active else 1000
+            
+            if is_active:
+                self._last_activity_ms = now
+                self._ensure_connected()
+            else:
+                # Grace period (2-5s) przed rozłączeniem
+                if now - self._last_activity_ms > self._idle_timeout_ms:
+                    self._ensure_disconnected()
 
-            if now - self._last_poll_ms >= interval:
-                self._poll_hardware()
-                self._last_poll_ms = now
+            # 2. Adaptacyjny polling wejść
+            is_connected = self._is_any_connected()
+            
+            if is_connected:
+                # Jeśli połączone, działamy wg interwału aktywności (10ms)
+                interval = self._poll_interval_ms if is_active else 2000
+                if now - self._last_poll_ms >= interval:
+                    self._poll_hardware(is_active=is_active)
+                    self._last_poll_ms = now
+            
+            # 3. Generator trybu manualnego (tM) - ETAP 13
+            has_motion = False
+            if is_connected:
+                has_motion = self._handle_manual_generator()
 
-            # 2. Generator trybu manualnego (tM) - ETAP 13
-            # Adaptacyjny sleep zgodny z Zasadą Snajpera (Etap 17).
-            has_motion = self._handle_manual_generator()
-
+            # Adaptacyjny sleep zgodny z Zasadą Snajpera.
             if has_motion:
                 time.sleep(0.005) # 200Hz przy ruchu
             elif is_active:
-                time.sleep(0.02)  # 50Hz aktywnie (IDLE operatora)
+                time.sleep(0.01)  # 100Hz realtime (10ms)
             else:
-                time.sleep(0.1)   # 10Hz w głębokim IDLE (brak klientów/ruchu)
+                # W głębokim IDLE nie robimy pollingu.
+                self.bus.wait_for_change(timeout=1.0)
+
+    def _is_any_connected(self) -> bool:
+        with self._lock:
+            return any(dev is not None for dev in self.devices.values())
+
+    def _ensure_connected(self) -> None:
+        """Nawiązuje połączenie z PoKeys jeśli system jest aktywny a hardware uśpiony."""
+        with self._lock:
+            if all(dev is not None for dev in self.devices.values()):
+                return
+            
+            # Cooldown 5s stosować wyłącznie po błędzie connect,
+            # nie po normalnym IDLE disconnect.
+            now = time.time() * 1000
+            if self._last_connect_failed:
+                if now - self._reconnect_cooldown_ms < 5000:
+                    return
+            
+            self._reconnect_cooldown_ms = now
+            
+            lib_path = self._get_lib_path()
+            self.logger.info("ZASADA SNAJPERA: Wybudzanie hardware (realtime required)...")
+            self._init_devices(lib_path)
+            
+            connected_count = sum(1 for dev in self.devices.values() if dev is not None)
+            
+            # Sprawdzamy czy wszystkie się połączyły
+            if connected_count < len(self.devices):
+                self._last_connect_failed = True
+            else:
+                self._last_connect_failed = False
+                
+            self.bus.set_input("hardware_connected", connected_count, source="HW_BRIDGE")
+
+    def _ensure_disconnected(self) -> None:
+        """Zrywa połączenie USB w trybie IDLE aby zredukować CPU (libusb poll)."""
+        with self._lock:
+            if all(dev is None for dev in self.devices.values()):
+                return
+            
+            self.logger.info("ZASADA SNAJPERA: Hardware przechodzi w tryb uśpienia (grace period end)...")
+            for board, device in self.devices.items():
+                if device:
+                    try:
+                        device.Disconnect()
+                        self.logger.info(f"USB SLEEP: Disconnected {board} board.")
+                    except:
+                        pass
+                    self.devices[board] = None
+            
+            # Normalny disconnect nie jest błędem
+            self._last_connect_failed = False
+            self.bus.set_input("hardware_connected", 0, source="HW_BRIDGE")
 
     def _is_system_active(self) -> bool:
         """Szybki test aktywności systemu dla adaptacyjnego pollingu."""
         try:
-            # Czy są klienci TSP?
-            if int(self.bus.read("tsp_clients", 0)) > 0:
+            # GŁÓWNY WYZWALACZ: Sygnał z Snajper/Mode/SignalBus (ZASADA SNAJPERA)
+            # HardwareBridge czeka na jawne żądanie pracy realtime.
+            if int(self.bus.read("hardware_realtime_required", 0)) == 1:
                 return True
-            # Czy trwa playback?
-            if self.bus.read("transport_state", "STOP") != "STOP":
-                return True
-            # Czy tryb inny niż manualny?
-            if self.bus.read("active_mode", "tM") != "tM":
-                return True
-            # Czy dowolna oś ma nadany kierunek (ruch manualny)?
-            from core.tarzanZmienneSygnalowe import LISTA_NAZW_OSI
-            for ax in LISTA_NAZW_OSI:
-                if self.bus.read(f"axis_{ax}_dir", 0) != 0:
-                    return True
+            
+            # W trybie IDLE hardware jest odłączony, więc nie wykryjemy ruchu 
+            # na wejściach PoKeys. Wybudzenie musi przyjść drogą logiczną (z góry).
+            return False
+            
         except Exception:
-            return True # Fallback do aktywnego na wszelki wypadek
-        return False
+            # W razie błędu czytania sygnałów, bezpieczniej jest założyć aktywność
+            return True
 
     def _handle_manual_generator(self) -> bool:
         """Generuje impulsy STEP w trybie manualnym na podstawie kierunków w SignalBus."""
@@ -237,7 +309,7 @@ class TarzanHardwareBridge:
         
         return has_any_motion
 
-    def _poll_hardware(self) -> None:
+    def _poll_hardware(self, is_active: bool = True) -> None:
         """Odczytuje stany wejść z hardware i wpisuje do SignalBus."""
         with self._lock:
             for board_name, device in self.devices.items():
@@ -246,6 +318,7 @@ class TarzanHardwareBridge:
 
                 try:
                     # 1. ZASADA SNAJPERA: Odczyt masowy wejść cyfrowych GPIO
+                    # W głębokim IDLE bez klientów odczytujemy piny tylko jako watchdog.
                     # Zamiast PK_DigitalIOGetSingle (ctypes), czytamy bity bezpośrednio z bufora lib.
                     device.PK_DigitalIOGet()
                     pins_ptr = device.device.contents.Pins
@@ -261,8 +334,13 @@ class TarzanHardwareBridge:
                                 self.bus.set_input(syg.nazwa, val, source=f"HW.{board_name}", forced=True)
 
                     # 2. Odczyt statusu Pulse Engine (Etap 13 - Statusy osi)
-                    if board_name == "PLAY": # Zakładamy, że PE działa na płycie PLAY
-                        self._poll_pulse_engine_status(device)
+                    # W IDLE nie odpytujemy Pulse Engine o pozycję, chyba że jest ruch.
+                    if board_name == "PLAY": 
+                        if is_active:
+                            self._poll_pulse_engine_status(device)
+                        else:
+                            # Raz na watchdog tick (rzadko) sprawdzamy tylko czy PE żyje
+                            pass
 
                 except Exception as exc:
                     self.logger.debug(f"Poll hardware error ({board_name}): {exc}")

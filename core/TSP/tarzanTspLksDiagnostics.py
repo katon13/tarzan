@@ -431,9 +431,31 @@ class TarzanTspLksDiagnostics:
         rrp_runtime = "rrp" in self.inventory.detail("process_tsp").lower()
         self._result("rrp_runtime", "rrp", rrp_runtime, "RRP runtime/heartbeat", detail=self.inventory.detail("process_tsp"), error="repo marker only; no runtime heartbeat" if not rrp_runtime else "")
 
-        n7_candidates = self.inventory.values("nextion7_candidates").get("candidates", [])
-        n7_ok = bool(n7_candidates and self.requirements.get("nextion7_port"))
-        self._result("nextion7_mapping", "next_7", n7_ok, "Nextion 7 explicit serial mapping", detail=str(n7_candidates), error="no explicit Nextion 7 mapping on miniPC" if not n7_ok else "")
+        n7_candidates = list(self.inventory.values("nextion7_candidates").get("candidates", []) or [])
+        n7_port = str(self.requirements.get("nextion7_port", "") or "")
+        if n7_port:
+            n7_candidates.insert(0, n7_port)
+        try:
+            ports_path = self.repo_root / "data" / "nextion" / "nextion_ports.json"
+            if ports_path.exists():
+                cfg = json.loads(ports_path.read_text(encoding="utf-8"))
+                n7 = cfg.get("nextion_7", {}) if isinstance(cfg, dict) else {}
+                cfg_port = str(n7.get("port", "") or "")
+                if bool(n7.get("enabled", True)) and cfg_port:
+                    n7_candidates.insert(0, cfg_port)
+        except Exception:
+            pass
+        unique_n7 = []
+        seen_n7 = set()
+        for item in n7_candidates:
+            text = str(item or "")
+            if text and text not in seen_n7:
+                seen_n7.add(text)
+                unique_n7.append(text)
+        existing_n7 = [item for item in unique_n7 if Path(item).exists()]
+        n7_ok = bool(existing_n7)
+        detail_n7 = ", ".join(existing_n7[:3] or unique_n7[:3])
+        self._result("nextion7_mapping", "next_7", n7_ok, "Nextion 7 port/status on miniPC", detail=detail_n7, error="no confirmed Nextion 7 port on miniPC" if not n7_ok else "")
 
         self._finalize_statuses_for(tuple(GROUP_AXIS) + tuple(GROUP_SOK) + ("rrp", "next_7"))
         return self.results[before:]

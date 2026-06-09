@@ -2,7 +2,7 @@
 Serwer TSP — TARZAN Signal Protocol.
 
 Docelowy serwer TCP/JSONL dla TARZAN Signal Node.
-Pracuje z TarzanTspSignalProvider z core/TSP/tarzanTspSignals.py.
+Na tym etapie pracuje z TarzanTspSignalProvider z core/TSP/tarzanTspSignals.py.
 Później ten provider zostanie podpięty pod SignalBus.
 """
 
@@ -71,7 +71,7 @@ from .tarzanTspLksInventory import TarzanTspLksInventory
 
 def _diagnostics_worker(inventory_dict: Dict[str, Any], queue: multiprocessing.Queue) -> None:
     """
-    Izolowany proces diagnostyczny dla ochrony przed crashami libusb/PoKeys .
+    Izolowany proces diagnostyczny dla ochrony przed crashami libusb/PoKeys (ETAP 3).
     Uruchamiany w osobnym procesie, aby crash w natywnej bibliotece nie zabił serwera TSP.
     """
     try:
@@ -314,13 +314,13 @@ class TarzanTspServer:
             self.lks_n5.connect()
             self.lks_n5.bkcmd(3)
 
-            # od momentu startu usługi systemd Linux przejmuje ekran
+            # ETAP 13: od momentu startu usługi systemd Linux przejmuje ekran
             # i pokazuje realne kroki bootu. boot_loading pozostaje wyłącznie
             # ekranem oczekiwania przed startem usługi.
             try:
                 from .tarzanTspLksBootCheck import TarzanTspLksBootCheck
 
-                # boot-check musi dostać aktywny HardwareBridge.
+                # ETAP 1N: boot-check musi dostać aktywny HardwareBridge.
                 # Inaczej startowa diagnostyka fizyczna idzie starą ścieżką,
                 # próbuje drugi raz otwierać PoKeys i statusy USB/LCD/I2C/Matrix
                 # nie przechodzą na starcie, choć klik punktowy działa.
@@ -333,7 +333,7 @@ class TarzanTspServer:
                 self._lks_n5_status_page_ready = True
                 self._lks_n5_status_cache = dict(getattr(boot, "statuses", {}) or {})
 
-                # Snajper na miniPC jest tworzony przed startem LKS-N5
+                # ETAP 1L: Snajper na miniPC jest tworzony przed startem LKS-N5
                 # i subskrybuje SignalBus. Boot-check nie może czekać na późniejszy
                 # klik operatora, żeby dopiero wtedy zazielenić snajper_sys.
                 # Jeżeli runtime Snajpera istnieje, od razu pokazujemy status OK.
@@ -409,7 +409,7 @@ class TarzanTspServer:
     def _handle_bus_signal_change_for_lks(self, name: str, state: Any) -> None:
         """Budzi LKS po zmianie trwałego statusu POKSYG.
 
-        nie budujemy nowego toru i nie ruszamy P37.
+        ETAP 1ZA: nie budujemy nowego toru i nie ruszamy P37.
         Reagujemy tylko na istniejące statusy ``poksyg_last_forced_*``
         zapisane przez HardwareBridge do SignalBus. Dzięki temu LKS pokazuje
         ostatni ACK stale, a nie tylko jako chwilowy log/event.
@@ -488,7 +488,7 @@ class TarzanTspServer:
             self.logger.info("LKS-N5 POINT TEST component=%s", name)
             self.lks_n5.blink_component(name, base_value=base)
 
-            # PAR/EHR nie są lokalnym sprzętem miniPC. Ich status na
+            # ETAP 1I: PAR/EHR nie są lokalnym sprzętem miniPC. Ich status na
             # LKS-N5 ma wynikać z realnego połączenia klienta TSP, a nie z
             # konserwatywnej diagnostyki repo/procesów, która nie widzi aplikacji
             # PAR uruchomionej na stacji operatorskiej. Dzięki temu kliknięcie
@@ -497,7 +497,7 @@ class TarzanTspServer:
             if name == "par_sys":
                 ok = len(self.clients()) > 0
             else:
-                bridge_components = {"pok_play", "pok_rec", "lcd_1602", "matrix_led", "f_button", "f_led", "keypad", "i2c_bus", "light_bh1750"}
+                bridge_components = {"pok_play", "pok_rec", "lcd_1602", "matrix_led", "f_button", "f_led", "keypad", "i2c_bus", "light_bh1750", "next_7"}
                 hw_bridge = getattr(self, "hw_bridge", None)
                 if name in bridge_components and hw_bridge is not None and hasattr(hw_bridge, "test_lks_component"):
                     result = hw_bridge.test_lks_component(name, visible=True)
@@ -628,7 +628,7 @@ class TarzanTspServer:
         self._stopping = False
         self.running = True
 
-        # Centralny SignalBus + system_state = BOOTING
+        # ETAP 2: Centralny SignalBus + system_state = BOOTING
         try:
             from core.tarzanSignalBus import get_signal_bus
             bus = get_signal_bus()
@@ -639,7 +639,7 @@ class TarzanTspServer:
         except Exception as exc:
             self.logger.error("Could not init SignalBus in TarzanTspServer: %s", exc)
 
-        # Spięcie SignalBus z Hardware Bridge na miniPC (tor wykonawczy)
+        # ETAP 5: Spięcie SignalBus z Hardware Bridge na miniPC (tor wykonawczy)
         try:
             from core.tarzanHardwareBridge import TarzanHardwareBridge
             self.hw_bridge = TarzanHardwareBridge(bus)
@@ -649,7 +649,7 @@ class TarzanTspServer:
             self.snajper = create_default_tarzan_snajper()
             # Na miniPC Snajper subskrybuje SignalBus i strzela do zarejestrowanych adapterów (hardware)
             bus.subscribe(lambda name, state: self.snajper.fire_from_signal(name, state.value))
-            # osobna lekka subskrypcja tylko dla trwałego statusu POKSYG/LKS.
+            # ETAP 1ZA: osobna lekka subskrypcja tylko dla trwałego statusu POKSYG/LKS.
             # Nie steruje elektroniką i nie dotyka P37; tylko budzi istniejące wyjścia LKS.
             bus.subscribe(self._handle_bus_signal_change_for_lks)
             bus.log("TSP", "Hardware Bridge and Snajper connected to SignalBus on miniPC.")
@@ -663,7 +663,7 @@ class TarzanTspServer:
         self._sock.settimeout(0.5)
         self.logger.info("TSP SERVER START host=%s port=%s node=%s", self.host, self.port, self.node_name)
 
-        # Forwarding logów z SignalBus do TSP
+        # ETAP 16: Forwarding logów z SignalBus do TSP
         try:
             from core.tarzanSignalBus import get_signal_bus
             bus = get_signal_bus()
@@ -678,18 +678,18 @@ class TarzanTspServer:
         self._accept_thread.start()
         self._lane_thread.start()
 
-        # Ustawienie statusów gotowości TCP dla PAR (BOOTING jest już widoczny)
+        # ETAP 2-3: Ustawienie statusów gotowości TCP dla PAR (BOOTING jest już widoczny)
         try:
             bus.set_input("tsp_state", "READY", source="TSP_START")
             bus.log("TSP", "TSP Server is now available for clients.")
         except Exception:
             pass
 
-        # Asynchroniczna diagnostyka LKS
+        # ETAP 3: Asynchroniczna diagnostyka LKS
         diag_thread = threading.Thread(target=self._run_diagnostics, name="TSP-DIAG", daemon=True)
         diag_thread.start()
 
-        # Uruchomienie logiki trybów (MODE)
+        # Etap 12: Uruchomienie logiki trybów (MODE)
         try:
             from core.tarzanMode import start_mode_logic
             self._mode_logic = start_mode_logic()
@@ -697,13 +697,13 @@ class TarzanTspServer:
         except Exception as e:
             self.logger.error("Tarzan Mode Logic: FAILED to start: %s", e)
 
-        # Sprawdzanie dostępności stacji PAR (asynchronicznie)
+        # ETAP 4: Sprawdzanie dostępności stacji PAR (asynchronicznie)
         par_thread = threading.Thread(target=self._check_par_availability, name="TSP-PAR-CHECK", daemon=True)
         par_thread.start()
 
     def _check_par_availability(self) -> None:
         """
-        Asynchronicznie sprawdza, czy stacja PAR jest dostępna w sieci .
+        Asynchronicznie sprawdza, czy stacja PAR jest dostępna w sieci (Etap 4).
         """
         from .tarzanTspConfig import TSP_STACJA_HOST
         try:
@@ -735,7 +735,7 @@ class TarzanTspServer:
 
     def _run_diagnostics(self) -> None:
         """
-        Asynchroniczna diagnostyka systemu .
+        Asynchroniczna diagnostyka systemu (ETAP 3).
         Wypełnia SignalBus wynikami testów i ustawia READY_FOR_PAR.
         W pełni izolowana w osobnym procesie (spawn), aby crash libusb nie zabił serwera.
         """
@@ -836,7 +836,7 @@ class TarzanTspServer:
             bus.set_input("runtime_state", "READY_FOR_PAR", source="TSP_DIAG")
             bus.set_input("tarzan_ready", 1, source="TSP_DIAG")
             
-            # Odświeżamy LKS-N5 
+            # Odświeżamy LKS-N5 (Etap 3)
             self.mark_lks_outputs_dirty("diag_finished", immediate_n5=True)
 
         except Exception as exc:
@@ -847,7 +847,7 @@ class TarzanTspServer:
             except Exception: pass
 
     def _poll_system_commands(self) -> None:
-        """Sprawdza i wykonuje komendy systemowe z SignalBus ."""
+        """Sprawdza i wykonuje komendy systemowe z SignalBus (Etap 8)."""
         try:
             from core.tarzanSignalBus import get_signal_bus
             bus = get_signal_bus()
@@ -945,7 +945,7 @@ class TarzanTspServer:
         with self._clients_lock:
             self._clients.pop(client.client_id, None)
         
-        # i 9: Aktualizacja stanu klienta po rozłączeniu
+        # ETAP 4 i 9: Aktualizacja stanu klienta po rozłączeniu
         if client.node_name:
             try:
                 from core.tarzanSignalBus import get_signal_bus
@@ -979,7 +979,7 @@ class TarzanTspServer:
         if cmd == CMD_HELLO:
             node = payload.get("node", "unknown")
             client.node_name = node
-            # i 9: Rejestracja stanu klienta w SignalBus
+            # ETAP 4 i 9: Rejestracja stanu klienta w SignalBus
             try:
                 from core.tarzanSignalBus import get_signal_bus
                 bus = get_signal_bus()
@@ -1029,7 +1029,7 @@ class TarzanTspServer:
             return ok_response(cmd, values=self.provider.get_all())
 
         if cmd == CMD_GET_STATE:
-            # Zwracamy pełny stan runtime, liczbę klientów i statystyki
+            # Etap 4: Zwracamy pełny stan runtime, liczbę klientów i statystyki
             return ok_response(
                 cmd, 
                 state=self.provider.state_summary(), 
@@ -1087,19 +1087,6 @@ class TarzanTspServer:
             take_data = payload.get("take")
             if not take_data:
                 return error_response(cmd, "missing_take_data")
-            # TAKE z PAR-GUI/EHR idzie do PARcore, a nie do osobnego
-            # odtwarzacza TSP. Zachowujemy _loaded_take tylko jako kompatybilny snapshot.
-            parcore = getattr(self.provider, "parcore", None)
-            if parcore is not None:
-                try:
-                    result = parcore.route_client_command("EHR-GUI", "take_load", take_data)
-                    self._loaded_take = take_data
-                    self._take_playback_row_idx = 0
-                    self._take_playback_start_ms = 0
-                    self.logger.info("TAKE loaded through PARcore from %s: duration=%s ms", client.name, take_data.get("duration_ms"))
-                    return ok_response(cmd, status="loaded", parcore=True)
-                except Exception as exc:
-                    return error_response(cmd, "parcore_take_load_failed", message=str(exc))
             self._loaded_take = take_data
             self._take_playback_row_idx = 0
             self._take_playback_start_ms = 0
@@ -1120,7 +1107,7 @@ class TarzanTspServer:
         while self.running:
             now = monotonic_ms()
 
-            # Obsługa playbacku TAKE na MiniPC
+            # ETAP 14: Obsługa playbacku TAKE na MiniPC
             self._handle_take_playback()
 
             # Pobieramy listę klientów raz na obieg pętli
@@ -1175,7 +1162,7 @@ class TarzanTspServer:
                     client_count, stats["packets_tx"], stats["packets_rx"], stats["errors"], stats["dropped"], stats["lane_packets"],
                 )
                 
-                # Publikacja FAST_STATS do SignalBus
+                # Etap 16: Publikacja FAST_STATS do SignalBus
                 try:
                     from core.tarzanSignalBus import get_signal_bus
                     bus = get_signal_bus()
@@ -1190,7 +1177,7 @@ class TarzanTspServer:
                 if self._lks_n5_dirty:
                     self._refresh_lks_n5(reason=self._lks_n5_dirty_reason or "event", immediate=False)
 
-            # 5. Komendy systemowe 
+            # 5. Komendy systemowe (ETAP 8)
             self._poll_system_commands()
 
             # 6. Traces
@@ -1248,7 +1235,7 @@ class TarzanTspServer:
         time.sleep(sleep_s)
 
     def _handle_take_playback(self) -> None:
-        """Pętla odtwarzania TAKE ."""
+        """Pętla odtwarzania TAKE (ETAP 14)."""
         if not hasattr(self, "_loaded_take") or not self._loaded_take:
             return
 
@@ -1318,7 +1305,7 @@ class TarzanTspServer:
         self.broadcast(packet, lane=lane, clients=clients)
 
     def _handle_bus_log(self, source: str, message: str) -> None:
-        """Forwarduje logi systemowe do klientów TSP ."""
+        """Forwarduje logi systemowe do klientów TSP (ETAP 16)."""
         if not self.running:
             return
         event = {
@@ -1329,7 +1316,7 @@ class TarzanTspServer:
         }
         self.broadcast(event, lane=LANE_URGENT)
 
-        # prosta kontrolka LKS dla odpowiedzi POKSYG PLAY P37.
+        # ETAP 1V: prosta kontrolka LKS dla odpowiedzi POKSYG PLAY P37.
         # Bez nowej sekcji i bez rozbudowy HMI: używamy istniejącej kontrolki pok_play.
         try:
             if str(source).upper() == "POKSYG" and "PLAY P37" in str(message):

@@ -334,9 +334,47 @@ class TarzanTspLksBootProgress:
         return ok, detail[:180], "PoKeys USB not confirmed" if not ok else ""
 
     def _check_nextion7(self) -> Tuple[bool, str, str]:
-        links = sorted(glob.glob("/dev/serial/by-id/*Nextion*7*") + glob.glob("/dev/serial/by-id/*NX8048*"))
-        ok = bool(links)
-        return ok, ", ".join(links[:2]), "Nextion7 explicit mapping missing" if not ok else ""
+        """Sprawdza fizyczny port Nextion 7 na miniPC dla LKS-N5.
+
+        Dwa identyczne konwertery UART nie muszą mieć czytelnego by-id z nazwą
+        Nextion. Źródłem prawdy jest ustalony port by-path zapisany w
+        data/lks_n5/lks_n5_hardware_requirements.json albo
+        data/nextion/nextion_ports.json. Dopiero potem używamy globów jako
+        awaryjnego rozpoznania.
+        """
+        candidates: List[str] = []
+        try:
+            req_path = self.repo_root / "data" / "lks_n5" / "lks_n5_hardware_requirements.json"
+            if req_path.exists():
+                req = json.loads(req_path.read_text(encoding="utf-8"))
+                port = str(req.get("nextion7_port", "") or "")
+                if port:
+                    candidates.append(port)
+        except Exception:
+            pass
+        try:
+            ports_path = self.repo_root / "data" / "nextion" / "nextion_ports.json"
+            if ports_path.exists():
+                cfg = json.loads(ports_path.read_text(encoding="utf-8"))
+                n7 = cfg.get("nextion_7", {}) if isinstance(cfg, dict) else {}
+                port = str(n7.get("port", "") or "")
+                enabled = bool(n7.get("enabled", True))
+                if enabled and port:
+                    candidates.append(port)
+        except Exception:
+            pass
+        candidates.extend(sorted(glob.glob("/dev/serial/by-id/*Nextion*7*") + glob.glob("/dev/serial/by-id/*NX8048*")))
+        candidates.extend(sorted(glob.glob("/dev/serial/by-path/*") + glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*")))
+        seen = set()
+        unique = []
+        for item in candidates:
+            if item and item not in seen:
+                seen.add(item)
+                unique.append(item)
+        existing = [item for item in unique if Path(item).exists()]
+        ok = bool(existing)
+        detail = ", ".join(existing[:3] or unique[:3])
+        return ok, detail, "Nextion 7 port not confirmed on miniPC" if not ok else ""
 
     def _check_i2c_nodes(self) -> Tuple[bool, str, str]:
         # W TARZANIE LKS-N5 podstawowa magistrala I2C/BUS dla operatora

@@ -406,7 +406,7 @@ class TarzanTspLksBootProgress:
             repo_root=str(self.repo_root),
             hardware_bridge=self.hardware_bridge,
         )
-        results = diagnostics.run_all(operator_visible=True)
+        results = diagnostics.run_all(operator_visible=False)
         self.statuses.update(diagnostics.status_map())
         ok_count = sum(1 for item in results if item.ok)
         fail_count = sum(1 for item in results if not item.ok)
@@ -432,7 +432,7 @@ class TarzanTspLksBootProgress:
         bridge = self.hardware_bridge
         if bridge is not None and hasattr(bridge, "begin_hardware_batch"):
             try:
-                bridge.begin_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=18000, ensure=True)
+                bridge.begin_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=8000, ensure=True)
                 bridge_batch_started = True
             except Exception:
                 bridge_batch_started = False
@@ -459,7 +459,7 @@ class TarzanTspLksBootProgress:
         finally:
             if bridge_batch_started and bridge is not None and hasattr(bridge, "end_hardware_batch"):
                 try:
-                    bridge.end_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=2000)
+                    bridge.end_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=1000)
                 except Exception:
                     pass
 

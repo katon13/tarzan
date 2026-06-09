@@ -227,6 +227,20 @@ class TarzanTspLksDiagnostics:
         """
         bridge = getattr(self, "hardware_bridge", None)
         if bridge is not None and hasattr(bridge, "test_lks_component"):
+            # W runtime pytamy HardwareBridge tylko o komponenty, które ma bezpośrednio obsłużyć.
+            # Reszta zostaje diagnostyką read-only z plików/statusów, bez pętli Diagnostics<->Bridge.
+            try:
+                normalized = component
+                if hasattr(bridge, "_normalize_lks_component"):
+                    normalized = bridge._normalize_lks_component(component)
+                needs_pokeys = False
+                if hasattr(bridge, "_snajper_policy") and hasattr(bridge._snajper_policy, "lks_component_needs_pokeys"):
+                    needs_pokeys = bool(bridge._snajper_policy.lks_component_needs_pokeys(normalized))
+                directly_supported = str(normalized) in {"pok_play", "pok_rec", "next_7", "cam_main", "cam_track", "linux_sys", "snajper_sys", "take_sys", "par_sys", "ehr_sys"}
+                if not needs_pokeys and not directly_supported:
+                    return None
+            except Exception:
+                pass
             try:
                 result = bridge.test_lks_component(component, visible=visible)
                 if isinstance(result, Mapping):
@@ -539,7 +553,7 @@ class TarzanTspLksDiagnostics:
         bridge = getattr(self, "hardware_bridge", None)
         if bridge is not None and hasattr(bridge, "begin_hardware_batch"):
             try:
-                bridge.begin_hardware_batch("LKS_FULL_DIAGNOSTICS", grace_ms=15000, ensure=True)
+                bridge.begin_hardware_batch("LKS_FULL_DIAGNOSTICS", grace_ms=8000, ensure=False)
                 bridge_batch_started = True
             except Exception:
                 bridge_batch_started = False
@@ -555,7 +569,7 @@ class TarzanTspLksDiagnostics:
         finally:
             if bridge_batch_started and bridge is not None and hasattr(bridge, "end_hardware_batch"):
                 try:
-                    bridge.end_hardware_batch("LKS_FULL_DIAGNOSTICS", grace_ms=2000)
+                    bridge.end_hardware_batch("LKS_FULL_DIAGNOSTICS", grace_ms=1000)
                 except Exception:
                     pass
             self._operator_visible_run_all = previous_visible

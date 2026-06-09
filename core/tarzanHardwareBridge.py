@@ -888,17 +888,17 @@ class TarzanHardwareBridge:
         if logical is not None:
             return logical
 
-        # Fallback dla pozostałych kontrolek status_main: tylko diagnostyka logiczna/read-only
-        # przez ten sam aktywny HardwareBridge. Nie tworzymy bocznego TarzanTspLksHardwareTests.
-        try:
-            from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
-            diagnostics = TarzanTspLksDiagnostics(hardware_bridge=self)
-            results = diagnostics.run_component(name, operator_visible=visible)
-            ok = bool(diagnostics.status_map().get(name, False))
-            detail = "; ".join([str(getattr(r, "detail", "") or getattr(r, "error", "")) for r in results])[:180]
-            return self._lks_test_result(name, ok, detail=detail, error="" if ok else detail)
-        except Exception as exc:
-            return self._lks_test_result(name, False, error=f"component not handled by active HardwareBridge point test: {exc}")
+        # NIE WCHODZIMY z HardwareBridge z powrotem do TarzanTspLksDiagnostics.
+        # To robiło pętlę: Diagnostics -> HardwareBridge.test_lks_component -> Diagnostics
+        # dla komponentów typu level_xyz/shock_alarm/light_laser i blokowało boot na DEVICE TEST.
+        # Nieobsługiwany komponent ma dostać szybki wynik read-only/unsupported, bez drugiego testera
+        # PoKeys i bez rekurencji.
+        return self._lks_test_result(
+            name,
+            False,
+            detail="active HardwareBridge has no direct point test for this component",
+            error="no direct HardwareBridge point test",
+        )
 
 
     # ------------------------------------------------------------------

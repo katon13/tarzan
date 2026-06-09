@@ -2486,16 +2486,19 @@ class TarzanParCore:
             return self.nextion.connect()
         return False
 
-    def nextion_sync(self, force: bool = False) -> Any:
+    def nextion_sync(self, force: bool = False, screen_key: str = "nextion_7", **kwargs: Any) -> Any:
         if self.nextion is None:
             return False
         if hasattr(self.nextion, "sync"):
-            return self.nextion.sync(force=force)
+            try:
+                return self.nextion.sync(force=force, screen_key=screen_key)
+            except TypeError:
+                return self.nextion.sync(force=force)
         return False
 
-    def nextion_poll(self) -> Any:
+    def nextion_poll(self, screen_key: str = "nextion_7", **kwargs: Any) -> Any:
         # Publiczne wywołanie z PAR STACJA/PARtext: jednorazowy, nieblokujący
-        # odbiór zdarzeń Nextion 7. Nie tworzy własnego refreshu UI i nie omija Snajpera.
+        # odbiór zdarzeń Nextion. Nie tworzy własnego refreshu UI i nie omija Snajpera.
         return self.poll_nextion7_once(block=False)
 
     # UWAGA: nie robimy aliasu poll = nextion_poll.
@@ -4009,7 +4012,7 @@ class TarzanParCore:
         return True
 
     def sync(self, force: bool = False, screen_key: str = "nextion_7", **kwargs: Any) -> bool:
-        return self.nextion_sync(force=force)
+        return self.nextion_sync(force=force, screen_key=screen_key)
 
     def get_page(self, screen_key: str = "nextion_7") -> str:
         if self.nextion is not None and hasattr(self.nextion, "get_page"):

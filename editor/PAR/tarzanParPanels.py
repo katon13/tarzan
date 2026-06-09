@@ -3317,7 +3317,7 @@ class TarzanParPanels:
 
     def nextion_7_preview(self, parent):
         panel = self.panel("nextion_7_preview", parent, "NEXTION 7")
-        bridge = self.app.bridge.nextion if hasattr(self.app.bridge, "nextion") and self.app.bridge.nextion is not None else self.app.bridge
+        bridge = self.app.bridge
         widget = TarzanNextionPreviewPanel(panel.body, bridge, "nextion_7", "NEXTION 7 — PODGLĄD")
         widget.pack(fill="both", expand=True)
         self.nextion_preview_widgets["nextion_7"] = widget

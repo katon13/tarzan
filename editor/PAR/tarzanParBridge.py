@@ -405,26 +405,25 @@ class TarzanParBridge:
     def nextion_sync(self, force: bool = False):
         return self.sync(force=force)
 
-    def poll(self):
+    def poll(self, screen_key: str = "nextion_7") -> list:
         # PAR-GUI jest klonem/REMOTE. Nie wolno spamować call_action co tick
-        # podglądu; miniPC/PARcore ma własną pętlę RX Nextion 7. Tu tylko
+        # podglądu; miniPC/PARcore ma własną pętlę RX Nextion. Tu tylko
         # okresowy lekki poll na żądanie podglądu.
         now = time.monotonic()
         if (now - self._last_remote_poll_ts) < self._remote_poll_interval_s:
-            return True
+            return []
         self._last_remote_poll_ts = now
-        if self.parcore_action("nextion_poll", {"screen_key": "nextion_7"}):
+        self.parcore_action("nextion_poll", {"screen_key": screen_key})
+        return []
+
+    def flush_snajper_commands(self, screen_key: str = "nextion_7"):
+        if self.parcore_action("flush_snajper_commands", {"screen_key": screen_key}):
             return True
         return False
 
-    def flush_snajper_commands(self):
-        if self.parcore_action("flush_snajper_commands", {"screen_key": "nextion_7"}):
-            return True
-        return False
-
-    def queue_snajper_command(self, scope: str, component: str, prop: str, value):
+    def queue_snajper_command(self, scope: str, component: str, prop: str, value, screen_key: str = "nextion_7"):
         return self.parcore_action("queue_snajper_command", {
-            "screen_key": "nextion_7",
+            "screen_key": screen_key,
             "scope": scope,
             "component": component,
             "prop": prop,

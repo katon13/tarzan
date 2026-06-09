@@ -107,6 +107,7 @@ class TarzanTspLksDiagnostics:
         requirements_path: Optional[str] = None,
         collect_inventory_if_missing: bool = True,
         hardware_bridge: Optional[Any] = None,
+        allow_offline_hardware_tests: Optional[bool] = None,
     ) -> None:
         self.repo_root = Path(repo_root or self._detect_repo_root()).resolve()
         self.required_bus_devices = tuple(required_bus_devices or REQUIRED_BUS_DEVICES)
@@ -114,11 +115,14 @@ class TarzanTspLksDiagnostics:
         self.requirements_path = self._resolve_path(requirements_path or DEFAULT_REQUIREMENTS_PATH)
         self.collect_inventory_if_missing = bool(collect_inventory_if_missing)
         self.hardware_bridge = hardware_bridge
+        self.allow_offline_hardware_tests = bool(hardware_bridge is None) if allow_offline_hardware_tests is None else bool(allow_offline_hardware_tests)
         self.results: List[LksCheckResult] = []
         self.statuses: Dict[str, bool] = empty_statuses(False)
         self.inventory = _InventoryView(self._load_or_collect_inventory())
         self.requirements = self._load_requirements()
-        self.hardware_tests = TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
+        self.hardware_tests: Optional[TarzanTspLksHardwareTests] = None
+        if self.allow_offline_hardware_tests:
+            self.hardware_tests = TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
         # Domyślnie pełna diagnostyka jest cicha. Boot może świadomie włączyć
         # krótkie, widoczne wzorce tylko dla wyjść operatorskich: LCD, Matrix, LED.
         self._operator_visible_run_all = False
@@ -240,11 +244,15 @@ class TarzanTspLksDiagnostics:
             except Exception as exc:
                 return LksHardwareTestResult(component=component, ok=False, supported=True, label=f"{component} HardwareBridge/Snajper test", error=str(exc))
 
+        if not self.allow_offline_hardware_tests:
+            return None
         try:
+            if self.hardware_tests is None:
+                self.hardware_tests = TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
             probe = self.hardware_tests.test_component(component, visible=visible)
             return probe if probe.supported else None
         except Exception as exc:
-            return LksHardwareTestResult(component=component, ok=False, supported=True, label=f"{component} sovereign hardware test", error=str(exc))
+            return LksHardwareTestResult(component=component, ok=False, supported=True, label=f"{component} offline hardware test", error=str(exc))
 
     def _check_import(self, module_name: str, key: str, component: str, label: str, required: bool = True) -> LksCheckResult:
         start = time.time()

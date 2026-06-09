@@ -892,7 +892,10 @@ class TarzanHardwareBridge:
         # ale tylko read-only / repo-status. Nie wykonujemy ruchu osi.
         try:
             from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
-            diagnostics = TarzanTspLksDiagnostics(hardware_bridge=None)
+            diagnostics = TarzanTspLksDiagnostics(
+                hardware_bridge=None,
+                allow_offline_hardware_tests=False,
+            )
             results = diagnostics.run_component(name, operator_visible=visible)
             ok = bool(diagnostics.status_map().get(name, False))
             detail = "; ".join([str(getattr(r, "detail", "") or getattr(r, "error", "")) for r in results])[:180]

@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import socket
 import threading
-import multiprocessing
 import time
 import json
 import os
@@ -70,19 +69,6 @@ from .tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
 from .tarzanTspLksInventory import TarzanTspLksInventory
 
 
-def _diagnostics_worker(inventory_dict: Dict[str, Any], queue: multiprocessing.Queue) -> None:
-    """
-    Izolowany proces diagnostyczny dla ochrony przed crashami libusb/PoKeys (ETAP 3).
-    Uruchamiany w osobnym procesie, aby crash w natywnej bibliotece nie zabił serwera TSP.
-    """
-    try:
-        from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
-        diag = TarzanTspLksDiagnostics(collect_inventory_if_missing=False)
-        diag._inventory = inventory_dict
-        diag.run_all()
-        queue.put({"ok": True, "results": diag.status_map()})
-    except Exception as exc:
-        queue.put({"ok": False, "error": str(exc)})
 
 try:
     from .tarzanTspLksNextion5 import TarzanTspLksNextion5
@@ -511,7 +497,10 @@ class TarzanTspServer:
                     if detail:
                         self.logger.info("LKS-N5 POINT TEST DETAIL component=%s %s", name, detail)
                 else:
-                    diagnostics = TarzanTspLksDiagnostics()
+                    diagnostics = TarzanTspLksDiagnostics(
+                        hardware_bridge=getattr(self, "hw_bridge", None),
+                        allow_offline_hardware_tests=False,
+                    )
                     diagnostics.run_component(name)
                     ok = bool(diagnostics.status_map().get(name, False))
 
@@ -623,13 +612,6 @@ class TarzanTspServer:
     def start(self) -> None:
         if self.running:
             return
-        # Upewniamy się, że multiprocessing używa 'spawn' na Linuxie dla izolacji libusb/PoKeys
-        if platform.system().lower() != "windows":
-            try:
-                multiprocessing.set_start_method('spawn', force=True)
-            except Exception:
-                pass
-
         self._stopping = False
         self.running = True
 
@@ -690,9 +672,14 @@ class TarzanTspServer:
         except Exception:
             pass
 
-        # ETAP 3: Asynchroniczna diagnostyka LKS
-        diag_thread = threading.Thread(target=self._run_diagnostics, name="TSP-DIAG", daemon=True)
-        diag_thread.start()
+        # LKS boot progress wykonał już jeden realny test urządzeń.
+        # Nie uruchamiamy drugiego automatycznego TSP-DIAG po READY,
+        # bo spawn/HardwareTests otwiera drugi tor PoKeys poza HardwareBridge.
+        try:
+            bus.set_input("runtime_state", "READY_FOR_PAR", source="TSP_START")
+            bus.set_input("tarzan_ready", 1, source="TSP_START")
+        except Exception:
+            pass
 
         # Etap 12: Uruchomienie logiki trybów (MODE)
         try:
@@ -739,117 +726,65 @@ class TarzanTspServer:
             self.logger.debug("PAR check failed: %s", exc)
 
     def _run_diagnostics(self) -> None:
-        """
-        Asynchroniczna diagnostyka systemu (ETAP 3).
-        Wypełnia SignalBus wynikami testów i ustawia READY_FOR_PAR.
-        W pełni izolowana w osobnym procesie (spawn), aby crash libusb nie zabił serwera.
+        """Diagnostyka na żądanie przez aktywny HardwareBridge.
+
+        Runtime main.py/TSP nie może odpalać bocznego procesu ani drugiego
+        TarzanTspLksHardwareTests dla PoKeys. Boot wykonuje jeden test w
+        TarzanTspLksBootProgress. Ta metoda zostaje tylko dla komendy
+        operatora/cmd_run_diagnostics i używa istniejącego self.hw_bridge.
         """
         from core.tarzanSignalBus import get_signal_bus
         bus = get_signal_bus()
-        
-        try:
-            bus.set_input("runtime_state", "TESTING", source="TSP_DIAG")
-            bus.log("TSP", "Starting LKS Hardware Diagnostics (Isolated Spawn Process)...")
+        previous_runtime = bus.read("runtime_state", "READY_FOR_PAR") if hasattr(bus, "read") else "READY_FOR_PAR"
 
-            # 1. Inwentaryzacja (bezpieczna, bez libPoKeys)
+        try:
+            bus.set_input("runtime_state", "TESTING", source="TSP_DIAG_MANUAL")
+            bus.log("TSP", "Starting LKS diagnostics through active HardwareBridge...")
+
             inventory = TarzanTspLksInventory()
             inventory.collect()
-            inventory_dict = inventory.to_dict()
-            
-            # 2. Diagnostyka szczegółowa (RISKY - running in SPAWNED process)
-            # Używamy context 'spawn' dla pełnej separacji libusb
-            diag_results = {}
-            diag_crashed = False
-            
-            try:
-                # Na Windowsie nie używamy spawn w ten sposób, bo to skomplikowane,
-                # ale na miniPC (Linux) to kluczowe.
-                if platform.system().lower() != "windows":
-                    ctx = multiprocessing.get_context('spawn')
-                    queue = ctx.Queue()
-                    process = ctx.Process(
-                        target=_diagnostics_worker,
-                        args=(inventory_dict, queue),
-                        name="TSP_Diag_Worker",
-                        daemon=True
-                    )
-                    process.start()
-                    
-                    try:
-                        msg = queue.get(timeout=45.0)
-                        if isinstance(msg, dict) and msg.get("ok"):
-                            diag_results = msg.get("results", {})
-                        elif isinstance(msg, Exception):
-                            self.logger.error("LKS Diagnostics Worker internal error: %s", msg)
-                            diag_crashed = True
-                        elif isinstance(msg, dict) and not msg.get("ok"):
-                            self.logger.error("LKS Diagnostics Worker error: %s", msg.get("error"))
-                            diag_crashed = True
-                    except Exception:
-                        if process.is_alive():
-                            self.logger.warning("LKS Diagnostics Worker TIMEOUT - terminating.")
-                            process.terminate()
-                        else:
-                            self.logger.error("LKS Diagnostics Worker CRASHED (libusb/PoKeys core-dump detected).")
-                        diag_crashed = True
-                    
-                    process.join(timeout=2.0)
-                    if process.is_alive(): process.kill()
-                else:
-                    # Windows / Dev mode - run inline or simple Thread if spawn is problematic
-                    from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
-                    diag = TarzanTspLksDiagnostics(collect_inventory_if_missing=False)
-                    diag._inventory = inventory_dict
-                    diag.run_all()
-                    diag_results = diag.status_map()
+            diagnostics = TarzanTspLksDiagnostics(
+                collect_inventory_if_missing=False,
+                hardware_bridge=getattr(self, "hw_bridge", None),
+                allow_offline_hardware_tests=False,
+            )
+            diagnostics._inventory = inventory.to_dict()
+            diagnostics.inventory = diagnostics.inventory.__class__(diagnostics._inventory)
+            diagnostics.run_all(operator_visible=True)
+            diag_results = diagnostics.status_map()
 
-            except Exception as exc:
-                self.logger.error("LKS Diagnostics Process spawn failed: %s", exc)
-                diag_crashed = True
-            
-            # 3. Publikacja wyników do SignalBus
             mapping = {
-                "linux": "linux_ok",
-                "tsp": "tsp_ok",
-                "signalbus": "signalbus_ok",
-                "snajper": "snajper_ok",
-                "nextion5": "nextion5_ok",
-                "pokeys": "pokeys_ok",
+                "linux_sys": "linux_ok",
+                "tsp_lan": "tsp_ok",
+                "signalbus_core": "signalbus_ok",
+                "snajper_sys": "snajper_ok",
+                "next_5": "nextion5_ok",
+                "pok_play": "pokeys_ok",
                 "i2c_bus": "i2c_bus_ok",
                 "lcd_1602": "lcd_1602_ok",
                 "matrix_led": "matrix_led_ok",
                 "f_led": "f_led_ok",
-                "axis_inventory": "axis_inventory_ok"
             }
-            
-            for lks_key, sig_name in mapping.items():
-                is_ok = diag_results.get(lks_key, False)
+            for component, sig_name in mapping.items():
                 if bus.exists(sig_name):
-                    bus.set_input(sig_name, 1 if is_ok else 0, source="TSP_DIAG")
-            
-            # 4. Finalizacja stanu - zawsze dążymy do READY_FOR_PAR
-            all_ok = all(diag_results.get(k, False) for k in ["linux", "tsp", "signalbus", "pokeys"])
-            
-            if all_ok and not diag_crashed:
-                bus.set_input("hardware_state", "READY", source="TSP_DIAG")
-                bus.log("TSP", "LKS Diagnostics: SUCCESS. Hardware READY.")
+                    bus.set_input(sig_name, 1 if diag_results.get(component, False) else 0, source="TSP_DIAG_MANUAL")
+
+            if diag_results.get("pok_play", False) or diag_results.get("pok_rec", False):
+                bus.set_input("hardware_state", "READY", source="TSP_DIAG_MANUAL")
+                bus.log("TSP", "LKS diagnostics through HardwareBridge: DONE.")
             else:
-                bus.set_input("hardware_state", "ERROR" if diag_crashed else "PARTIAL_ERROR", source="TSP_DIAG")
-                bus.log("TSP", f"LKS Diagnostics: COMPLETED with issues (Crashed={diag_crashed}).")
+                bus.set_input("hardware_state", "PARTIAL_ERROR", source="TSP_DIAG_MANUAL")
+                bus.log("TSP", "LKS diagnostics through HardwareBridge: DONE with issues.")
 
-            # READY_FOR_PAR ustawiamy niezależnie od wyniku PoKeys
-            bus.set_input("runtime_state", "READY_FOR_PAR", source="TSP_DIAG")
-            bus.set_input("tarzan_ready", 1, source="TSP_DIAG")
-            
-            # Odświeżamy LKS-N5 (Etap 3)
             self.mark_lks_outputs_dirty("diag_finished", immediate_n5=True)
-
         except Exception as exc:
-            self.logger.error("LKS Diagnostics CRASHED (outer): %s", exc)
+            self.logger.error("LKS diagnostics through HardwareBridge failed: %s", exc)
+        finally:
             try:
-                bus.set_input("runtime_state", "READY_FOR_PAR", source="TSP_DIAG")
-                bus.set_input("tarzan_ready", 1, source="TSP_DIAG")
-            except Exception: pass
+                bus.set_input("runtime_state", previous_runtime or "READY_FOR_PAR", source="TSP_DIAG_MANUAL")
+                bus.set_input("tarzan_ready", 1, source="TSP_DIAG_MANUAL")
+            except Exception:
+                pass
 
     def _poll_system_commands(self) -> None:
         """Sprawdza i wykonuje komendy systemowe z SignalBus (Etap 8)."""

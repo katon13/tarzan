@@ -597,6 +597,9 @@ class TarzanNextionBridge:
         key = f"{scope}.{component}.{prop}"
         self._snajper_pending[key] = (scope, component, prop, value)
 
+    def has_snajper_pending(self) -> bool:
+        return bool(self._snajper_pending) or self._clap_tc_running or self._tfd_save_status_visible
+
     def flush_snajper_commands(self) -> None:
         # TARZAN_SNAJPER: dynamiczne zmiany Nextiona.
         # Nieaktywne strony zostają w pending, żeby nie gubić wartości.

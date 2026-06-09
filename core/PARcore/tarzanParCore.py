@@ -3457,10 +3457,15 @@ class TarzanParCore:
             try:
                 # Blokujący odczyt RX jednego ekranu. To nie jest cykliczne
                 # odświeżanie UI i nie zastępuje Snajpera. Wątek śpi w UART.
-                self.poll_nextion7_once(block=True)
-                # Po odebraniu (lub timeout) wypychamy zaległe komendy Snajpera
-                # na fizyczny ekran, żeby odświeżanie było płynne.
-                self.flush_snajper_commands()
+                events = self.poll_nextion7_once(block=True)
+                should_flush = bool(events)
+                if not should_flush and self.nextion is not None:
+                    if hasattr(self.nextion, "has_snajper_pending"):
+                        should_flush = self.nextion.has_snajper_pending()
+                if should_flush:
+                    self.flush_snajper_commands()
+                else:
+                    import time; time.sleep(0.01)
             except Exception as exc:
                 self.force_signal("nextion7_state", "ERROR", source="PARCORE_N7")
                 self.force_signal("par_last_error", f"Nextion7 event poll failed: {exc}", source="PARCORE_N7")

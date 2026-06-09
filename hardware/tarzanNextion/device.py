@@ -134,6 +134,7 @@ class TarzanNextionDevice:
         zmian na ekran.
         """
         if self.serial_port is None:
+            time.sleep(timeout_s)
             return []
         deadline = time.monotonic() + max(0.02, float(timeout_s or 0.25))
         while time.monotonic() < deadline:

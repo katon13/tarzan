@@ -166,32 +166,38 @@ class TarzanHardwareBridge:
                 self._last_poll_ms = now
                 
             # 2. Generator trybu manualnego (tM) - ETAP 13
-            self._handle_manual_generator()
+            # Adaptacyjny sleep: 5ms (200Hz) przy ruchu, 20ms (50Hz) w IDLE.
+            # Zgodnie z zasadą Snajpera - pracujemy szybko tylko gdy jest zmiana.
+            has_motion = self._handle_manual_generator()
             
-            time.sleep(0.005)
+            time.sleep(0.005 if has_motion else 0.02)
 
-    def _handle_manual_generator(self) -> None:
+    def _handle_manual_generator(self) -> bool:
         """Generuje impulsy STEP w trybie manualnym na podstawie kierunków w SignalBus."""
         if self.bus.read("active_mode", "tM") != "tM":
-            return
+            return False
             
         # Tylko jeśli PAR lub LKS ma kontrolę
         owner = self.bus.read("control_owner", "TSP_BOOT")
         if owner not in {"PAR_LIVE", "TSP_SERVICE", "LKS_DIAGNOSTIC"}:
-            return
+            return False
 
+        has_any_motion = False
         from core.tarzanZmienneSygnalowe import LISTA_NAZW_OSI
         for ax_name in LISTA_NAZW_OSI:
             prefix = f"axis_{ax_name}"
             dir_val = int(self.bus.read(f"{prefix}_dir", 0))
             
             if dir_val != 0:
+                has_any_motion = True
                 # Generujemy impuls co N obiegów pętli (uproszczona prędkość)
                 # W realnym systemie częstotliwość byłaby sterowana rrp_speed_mul
                 step_signal = f"{prefix}_step"
                 # Wpisujemy do SignalBus - to wywoła write() w tym samym bridge'u
                 self.bus.write_output(step_signal, 1, source="HW_MANUAL_GEN")
                 self.bus.write_output(step_signal, 0, source="HW_MANUAL_GEN")
+        
+        return has_any_motion
 
     def _poll_hardware(self) -> None:
         """Odczytuje stany wejść z hardware i wpisuje do SignalBus."""

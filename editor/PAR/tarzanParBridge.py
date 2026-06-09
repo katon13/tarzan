@@ -44,10 +44,10 @@ class TarzanParBridge:
         self._tsp_thread: Optional[threading.Thread] = None
         self._tsp_subscribed: bool = False
         self._tsp_last_state_sync_ts: float = 0.0
-        # ETAP 1D: tryb LIVE utrzymujemy własną flagą, nie samym bus.mode.
+        # tryb LIVE utrzymujemy własną flagą, nie samym bus.mode.
         # Snapshot z miniPC albo lokalna zmiana stanu nie może zabić wątku TSP.
         self._tsp_active: bool = False
-        # ETAP 1C: na starcie LIVE nie bierzemy FAST/*, bo PAR może zostać zalany
+        # na starcie LIVE nie bierzemy FAST/*, bo PAR może zostać zalany
         # paczkami i TSP rozłącza klienta przez send_failed timed out.
         self._tsp_boot_signals = [
             "system_state",
@@ -178,7 +178,7 @@ class TarzanParBridge:
     def _tsp_connector_loop(self) -> None:
         """Pętla dbająca o połączenie i podtrzymanie sesji TSP.
 
-        ETAP 1D: jeżeli połączenie spadnie po kliknięciu LIVE, PAR nie może
+        jeżeli połączenie spadnie po kliknięciu LIVE, PAR nie może
         wyjść z LIVE ani zostawić klienta martwego. Wątek ma spróbować
         ponownie połączyć się z miniPC.
         """
@@ -206,7 +206,7 @@ class TarzanParBridge:
                     self._bus_set_input("par_state", "CONNECTED", source="TSP_LIVE")
                     client.hello()
                 else:
-                    # ETAP 1F: LIVE ma się trzymać. Wysyłamy lekki heartbeat,
+                    # LIVE ma się trzymać. Wysyłamy lekki heartbeat,
                     # żeby martwy socket został wykryty i pętla mogła zrobić reconnect.
                     try:
                         assert self.tsp_client is not None
@@ -246,12 +246,12 @@ class TarzanParBridge:
 
         if event == "snajper_packet":
             values = message.get("values", {})
-            # ETAP 6-7: Apply snapshot do lokalnego SignalBus PAR
+            # Apply snapshot do lokalnego SignalBus PAR
             # Unikamy pętli zwrotnej przez apply_snapshot (filtrowanie w Bus)
             self.bus.apply_snapshot(values, source="TSP_LIVE")
         
         elif cmd == "get_state" and ok:
-            # ETAP 4: Synchronizacja stanu początkowego
+            # Synchronizacja stanu początkowego
             state = message.get("state", {})
             if state:
                 self.bus.log("TSP", f"GET_STATE OK: signals={len(state.get('signals', state))}")
@@ -260,7 +260,7 @@ class TarzanParBridge:
         elif (event == "hello") or (cmd == "hello" and ok):
             node = message.get("node") or message.get("node_name") or message.get("node_id", "unknown")
             self.bus.log("TSP", f"Handshake OK: {node}")
-            # ETAP 1C: pierwszy LIVE ma być lekki. Nie subskrybujemy FAST ani "*".
+            # pierwszy LIVE ma być lekki. Nie subskrybujemy FAST ani "*".
             # Najpierw potwierdzamy stabilny most PAR <-> TSP na sygnałach systemowych.
             if self.tsp_client and not self._tsp_subscribed:
                 self._tsp_subscribed = True
@@ -285,10 +285,10 @@ class TarzanParBridge:
             err_msg = message.get("message") or message.get("reason") or err_code
             self.bus.log("TSP_ERROR", f"TSP Error ({err_code}): {err_msg}")
             
-            # ETAP 8: Powiadamianie UI o błędzie
+            # Powiadamianie UI o błędzie
             self.bus.set_input("par_last_error", f"{err_code}: {err_msg}", source="TSP_LIVE")
             
-            # Specjalna obsługa odmowy zapisu dla UI (Etap 7-8)
+            # Specjalna obsługa odmowy zapisu dla UI (8)
             if err_code == "write_denied":
                 self.bus.log("TSP_ERROR", f"Access Denied: {message.get('reason', 'control_owner_conflict')}")
                 self.bus.set_input("par_write_denied_event", 1, source="TSP_LIVE")
@@ -300,14 +300,14 @@ class TarzanParBridge:
             self._drop_tsp_client(reason="server_disconnect_event")
 
         elif event == "log_event":
-            # ETAP 16: Odbieranie logów z MiniPC
+            # Odbieranie logów z MiniPC
             src = message.get("source", "REMOTE")
             msg = message.get("message", "")
             # Wpisujemy do lokalnego busa, co automatycznie odświeży panel logów PAR
             self.bus.log(f"MINI:{src}", msg)
 
         elif event == "trace":
-            # ETAP 16: Odbieranie danych trace w czasie rzeczywistym
+            # Odbieranie danych trace w czasie rzeczywistym
             name = message.get("signal", "unknown")
             val = message.get("value", 0)
             self.bus.force_signal(f"trace_{name}", val, source="TSP_TRACE")
@@ -329,22 +329,63 @@ class TarzanParBridge:
         if hasattr(self.nextion, "queue_snajper_command"):
             return self.nextion.queue_snajper_command(scope, component, prop, value)
 
+
+    # ------------------------------------------------------------------
+    # PAR-GUI jako HMI: każde wykonanie idzie przez TSP → PARcore.
+    # ------------------------------------------------------------------
+    def parcore_available(self) -> bool:
+        return bool(self._tsp_active and self._client_is_connected())
+
+    def _parcore_call(self, action: str, payload: Optional[Dict[str, Any]] = None) -> bool:
+        payload = dict(payload or {})
+        if not self.parcore_available():
+            return False
+        return self._send_to_tsp_if_ready(
+            lambda c: c.call_action(action, payload),
+            f"parcore_action {action}",
+        )
+
+    def parcore_action(self, action: str, payload: Optional[Dict[str, Any]] = None) -> bool:
+        """Jawne wejście dla PAR-GUI: TSP → PARcore.call_action(...)."""
+        return self._parcore_call(action, payload)
+
+    def parcore_set_signal(self, name: str, value: Any, source: str = "PAR_GUI") -> bool:
+        return self._parcore_call("set_signal", {"name": name, "value": value, "source": source})
+
+    def parcore_force_signal(self, name: str, value: Any, source: str = "PAR_GUI_FORCE") -> bool:
+        return self._parcore_call("force_signal", {"name": name, "value": value, "source": source})
+
     def read_input(self, name: str, default: Any = 0) -> Any:
         return self.bus.read_input(name, default)
 
     def set_input(self, name: str, value: Any, source: str = "PAR") -> bool:
-        if self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"set_input {name}"):
+        # PAR-GUI nie wykonuje prawdy lokalnie; wysyła komendę do PARcore.
+        if self.parcore_set_signal(name, value, source=source):
             return True
+        if self._requires_minipc_connection(name):
+            self.bus.log("MINIPC", f"{name} blocked: miniPC/PARcore not connected")
+            self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {name}", source="PAR_BRIDGE")
+            return False
         return self.bus.set_input(name, value, source=source)
 
     def write_output(self, name: str, value: Any, source: str = "PAR") -> bool:
-        if self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"write_output {name}"):
+        # wyjścia fizyczne zawsze przez PARcore, gdy TSP jest dostępny.
+        if self.parcore_set_signal(name, value, source=source):
             return True
+        if self._requires_minipc_connection(name):
+            self.bus.log("MINIPC", f"{name} blocked: miniPC/PARcore not connected")
+            self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {name}", source="PAR_BRIDGE")
+            return False
         return self.bus.write_output(name, value, source=source)
 
     def force_signal(self, name: str, value: Any, source: str = "PAR_FORCE") -> bool:
-        if self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"force_signal {name}"):
+        # force z PAR-GUI też idzie przez PARcore, nie lokalny drugi PAR.
+        if self.parcore_force_signal(name, value, source=source):
             return True
+        if self._requires_minipc_connection(name):
+            self.bus.log("MINIPC", f"{name} blocked: miniPC/PARcore not connected")
+            self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {name}", source="PAR_BRIDGE")
+            return False
         return self.bus.force_signal(name, value, source=source)
 
 
@@ -367,12 +408,12 @@ class TarzanParBridge:
         return n.startswith(physical_prefixes) or n in physical_names
 
     def set_signal(self, name: str, value: Any, source: str = "PAR") -> bool:
-        """Alias dla ujednoliconego zapisu sygnału w obu trybach (Etap 7-8)."""
-        if self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"set_signal {name}"):
+        """PAR-GUI → TSP → PARcore.set_signal(...). Lokalny zapis tylko dla HMI/test bez miniPC."""
+        if self.parcore_set_signal(name, value, source=source):
             return True
 
         if self._requires_minipc_connection(name):
-            self.bus.log("MINIPC", f"{name} blocked: miniPC not connected")
+            self.bus.log("MINIPC", f"{name} blocked: miniPC/PARcore not connected")
             self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {name}", source="PAR_BRIDGE")
             return False
 
@@ -380,23 +421,25 @@ class TarzanParBridge:
         if not m:
             return self.bus.force_signal(name, value, source=source)
         if m.is_output:
-            self.bus.log("MINIPC", f"{name} blocked: miniPC not connected")
+            self.bus.log("MINIPC", f"{name} blocked: miniPC/PARcore not connected")
             self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {name}", source="PAR_BRIDGE")
             return False
         return self.bus.set_input(name, value, source=source)
 
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> bool:
-        """Wysyła komendę administracyjną do TSP (Etap 8)."""
+        """PAR-GUI → TSP → PARcore.call_action(...)."""
+        payload = dict(payload or {})
         if name == "trace_signal" and payload:
             sig = payload.get("name")
             sec = payload.get("seconds", 30)
             if sig and self._send_to_tsp_if_ready(lambda c: c.trace_signal(sig, seconds=sec), f"trace_signal {sig}"):
                 return True
 
-        if self._send_to_tsp_if_ready(lambda c: c.call_action(name, payload), f"call_action {name}"):
+        if self._parcore_call(name, payload):
             return True
 
-        self.bus.log("PAR", f"Action {name} ignored (TSP not connected)")
+        self.bus.log("PAR", f"Action {name} ignored (TSP/PARcore not connected)")
+        self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED_ACTION: {name}", source="PAR_BRIDGE")
         return False
 
     def snapshot(self, include_meta: bool = False) -> Dict[str, Any]:
@@ -404,34 +447,35 @@ class TarzanParBridge:
 
     def load_take(self, path: str | Path) -> TarzanTakeData:
         data = self.take_player.load(path)
+        payload = {
+            "path": str(path),
+            "name": Path(path).name,
+            "columns": data.columns,
+            "rows": data.rows,
+            "metadata": getattr(data, "metadata", getattr(data, "header", {})),
+            "header": getattr(data, "header", {}),
+            "duration_ms": data.duration_ms() if callable(getattr(data, "duration_ms", None)) else getattr(data, "duration_ms", 0),
+        }
+        # EHR/TAKE z PAR-GUI trafia do PARcore jako TAKE payload.
+        if self._parcore_call("take_load", payload):
+            return data
         if self._client_is_connected():
-            # ETAP 14: Przesyłanie danych TAKE do MiniPC
-            payload = {
-                "name": Path(path).name,
-                "columns": data.columns,
-                "rows": data.rows,
-                "metadata": data.metadata,
-                "duration_ms": data.duration_ms()
-            }
-            self.tsp_client.load_take(payload)
+            try:
+                self.tsp_client.load_take(payload)
+            except Exception as exc:
+                self.bus.log("TSP_ERROR", f"LOAD_TAKE legacy failed: {exc}")
         return data
 
     def play_take(self) -> None:
-        if self._client_is_connected():
-            self.call_action("play_take")
-        else:
+        if not self.call_action("take_play"):
             self.take_player.play()
 
     def pause_take(self) -> None:
-        if self._client_is_connected():
-            self.call_action("pause_take")
-        else:
+        if not self.call_action("take_pause"):
             self.take_player.pause()
 
     def stop_take(self) -> None:
-        if self._client_is_connected():
-            self.call_action("stop_take")
-        else:
+        if not self.call_action("take_stop"):
             self.take_player.stop()
 
     def step_take_index(self, index: int):

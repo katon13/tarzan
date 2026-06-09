@@ -1,7 +1,7 @@
 """
 Źródło sygnałów dla TSP.
 
-Na tym etapie moduł generuje własne sygnały uruchomieniowe pod pełny protokół TSP.
+Moduł generuje własne sygnały uruchomieniowe pod pełny protokół TSP.
 Nie jest to osobna architektura — ta sama klasa zostanie później spięta z SignalBus.
 """
 
@@ -75,8 +75,27 @@ class TarzanTspSignalProvider:
         self._start_ms = monotonic_ms()
         self._last_ms = self._start_ms
         self._urgent_queue: list[Dict[str, Any]] = []
+        self.parcore: Any = None  # MAIN Runtime podpina wykonawczy PARcore.
         self._catalog: Dict[str, TarzanTspSignalDef] = {}
         self._build_catalog()
+
+
+    # ------------------------------------------------------------------
+    # delegacja CALL_ACTION z TSP do PARcore.
+    # Provider zostaje katalogiem/protokolem TSP, a wykonanie PAR idzie do jednego rdzenia.
+    # ------------------------------------------------------------------
+    def bind_parcore(self, parcore: Any) -> None:
+        self.parcore = parcore
+        try:
+            self.logger.info("PARcore delegate bound to TSP provider")
+        except Exception:
+            pass
+
+    def set_parcore_delegate(self, parcore: Any) -> None:
+        self.bind_parcore(parcore)
+
+    def set_runtime_delegate(self, parcore: Any) -> None:
+        self.bind_parcore(parcore)
 
     # ------------------------------------------------------------------
     # KATALOG
@@ -163,7 +182,7 @@ class TarzanTspSignalProvider:
     # ------------------------------------------------------------------
 
     def get_signal(self, name: str) -> Any:
-        # ETAP 17: Provider polega wyłącznie na SignalBus (MAIN/LIVE)
+        # Provider polega wyłącznie na SignalBus (MAIN/LIVE)
         from core.tarzanSignalBus import get_signal_bus
         bus = get_signal_bus()
         if bus.exists(name):
@@ -215,7 +234,7 @@ class TarzanTspSignalProvider:
                 if name not in self._catalog:
                     return {"ok": False, "error": "unknown_signal", "name": name}
         
-        # ETAP 11: Sprawdzanie control_owner (Bezpieczeństwo)
+        # Sprawdzanie control_owner (Bezpieczeństwo)
         owner = bus.read("control_owner", "TSP_BOOT")
         
         # Jeśli właścicielem jest EHR, odrzucamy ręczne sterowanie osiami z TSP/PAR
@@ -233,7 +252,7 @@ class TarzanTspSignalProvider:
         
         meta = bus.get_meta(name)
 
-        # ETAP 1S: centralny rejestr komend PAR wykonywanych fizycznie na miniPC.
+        # centralny rejestr komend PAR wykonywanych fizycznie na miniPC.
         # Nie opieramy się już na samym kierunku z katalogu, bo część starych
         # sygnałów testowych PAR ma historycznie opis IN, mimo że w trybie TEST
         # ma wykonać zapis na sprzęcie przez HardwareBridge.
@@ -315,6 +334,20 @@ class TarzanTspSignalProvider:
 
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         payload = payload or {}
+        parcore = getattr(self, "parcore", None)
+        if parcore is not None:
+            try:
+                result = parcore.route_client_command("PAR-GUI", name, payload)
+                if isinstance(result, dict) and "ok" in result:
+                    return result
+                return {"ok": True, "action": name, "result": result}
+            except ValueError:
+                # Stare akcje TSP, których PARcore jeszcze nie zna, przechodzą niżej
+                # przez dotychczasowy provider. Nie tworzymy drugiego modelu PAR.
+                pass
+            except Exception as exc:
+                return {"ok": False, "action": name, "error": str(exc), "source": "PARcore"}
+
         from core.tarzanSignalBus import get_signal_bus
         bus = get_signal_bus()
         
@@ -333,7 +366,7 @@ class TarzanTspSignalProvider:
                 self._urgent_queue.append(urgent_event("transport_state", "STOP", "operator_stop", PRIORITY_SAFETY))
                 return {"ok": True, "action": name, "transport_state": "STOP"}
             
-            # ETAP 8: Akcje administracyjne PAR
+            # Akcje administracyjne PAR
             if name == "play_take":
                 try:
                     from core.tarzanSignalBus import get_signal_bus
@@ -518,7 +551,7 @@ class TarzanTspSignalProvider:
                 "ehr_state": bus.read("ehr_state"),
                 "khr_state": bus.read("khr_state"),
                 "hardware_state": bus.read("hardware_state"),
-                # ETAP 1ZA: trwały status POKSYG w ramce GET_STATE/TSP.
+                # trwały status POKSYG w ramce GET_STATE/TSP.
                 # To są istniejące statusy SignalBus, nie nowy tor sterowania.
                 "poksyg_last_forced_signal": bus.read("poksyg_last_forced_signal", ""),
                 "poksyg_last_forced_value": bus.read("poksyg_last_forced_value", ""),

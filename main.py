@@ -24,6 +24,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from core.tarzanSignalBus import get_signal_bus
 from core.tarzanUstawienia import CZAS_PROBKOWANIA_MS
+from core.PARcore.tarzanParCore import TarzanParCore
 
 def main():
     print("MAIN Runtime START")
@@ -31,6 +32,8 @@ def main():
     print("TSP SERVER START")
     print("HardwareBridge START")
     print("LKS-N5 START")
+    print("PARcore START")
+    print("Nextion 7 START")
 
     # 1. Inicjalizacja SignalBus w trybie LIVE
     # get_signal_bus w trybie LIVE odczyta konfigurację hardware'ową
@@ -43,6 +46,8 @@ def main():
     bus.log("MAIN", "TSP SERVER START")
     bus.log("MAIN", "HardwareBridge START")
     bus.log("MAIN", "LKS-N5 START")
+    bus.log("MAIN", "PARcore START")
+    bus.log("MAIN", "Nextion 7 START")
     
 # 2. Konfiguracja parametrów serwera TSP
     is_windows = platform.system().lower() == "windows"
@@ -83,9 +88,31 @@ def main():
         lks_n5_dry_run=n5_dry_run
     )
     
+    parcore = None
     try:
-        # TarzanTspServer.start() zainicjuje podsystemy i połączy je z bus-em
+        # TarzanTspServer.start() zainicjuje podsystemy i połączy je z bus-em:
+        # TSP Server, HardwareBridge, Snajper, LKS-TTY i Nextion 5.
         server.start()
+
+        # MAIN Runtime uruchamia PARcore jako jeden wykonawczy rdzeń PAR
+        # i wpina do niego istniejący TSP Server, SignalBus, HardwareBridge oraz Nextion 7.
+        parcore = TarzanParCore(
+            bus=bus,
+            hardware_bridge=getattr(server, "hw_bridge", None),
+            mode="LIVE",
+            enable_tsp_client=False,
+            enable_nextion_bridge=True,
+        )
+        parcore.attach_main_runtime(
+            tsp_server=server,
+            hardware_bridge=getattr(server, "hw_bridge", None),
+            enable_nextion7=not is_windows,
+        )
+        bus.force_signal("parcore_state", "RUNNING", source="MAIN")
+        bus.force_signal("par_state", "PARCORE_RUNNING", source="MAIN")
+        bus.log("MAIN", "PARcore RUNNING and bound to TSP/HardwareBridge/Nextion7")
+        print("PARcore RUNNING")
+        print(f"Nextion 7 {'STARTED' if not is_windows else 'DRY_DISABLED_ON_WINDOWS'}")
     except Exception as e:
         print(f"CRITICAL ERROR during system start: {e}")
         bus.set_input("system_state", "ERROR", source="MAIN")
@@ -95,12 +122,15 @@ def main():
     # 4. Sprawdzanie gotowości EHR/KHR (przez ModeLogic)
     # ModeLogic (uruchomiony przez TspServer) monitoruje statusy modułów.
     bus.set_input("ehr_state", "OFFLINE", source="MAIN")
-    bus.set_input("par_state", "OFFLINE", source="MAIN")
     bus.set_input("khr_state", "OFFLINE", source="MAIN")
+    bus.force_signal("par_state", "PARCORE_RUNNING", source="MAIN")
+    bus.force_signal("par_gui_state", "NOT_CONNECTED", source="MAIN")
     
-    print("PAR NOT_CONNECTED")
+    print("PARcore RUNNING")
+    print("PAR-GUI NOT_CONNECTED")
     print("EHR NOT_CONNECTED")
-    bus.log("MAIN", "PAR NOT_CONNECTED")
+    bus.log("MAIN", "PARcore RUNNING")
+    bus.log("MAIN", "PAR-GUI NOT_CONNECTED")
     bus.log("MAIN", "EHR NOT_CONNECTED")
 
     # 5. Blokada bezpieczeństwa osi (Safety Lock)
@@ -129,6 +159,11 @@ def main():
     except KeyboardInterrupt:
         print("\nStopping system...")
     finally:
+        if parcore is not None:
+            try:
+                parcore.close()
+            except Exception:
+                pass
         server.stop()
         print("TARZAN SYSTEM STOPPED.")
 

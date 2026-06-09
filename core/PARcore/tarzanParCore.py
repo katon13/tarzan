@@ -1473,12 +1473,23 @@ class TarzanParCore:
 
     def _set_signal(self, name: str, value: Any, source: str = "PARCORE") -> bool:
         try:
-            meta = self.bus.get_meta(name)
-            is_input = bool(getattr(meta, "is_input", False)) or str(name).startswith("par_")
-            if is_input:
-                ok = self.set_input(name, value, source=source)
+            signal_name = str(name or "")
+            meta = self.bus.get_meta(signal_name)
+            par_exec_prefixes = ("par_lcd_", "par_matrix_", "par_f_led_")
+            par_exec_names = {
+                "rec_p46_led_f1", "rec_p48_led_f2", "rec_p50_led_f3", "rec_p52_led_f4",
+                "play_p37_step_disconnect_manual",
+            }
+            is_par_exec = signal_name.startswith(par_exec_prefixes) or signal_name in par_exec_names
+            is_output = bool(
+                is_par_exec
+                or getattr(meta, "is_output", False)
+                or getattr(meta, "kierunek", "") == "OUT"
+            )
+            if is_output:
+                ok = self.write_output(signal_name, value, source=source)
             else:
-                ok = self.write_output(name, value, source=source)
+                ok = self.set_input(signal_name, value, source=source)
         except Exception:
             ok = self.force_signal(name, value, source=source)
         try:

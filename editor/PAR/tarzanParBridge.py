@@ -61,6 +61,8 @@ class TarzanParBridge:
             "tarzan_ready",
             "safety_axis_unlock",
         ]
+        self._remote_nextion_monitor: Dict[str, Any] = {}
+        self._remote_nextion_log: list[str] = []
 
     def _ui_call(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
         """Wykonuje zmianę UI/SignalBus bezpiecznie w wątku Tkintera, gdy mamy scheduler."""
@@ -243,6 +245,7 @@ class TarzanParBridge:
         event = message.get("event")
         cmd = message.get("cmd")
         ok = message.get("ok", True)
+        self._remember_parcore_response(message)
 
         if event == "snajper_packet":
             values = message.get("values", {})
@@ -312,22 +315,109 @@ class TarzanParBridge:
             val = message.get("value", 0)
             self.bus.force_signal(f"trace_{name}", val, source="TSP_TRACE")
 
+
+    def _remember_parcore_response(self, message: Dict[str, Any]) -> None:
+        if message.get("cmd") != "call_action" or not message.get("ok", True):
+            return
+        action = str(message.get("action") or message.get("name") or "").strip()
+        result = message.get("result")
+        if action == "get_nextion_monitor_state" and isinstance(result, dict):
+            self._remote_nextion_monitor = dict(result)
+        elif action in {"build_nextion7_log_preview", "get_nextion7_log"}:
+            if isinstance(result, str):
+                self._remote_nextion_log = [line for line in result.splitlines() if line.strip()]
+            elif isinstance(result, (list, tuple)):
+                self._remote_nextion_log = [str(line) for line in result]
+
+    def _is_minipc_screen(self, screen_key: str = "nextion_7") -> bool:
+        return str(screen_key or "").lower() in {"nextion_7", "nextion7", "n7"}
+
+    def _block_minipc_owned(self, what: str) -> bool:
+        self.bus.log("MINIPC", f"{what} blocked: miniPC/PARcore not connected")
+        self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {what}", source="PAR_BRIDGE")
+        return False
+
+    def connect_screen(self, screen_key: str = "nextion_7") -> bool:
+        if self._is_minipc_screen(screen_key):
+            if self.parcore_action("connect_screen", {"screen_key": "nextion_7"}):
+                return True
+            return self._block_minipc_owned("nextion_7.connect_screen")
+        if hasattr(self.nextion, "connect_screen"):
+            return bool(self.nextion.connect_screen(screen_key))
+        return bool(self.nextion_connect())
+
+    def disconnect_screen(self, screen_key: str = "nextion_7") -> bool:
+        if self._is_minipc_screen(screen_key):
+            if self.parcore_action("disconnect_screen", {"screen_key": "nextion_7"}):
+                return True
+            return self._block_minipc_owned("nextion_7.disconnect_screen")
+        if hasattr(self.nextion, "disconnect_screen"):
+            self.nextion.disconnect_screen(screen_key)
+            return True
+        return False
+
+    def sync(self, force: bool = False) -> Any:
+        # Globalna zasada: fizyczny Nextion 7 należy do miniPC/PARcore.
+        if self.parcore_action("sync", {"force": bool(force), "screen_key": "nextion_7"}):
+            return True
+        return self._block_minipc_owned("nextion_7.sync")
+
+    def get_nextion_monitor_state(self, screen_key: str = "nextion_7") -> Dict[str, Any]:
+        if self._is_minipc_screen(screen_key):
+            self.parcore_action("get_nextion_monitor_state", {"screen_key": "nextion_7"})
+            if self._remote_nextion_monitor:
+                return dict(self._remote_nextion_monitor)
+            return {"screen_key": "nextion_7", "connected": False, "port": "miniPC", "baudrate": 9600, "last_error": "remote status pending", "page": "", "ui_cut": 0, "pending": 0}
+        if hasattr(self.nextion, "get_nextion_monitor_state"):
+            return dict(self.nextion.get_nextion_monitor_state(screen_key))
+        return {}
+
+    def get_recent_transport_log(self, screen_key: str = "nextion_7", limit: int = 120) -> list[str]:
+        if self._is_minipc_screen(screen_key):
+            self.parcore_action("build_nextion7_log_preview", {"limit": int(limit), "screen_key": "nextion_7"})
+            return list(self._remote_nextion_log)[-int(limit):]
+        if hasattr(self.nextion, "get_recent_transport_log"):
+            return list(self.nextion.get_recent_transport_log(screen_key, limit=limit))
+        return []
+
+    def clear_transport_log(self, screen_key: str | None = None) -> None:
+        self._remote_nextion_log.clear()
+        target = screen_key or "nextion_7"
+        if self._is_minipc_screen(target):
+            self.parcore_action("clear_transport_log", {"screen_key": "nextion_7"})
+            return
+        if hasattr(self.nextion, "clear_transport_log"):
+            try:
+                self.nextion.clear_transport_log(screen_key)
+            except TypeError:
+                self.nextion.clear_transport_log()
+
     def nextion_connect(self):
-        return self.nextion.connect_enabled()
+        if self.parcore_action("connect_enabled", {"screen_key": "nextion_7"}):
+            return True
+        return self._block_minipc_owned("nextion_7.connect_enabled")
 
     def nextion_sync(self, force: bool = False):
-        return self.nextion.sync(force=force)
+        return self.sync(force=force)
 
     def poll(self):
-        return self.nextion.poll()
+        if self.parcore_action("nextion_poll", {"screen_key": "nextion_7"}):
+            return True
+        return False
 
     def flush_snajper_commands(self):
-        if hasattr(self.nextion, "flush_snajper_commands"):
-            return self.nextion.flush_snajper_commands()
+        if self.parcore_action("flush_snajper_commands", {"screen_key": "nextion_7"}):
+            return True
+        return False
 
     def queue_snajper_command(self, scope: str, component: str, prop: str, value):
-        if hasattr(self.nextion, "queue_snajper_command"):
-            return self.nextion.queue_snajper_command(scope, component, prop, value)
+        return self.parcore_action("queue_snajper_command", {
+            "screen_key": "nextion_7",
+            "scope": scope,
+            "component": component,
+            "prop": prop,
+            "value": value,
+        })
 
 
     # ------------------------------------------------------------------

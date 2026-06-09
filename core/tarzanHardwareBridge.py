@@ -46,7 +46,7 @@ class TarzanHardwareBridge:
         self.bus = bus
         self.logger = setup_tsp_logger("HW.BRIDGE")
         self.running = False
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         
         self.devices: Dict[str, Any] = {
             "PLAY": None,
@@ -329,16 +329,25 @@ class TarzanHardwareBridge:
             "rec_p46_led_f1", "rec_p48_led_f2", "rec_p50_led_f3", "rec_p52_led_f4"
         ]
         
+        start_t = time.time()
         for name in outputs_to_sync:
-            if self.bus.exists(name):
-                val = self.bus.read(name)
-                # Wywołujemy bezpośrednio zapisy specjalistyczne
-                if name.startswith("par_lcd"):
-                    self._write_par_lcd_signal(name, val)
-                elif name == "par_matrix_pattern":
-                    self._write_par_matrix_signal(name, val)
-                elif "led" in name:
-                    self._write_par_f_led_signal(name, val)
+            # Nie blokujemy pętli głównej na zbyt długo (max 0.4s na cały re-sync)
+            if time.time() - start_t > 0.4:
+                self.logger.warning("HW RE-SYNC: Timeout (0.4s). Pomijam resztę sygnałów.")
+                break
+                
+            try:
+                if self.bus.exists(name):
+                    val = self.bus.read(name)
+                    # Wywołujemy bezpośrednio zapisy specjalistyczne (korzystają z RLock)
+                    if name.startswith("par_lcd"):
+                        self._write_par_lcd_signal(name, val)
+                    elif name == "par_matrix_pattern":
+                        self._write_par_matrix_signal(name, val)
+                    elif "led" in name:
+                        self._write_par_f_led_signal(name, val)
+            except Exception as exc:
+                self.logger.error(f"HW RE-SYNC ERROR for {name}: {exc}")
 
     def _ensure_disconnected(self) -> None:
         """Zrywa połączenie USB w trybie IDLE aby zredukować CPU (libusb poll)."""

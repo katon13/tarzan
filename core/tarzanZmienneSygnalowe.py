@@ -80,6 +80,43 @@ ROLA_RESERVED = "RESERVED"
 
 
 # ======================================================================
+# ZASADA SNAJPERA: WYBUDZANIE HARDWARE (Etap 17+)
+# ======================================================================
+
+# Prefiksy sygnałów, które zawsze wybudzają hardware realtime
+AWAKE_SIGNAL_PREFIXES = (
+    "axis_",      # Ruch osi
+    "rrp_",       # Sterowanie RRP
+    "sok_",       # Sterownik operatora kamery
+    "par_lcd_",   # Wyświetlacze lokalne
+    "par_matrix_",# Matryce LED
+    "par_f_led_", # Diody funkcyjne
+)
+
+# Konkretne nazwy sygnałów wybudzających (poza prefiksami)
+AWAKE_SIGNAL_NAMES = {
+    "play_p37_step_disconnect_manual", # Automatyka bezpieczeństwa
+    "transport_state",                 # TAKE PLAY/REC/STOP
+    "active_mode",                     # Zmiana trybu pracy (np. LIVE)
+    "cmd_run_diagnostics",             # Diagnostyka sprzętowa
+    "cmd_system_reboot",               # Restart systemu
+    "rec_p46_led_f1", "rec_p48_led_f2", "rec_p50_led_f3", "rec_p52_led_f4", # Fizyczne LEDy
+    "safety_axis_unlock",              # Odblokowanie osi
+}
+
+# Nazwy akcji (call_action), które wybudzają hardware
+AWAKE_ACTION_NAMES = {
+    "play_take", "pause_take", "stop_take", "load_take", "take_load", "take_play", "take_pause", "take_stop",
+    "run_diagnostics", "reboot", "set_mode", "clap", "stop",
+    "test_axis", "axis_test", "sok_set", "sensor_test", "sensor_read",
+    "manual_record_arm", "manual_axis_step", "axis_enable", "clear_axis_errors",
+    "nextion_connect", "nextion_sync", "sync", "set_page", "clear_transport_log",
+    "preview_rrp_tap", "preview_rrp_set_value",
+    "ehr_cmd", "khr_cmd", "camera_mode", "remote_action",
+}
+
+
+# ======================================================================
 # MODEL DANYCH
 # ======================================================================
 

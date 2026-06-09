@@ -1147,11 +1147,9 @@ class TarzanTspServer:
                         # Tick providera (uptime) robimy tylko co 1s w idle.
                         # Czekamy reaktywnie na zmianę w SignalBus (ZASADA SNAJPERA).
                         if now - last_health < TSP_HEALTH_INTERVAL_MS:
-                            try:
-                                from core.tarzanSignalBus import get_signal_bus
-                                get_signal_bus().wait_for_change(timeout=0.25)
-                            except Exception:
-                                time.sleep(0.25)
+                            # IDLE śpi czasowo: częste zdarzenia SignalBus
+                            # potrafią wybudzać pętlę bez realnej akcji i podbijać CPU.
+                            time.sleep(0.25)
                             continue
 
                 # ETAP 14: Obsługa playbacku TAKE na MiniPC
@@ -1261,11 +1259,10 @@ class TarzanTspServer:
         # Zgodnie z wymaganiem: Brak klientów i brak ruchu = głęboki sen (ZASADA SNAJPERA).
         is_take_playing = getattr(self, "_take_playback_start_ms", 0) > 0
         if client_count == 0 and not is_take_playing:
-            try:
-                from core.tarzanSignalBus import get_signal_bus
-                get_signal_bus().wait_for_change(timeout=0.2)
-            except Exception:
-                time.sleep(0.2)
+            # Brak klientów i brak TAKE = spokojny sen czasowy.
+            # Nie śpimy reaktywnie na BUS, żeby drobne wpisy statusowe
+            # nie robiły z IDLE gorącej pętli.
+            time.sleep(0.2)
             return
 
         # Jeśli trwa ruch (TAKE), wymuszamy rytm 10ms dla płynności.
@@ -1306,11 +1303,7 @@ class TarzanTspServer:
         if not hw_realtime:
             sleep_s = min(0.1, remaining_ms / 1000.0)
             if sleep_s > 0.01:
-                try:
-                    from core.tarzanSignalBus import get_signal_bus
-                    get_signal_bus().wait_for_change(timeout=sleep_s)
-                except Exception:
-                    time.sleep(sleep_s)
+                time.sleep(sleep_s)
                 return
 
         # Aktywny tryb realtime (np. ruch osi, PAR_LIVE): śpimy precyzyjnie do pasma.

@@ -442,7 +442,7 @@ class TarzanTspLksBootProgress:
         bridge = self.hardware_bridge
         if bridge is not None and hasattr(bridge, "begin_hardware_batch"):
             try:
-                bridge.begin_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=18000, ensure=True)
+                bridge.begin_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=18000, ensure=False)
                 bridge_batch_started = True
             except Exception:
                 bridge_batch_started = False

@@ -415,7 +415,7 @@ class TarzanTspLksBootProgress:
         nodes = sorted(glob.glob("/dev/i2c-*"))
         if nodes:
             return True, ", ".join(nodes[:6]), ""
-        return False, "offline PoKeys test blocked", "No HardwareBridge and TARZAN_ALLOW_OFFLINE_POKEYS_TESTS is not set"
+        return False, "NOT_ALLOWED: offline PoKeys test prevented", "No HardwareBridge and TARZAN_ALLOW_OFFLINE_POKEYS_TESTS is not set"
 
     def _check_video_nodes(self) -> Tuple[bool, str, str]:
         nodes = sorted(glob.glob("/dev/video*"))
@@ -423,24 +423,73 @@ class TarzanTspLksBootProgress:
         return ok, ", ".join(nodes[:6]), "no /dev/video*" if not ok else ""
 
     def _check_diagnostics(self) -> Tuple[bool, str, str]:
-        # Pełna diagnostyka status_main ma zostać pełna. Jeżeli HardwareBridge
-        # istnieje, TarzanTspLksDiagnostics użyje go dla PoKeys/LCD/matrix/I2C,
-        # więc nie powstanie druga sesja USB i nie wróci obciążenie CPU.
-        diagnostics = TarzanTspLksDiagnostics(
-            repo_root=str(self.repo_root),
-            hardware_bridge=self.hardware_bridge,
-            allow_offline_hardware_tests=(os.environ.get("TARZAN_ALLOW_OFFLINE_POKEYS_TESTS") == "1"),
-        )
-        results = diagnostics.run_all(operator_visible=True)
-        self.statuses.update(diagnostics.status_map())
-        ok_count = sum(1 for item in results if item.ok)
-        fail_count = sum(1 for item in results if not item.ok)
-        details = "; ".join(
-            f"{item.component}:{item.detail or item.error}"
-            for item in results
-            if item.detail or item.error
-        )[:180]
-        return True, f"diagnostics full ok={ok_count} off/fail={fail_count}", details
+        """Pełny test status_main przez tę samą LKS_TEST_MATRIX co kliknięcia ikon.
+
+        To jest świadomie jedyny tor pełnego testu LKS-N5 w runtime:
+        - aktywny HardwareBridge, bez drugiej sesji PoKeys,
+        - brak fallbacku do starej TarzanTspLksDiagnostics,
+        - brak sztucznego OK,
+        - osie/CNC tylko jako test ABC/pin-config/link bez STEP/DIR/ENABLE.
+        """
+        bridge = self.hardware_bridge
+        if bridge is None or not hasattr(bridge, "test_lks_component"):
+            self.statuses.update(empty_statuses(False))
+            return False, "", "NO_HARDWAREBRIDGE_FOR_LKS_TEST_MATRIX"
+
+        from core.TSP.tarzanTspLksTestMatrix import MATRIX_ERRORS, components
+
+        if MATRIX_ERRORS:
+            self.statuses.update(empty_statuses(False))
+            return False, "", "BAD_TEST_MATRIX: " + "; ".join(MATRIX_ERRORS[:4])
+
+        statuses: Dict[str, bool] = empty_statuses(False)
+        ok_count = 0
+        fail_details: List[str] = []
+        all_components = tuple(components())
+
+        bridge_batch_started = False
+        if hasattr(bridge, "begin_hardware_batch"):
+            try:
+                bridge.begin_hardware_batch("LKS_FULL_MATRIX_REAL_TESTS", grace_ms=18000, ensure=False)
+                bridge_batch_started = True
+            except Exception:
+                bridge_batch_started = False
+
+        try:
+            total = max(1, len(all_components))
+            for idx, component in enumerate(all_components, start=1):
+                progress = 88 + int((idx / total) * 6)
+                self._mark_running(SCENE_BOOT_TEST, progress, f"MATRIX {component}", "REAL")
+                result = bridge.test_lks_component(component, visible=True)
+                ok = bool(result.get("ok", False))
+                statuses[component] = ok
+                if ok:
+                    ok_count += 1
+                else:
+                    err = str(result.get("error", "") or result.get("detail", "") or "FAIL")
+                    fail_details.append(f"{component}:{err[:40]}")
+                self.results.append(
+                    LksBootProgressResult(
+                        key=f"matrix_{component}",
+                        component=component,
+                        ok=ok,
+                        label=f"LKS matrix {component}",
+                        detail=str(result.get("detail", "") or "")[:180],
+                        error=str(result.get("error", "") or "")[:180],
+                        progress=progress,
+                    )
+                )
+        finally:
+            if bridge_batch_started and hasattr(bridge, "end_hardware_batch"):
+                try:
+                    bridge.end_hardware_batch("LKS_FULL_MATRIX_REAL_TESTS", grace_ms=2000)
+                except Exception:
+                    pass
+
+        self.statuses.update(statuses)
+        fail_count = len(all_components) - ok_count
+        details = "; ".join(fail_details[:5])[:180]
+        return True, f"LKS_TEST_MATRIX ok={ok_count}/{len(all_components)} fail={fail_count}", details
 
     # ------------------------------------------------------------------
 

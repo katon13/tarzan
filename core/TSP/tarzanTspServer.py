@@ -481,27 +481,16 @@ class TarzanTspServer:
             self.logger.info("LKS-N5 POINT TEST component=%s", name)
             self.lks_n5.blink_component(name, base_value=base)
 
-            # ETAP 1I: PAR/EHR nie są lokalnym sprzętem miniPC. Ich status na
-            # LKS-N5 ma wynikać z realnego połączenia klienta TSP, a nie z
-            # konserwatywnej diagnostyki repo/procesów, która nie widzi aplikacji
-            # PAR uruchomionej na stacji operatorskiej. Dzięki temu kliknięcie
-            # ikony PAR na Nextion 5 sprawdza prawdziwy stan LIVE: czy PAR jest
-            # podłączony i heartbeat/ping przechodzi przez TSP.
-            if name == "par_sys":
-                ok = len(self.clients()) > 0
+            hw_bridge = getattr(self, "hw_bridge", None)
+            if hw_bridge is None or not hasattr(hw_bridge, "test_lks_component"):
+                ok = False
+                self.logger.warning("LKS-N5 POINT TEST component=%s failed: NO_HARDWAREBRIDGE_FOR_LKS_TEST_MATRIX", name)
             else:
-                bridge_components = {"pok_play", "pok_rec", "lcd_1602", "matrix_led", "f_button", "f_led", "keypad", "i2c_bus", "light_bh1750", "next_7"}
-                hw_bridge = getattr(self, "hw_bridge", None)
-                if name in bridge_components and hw_bridge is not None and hasattr(hw_bridge, "test_lks_component"):
-                    result = hw_bridge.test_lks_component(name, visible=True)
-                    ok = bool(result.get("ok", False))
-                    detail = str(result.get("detail", "") or result.get("error", ""))
-                    if detail:
-                        self.logger.info("LKS-N5 POINT TEST DETAIL component=%s %s", name, detail)
-                else:
-                    diagnostics = TarzanTspLksDiagnostics()
-                    diagnostics.run_component(name)
-                    ok = bool(diagnostics.status_map().get(name, False))
+                result = hw_bridge.test_lks_component(name, visible=True)
+                ok = bool(result.get("ok", False))
+                detail = str(result.get("detail", "") or result.get("error", ""))
+                if detail:
+                    self.logger.info("LKS-N5 POINT TEST DETAIL component=%s %s", name, detail)
 
             self.lks_n5.set_status(name, ok)
             self._lks_n5_status_cache[name] = ok
@@ -720,6 +709,52 @@ class TarzanTspServer:
         except Exception as exc:
             self.logger.debug("PAR check failed: %s", exc)
 
+    def _run_lks_n5_full_test_matrix(self, *, visible: bool = True) -> Dict[str, bool]:
+        """Uruchamia pełny test 30 ikon LKS-N5 przez LKS_TEST_MATRIX.
+
+        Ten helper używa dokładnie tego samego kontraktu co kliknięcie ikony:
+        HardwareBridge.test_lks_component(component). Nie ma fallbacku do
+        TarzanTspLksDiagnostics, więc brak testu lub błąd matrix daje realny
+        OFF/FAIL, a nie opisową zaślepkę.
+        """
+        from .tarzanTspLksStatusMap import empty_statuses
+        from .tarzanTspLksTestMatrix import MATRIX_ERRORS, components
+
+        statuses: Dict[str, bool] = empty_statuses(False)
+        hw_bridge = getattr(self, "hw_bridge", None)
+        if hw_bridge is None or not hasattr(hw_bridge, "test_lks_component"):
+            raise RuntimeError("NO_HARDWAREBRIDGE_FOR_LKS_TEST_MATRIX")
+        if MATRIX_ERRORS:
+            raise RuntimeError("BAD_TEST_MATRIX: " + "; ".join(MATRIX_ERRORS[:6]))
+
+        all_components = tuple(components())
+        batch_started = False
+        if hasattr(hw_bridge, "begin_hardware_batch"):
+            try:
+                hw_bridge.begin_hardware_batch("LKS_FULL_MATRIX_REAL_TESTS", grace_ms=18000, ensure=False)
+                batch_started = True
+            except Exception:
+                batch_started = False
+        try:
+            ok_count = 0
+            for component in all_components:
+                result = hw_bridge.test_lks_component(component, visible=visible)
+                ok = bool(result.get("ok", False))
+                statuses[component] = ok
+                if ok:
+                    ok_count += 1
+                detail = str(result.get("detail", "") or result.get("error", "") or "")
+                if detail:
+                    self.logger.info("LKS-N5 FULL MATRIX TEST component=%s ok=%s %s", component, ok, detail[:220])
+            self.logger.info("LKS-N5 FULL TEST MATRIX APPLIED statuses=%d ok=%d", len(all_components), ok_count)
+            return statuses
+        finally:
+            if batch_started and hasattr(hw_bridge, "end_hardware_batch"):
+                try:
+                    hw_bridge.end_hardware_batch("LKS_FULL_MATRIX_REAL_TESTS", grace_ms=2000)
+                except Exception:
+                    pass
+
     def _run_diagnostics(self) -> None:
         """Diagnostyka na żądanie przez aktywny HardwareBridge.
 
@@ -733,35 +768,18 @@ class TarzanTspServer:
         diag_crashed = False
         try:
             bus.force_signal("runtime_state", "TESTING", source="TSP_DIAG")
-            bus.log("TSP", "Starting LKS diagnostics through active HardwareBridge only...")
+            bus.log("TSP", "Starting LKS diagnostics through real LKS_TEST_MATRIX...")
 
-            diagnostics = TarzanTspLksDiagnostics(
-                collect_inventory_if_missing=False,
-                hardware_bridge=getattr(self, "hw_bridge", None),
-            )
-            diagnostics.run_all(operator_visible=True)
-            diag_results = diagnostics.status_map()
+            diag_results = self._run_lks_n5_full_test_matrix(visible=True)
+            if self.lks_n5 is not None:
+                self.lks_n5.set_many_statuses(diag_results)
+                self._lks_n5_status_cache.update(diag_results)
+                self._lks_n5_dirty = False
+                self._lks_n5_dirty_reason = ""
 
-            mapping = {
-                "linux": "linux_ok",
-                "tsp": "tsp_ok",
-                "signalbus": "signalbus_ok",
-                "snajper": "snajper_ok",
-                "nextion5": "nextion5_ok",
-                "pokeys": "pokeys_ok",
-                "i2c_bus": "i2c_bus_ok",
-                "lcd_1602": "lcd_1602_ok",
-                "matrix_led": "matrix_led_ok",
-                "f_led": "f_led_ok",
-                "axis_inventory": "axis_inventory_ok",
-            }
-            for lks_key, sig_name in mapping.items():
-                if bus.exists(sig_name):
-                    bus.force_signal(sig_name, 1 if diag_results.get(lks_key, False) else 0, source="TSP_DIAG")
-
-            all_ok = all(diag_results.get(k, False) for k in ["linux", "tsp", "signalbus", "pokeys"])
+            all_ok = all(diag_results.values()) if diag_results else False
             bus.force_signal("hardware_state", "READY" if all_ok else "PARTIAL_ERROR", source="TSP_DIAG")
-            bus.log("TSP", f"LKS Diagnostics: HardwareBridge path completed ok={all_ok}.")
+            bus.log("TSP", f"LKS Diagnostics: LKS_TEST_MATRIX completed ok={all_ok} statuses={len(diag_results)}.")
             bus.force_signal("runtime_state", "READY_FOR_PAR", source="TSP_DIAG")
             bus.force_signal("tarzan_ready", 1, source="TSP_DIAG")
             self.mark_lks_outputs_dirty("diag_finished", immediate_n5=True)

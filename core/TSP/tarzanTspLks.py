@@ -86,6 +86,7 @@ class TarzanTspLks:
     def render(self) -> None:
         text = self.build_screen()
         if self.tty_path == "-":
+            print(text, flush=True)
             return
 
         path = Path(self.tty_path)

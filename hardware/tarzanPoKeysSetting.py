@@ -20,6 +20,17 @@ Założenie bezpieczeństwa:
 
 from __future__ import annotations
 
+import os
+
+# TARZAN: ten stary konfigurator nie może być importowany przez runtime.
+# W runtime jedynym miejscem dostępu do PoKeys jest core/tarzanPoKeys.py.
+# Uruchomienie ręczne jest możliwe tylko jako narzędzie serwisowe.
+if __name__ != "__main__" and os.environ.get("TARZAN_ALLOW_LEGACY_POKEYS_TOOLS") != "1":
+    raise RuntimeError(
+        "hardware/tarzanPoKeysSetting.py jest narzędziem legacy. "
+        "Runtime musi używać core/tarzanPoKeys.py."
+    )
+
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple
 

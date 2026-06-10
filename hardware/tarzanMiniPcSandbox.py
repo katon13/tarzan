@@ -87,6 +87,12 @@ except Exception as exc:  # pragma: no cover - błąd środowiska
 
 # PoKeys importujemy leniwie, dopiero przy komendach wymagających hardware.
 def _import_pokeys():
+    # Sandbox jest tylko narzędziem ręcznym. Runtime używa core/tarzanPoKeys.py.
+    if os.environ.get("TARZAN_ALLOW_LEGACY_POKEYS_TOOLS") != "1":
+        raise RuntimeError(
+            "hardware/tarzanMiniPcSandbox.py jest legacy sandbox. "
+            "Użyj core/tarzanPoKeys.py albo ustaw TARZAN_ALLOW_LEGACY_POKEYS_TOOLS=1 tylko ręcznie."
+        )
     try:
         from hardware.pokeys.PoKeys import PoKeysDevice, ePK_PinCap  # type: ignore
         return PoKeysDevice, ePK_PinCap

@@ -129,6 +129,17 @@ class TarzanPoKeys:
         self.logger = logger
         self._lock = threading.RLock()
         self.devices: Dict[str, Any] = {"PLAY": None, "REC": None}
+        self.state = "IDLE"  # Dostępne: IDLE, FAST_SAMPLE, POINT_TEST, FULL_DIAGNOSTICS
+        self.call_counters = {
+            "PK_DigitalIOGet": 0,
+            "PK_AnalogIOGet": 0,
+            "PK_DeviceDataGet": 0,
+            "PK_PinConfigurationGet": 0,
+            "PK_I2CBusScanStart": 0,
+            "PK_PEv2_StatusGet": 0,
+            "PK_EasySensorsValueGetAll": 0,
+            "PK_MatrixKBStatusGet": 0,
+        }
         self.logical_sleep = False
         self.last_lib_path = ""
         self._last_error: Dict[str, str] = {}
@@ -170,15 +181,20 @@ class TarzanPoKeys:
 
     def connect_all(self, lib_path: Optional[str] = None) -> int:
         with self._lock:
-            path = str(lib_path or self.get_lib_path())
-            self.last_lib_path = path
-            for board, serial in self.BOARDS.items():
-                if self.devices.get(board) is None:
-                    self.devices[board] = self.connect_board(board, serial, path)
-            self.logical_sleep = False
-            # Samo połączenie PLAY/REC nie oznacza aktywnego próbkowania.
-            # Próbkowanie uruchamia jawnie HardwareBridge/Snajper/KHR albo test punktowy.
-            return self.connected_count()
+            old_state = self.state
+            self.state = "POINT_TEST"
+            try:
+                path = str(lib_path or self.get_lib_path())
+                self.last_lib_path = path
+                for board, serial in self.BOARDS.items():
+                    if self.devices.get(board) is None:
+                        self.devices[board] = self.connect_board(board, serial, path)
+                self.logical_sleep = False
+                # Samo połączenie PLAY/REC nie oznacza aktywnego próbkowania.
+                # Próbkowanie uruchamia jawnie HardwareBridge/Snajper/KHR albo test punktowy.
+                return self.connected_count()
+            finally:
+                self.state = old_state
 
     def connect_board(self, board: str, serial: int, lib_path: Optional[str] = None) -> Any:
         board = str(board).upper()
@@ -192,7 +208,7 @@ class TarzanPoKeys:
             if not ok:
                 self.logger.warning("Failed to connect to %s board (serial=%s)", board, serial)
                 return None
-            self.refresh_device(device, analog=False, digital=False, config=True)
+            self.refresh_device(device, analog=False, digital=False, config=False)
             self.logger.info("Connected to %s board (serial=%s).", board, serial)
             return device
         except Exception as exc:
@@ -217,8 +233,9 @@ class TarzanPoKeys:
             if self.logical_sleep:
                 return False
             self.logical_sleep = True
+            self.state = "IDLE"
             self.snajper.disarm()
-            self.logger.info("USB SLEEP: logical sleep; PoKeys handles kept open (no PK_DisconnectDevice in IDLE).")
+            self.logger.info("USB SLEEP: logical sleep; PoKeys handles kept open (no PK_DisconnectDevice in IDLE). STATE=IDLE")
             return True
 
     def logical_wake(self) -> bool:
@@ -226,8 +243,9 @@ class TarzanPoKeys:
             if not self.logical_sleep:
                 return False
             self.logical_sleep = False
+            self.state = "FAST_SAMPLE"
             self.snajper.arm("logical_wake", duration_s=1.5, sample_ms=10)
-            self.logger.info("USB WAKE: logical wake; PoKeys handles already open.")
+            self.logger.info("USB WAKE: logical wake; PoKeys handles already open. STATE=FAST_SAMPLE")
             return True
 
     def safe_stop(self) -> None:
@@ -246,15 +264,27 @@ class TarzanPoKeys:
             self.logical_sleep = False
             self.snajper.disarm()
 
+    def set_state(self, state: str) -> None:
+        """Ustawia stan bramki (IDLE, FAST_SAMPLE, POINT_TEST, FULL_DIAGNOSTICS)."""
+        with self._lock:
+            state = str(state).upper()
+            if state in ["IDLE", "FAST_SAMPLE", "POINT_TEST", "FULL_DIAGNOSTICS"]:
+                self.state = state
+                self.logger.info("POKEYS STATE: %s", state)
+            else:
+                self.logger.warning("Invalid PoKeys state: %s", state)
+
     def snajper_arm(self, source: str = "SNAJPER", duration_s: float = 1.5, sample_ms: int = 10) -> None:
         """Jawne okno aktywnego próbkowania PoKeys; używać z HardwareBridge/Snajper/KHR."""
         with self._lock:
             self.logical_sleep = False
+            self.state = "FAST_SAMPLE"
             self.snajper.arm(source, duration_s=duration_s, sample_ms=sample_ms)
 
     def snajper_disarm(self) -> None:
         """Zamknięcie okna aktywnego próbkowania bez zamykania USB."""
         with self._lock:
+            self.state = "IDLE"
             self.snajper.disarm()
 
     def _snajper_due(self, key: str, sample_ms: int = 10, *, force: bool = False) -> bool:
@@ -329,10 +359,14 @@ class TarzanPoKeys:
         IDLE nie odpytuje sprzętu. Ten przełącznik jest wejściem dla warstwy,
         która naprawdę potrzebuje szybkich próbek. Minimalny krok to 10 ms.
         """
-        self.snajper.arm(source=source, duration_s=duration_s, sample_ms=max(10, int(sample_ms)))
+        with self._lock:
+            self.state = "FAST_SAMPLE"
+            self.snajper.arm(source=source, duration_s=duration_s, sample_ms=max(10, int(sample_ms)))
 
     def end_active_sampling(self) -> None:
-        self.snajper.disarm()
+        with self._lock:
+            self.state = "IDLE"
+            self.snajper.disarm()
 
     def enable_slow_i2c_reads(self, enabled: bool = True) -> None:
         """Włącza ciężkie odczyty I2C sensorów tylko dla jawnego testu/serwisu."""
@@ -363,20 +397,11 @@ class TarzanPoKeys:
     def refresh_device(self, device: Any, *, analog: bool = True, digital: bool = True, config: bool = False) -> None:
         if config:
             for call_name in ("PK_DeviceDataGet", "PK_PinConfigurationGet"):
-                try:
-                    getattr(device, call_name)()
-                except Exception:
-                    pass
+                self._call_device(device, call_name)
         if digital:
-            try:
-                device.PK_DigitalIOGet()
-            except Exception:
-                pass
+            self._call_device(device, "PK_DigitalIOGet")
         if analog:
-            try:
-                device.PK_AnalogIOGet()
-            except Exception:
-                pass
+            self._call_device(device, "PK_AnalogIOGet")
 
     def read_pin(self, device: Any, pin: int) -> int:
         self.refresh_device(device, analog=False, digital=True)
@@ -396,12 +421,12 @@ class TarzanPoKeys:
         pin_data = device.device.contents.Pins[pin_index]
         pin_data.PinFunction = int(ePK_PinCap.PK_PinCap_digitalOutput)
         pin_data.DigitalValueSet = 1 if value else 0
-        rc = device.PK_PinConfigurationSet()
-        if rc != 0:
-            raise RuntimeError(f"PK_PinConfigurationSet P{pin} zwróciło {rc}")
-        rc = device.PK_DigitalIOSetSingle(pin_index, 1 if value else 0)
-        if rc != 0:
-            raise RuntimeError(f"PK_DigitalIOSetSingle P{pin} zwróciło {rc}")
+        res = self._call_device(device, "PK_PinConfigurationSet")
+        if not res.get("ok"):
+            raise RuntimeError(f"PK_PinConfigurationSet P{pin} failed: {res.get('error') or res.get('rc')}")
+        res = self._call_device(device, "PK_DigitalIOSetSingle", pin_index, 1 if value else 0)
+        if not res.get("ok"):
+            raise RuntimeError(f"PK_DigitalIOSetSingle P{pin} failed: {res.get('error') or res.get('rc')}")
 
     def _device_for_signal(self, sig: TarzanSygnal) -> Any:
         board = str(sig.plytka or "").upper()
@@ -448,7 +473,9 @@ class TarzanPoKeys:
                 if device is None:
                     continue
                 try:
-                    device.PK_DigitalIOGet()
+                    res = self._call_device(board_name, "PK_DigitalIOGet")
+                    if not res.get("ok"):
+                        continue
                     pins_ptr = device.device.contents.Pins
                     for sig in gpio_inputs:
                         if str(sig.plytka).upper() == board_name and sig.pin is not None:
@@ -473,7 +500,9 @@ class TarzanPoKeys:
                 if device is None or not items:
                     continue
                 try:
-                    device.PK_AnalogIOGet()
+                    res = self._call_device(board, "PK_AnalogIOGet")
+                    if not res.get("ok"):
+                        continue
                     pins = device.device.contents.Pins
                     for sig in items:
                         val = int(pins[int(sig.pin) - 1].AnalogValue)
@@ -498,6 +527,10 @@ class TarzanPoKeys:
         Nie dotyka I2C, LCD, Matrix, PoExtBus ani Pulse Engine. Liczniki/CTR
         tylko gdy caller jawnie poda include_counters=True.
         """
+        if self.state not in ["FAST_SAMPLE", "POINT_TEST", "FULL_DIAGNOSTICS"]:
+            if not force:
+                return self._skipped("fast_sample", reason=f"blocked_by_state_{self.state}")
+
         if self.logical_sleep and not force:
             return self._skipped("fast_sample")
         if not self.snajper.due("fast_sample", sample_ms=10, force=force):
@@ -510,12 +543,12 @@ class TarzanPoKeys:
                 update(name, val, source)
 
         try:
-            self.poll_analog_inputs_once(self.signals("analog_in"), lambda n, v, src: (result["analog"].__setitem__(n, v), _upd(n, v, src)), force=True)
+            self.poll_analog_inputs_once(self.signals("analog_in"), lambda n, v, src: (result["analog"].__setitem__(n, v), _upd(n, v, src)), force=False)
         except Exception as exc:
             result["errors"].append(f"analog: {exc}")
         try:
             gpio = [s for s in (self.signals("gpio_in") + self.signals("sensors") + self.signals("limits")) if s.pin is not None]
-            self.poll_gpio_inputs_once(gpio, lambda n, v, src: (result["digital"].__setitem__(n, v), _upd(n, v, src)), force=True)
+            self.poll_gpio_inputs_once(gpio, lambda n, v, src: (result["digital"].__setitem__(n, v), _upd(n, v, src)), force=False)
         except Exception as exc:
             result["errors"].append(f"digital: {exc}")
         if include_counters:
@@ -535,7 +568,10 @@ class TarzanPoKeys:
                 out["errors"].append("PLAY not connected")
                 return out
             try:
-                device.PK_AnalogIOGet()
+                res = self._call_device("PLAY", "PK_AnalogIOGet")
+                if not res.get("ok"):
+                    out["errors"].append(res.get("error") or "PK_AnalogIOGet failed")
+                    return out
                 pins = device.device.contents.Pins
                 for label, (_board, sig_name, pin, aliases) in self.RRP_POTS.items():
                     val = int(pins[int(pin) - 1].AnalogValue)
@@ -644,9 +680,13 @@ class TarzanPoKeys:
             self.logger.info("I2C_SCAN board=%s ok=False error=%s", board, result["error"])
             return result
         try:
-            device.PK_I2CBusScanStart()
+            res = self._call_device(board, "PK_I2CBusScanStart")
+            if not res.get("ok"):
+                return {"ok": False, "addresses": [], "found": [], "error": f"PK_I2CBusScanStart failed: {res.get('error')}", "board": board}
             time.sleep(0.35)
-            data = device.PK_I2CBusScanGetResults()
+            data = self._call_device(board, "PK_I2CBusScanGetResults").get("rc")
+            if not data:
+                return {"ok": False, "addresses": [], "found": [], "error": "PK_I2CBusScanGetResults returned no data", "board": board}
             addrs = [addr for addr in range(0, min(128, len(data))) if int(data[addr]) == 1]
             result = {"ok": True, "addresses": addrs, "found": addrs, "board": board}
             self._i2c_scan_cache[board] = (time.monotonic(), dict(result))
@@ -668,8 +708,8 @@ class TarzanPoKeys:
         if device is None:
             return False
         try:
-            rc = device.PK_I2CWrite(self._i2c_addr8(addr7), list(data))
-            return bool(rc)
+            res = self._call_device(board, "PK_I2CWrite", self._i2c_addr8(addr7), list(data))
+            return res.get("ok", False)
         except Exception as exc:
             self.logger.debug("I2C write board=%s addr=0x%02X failed: %s", board, addr7, exc)
             return False
@@ -681,7 +721,8 @@ class TarzanPoKeys:
         if device is None:
             return None
         try:
-            data = device.PK_I2CRead(self._i2c_addr8(addr7), int(n))
+            res = self._call_device(board, "PK_I2CRead", self._i2c_addr8(addr7), int(n))
+            data = res.get("rc")
             if data is None:
                 return None
             return [int(x) & 0xFF for x in data]
@@ -696,7 +737,8 @@ class TarzanPoKeys:
         if device is None:
             return None
         try:
-            data = device.PK_I2CWriteAndRead(self._i2c_addr8(addr7), list(write), int(n))
+            res = self._call_device(board, "PK_I2CWriteAndRead", self._i2c_addr8(addr7), list(write), int(n))
+            data = res.get("rc")
             if data is None:
                 return None
             return [int(x) & 0xFF for x in data]
@@ -877,7 +919,10 @@ class TarzanPoKeys:
             if dev is None:
                 out["errors"].append("REC not connected")
                 return out
-            dev.PK_AnalogIOGet()
+            res = self._call_device("REC", "PK_AnalogIOGet")
+            if not res.get("ok"):
+                out["errors"].append(res.get("error") or "PK_AnalogIOGet failed")
+                return out
             pins = dev.device.contents.Pins
             for axis, (_board, pin, signal_name) in self.POKSYG_XYZ_ANALOG.items():
                 raw = int(pins[int(pin) - 1].AnalogValue)
@@ -909,21 +954,16 @@ class TarzanPoKeys:
             return {"ok": False, "sensor": "TF-Luna", "kind": "UART", "error": str(exc)}
 
     def read_easy_sensors_once(self, board: str = "PLAY") -> Dict[str, Any]:
-        device = self.get_device(board)
-        if device is None:
-            return {"ok": False, "values": {}, "error": f"{board} not connected"}
+        res = self._call_device(board, "PK_EasySensorsValueGetAll")
+        if not res.get("ok"):
+            return res
         try:
-            rc = device.PK_EasySensorsValueGetAll()
-            if rc != 0:
-                return {"ok": False, "values": {}, "error": f"PK_EasySensorsValueGetAll={rc}"}
+            device = self.get_device(board)
             values = {}
-            try:
-                count = int(device.device.contents.info.iEasySensors)
-                for idx in range(max(0, min(count, 16))):
-                    sensor = device.device.contents.EasySensors[idx]
-                    values[str(idx)] = int(getattr(sensor, "sensorValue", 0))
-            except Exception:
-                pass
+            count = int(device.device.contents.info.iEasySensors)
+            for idx in range(max(0, min(count, 16))):
+                sensor = device.device.contents.EasySensors[idx]
+                values[str(idx)] = int(getattr(sensor, "sensorValue", 0))
             return {"ok": True, "values": values}
         except Exception as exc:
             return {"ok": False, "values": {}, "error": str(exc)}
@@ -935,9 +975,8 @@ class TarzanPoKeys:
         if device is None:
             return False
         try:
-            if not hasattr(device, "PK_PoExtBusGet") or not hasattr(device, "PK_PoExtBusSet"):
+            if not self._call_device(board, "PK_PoExtBusGet").get("ok"):
                 return False
-            device.PK_PoExtBusGet()
             idx = None
             if sig.pin is not None:
                 idx = int(sig.pin)
@@ -951,7 +990,7 @@ class TarzanPoKeys:
                 device.device.contents.PoExtBusData[byte_i] |= (1 << bit_i)
             else:
                 device.device.contents.PoExtBusData[byte_i] &= ~(1 << bit_i)
-            return device.PK_PoExtBusSet() == 0
+            return self._call_device(board, "PK_PoExtBusSet").get("ok")
         except Exception as exc:
             self.logger.debug("PoExtBus write %s failed: %s", sig.nazwa, exc)
             return False
@@ -959,7 +998,15 @@ class TarzanPoKeys:
     def get_pulse_engine_status(self, device: Any) -> Dict[str, Any]:
         status: Dict[str, Any] = {}
         try:
-            device.PK_PEv2_StatusGet()
+            board = "PLAY"
+            # Szukamy boardu dla danego device, by poprawnie wołać _call_device
+            for b, d in self.devices.items():
+                if d == device:
+                    board = b
+                    break
+            res = self._call_device(board, "PK_PEv2_StatusGet")
+            if not res.get("ok"):
+                return res
             pe = device.device.contents.PEv2
             status["state"] = int(getattr(pe, "PulseEngineState", 0))
             axes = {}
@@ -972,32 +1019,35 @@ class TarzanPoKeys:
                 except Exception:
                     break
             status["axes"] = axes
+            status["ok"] = True
         except Exception as exc:
             status["error"] = str(exc)
+            status["ok"] = False
         return status
 
     def set_pulse_axis_enable(self, device: Any, axis_idx: int, enabled: bool) -> bool:
         try:
             axis_idx = int(axis_idx)
-            device.PK_PEv2_AxisConfigurationGet(axis_idx)
+            if not self._call_device(device, "PK_PEv2_AxisConfigurationGet", axis_idx).get("ok"):
+                return False
             if enabled:
                 device.device.contents.PEv2.AxesConfig[axis_idx] |= 0x01
             else:
                 device.device.contents.PEv2.AxesConfig[axis_idx] &= ~0x01
-            return device.PK_PEv2_AxisConfigurationSet(axis_idx) == 0
+            return self._call_device(device, "PK_PEv2_AxisConfigurationSet", axis_idx).get("ok")
         except Exception as exc:
             self.logger.debug("PE axis enable failed axis=%s: %s", axis_idx, exc)
             return False
-
 
     def set_pulse_axis_position(self, device: Any, axis_idx: int, target_pos: int) -> bool:
         """Ustawia pozycję osi Pulse Engine przez jeden wspólny tor TARZAN PoKeys."""
         try:
             axis_idx = int(axis_idx)
             target_pos = int(target_pos)
-            device.PK_PEv2_StatusGet()
+            if not self._call_device(device, "PK_PEv2_StatusGet").get("ok"):
+                return False
             device.device.contents.PEv2.Axes[axis_idx].Position = target_pos
-            return device.PK_PEv2_PositionSet() == 0
+            return self._call_device(device, "PK_PEv2_PositionSet").get("ok")
         except Exception as exc:
             self.logger.debug("PE position set failed axis=%s target=%s: %s", axis_idx, target_pos, exc)
             return False
@@ -1061,15 +1111,15 @@ class TarzanPoKeys:
                 lcd.Configuration = 2
                 lcd.Rows = 2
                 lcd.Columns = 16
-                for call, name in (
-                    (device.PK_LCDConfigurationSet, "PK_LCDConfigurationSet"),
-                    (lambda: device.PK_LCDChangeMode(0), "PK_LCDChangeMode"),
-                    (device.PK_LCDInit, "PK_LCDInit"),
-                    (device.PK_LCDClear, "PK_LCDClear"),
+                for name, args in (
+                    ("PK_LCDConfigurationSet", []),
+                    ("PK_LCDChangeMode", [0]),
+                    ("PK_LCDInit", []),
+                    ("PK_LCDClear", []),
                 ):
-                    rc = call()
-                    if rc != 0:
-                        raise RuntimeError(f"{name} zwróciło {rc}")
+                    res = self._call_device(board, name, *args)
+                    if not res.get("ok"):
+                        raise RuntimeError(f"{name} failed: {res.get('error') or res.get('rc')}")
                 return {"ok": True, "board": board}
             except Exception as exc:
                 return {"ok": False, "board": board, "error": str(exc)}
@@ -1082,13 +1132,13 @@ class TarzanPoKeys:
             if device is None:
                 return {"ok": False, "board": board, "error": f"{board} not connected"}
             try:
-                if device.PK_LCDMoveCursor(1, 1) != 0:
+                if not self._call_device(board, "PK_LCDMoveCursor", 1, 1).get("ok"):
                     raise RuntimeError("PK_LCDMoveCursor(1,1) failed")
-                if device.PK_LCDPrint(self._lcd_text(line1, 16).ljust(16)) != 0:
+                if not self._call_device(board, "PK_LCDPrint", self._lcd_text(line1, 16).ljust(16)).get("ok"):
                     raise RuntimeError("PK_LCDPrint line1 failed")
-                if device.PK_LCDMoveCursor(2, 1) != 0:
+                if not self._call_device(board, "PK_LCDMoveCursor", 2, 1).get("ok"):
                     raise RuntimeError("PK_LCDMoveCursor(2,1) failed")
-                if device.PK_LCDPrint(self._lcd_text(line2, 16).ljust(16)) != 0:
+                if not self._call_device(board, "PK_LCDPrint", self._lcd_text(line2, 16).ljust(16)).get("ok"):
                     raise RuntimeError("PK_LCDPrint line2 failed")
                 return {"ok": True, "board": board, "line1": line1, "line2": line2}
             except Exception as exc:
@@ -1158,12 +1208,12 @@ class TarzanPoKeys:
                 row_list = list(rows)
                 for i in range(8):
                     matrix.data[i] = int(row_list[i]) & 0xFF if i < len(row_list) else 0
-                rc = device.PK_MatrixLEDConfigurationSet()
-                if rc != 0:
-                    raise RuntimeError(f"PK_MatrixLEDConfigurationSet zwróciło {rc}")
-                rc = device.PK_MatrixLEDUpdate()
-                if rc != 0:
-                    raise RuntimeError(f"PK_MatrixLEDUpdate zwróciło {rc}")
+                res = self._call_device(board, "PK_MatrixLEDConfigurationSet")
+                if not res.get("ok"):
+                    raise RuntimeError(f"PK_MatrixLEDConfigurationSet failed: {res.get('error')}")
+                res = self._call_device(board, "PK_MatrixLEDUpdate")
+                if not res.get("ok"):
+                    raise RuntimeError(f"PK_MatrixLEDUpdate failed: {res.get('error')}")
                 return {"ok": True, "board": board}
             except Exception as exc:
                 return {"ok": False, "board": board, "error": str(exc)}
@@ -1211,12 +1261,12 @@ class TarzanPoKeys:
             if dev is None:
                 return {"ok": False, "error": "PLAY not connected"}
             try:
-                rc = dev.PK_MatrixKBConfigurationGet()
-                if rc != 0:
-                    raise RuntimeError(f"PK_MatrixKBConfigurationGet zwróciło {rc}")
-                rc = dev.PK_MatrixKBStatusGet()
-                if rc != 0:
-                    raise RuntimeError(f"PK_MatrixKBStatusGet zwróciło {rc}")
+                res = self._call_device("PLAY", "PK_MatrixKBConfigurationGet")
+                if not res.get("ok"):
+                    raise RuntimeError(f"PK_MatrixKBConfigurationGet failed: {res.get('error')}")
+                res = self._call_device("PLAY", "PK_MatrixKBStatusGet")
+                if not res.get("ok"):
+                    raise RuntimeError(f"PK_MatrixKBStatusGet failed: {res.get('error')}")
                 values = [int(dev.device.contents.matrixKB.matrixKBvalues[i]) for i in range(128)]
                 return {"ok": True, "values": values}
             except Exception as exc:
@@ -1229,12 +1279,37 @@ class TarzanPoKeys:
         """Jedno bezpieczne wejście do funkcji PK_*.
 
         Runtime TARZANA nie powinien wołać PK_* poza tym plikiem. Ta metoda
-        daje wspólny lock, logical_wake, obsługę braku urządzenia i jednolity
-        format wyniku dla metod wykonawczych.
+        daje wspólny lock, bramkę stanów, logical_wake, obsługę braku urządzenia
+        i jednolity format wyniku dla metod wykonawczych.
         """
         with self._lock:
+            # 1. Inkrementacja liczników dla monitoringu
+            if method_name in self.call_counters:
+                self.call_counters[method_name] += 1
+
+            # 2. Bramka logiczna IDLE - kategoryczny zakaz ciężkich operacji
+            if self.state == "IDLE":
+                # W IDLE pozwalamy TYLKO na całkowicie bezkosztowe sprawdzenie statusu połączenia
+                if method_name not in ["PK_IsConnected", "PK_GetCurrentDeviceConnectionType"]:
+                    return {"ok": False, "skipped": True, "method": method_name, "reason": "system_idle"}
+
+            # 3. Bramka FAST_SAMPLE (Tryb KHR/Snajper 10ms)
+            if self.state == "FAST_SAMPLE":
+                allowed_fast = [
+                    "PK_DigitalIOGet", "PK_AnalogIOGet", "PK_PEv2_StatusGet",
+                    "PK_IsConnected", "PK_PEv2_PositionSet", "PK_DigitalIOSetSingle",
+                    "PK_PoExtBusSet", "PK_PoExtBusGet", "PK_PinConfigurationSet",
+                    "PK_DigitalCounterGet", "PK_GetCurrentDeviceConnectionType"
+                ]
+                if method_name not in allowed_fast:
+                    return {"ok": False, "skipped": True, "method": method_name, "reason": "blocked_in_fast_sample"}
+
             if self.logical_sleep:
-                return {"ok": False, "skipped": True, "method": method_name, "reason": "logical_sleep"}
+                # Jeśli jesteśmy w logical_sleep, ale stan to np. POINT_TEST, to pozwalamy?
+                # User chciał, żeby logical_sleep też blokowało.
+                if method_name not in ["PK_IsConnected"]:
+                    return {"ok": False, "skipped": True, "method": method_name, "reason": "logical_sleep"}
+
             resolved_board, device = self._resolve_device_target(board, default_board)
             if device is None:
                 return {"ok": False, "board": resolved_board, "method": method_name, "error": f"{resolved_board} not connected"}
@@ -1243,7 +1318,12 @@ class TarzanPoKeys:
                 if fn is None:
                     return {"ok": False, "board": resolved_board, "method": method_name, "error": "method unavailable"}
                 rc = fn(*args)
-                return {"ok": rc == 0 or rc is True or rc is None, "board": resolved_board, "method": method_name, "rc": rc}
+                # Dla większości metod PoKeys 0 to sukces, None/True też.
+                # Metody typu GetResults zwracają listy - wtedy ok=True jeśli rc nie jest None.
+                ok = (rc == 0 or rc is True or rc is None)
+                if not ok and isinstance(rc, (list, bytes, str)):
+                    ok = True
+                return {"ok": ok, "board": resolved_board, "method": method_name, "rc": rc}
             except Exception as exc:
                 return {"ok": False, "board": resolved_board, "method": method_name, "error": str(exc)}
 
@@ -1333,15 +1413,11 @@ class TarzanPoKeys:
         return self._call_device(board, "PK_DigitalIOSetGet")
 
     def digital_io_get_single_once(self, board: Any = "PLAY", pin: int = 1) -> Dict[str, Any]:
-        with self._lock:
-            resolved_board, device = self._resolve_device_target(board, "PLAY")
-            if device is None:
-                return {"ok": False, "board": resolved_board, "pin": pin, "error": f"{resolved_board} not connected"}
-            try:
-                value = device.PK_DigitalIOGetSingle(int(pin) - 1)
-                return {"ok": True, "board": resolved_board, "pin": int(pin), "value": int(value)}
-            except Exception as exc:
-                return {"ok": False, "board": resolved_board, "pin": pin, "error": str(exc)}
+        res = self._call_device(board, "PK_DigitalIOGetSingle", int(pin) - 1)
+        if res.get("ok"):
+            res["pin"] = int(pin)
+            res["value"] = int(res.get("rc", 0))
+        return res
 
     def digital_counter_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
         res = self._call_device(board, "PK_DigitalCounterGet")
@@ -1657,34 +1733,31 @@ class TarzanPoKeys:
     # Testy punktowe używane przez LKS / PARcore
     # ------------------------------------------------------------------
     def test_board_once(self, board: str) -> bool:
-        if self.logical_sleep:
-            return False
-        device = self.get_device(board)
-        if device is None:
-            return False
-        try:
-            device.PK_DeviceDataGet()
-            device.PK_PinConfigurationGet()
-            return True
-        except Exception as exc:
-            self.logger.warning("PoKeys test %s failed: %s", board, exc)
-            return False
+        res1 = self._call_device(board, "PK_DeviceDataGet")
+        res2 = self._call_device(board, "PK_PinConfigurationGet")
+        return bool(res1.get("ok") and res2.get("ok"))
 
     def test_all_once(self, update: Optional[Callable[[str, Any, str], None]] = None) -> Dict[str, Any]:
         """Pełny test na żądanie, bez dublowania ciężkich odczytów.
 
         Nie jest to pętla runtime. PoSensors czytamy raz; reszta korzysta z lekkich testów.
         """
-        i2c_scan = {"ok": False, "skipped": True, "reason": "i2c_runtime_disabled"}
-        return {
-            "capabilities": self.diagnostic_capability_report_once(),
-            "inventory": self.inventory(),
-            "boards": {"PLAY": self.test_board_once("PLAY"), "REC": self.test_board_once("REC")},
-            "potentiometers": self.test_potentiometers_once(update),
-            "xyz_poksyg": self.read_xyz_poksyg_once(update),
-            "i2c_scan": i2c_scan,
-            "posensors": {"ok": False, "skipped": True, "reason": "slow_i2c_reads_disabled_in_test_all"},
-            "cnc": self.test_cnc_once(),
-            "poextbus": self.poextbus_get_once("REC"),
-            "tfluna_uart": self.read_tfluna_uart_once(),
-        }
+        with self._lock:
+            old_state = self.state
+            self.set_state("FULL_DIAGNOSTICS")
+            try:
+                return {
+                    "capabilities": self.diagnostic_capability_report_once(),
+                    "inventory": self.inventory(),
+                    "boards": {"PLAY": self.test_board_once("PLAY"), "REC": self.test_board_once("REC")},
+                    "potentiometers": self.test_potentiometers_once(update),
+                    "xyz_poksyg": self.read_xyz_poksyg_once(update),
+                    "i2c_scan": self.scan_i2c_once(force=True),
+                    "posensors": self.read_posensors_once(update=update, force=True),
+                    "easy_sensors": self.read_easy_sensors_once(),
+                    "cnc": self.test_cnc_once(),
+                    "poextbus": self.poextbus_get_once("REC"),
+                    "tfluna_uart": self.read_tfluna_uart_once(),
+                }
+            finally:
+                self.set_state(old_state)

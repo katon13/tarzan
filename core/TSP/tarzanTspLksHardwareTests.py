@@ -74,6 +74,9 @@ class TarzanTspLksHardwareTests:
         if self._connected and self.pokeys.is_any_connected():
             return
         self.pokeys.connect_all(self.lib_path)
+        # Dla trybu offline/CLI ustawiamy domyślnie stan POINT_TEST,
+        # aby operacje PK_* nie były blokowane przez Bramkę Stanów IDLE.
+        self.pokeys.set_state("POINT_TEST")
         self._connected = True
 
     def _res(self, component: str, ok: bool, supported: bool, label: str, detail: str = "", error: str = "", visible_action: str = "") -> LksHardwareTestResult:

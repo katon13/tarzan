@@ -219,6 +219,7 @@ class TarzanHardwareBridge:
                 self._hardware_batch_source = str(source or "SNAJPER_BATCH")
                 self._hardware_awake_until_ms = max(self._hardware_awake_until_ms, now + grace)
                 self._last_activity_ms = now
+                self.pokeys.begin_full_diagnostics(source)
             if ensure:
                 self._ensure_connected()
         except Exception as exc:
@@ -235,6 +236,7 @@ class TarzanHardwareBridge:
                 self._last_activity_ms = now
                 if self._hardware_batch_depth == 0:
                     self._hardware_batch_source = ""
+                    self.pokeys.end_active_state()
         except Exception as exc:
             self.logger.debug("end_hardware_batch failed source=%s error=%s", source, exc)
 
@@ -247,8 +249,15 @@ class TarzanHardwareBridge:
         try:
             now = time.time() * 1000.0
             grace = max(500, int(grace_ms or self._snajper_policy.grace_ms_for("default")))
-            self._hardware_awake_until_ms = max(self._hardware_awake_until_ms, now + grace)
-            self._last_activity_ms = now
+            
+            with self._lock:
+                self._hardware_awake_until_ms = max(self._hardware_awake_until_ms, now + grace)
+                self._last_activity_ms = now
+                # Wybudzenie dla akcji/reakcji domyślnie ustawia FAST_SAMPLE,
+                # chyba że trwa diagnostyka.
+                if self.pokeys.state == "IDLE":
+                    self.pokeys.begin_fast_sample(source=f"AWAKE_{source}")
+
             try:
                 self.bus.set_input("hardware_realtime_required", 1, source=f"HW_AWAKE_{source}")
             except Exception:
@@ -273,6 +282,9 @@ class TarzanHardwareBridge:
                         self.bus.set_input("hardware_sleep", 0, source="HW_BRIDGE")
                     except Exception:
                         pass
+                    # Jeśli budzimy przez ensure_connected, to znaczy że system jest aktywny.
+                    # Ale nie ustawiamy FAST_SAMPLE automatycznie w logical_wake.
+                    # Pętla _run lub jawne metody ustawią stan.
                 return
             
             # Cooldown 5s stosować wyłącznie po błędzie connect,
@@ -310,12 +322,16 @@ class TarzanHardwareBridge:
         self._startup_i2c_test_done = True
         try:
             self.logger.info("STARTUP_I2C_TEST begin")
+            self.pokeys.begin_full_diagnostics("startup")
             play_scan = self.pokeys.scan_i2c_once("PLAY")
             rec_scan = self.pokeys.scan_i2c_once("REC")
             try:
                 posensors = self.pokeys.read_posensors_once("PLAY")
             except Exception as exc:
                 posensors = {"ok": False, "error": str(exc)}
+            
+            # Koniec testu startowego
+            self.pokeys.end_active_state()
 
             play_addrs = play_scan.get("addresses") or play_scan.get("found") or []
             rec_addrs = rec_scan.get("addresses") or rec_scan.get("found") or []
@@ -441,23 +457,28 @@ class TarzanHardwareBridge:
         if not is_active or self._hardware_logical_sleep:
             return
 
-        def _update(name: str, val: Any, source: str) -> None:
-            if self._input_cache.get(name) != val:
-                self._input_cache[name] = val
-                self.bus.set_input(name, val, source=source, forced=True)
-
-        self.pokeys.poll_gpio_inputs_once(self._gpio_inputs, _update)
-        self.pokeys.poll_analog_inputs_once(self._analog_inputs, _update)
-
-        # Potencjometry RRP są wejściami analogowymi; czytamy je tylko w aktywnym oknie,
-        # nigdy w bezczynnej pętli IDLE.
-        try:
-            self.pokeys.test_potentiometers_once(_update)
-        except Exception as exc:
-            self.logger.debug("RRP pots one-shot read skipped: %s", exc)
-
-        # Pulse Engine tylko w aktywnym oknie ruchu/testu.
         with self._lock:
+            # ZASADA SNAJPERA: pętla pollingu powinna działać w stanie FAST_SAMPLE,
+            # o ile nie trwa właśnie diagnostyka (POINT_TEST / FULL_DIAGNOSTICS).
+            if self.pokeys.state == "IDLE":
+                self.pokeys.begin_fast_sample(source="POLL_LOOP")
+
+            def _update(name: str, val: Any, source: str) -> None:
+                if self._input_cache.get(name) != val:
+                    self._input_cache[name] = val
+                    self.bus.set_input(name, val, source=source, forced=True)
+
+            self.pokeys.poll_gpio_inputs_once(self._gpio_inputs, _update)
+            self.pokeys.poll_analog_inputs_once(self._analog_inputs, _update)
+
+            # Potencjometry RRP są wejściami analogowymi; czytamy je tylko w aktywnym oknie,
+            # nigdy w bezczynnej pętli IDLE.
+            try:
+                self.pokeys.test_potentiometers_once(_update)
+            except Exception as exc:
+                self.logger.debug("RRP pots one-shot read skipped: %s", exc)
+
+            # Pulse Engine tylko w aktywnym oknie ruchu/testu.
             play = self.devices.get("PLAY")
             if play is not None:
                 self._poll_pulse_engine_status(play)
@@ -749,33 +770,46 @@ class TarzanHardwareBridge:
             )
 
         with self._lock:
-            if name == "pok_play":
-                dev = self._device_ready("PLAY")
-                return self._lks_test_result(name, dev is not None, detail=self._device_identity_text("PLAY", dev) if dev else "", error="PLAY not connected" if dev is None else "")
-            if name == "pok_rec":
-                dev = self._device_ready("REC")
-                return self._lks_test_result(name, dev is not None, detail=self._device_identity_text("REC", dev) if dev else "", error="REC not connected" if dev is None else "")
-            if name == "lcd_1602":
-                return self._lks_test_lcd_1602(visible=visible)
-            if name == "matrix_led":
-                return self._lks_test_matrix_led(visible=visible)
-            if name == "f_led":
-                return self._lks_test_f_led(visible=visible)
-            if name == "f_button":
-                return self._lks_test_f_buttons(visible=visible)
-            if name == "keypad":
-                return self._lks_test_keypad(visible=visible)
-            if name == "i2c_bus":
-                return self._lks_test_i2c_bus()
-            if name == "light_bh1750":
-                return self._lks_test_bh1750()
-            if name == "next_7":
-                # Nextion 7 jest UART/HMI: test portu nie wymaga PoKeys.
-                return self._lks_test_nextion7()
+            self.pokeys.begin_point_test(name)
+            try:
+                if name == "pok_play":
+                    dev = self._device_ready("PLAY")
+                    return self._lks_test_result(name, dev is not None, detail=self._device_identity_text("PLAY", dev) if dev else "", error="PLAY not connected" if dev is None else "")
+                if name == "pok_rec":
+                    dev = self._device_ready("REC")
+                    return self._lks_test_result(name, dev is not None, detail=self._device_identity_text("REC", dev) if dev else "", error="REC not connected" if dev is None else "")
+                if name == "lcd_1602":
+                    return self._lks_test_lcd_1602(visible=visible)
+                if name == "matrix_led":
+                    return self._lks_test_matrix_led(visible=visible)
+                if name == "f_led":
+                    return self._lks_test_f_led(visible=visible)
+                if name == "f_button":
+                    return self._lks_test_f_buttons(visible=visible)
+                if name == "keypad":
+                    return self._lks_test_keypad(visible=visible)
+                if name == "i2c_bus":
+                    return self._lks_test_i2c_bus()
+                if name == "light_bh1750":
+                    return self._lks_test_bh1750()
+                if name == "next_7":
+                    # Nextion 7 jest UART/HMI: test portu nie wymaga PoKeys.
+                    return self._lks_test_nextion7()
 
-        logical = self._lks_status_from_bus(name)
-        if logical is not None:
-            return logical
+                logical = self._lks_status_from_bus(name)
+                if logical is not None:
+                    return logical
+            finally:
+                # Powrót do IDLE po teście punktowym, chyba że trwa batch/realtime
+                if self._hardware_batch_depth == 0 and not self._is_system_active():
+                    self.pokeys.end_active_state()
+                else:
+                    # Jeśli coś innego trzyma hardware, wracamy do FAST_SAMPLE (bezpiecznik)
+                    # lub zachowujemy stan batcha (FULL_DIAGNOSTICS).
+                    if self._hardware_batch_depth > 0:
+                        self.pokeys.set_state("FULL_DIAGNOSTICS")
+                    else:
+                        self.pokeys.set_state("FAST_SAMPLE")
 
         # Pozostałe kontrolki NIE wracają do TarzanTspLksDiagnostics.
         # Inaczej powstaje pętla Diagnostics -> HardwareBridge -> Diagnostics,

@@ -243,9 +243,10 @@ class TarzanPoKeys:
             if not self.logical_sleep:
                 return False
             self.logical_sleep = False
-            self.state = "FAST_SAMPLE"
-            self.snajper.arm("logical_wake", duration_s=1.5, sample_ms=10)
-            self.logger.info("USB WAKE: logical wake; PoKeys handles already open. STATE=FAST_SAMPLE")
+            # logical_wake nie wymusza już FAST_SAMPLE. 
+            # Pozwala na PK_*, o ile stan zostanie jawnie zmieniony 
+            # (np. przez begin_fast_sample lub begin_point_test).
+            self.logger.info("USB WAKE: logical wake; PoKeys handles already open. STATE=%s", self.state)
             return True
 
     def safe_stop(self) -> None:
@@ -270,9 +271,40 @@ class TarzanPoKeys:
             state = str(state).upper()
             if state in ["IDLE", "FAST_SAMPLE", "POINT_TEST", "FULL_DIAGNOSTICS"]:
                 self.state = state
+                if state != "IDLE":
+                    self.logical_sleep = False
                 self.logger.info("POKEYS STATE: %s", state)
             else:
                 self.logger.warning("Invalid PoKeys state: %s", state)
+
+    def begin_fast_sample(self, source: str = "SNAJPER", duration_s: float = 1.5, sample_ms: int = 10) -> None:
+        """Przełącza bramkę w tryb szybkiego próbkowania (KHR/Snajper)."""
+        with self._lock:
+            self.logical_sleep = False
+            self.state = "FAST_SAMPLE"
+            self.snajper.arm(source, duration_s=duration_s, sample_ms=sample_ms)
+            self.logger.info("POKEYS STATE: FAST_SAMPLE (source=%s, dur=%s, smp=%s)", source, duration_s, sample_ms)
+
+    def begin_point_test(self, component: str) -> None:
+        """Przełącza bramkę w tryb testu punktowego (np. klik ikonki LKS)."""
+        with self._lock:
+            self.logical_sleep = False
+            self.state = "POINT_TEST"
+            self.logger.info("POKEYS STATE: POINT_TEST (component=%s)", component)
+
+    def begin_full_diagnostics(self, reason: str = "manual") -> None:
+        """Przełącza bramkę w tryb pełnej diagnostyki (np. boot test)."""
+        with self._lock:
+            self.logical_sleep = False
+            self.state = "FULL_DIAGNOSTICS"
+            self.logger.info("POKEYS STATE: FULL_DIAGNOSTICS (reason=%s)", reason)
+
+    def end_active_state(self) -> None:
+        """Powrót do trybu IDLE."""
+        with self._lock:
+            self.state = "IDLE"
+            self.snajper.disarm()
+            self.logger.info("POKEYS STATE: IDLE")
 
     def snajper_arm(self, source: str = "SNAJPER", duration_s: float = 1.5, sample_ms: int = 10) -> None:
         """Jawne okno aktywnego próbkowania PoKeys; używać z HardwareBridge/Snajper/KHR."""
@@ -1301,12 +1333,28 @@ class TarzanPoKeys:
                     "PK_PoExtBusSet", "PK_PoExtBusGet", "PK_PinConfigurationSet",
                     "PK_DigitalCounterGet", "PK_GetCurrentDeviceConnectionType"
                 ]
+                # W FAST_SAMPLE kategorycznie zabraniamy LCD, Matrix, I2C, MatrixKB
                 if method_name not in allowed_fast:
                     return {"ok": False, "skipped": True, "method": method_name, "reason": "blocked_in_fast_sample"}
 
+            # 4. Bramka POINT_TEST / FULL_DIAGNOSTICS (Testy widoczne LKS / boot)
+            if self.state in ["POINT_TEST", "FULL_DIAGNOSTICS"]:
+                allowed_point = [
+                    "PK_DigitalIOGet", "PK_AnalogIOGet", "PK_PEv2_StatusGet",
+                    "PK_IsConnected", "PK_PEv2_PositionSet", "PK_DigitalIOSetSingle",
+                    "PK_PoExtBusSet", "PK_PoExtBusGet", "PK_GetCurrentDeviceConnectionType",
+                    "PK_DeviceDataGet", "PK_PinConfigurationGet",
+                    "PK_LCDInit", "PK_LCDUpdate", "PK_LCDConfigurationGet", "PK_LCDConfigurationSet",
+                    "PK_MatrixLedConfigurationGet", "PK_MatrixLedConfigurationSet", "PK_MatrixLedUpdate",
+                    "PK_MatrixKBConfigurationGet", "PK_MatrixKBConfigurationSet", "PK_MatrixKBStatusGet",
+                    "PK_I2CBusScanStart", "PK_I2CBusRead", "PK_I2CBusWrite", "PK_PulseEngineSetup",
+                    "PK_PoStepDriverConfigurationGet", "PK_PoStepDriverConfigurationSet"
+                ]
+                if method_name not in allowed_point:
+                    return {"ok": False, "skipped": True, "method": method_name, "reason": f"blocked_in_{self.state}"}
+
             if self.logical_sleep:
-                # Jeśli jesteśmy w logical_sleep, ale stan to np. POINT_TEST, to pozwalamy?
-                # User chciał, żeby logical_sleep też blokowało.
+                # Jeśli jesteśmy w logical_sleep (IDLE), ale chcemy coś wykonać
                 if method_name not in ["PK_IsConnected"]:
                     return {"ok": False, "skipped": True, "method": method_name, "reason": "logical_sleep"}
 

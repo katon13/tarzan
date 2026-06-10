@@ -10,12 +10,12 @@ def find_and_install_pokeys():
     
     if platform.system() == "Windows":
         print("This script is intended for Linux/miniPC systems.")
-        print("On Windows, ensure hardware/pokeys/PoKeysDevice_x64.dll is present.")
+        print("TARZAN miniPC runtime uses libPoKeys.so, not Windows DLL.")
         return
 
     # Docelowa lokalizacja
     repo_root = Path(__file__).resolve().parents[1]
-    target_dir = repo_root / "hardware" / "pokeys"
+    target_dir = repo_root / "hardware" / "PoKeysLib"
     target_path = target_dir / "libPoKeys.so"
     
     # Tworzenie katalogu jeśli nie istnieje

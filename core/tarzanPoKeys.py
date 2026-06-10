@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import platform
+import sys
 import threading
 import time
 from pathlib import Path
@@ -22,8 +23,15 @@ from core.tarzanZmienneSygnalowe import (
     TarzanSygnal,
 )
 
+# PoKeys binding for TARZAN miniPC/Linux.
+# Runtime nie używa już starego toru Windows DLL ani hardware/pokeys/.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_POKEYS_PYTHON_DIR = _REPO_ROOT / "hardware" / "PoKeysLib" / "Python"
+if _POKEYS_PYTHON_DIR.exists() and str(_POKEYS_PYTHON_DIR) not in sys.path:
+    sys.path.insert(0, str(_POKEYS_PYTHON_DIR))
+
 try:
-    from hardware.pokeys.PoKeys import PoKeysDevice, ePK_PinCap
+    from PoKeys import PoKeysDevice, ePK_PinCap
     LIB_POKEYS_AVAILABLE = True
 except ImportError:
     PoKeysDevice = None  # type: ignore[assignment]
@@ -81,7 +89,7 @@ class TarzanPoKeys:
     """Własna biblioteka metod PoKeys dla TARZANA.
 
     Zasada projektu:
-    - hardware/pokeys/PoKeys.py jest tylko bindingiem niskiego poziomu,
+    - hardware/PoKeysLib/Python/PoKeys.py jest tylko bindingiem niskiego poziomu,
     - core/tarzanPoKeys.py jest naszą biblioteką metod i mapą użycia,
     - testy LKS, HardwareBridge i PARcore mają wołać metody TARZANA,
       a nie grzebać bezpośrednio w przykładach/wrapperze,
@@ -159,25 +167,20 @@ class TarzanPoKeys:
 
     def get_lib_path(self) -> str:
         repo_root = Path(__file__).resolve().parents[1]
-        if platform.system() == "Windows":
-            candidates = [repo_root / "hardware" / "pokeys" / "PoKeysDevice_x64.dll"]
-        else:
-            candidates = [
-                repo_root / "hardware" / "pokeys" / "libPoKeys.so",
-                Path("/opt/PoKeysLib/libPoKeys.so"),
-                Path("/usr/lib/libPoKeys.so"),
-                Path("/usr/local/lib/libPoKeys.so"),
-                Path("/usr/lib/x86_64-linux-gnu/libPoKeys.so"),
-            ]
+        candidates = [
+            repo_root / "hardware" / "PoKeysLib" / "libPoKeys.so",
+            Path("/opt/PoKeysLib/libPoKeys.so"),
+            Path("/usr/lib/libPoKeys.so"),
+            Path("/usr/local/lib/libPoKeys.so"),
+            Path("/usr/lib/x86_64-linux-gnu/libPoKeys.so"),
+        ]
         for candidate in candidates:
             try:
                 if candidate.exists():
                     return str(candidate)
             except Exception:
                 continue
-        if platform.system() == "Windows":
-            return str(repo_root / "hardware" / "pokeys" / "PoKeysDevice_x64.dll")
-        return str(repo_root / "hardware" / "pokeys" / "libPoKeys.so")
+        return str(repo_root / "hardware" / "PoKeysLib" / "libPoKeys.so")
 
     def connect_all(self, lib_path: Optional[str] = None) -> int:
         with self._lock:

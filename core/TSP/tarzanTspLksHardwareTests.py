@@ -12,6 +12,7 @@ Zasada po poprawce:
 
 import argparse
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional, Sequence
@@ -40,14 +41,36 @@ class TarzanTspLksHardwareTests:
     PoKeys istnieje tylko pod spodem w ``core/tarzanPoKeys.py``.
     """
 
-    def __init__(self, repo_root: Optional[str] = None, lib_path: Optional[str] = None, pokeys: Optional[TarzanPoKeys] = None) -> None:
+    def __init__(
+        self,
+        repo_root: Optional[str] = None,
+        lib_path: Optional[str] = None,
+        pokeys: Optional[TarzanPoKeys] = None,
+        allow_own_pokeys: bool = False,
+    ) -> None:
         self.repo_root = Path(repo_root or REPO_ROOT).resolve()
         self.logger = logging.getLogger("TARZAN.LKS_HW_TESTS")
-        self.pokeys = pokeys or TarzanPoKeys(self.logger)
-        self.lib_path = lib_path or self.pokeys.get_lib_path()
+        self._own_pokeys_allowed = bool(allow_own_pokeys)
+        self.pokeys: Optional[TarzanPoKeys]
+        if pokeys is not None:
+            self.pokeys = pokeys
+        elif self._own_pokeys_allowed:
+            self.pokeys = TarzanPoKeys(self.logger)
+        else:
+            # Runtime nie może tworzyć drugiej instancji TarzanPoKeys. Jedynym
+            # właścicielem PoKeys/libusb ma być aktywny TarzanHardwareBridge.
+            # Własna sesja jest dopuszczona tylko dla jawnego CLI/offline.
+            self.pokeys = None
+        self.lib_path = lib_path or (self.pokeys.get_lib_path() if self.pokeys is not None else "")
         self._connected = False
 
     def _ensure_connected(self) -> None:
+        if self.pokeys is None:
+            raise RuntimeError(
+                "TarzanTspLksHardwareTests nie ma aktywnego TarzanPoKeys. "
+                "W runtime użyj HardwareBridge.test_lks_component(); własny PoKeys "
+                "wolno otworzyć tylko jawnie przez CLI/offline."
+            )
         if self._connected and self.pokeys.is_any_connected():
             return
         self.pokeys.connect_all(self.lib_path)
@@ -57,7 +80,7 @@ class TarzanTspLksHardwareTests:
         return LksHardwareTestResult(component=component, ok=bool(ok), supported=bool(supported), label=label, detail=detail, error=error, visible_action=visible_action)
 
     def find_pokeys_library(self) -> Optional[str]:
-        return self.pokeys.get_lib_path()
+        return self.pokeys.get_lib_path() if self.pokeys is not None else None
 
     def check_pokeys(self, board: str) -> LksHardwareTestResult:
         board = board.upper()
@@ -221,7 +244,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _build_parser().parse_args(argv)
-    tests = TarzanTspLksHardwareTests(repo_root=args.repo_root or None, lib_path=args.lib_path or None)
+    tests = TarzanTspLksHardwareTests(
+        repo_root=args.repo_root or None,
+        lib_path=args.lib_path or None,
+        allow_own_pokeys=True,
+    )
     component = args.component or "i2c_bus"
     result = tests.test_component(component, visible=bool(args.visible))
     mark = "OK" if result.ok else "OFF"

@@ -123,12 +123,14 @@ class TarzanTspLksDiagnostics:
         requirements_path: Optional[str] = None,
         collect_inventory_if_missing: bool = True,
         hardware_bridge: Optional[Any] = None,
+        allow_offline_hardware_tests: bool = False,
     ) -> None:
         self.repo_root = Path(repo_root or self._detect_repo_root()).resolve()
         self.required_bus_devices = tuple(required_bus_devices or REQUIRED_BUS_DEVICES)
         self.inventory_path = self._resolve_path(inventory_path or DEFAULT_INVENTORY_PATH)
         self.requirements_path = self._resolve_path(requirements_path or DEFAULT_REQUIREMENTS_PATH)
         self.hardware_bridge = hardware_bridge
+        self.allow_offline_hardware_tests = bool(allow_offline_hardware_tests)
         # Runtime z aktywnym HardwareBridge nie może w razie braku JSON robić
         # ciężkiego kolektora repo/inventory. To wcześniej blokowało DEVICE TEST
         # na glob("**/*axis*") i wyglądało jak zawieszenie testów. Offline CLI
@@ -268,13 +270,17 @@ class TarzanTspLksDiagnostics:
             except Exception as exc:
                 return LksHardwareTestResult(component=component, ok=False, supported=True, label=f"{component} HardwareBridge/Snajper test", error=str(exc))
 
-        # Offline TarzanTspLksHardwareTests wolno użyć tylko poza runtime, gdy nie
-        # przekazano HardwareBridge. W runtime nie otwieramy drugiej sesji PoKeys.
-        if bridge is not None:
+        # Offline TarzanTspLksHardwareTests nie może otwierać drugiego TarzanPoKeys
+        # przypadkiem. Własna sesja PoKeys jest dozwolona tylko po jawnej zgodzie
+        # CLI/env, nigdy w ukrytym runtime.
+        if bridge is not None or not self.allow_offline_hardware_tests:
             return None
         try:
             if self.hardware_tests is None:
-                self.hardware_tests = TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
+                self.hardware_tests = TarzanTspLksHardwareTests(
+                    repo_root=str(self.repo_root),
+                    allow_own_pokeys=True,
+                )
             probe = self.hardware_tests.test_component(component, visible=visible)
             return probe if probe.supported else None
         except Exception as exc:
@@ -660,6 +666,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             repo_root=args.repo_root or None,
             inventory_path=args.inventory or None,
             requirements_path=args.requirements or None,
+            allow_offline_hardware_tests=(os.environ.get("TARZAN_ALLOW_OFFLINE_POKEYS_TESTS") == "1"),
         )
         if args.component:
             results = diagnostics.run_component(args.component)

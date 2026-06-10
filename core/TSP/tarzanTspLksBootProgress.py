@@ -394,22 +394,28 @@ class TarzanTspLksBootProgress:
                 return True, ", ".join(nodes[:6]), ""
             return False, "HardwareBridge did not confirm I2C", "PoKeys BUS/I2C not confirmed through HardwareBridge"
 
-        try:
-            tester = TarzanTspLksHardwareTests(repo_root=str(self.repo_root))
-            probe = tester.test_i2c_bus(visible=False)
-            if probe.ok:
-                return True, probe.detail[:180], ""
-            bh = tester.test_bh1750(visible=False)
-            if bh.ok:
-                return True, ("BH1750 OK via PoKeys BUS/I2C; " + bh.detail)[:180], ""
-            nodes = sorted(glob.glob("/dev/i2c-*"))
-            if nodes:
-                return True, ", ".join(nodes[:6]), ""
-            return False, probe.detail[:120], probe.error or bh.error or "PoKeys BUS/I2C not confirmed"
-        except Exception as exc:
-            nodes = sorted(glob.glob("/dev/i2c-*"))
-            ok = bool(nodes)
-            return ok, ", ".join(nodes[:6]), "" if ok else f"PoKeys BUS/I2C error: {exc}"
+        if os.environ.get("TARZAN_ALLOW_OFFLINE_POKEYS_TESTS") == "1":
+            try:
+                tester = TarzanTspLksHardwareTests(repo_root=str(self.repo_root), allow_own_pokeys=True)
+                probe = tester.test_i2c_bus(visible=False)
+                if probe.ok:
+                    return True, probe.detail[:180], ""
+                bh = tester.test_bh1750(visible=False)
+                if bh.ok:
+                    return True, ("BH1750 OK via PoKeys BUS/I2C; " + bh.detail)[:180], ""
+                nodes = sorted(glob.glob("/dev/i2c-*"))
+                if nodes:
+                    return True, ", ".join(nodes[:6]), ""
+                return False, probe.detail[:120], probe.error or bh.error or "PoKeys BUS/I2C not confirmed"
+            except Exception as exc:
+                nodes = sorted(glob.glob("/dev/i2c-*"))
+                ok = bool(nodes)
+                return ok, ", ".join(nodes[:6]), "" if ok else f"PoKeys BUS/I2C error: {exc}"
+
+        nodes = sorted(glob.glob("/dev/i2c-*"))
+        if nodes:
+            return True, ", ".join(nodes[:6]), ""
+        return False, "offline PoKeys test blocked", "No HardwareBridge and TARZAN_ALLOW_OFFLINE_POKEYS_TESTS is not set"
 
     def _check_video_nodes(self) -> Tuple[bool, str, str]:
         nodes = sorted(glob.glob("/dev/video*"))
@@ -423,6 +429,7 @@ class TarzanTspLksBootProgress:
         diagnostics = TarzanTspLksDiagnostics(
             repo_root=str(self.repo_root),
             hardware_bridge=self.hardware_bridge,
+            allow_offline_hardware_tests=(os.environ.get("TARZAN_ALLOW_OFFLINE_POKEYS_TESTS") == "1"),
         )
         results = diagnostics.run_all(operator_visible=True)
         self.statuses.update(diagnostics.status_map())

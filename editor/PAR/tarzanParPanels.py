@@ -1328,112 +1328,39 @@ class TarzanParPanels:
                     axis_icon_lbl.configure(image="")
 
             def gen_tick():
-                # Generator RRP pracuje na stałej próbce TARZAN.
-                # Nie schodzi poniżej CZAS_PROBKOWANIA_MS; prędkość wynika z częstotliwości impulsów/s.
+                # ZASADA: PAR-GUI na stacji Windows nigdy nie generuje impulsów lokalnie.
+                # Wszystko musi przejść przez miniPC/PARcore.
                 if state.get("tick_busy"):
-                    try:
-                        state["after_id"] = self.app.after(max(1, int(CZAS_PROBKOWANIA_MS)), gen_tick)
-                    except Exception:
-                        pass
+                    try: state["after_id"] = self.app.after(10, gen_tick)
+                    except Exception: pass
                     return
 
                 state["tick_busy"] = True
-                sample_ms = max(1, int(CZAS_PROBKOWANIA_MS))
-                next_delay = sample_ms
                 try:
-                    # gdy miniPC/PARcore jest połączony, PAR-GUI jest tylko HMI.
-                    # Generator RRP działa w PARcore/MODE na miniPC, a panel stacji
-                    # wysyła tylko potencjometr/speed/sens i pokazuje stan z SignalBus.
                     bridge = getattr(self.app, "bridge", None)
                     if bridge is not None and getattr(bridge, "parcore_available", lambda: False)():
-                        state["pulse_accumulator"] = 0.0
-                        state["last_tick_ts"] = time.monotonic()
+                        # Jesteśmy w trybie HMI - odczytujemy tylko potencjometr dla UI i czekamy na stan z SignalBus
                         pot_signal = _rrp_pot_signal(player)
                         pot_val = max(0.0, min(4095.0, float(self.bus.get(pot_signal, self.bus.get(signal, 0)))))
                         state["value"] = pot_val
                         drw(pot_val)
-                        next_delay = 80
-                        return
-
-                    pot_signal = _rrp_pot_signal(player)
-                    pot_val = max(0.0, min(4095.0, float(self.bus.get(pot_signal, self.bus.get(signal, 0)))))
-                    sens = max(0.0, min(100.0, float(self.bus.get(f"par_rrp_{player}_sens", 50))))
-                    pot_norm = pot_val / 4095.0
-                    sens_norm = sens / 100.0
-                    intensity = pot_norm * sens_norm
-
-                    try:
-                        speed_mul = int(float(self.bus.get(speed_signal, state.get("speed_mul", 1)) or 1))
-                    except Exception:
-                        speed_mul = int(float(state.get("speed_mul", 1) or 1))
-                    if speed_mul not in {1, 2, 3, 4}:
-                        speed_mul = 1
-                    if speed_mul != state.get("speed_mul"):
-                        state["speed_mul"] = speed_mul
-                        paint_speed_buttons()
-
-                    step_signal = _rrp_step_signal(player)
-                    dir_signal = _rrp_dir_signal(player)
-
-                    if intensity > 0.001 and step_signal and dir_signal:
-                        # Model prędkości RRP — 20x szybszy w tej samej proporcji:
-                        # - zegar generatora zostaje 10 ms (CZAS_PROBKOWANIA_MS),
-                        # - czułość 0..100 ustawia bazowy zakres,
-                        # - potencjometr płynnie wybiera 0..100% z tego zakresu,
-                        # - X1..X4 podbija zakres,
-                        # - docelowy sufit jest 20x wyższy niż poprzednie 50 imp/s: 1000 imp/s.
-                        max_rrp_rate_hz = 1000.0
-                        rate_hz = max_rrp_rate_hz * sens_norm * float(speed_mul) * pot_norm
-                        rate_hz = max(0.0, min(max_rrp_rate_hz, rate_hz))
-
-                        now = time.monotonic()
-                        last_ts = float(state.get("last_tick_ts", now))
-                        elapsed_s = max(0.0, min(0.1, now - last_ts))
-                        state["last_tick_ts"] = now
-
-                        state["pulse_accumulator"] = min(30.0, float(state.get("pulse_accumulator", 0.0)) + rate_hz * elapsed_s)
-
-                        pulse_count = int(state["pulse_accumulator"])
-                        if pulse_count > 0:
-                            # Przy 1000 imp/s i ticku 10 ms nominalnie wypada do 10 impulsów na tick.
-                            # Zostawiamy akumulator, ale nie zalewamy Tkintera więcej niż 10 impulsami naraz.
-                            pulse_count = min(10, pulse_count)
-                            state["pulse_accumulator"] -= pulse_count
-
-                            direction = int(self.bus.get(f"par_rrp_{player}_dir", 0))
-                            self._force_signal(dir_signal, direction, source="PAR_GEN")
-
-                            pulse_gap_ms = max(1, sample_ms // max(1, pulse_count))
-                            for pulse_idx in range(pulse_count):
-                                on_delay = pulse_idx * pulse_gap_ms
-                                off_delay = on_delay + 1
-                                self.app.after(
-                                    on_delay,
-                                    lambda name=step_signal: self._force_signal(name, 1, source="PAR_GEN"),
-                                )
-                                self.app.after(
-                                    off_delay,
-                                    lambda name=step_signal: self._force_signal(name, 0, source="PAR_GEN"),
-                                )
-
-                        # Wartość panelowa pokazuje realną docelową częstotliwość impulsów/s.
-                        step_val = int(round(rate_hz))
-                        if abs(step_val - state["last_step_val"]) >= 1:
-                            state["last_step_val"] = step_val
-                            self._set_signal(f"par_rrp_{player}_val", step_val, source="PAR_GEN")
-                            self._set_signal(f"rrp_{player}_val", step_val, source="PAR_GEN")
+                        
+                        # Aktualizujemy speed mul z busa (wyświetlanie stanu z miniPC)
+                        try:
+                            speed_mul = int(float(self.bus.get(speed_signal, state.get("speed_mul", 1)) or 1))
+                            if speed_mul in {1, 2, 3, 4} and speed_mul != state.get("speed_mul"):
+                                state["speed_mul"] = speed_mul
+                                paint_speed_buttons()
+                        except Exception: pass
                     else:
-                        state["pulse_accumulator"] = 0.0
-                        state["last_tick_ts"] = time.monotonic()
-                        next_delay = 80
-                except Exception:
-                    next_delay = 200
+                        # Brak miniPC = brak działania generatora RRP na stacji.
+                        # Nie pozwalamy na lokalny fallback DIR/STEP.
+                        pass
+                except Exception: pass
                 finally:
                     state["tick_busy"] = False
-                    try:
-                        state["after_id"] = self.app.after(next_delay, gen_tick)
-                    except Exception:
-                        pass
+                    try: state["after_id"] = self.app.after(100, gen_tick)
+                    except Exception: pass
 
             def on_wheel(event):
                 delta = 0
@@ -1895,8 +1822,9 @@ class TarzanParPanels:
 
     def _set_signal(self, name, value, source="PAR_SIM"):
         try:
-            # Delegacja przez Bridge (który obsłuży LIVE)
-            if hasattr(self.app, "bridge"):
+            # ZASADA: PAR-GUI na stacji jest tylko lustrem. Wszystkie zapisy
+            # muszą przejść przez Bridge → TSP → miniPC.
+            if hasattr(self.app, "bridge") and self.app.bridge is not None:
                 m = self.bus.get_meta(name)
                 is_input = getattr(m, "is_input", False) or name.startswith("par_")
                 if is_input:
@@ -1905,23 +1833,19 @@ class TarzanParPanels:
                     self.app.bridge.write_output(name, value, source=source)
                 return
 
-            m = self.bus.get_meta(name)
-            if not m:
-                self.bus.force_signal(name, value, source=source)
-                return
-            if getattr(m, "is_input", False) or name.startswith("par_"):
-                self.bus.set_input(name, value, source=source)
-            else:
-                self.bus.write_output(name, value, source=source)
+            # Brak bridge na stacji = brak możliwości zmiany stanu prawdy.
+            self.bus.log("PAR", f"SET_SIGNAL {name} ignored: miniPC bridge not available")
         except Exception: pass
 
     def _force_signal(self, name, value, source="PAR_FORCE"):
-        """Wymusza sygnał przez Bridge (obsługa LIVE) ."""
+        """Wymusza sygnał przez Bridge (Główny tor do miniPC)."""
         try:
-            if hasattr(self.app, "bridge"):
+            if hasattr(self.app, "bridge") and self.app.bridge is not None:
                 self.app.bridge.force_signal(name, value, source=source)
                 return
-            self.bus.force_signal(name, value, source=source)
+            
+            # Brak bridge = brak wykonania.
+            self.bus.log("PAR", f"FORCE_SIGNAL {name} ignored: miniPC bridge not available")
         except Exception: pass
 
     def _final_force_or_toggle(self, name: str):
@@ -2017,34 +1941,17 @@ class TarzanParPanels:
         pass
 
     def _manual_axis_step(self, ax, dir):
-        # klik osi z PAR-GUI ma iść przez TSP → PARcore, nie lokalny pulse engine.
+        # klik osi z PAR-GUI ma iść wyłącznie przez TSP → PARcore.
+        # Brak miniPC oznacza brak fizycznego ruchu.
         try:
             bridge = getattr(self.app, "bridge", None)
             if bridge is not None and getattr(bridge, "parcore_action", None):
                 if bridge.parcore_action("manual_axis_step", {"axis": ax, "direction": dir, "pulses": 10, "delay_ms": 7}):
                     return
-        except Exception:
-            pass
-        b = AXIS_SIGNAL_BINDINGS.get(ax, {})
-        # Każdy generator produkuje STEP/DIR
-        for n in b.get("dir", []): 
-            if hasattr(self.app, "bridge"):
-                self.app.bridge.force_signal(n, dir, source="PAR_MANUAL")
-            else:
-                self._force_signal(n, dir, source="PAR_MANUAL")
-        
-        # Wygeneruj 10 zboczy narastających na szynie (zostaną zliczone przez on_state_change)
-        # Używamy lekkiego opóźnienia, aby UI i Timeline nadążyły z rysowaniem
-        for i in range(10):
-            def f1(steps=b.get("step", [])):
-                for n in steps:
-                    self._force_signal(n, 1, source="PAR_MANUAL")
-            def f2(steps=b.get("step", [])):
-                for n in steps:
-                    self._force_signal(n, 0, source="PAR_MANUAL")
             
-            self.app.after(i * 15, f1)
-            self.app.after(i * 15 + 7, f2)
+            self.bus.log("PAR", f"Manual step {ax} NOT_SENT: WAITING_FOR_MINIPC")
+        except Exception as exc:
+            self.bus.log("PAR_ERROR", f"Manual step {ax} failed: {exc}")
 
     def _pulse_many_signals(self, names, delay_ms=10, src="PAR_PULSE"):
         for n in names:

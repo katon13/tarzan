@@ -594,7 +594,7 @@ class TarzanPoKeys:
         """
         if self.state not in ["FAST_SAMPLE", "POINT_TEST", "FULL_DIAGNOSTICS"]:
             if not force:
-                return self._skipped("fast_sample", reason=f"blocked_by_state_{self.state}")
+                return self._skipped("fast_sample", reason=f"NOT_ALLOWED_IN_STATE_{self.state}")
 
         if self.logical_sleep and not force:
             return self._skipped("fast_sample")
@@ -1370,7 +1370,7 @@ class TarzanPoKeys:
                 ]
                 # W FAST_SAMPLE kategorycznie zabraniamy zapisu, konfiguracji, LCD, Matrix, I2C
                 if method_name not in allowed_fast:
-                    return {"ok": False, "skipped": True, "method": method_name, "reason": "blocked_in_fast_sample"}
+                    return {"ok": False, "skipped": True, "method": method_name, "reason": "NOT_ALLOWED_IN_FAST_SAMPLE"}
 
             # 4. Bramka EXEC (Realne wykonanie ruchu/akcji)
             if self.state == "EXEC":
@@ -1387,7 +1387,7 @@ class TarzanPoKeys:
                     "PK_MatrixLEDConfigurationGet", "PK_MatrixLEDConfigurationSet", "PK_MatrixLEDUpdate"
                 ]
                 if method_name not in allowed_exec:
-                    return {"ok": False, "skipped": True, "method": method_name, "reason": "blocked_in_exec"}
+                    return {"ok": False, "skipped": True, "method": method_name, "reason": "NOT_ALLOWED_IN_EXEC"}
 
             # 5. Bramka POINT_TEST / FULL_DIAGNOSTICS (Testy widoczne LKS / boot)
             if self.state in ["POINT_TEST", "FULL_DIAGNOSTICS"]:
@@ -1408,12 +1408,7 @@ class TarzanPoKeys:
                     "PK_PoStep_ConfigurationGet", "PK_PoStep_StatusGet"
                 ]
                 if method_name not in allowed_test:
-                    return {"ok": False, "skipped": True, "method": method_name, "reason": f"blocked_in_{self.state}"}
-
-            if self.logical_sleep:
-                # Jeśli jesteśmy w logical_sleep (IDLE), ale chcemy coś wykonać (awaryjnie)
-                if method_name not in ["PK_IsConnected"]:
-                    return {"ok": False, "skipped": True, "method": method_name, "reason": "logical_sleep"}
+                    return {"ok": False, "skipped": True, "method": method_name, "reason": f"NOT_ALLOWED_IN_{self.state}"}
 
             resolved_board, device = self._resolve_device_target(board, default_board)
             if device is None:

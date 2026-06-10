@@ -204,22 +204,31 @@ class TarzanHardwareBridge:
         return self.pokeys.is_any_connected()
 
 
-    def begin_hardware_batch(self, source: str = "SNAJPER_BATCH", grace_ms: int = 12000, ensure: bool = False) -> None:
+    def begin_hardware_batch(self, source: str = "SNAJPER_BATCH", grace_ms: int = 12000, ensure: bool = False, action_type: str = "FULL_DIAGNOSTICS") -> None:
         """Sesja wielu strzałów Snajpera bez reconnect-spinu.
-
-        Używane dla boot diagnostyki / pełnej diagnostyki LKS. Nie przywraca
-        stałej pracy PoKeys — tylko trzyma hardware między kolejnymi testami,
-        żeby nie łączyć i rozłączać USB co sekundę.
+        
+        Używane dla boot diagnostyki, pełnej diagnostyki LKS lub serii szybkich ruchów (RRP).
+        Utrzymuje wybrany stan aktywności hardware przez czas trwania batcha.
         """
         try:
             now = time.time() * 1000.0
             grace = max(2000, int(grace_ms or 12000))
+            action_type = str(action_type or "FULL_DIAGNOSTICS").upper()
             with self._lock:
                 self._hardware_batch_depth += 1
                 self._hardware_batch_source = str(source or "SNAJPER_BATCH")
                 self._hardware_awake_until_ms = max(self._hardware_awake_until_ms, now + grace)
                 self._last_activity_ms = now
-                self.pokeys.begin_full_diagnostics(source)
+                
+                if action_type == "POINT_TEST":
+                    self.pokeys.begin_point_test(source)
+                elif action_type == "FULL_DIAGNOSTICS":
+                    self.pokeys.begin_full_diagnostics(source)
+                elif action_type == "EXEC":
+                    self.pokeys.begin_exec(source)
+                elif action_type == "FAST_SAMPLE":
+                    self.pokeys.begin_fast_sample(source=f"BATCH_{source}")
+
             if ensure:
                 self._ensure_connected()
         except Exception as exc:
@@ -852,8 +861,8 @@ class TarzanHardwareBridge:
         # który jest aktualizowany w _poll_hardware.
         return None
 
-    def _write_par_lcd_signal(self, name: str, value: Any) -> bool:
-        """Wykonuje centralny zapis PAR -> miniPC -> LCD 1602 przez aktywny HardwareBridge."""
+    def _write_par_lcd_signal_no_lock(self, name: str, value: Any, action_type: str = "EXEC", request_awake: bool = True) -> bool:
+        """Wykonuje centralny zapis PAR -> miniPC -> LCD 1602 przez aktywny HardwareBridge (bez locka)."""
         mapping = {
             "par_lcd_play_line1": ("PLAY", 0),
             "par_lcd_play_line2": ("PLAY", 1),
@@ -866,24 +875,24 @@ class TarzanHardwareBridge:
         if not target:
             return False
         
-        # Wybudzamy hardware dla realnego zapisu PAR w trybie EXEC.
-        self.request_hardware_awake(source=f"LCD_WRITE_{name}", action_type="EXEC")
+        if request_awake:
+            # Wybudzamy hardware dla realnego zapisu PAR w trybie EXEC.
+            self.request_hardware_awake(source=f"LCD_WRITE_{name}", action_type=action_type)
         
         board, idx = target
         text = self._lcd_text(str(value), 16)
-        with self._lock:
-            device = self.devices.get(board)
-            if not device:
-                self.logger.warning("HW LCD WRITE %s skipped: board not connected", board)
-                return True
-            try:
-                self._lcd_lines.setdefault(board, ["", ""])[idx] = text
-                line1, line2 = self._lcd_lines[board]
-                self._lks_lcd_init(device)
-                self._lks_lcd_write_lines(device, line1, line2)
-                self.logger.info("HW LCD WRITE %s line%d='%s'", board, idx + 1, text)
-            except Exception as exc:
-                self.logger.warning("HW LCD WRITE %s line%d failed: %s", board, idx + 1, exc)
+        device = self.devices.get(board)
+        if not device:
+            self.logger.warning("HW LCD WRITE %s skipped: board not connected", board)
+            return True
+        try:
+            self._lcd_lines.setdefault(board, ["", ""])[idx] = text
+            line1, line2 = self._lcd_lines[board]
+            self._lks_lcd_init(device)
+            self._lks_lcd_write_lines(device, line1, line2)
+            self.logger.info("HW LCD WRITE %s line%d='%s'", board, idx + 1, text)
+        except Exception as exc:
+            self.logger.warning("HW LCD WRITE %s line%d failed: %s", board, idx + 1, exc)
         return True
 
     def _parse_matrix_pattern_rows(self, value: Any) -> list[int]:
@@ -901,29 +910,29 @@ class TarzanHardwareBridge:
             rows.append(0)
         return rows
 
-    def _write_par_matrix_signal(self, name: str, value: Any) -> bool:
-        """Wykonuje PAR -> miniPC -> Matrix LED przez aktywny HardwareBridge."""
+    def _write_par_matrix_signal_no_lock(self, name: str, value: Any, action_type: str = "EXEC", request_awake: bool = True) -> bool:
+        """Wykonuje PAR -> miniPC -> Matrix LED przez aktywny HardwareBridge (bez locka)."""
         if name != "par_matrix_pattern":
             return False
             
-        # Wybudzamy hardware dla realnego zapisu PAR w trybie EXEC.
-        self.request_hardware_awake(source="MATRIX_WRITE", action_type="EXEC")
+        if request_awake:
+            # Wybudzamy hardware dla realnego zapisu PAR w trybie EXEC.
+            self.request_hardware_awake(source="MATRIX_WRITE", action_type=action_type)
         
         rows = self._parse_matrix_pattern_rows(value)
-        with self._lock:
-            device = self.devices.get("REC")
-            if not device:
-                self.logger.warning("HW MATRIX WRITE skipped: REC board not connected")
-                return True
-            try:
-                self._lks_matrix_write_frame(device, rows)
-                self.logger.info("HW MATRIX WRITE pattern='%s'", value)
-            except Exception as exc:
-                self.logger.warning("HW MATRIX WRITE failed: %s", exc)
+        device = self.devices.get("REC")
+        if not device:
+            self.logger.warning("HW MATRIX WRITE skipped: REC board not connected")
+            return True
+        try:
+            self._lks_matrix_write_frame(device, rows)
+            self.logger.info("HW MATRIX WRITE pattern='%s'", value)
+        except Exception as exc:
+            self.logger.warning("HW MATRIX WRITE failed: %s", exc)
         return True
 
-    def _write_par_f_led_signal(self, name: str, value: Any) -> bool:
-        """Wykonuje PAR -> miniPC -> diody F1-F4 REC przez aktywny HardwareBridge."""
+    def _write_par_f_led_signal_no_lock(self, name: str, value: Any, action_type: str = "EXEC", request_awake: bool = True) -> bool:
+        """Wykonuje PAR -> miniPC -> diody F1-F4 REC przez aktywny HardwareBridge (bez locka)."""
         mapping = {
             "par_f_led_f1": 46,
             "par_f_led_f2": 48,
@@ -938,37 +947,33 @@ class TarzanHardwareBridge:
         if pin is None:
             return False
             
-        # Wybudzamy hardware dla realnego zapisu PAR w trybie EXEC.
-        self.request_hardware_awake(source=f"FLED_WRITE_{name}", action_type="EXEC")
+        if request_awake:
+            # Wybudzamy hardware dla realnego zapisu PAR w trybie EXEC.
+            self.request_hardware_awake(source=f"FLED_WRITE_{name}", action_type=action_type)
         
         state = 1 if str(value).strip().lower() not in {"", "0", "false", "off", "none"} else 0
-        with self._lock:
-            device = self.devices.get("REC")
-            if not device:
-                self.logger.warning("HW F_LED WRITE P%s skipped: REC board not connected", pin)
-                return True
-            try:
-                self._lks_set_led_pin(device, pin, state)
-                self.logger.info("HW F_LED WRITE P%s=%s", pin, state)
-            except Exception as exc:
-                self.logger.warning("HW F_LED WRITE P%s failed: %s", pin, exc)
+        device = self.devices.get("REC")
+        if not device:
+            self.logger.warning("HW F_LED WRITE P%s skipped: REC board not connected", pin)
+            return True
+        try:
+            self._lks_set_led_pin(device, pin, state)
+            self.logger.info("HW F_LED WRITE P%s=%s", pin, state)
+        except Exception as exc:
+            self.logger.warning("HW F_LED WRITE P%s failed: %s", pin, exc)
         return True
 
-    def _write_automation_safety_signal(self, name: str, value: Any) -> bool:
-        """AUTOMATYKA: PLAY P37 to aktywny systemowy sygnał odłączenia STEP osi ramienia."""
+    def _write_automation_safety_signal_no_lock(self, name: str, value: Any, action_type: str = "EXEC", request_awake: bool = True) -> bool:
+        """AUTOMATYKA: PLAY P37 to aktywny systemowy sygnał odłączenia STEP osi ramienia (bez locka)."""
         if name != "play_p37_step_disconnect_manual":
             return False
         state = 1 if str(value).strip().lower() not in {"", "0", "false", "off", "none"} else 0
 
         def _ack(ok: bool, message: str, error: str = "") -> None:
-            # ACK to status systemowy z POKSYG/HardwareBridge.
-            # Nie jest wyjściem, nie idzie przez write_output, PAR/LKS tylko go czytają.
             try:
                 self.bus.set_input("poksyg_play_p37_ack_ok", 1 if ok else 0, source="POKSYG")
                 self.bus.set_input("poksyg_play_p37_last_value", state, source="POKSYG")
                 self.bus.set_input("poksyg_play_p37_last_error", "" if ok else str(error or message), source="POKSYG")
-                # Trwały status ostatniego wymuszonego sygnału dla LKS/PAR.
-                # To są statusy IN, nie wyjścia, więc nie przechodzą przez write_output.
                 self.bus.set_input("poksyg_last_forced_signal", "play_p37_step_disconnect_manual", source="POKSYG")
                 self.bus.set_input("poksyg_last_forced_value", state, source="POKSYG")
                 self.bus.set_input("poksyg_last_forced_ack_ok", 1 if ok else 0, source="POKSYG")
@@ -977,34 +982,50 @@ class TarzanHardwareBridge:
             except Exception as exc:
                 self.logger.warning("HW AUTOMATYKA PLAY P37 ACK status update failed: %s", exc)
 
-        with self._lock:
-            device = self.devices.get("PLAY")
-            if not device:
-                self.logger.warning("HW AUTOMATYKA PLAY P37 skipped: PLAY board not connected")
-                _ack(False, f"ACK ERROR PLAY P37={state} PLAY board not connected", "PLAY board not connected")
-                return True
-            try:
-                self._lks_set_led_pin(device, 37, state)
-                if state:
-                    self.logger.info("HW AUTOMATYKA PLAY P37=1 step_disconnect_active")
-                    _ack(True, "ACK OK PLAY P37=1 STEP odłączone / sygnał aktywny")
-                else:
-                    self.logger.info("HW AUTOMATYKA PLAY P37=0 automation_active_manual_move_forbidden")
-                    _ack(True, "ACK OK PLAY P37=0 automatyka aktywna / zakaz ręcznego ruchu")
-            except Exception as exc:
-                self.logger.warning("HW AUTOMATYKA PLAY P37 failed: %s", exc)
-                _ack(False, f"ACK ERROR PLAY P37={state} {exc}", str(exc))
+        if request_awake:
+            self.request_hardware_awake(source="P37_SAFETY", action_type=action_type)
+
+        device = self.devices.get("PLAY")
+        if not device:
+            self.logger.warning("HW AUTOMATYKA PLAY P37 skipped: PLAY board not connected")
+            _ack(False, f"ACK ERROR PLAY P37={state} PLAY board not connected", "PLAY board not connected")
+            return True
+        try:
+            self._lks_set_led_pin(device, 37, state)
+            if state:
+                self.logger.info("HW AUTOMATYKA PLAY P37=1 step_disconnect_active")
+                _ack(True, "ACK OK PLAY P37=1 STEP odłączone / sygnał aktywny")
+            else:
+                self.logger.info("HW AUTOMATYKA PLAY P37=0 automation_active_manual_move_forbidden")
+                _ack(True, "ACK OK PLAY P37=0 automatyka aktywna / zakaz ręcznego ruchu")
+        except Exception as exc:
+            self.logger.warning("HW AUTOMATYKA PLAY P37 failed: %s", exc)
+            _ack(False, f"ACK ERROR PLAY P37={state} {exc}", str(exc))
         return True
 
-    def write(self, name: str, value: Any) -> None:
+    def write(self, name: str, value: Any, action_type: str = "EXEC") -> None:
         """Zapis sygnału bezpośrednio do hardware."""
-        if self._write_par_lcd_signal(name, value):
+        with self._lock:
+            self._write_to_hardware_no_lock(name, value, action_type=action_type)
+
+    def write_batch(self, mapping: Dict[str, Any], action_type: str = "EXEC") -> None:
+        """Szybki zapis wielu sygnałów do hardware w jednym locku."""
+        if not mapping:
             return
-        if self._write_par_matrix_signal(name, value):
+        with self._lock:
+            self.request_hardware_awake(source="BATCH_WRITE", action_type=action_type)
+            for name, value in mapping.items():
+                self._write_to_hardware_no_lock(name, value, action_type=action_type, request_awake=False)
+
+    def _write_to_hardware_no_lock(self, name: str, value: Any, action_type: str = "EXEC", request_awake: bool = True) -> None:
+        """Wewnętrzna metoda zapisu bez locka, używana przez write() i write_batch()."""
+        if self._write_par_lcd_signal_no_lock(name, value, action_type=action_type, request_awake=request_awake):
             return
-        if self._write_par_f_led_signal(name, value):
+        if self._write_par_matrix_signal_no_lock(name, value, action_type=action_type, request_awake=request_awake):
             return
-        if self._write_automation_safety_signal(name, value):
+        if self._write_par_f_led_signal_no_lock(name, value, action_type=action_type, request_awake=request_awake):
+            return
+        if self._write_automation_safety_signal_no_lock(name, value, action_type=action_type, request_awake=request_awake):
             return
 
         syg = self._signal_map.get(name)
@@ -1014,29 +1035,29 @@ class TarzanHardwareBridge:
         if syg.kierunek != "OUT" and syg.kierunek != "F":
             return
 
-        with self._lock:
-            # Każdy zapis do hardware (GPIO/PWM/PE) musi wybudzić system w trybie EXEC
-            self.request_hardware_awake(source=f"WRITE_{name}", action_type="EXEC")
+        if request_awake:
+            # Każdy zapis do hardware (GPIO/PWM/PE) musi wybudzić system w wybranym trybie (domyślnie EXEC)
+            self.request_hardware_awake(source=f"WRITE_{name}", action_type=action_type)
+        
+        device = self.devices.get(syg.plytka)
+        if not device:
+            return
+
+        try:
+            # Obsługa wyjść cyfrowych
+            if syg.hardware_function == "GPIO" and syg.pin is not None:
+                self.pokeys.set_output_by_signal(syg, value)
             
-            device = self.devices.get(syg.plytka)
-            if not device:
-                return
+            # Obsługa sygnału ENABLE dla osi (Etap 13)
+            elif syg.nazwa.startswith("axis_") and syg.nazwa.endswith("_en"):
+                self._handle_pulse_engine_enable(syg, value, device)
 
-            try:
-                # Obsługa wyjść cyfrowych
-                if syg.hardware_function == "GPIO" and syg.pin is not None:
-                    self.pokeys.set_output_by_signal(syg, value)
+            # Obsługa Pulse Engine (STEP/DIR) - ETAP 14
+            elif syg.hardware_function == "PULSE_ENGINE":
+                self._handle_pulse_engine_write(syg, value, device)
                 
-                # Obsługa sygnału ENABLE dla osi (Etap 13)
-                elif syg.nazwa.startswith("axis_") and syg.nazwa.endswith("_en"):
-                    self._handle_pulse_engine_enable(syg, value, device)
-
-                # Obsługa Pulse Engine (STEP/DIR) - ETAP 14
-                elif syg.hardware_function == "PULSE_ENGINE":
-                    self._handle_pulse_engine_write(syg, value, device)
-                    
-            except Exception as exc:
-                self.logger.debug(f"Write hardware error ({name}={value}): {exc}")
+        except Exception as exc:
+            self.logger.debug(f"Write hardware error ({name}={value}): {exc}")
 
 
     def _handle_pulse_engine_enable(self, syg: TarzanSygnal, value: Any, device: Any) -> None:
@@ -1057,7 +1078,7 @@ class TarzanHardwareBridge:
         """STEP/DIR/pozycja osi przez core/tarzanPoKeys.py, bez bezpośredniego toru PoKeys w Bridge."""
         if not self.safety_axis_unlock:
             if time.time() % 10 < 0.1:
-                self.logger.warning("PHYSICAL MOTION BLOCKED by safety_axis_unlock=False (Etap 13 Safety)")
+                self.logger.warning("PHYSICAL MOTION PREVENTED by safety_axis_unlock=False (Etap 13 Safety)")
             return
         try:
             axis_idx = self.pokeys.axis_index_from_signal(syg)

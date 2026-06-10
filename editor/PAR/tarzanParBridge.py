@@ -29,7 +29,7 @@ class TarzanParBridge:
         self.tsp_host = TSP_MINI_PC_HOST
         self.bus = bus or get_signal_bus("TEST")
         self.mapper = TarzanParProtocolMapper(self.bus.names())
-        self.take_player = TarzanParTakePlayer(self.bus, self.mapper)
+        self.take_player = TarzanParTakePlayer(self.bus, self.mapper, core=self)
         self._after = after
         self._after_cancel = after_cancel
         if after is not None and after_cancel is not None:
@@ -347,13 +347,13 @@ class TarzanParBridge:
         return key in {"nextion_7", "nextion7", "n7", "nextion_5", "nextion5", "n5"}
 
     def _block_minipc_owned(self, what: str) -> bool:
-        # Nie logujemy błędu "blocked" podczas startu aplikacji (pierwsze 5 sekund), 
+        # Nie logujemy błędu "WAITING_FOR_MINIPC" podczas startu aplikacji (pierwsze 5 sekund), 
         # bo UI inicjalizuje się szybciej niż nawiązuje połączenie TSP.
         if time.time() - self._start_time < 5.0:
             return False
             
         if not self._stopping:
-            self.bus.log("MINIPC", f"{what} blocked: miniPC/PARcore not connected")
+            self.bus.log("MINIPC", f"{what} NOT_SENT: WAITING_FOR_MINIPC")
             self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {what}", source="PAR_BRIDGE")
         return False
 
@@ -495,30 +495,27 @@ class TarzanParBridge:
         if self.parcore_set_signal(name, value, source=source):
             return True
         if self._requires_minipc_connection(name):
-            self.bus.log("MINIPC", f"{name} blocked: miniPC/PARcore not connected")
+            self.bus.log("MINIPC", f"{name} NOT_SENT: WAITING_FOR_MINIPC")
             self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {name}", source="PAR_BRIDGE")
-            return False
-        return self.bus.set_input(name, value, source=source)
+        return False
 
     def write_output(self, name: str, value: Any, source: str = "PAR") -> bool:
         # wyjścia fizyczne zawsze przez PARcore, gdy TSP jest dostępny.
         if self.parcore_set_signal(name, value, source=source):
             return True
         if self._requires_minipc_connection(name):
-            self.bus.log("MINIPC", f"{name} blocked: miniPC/PARcore not connected")
+            self.bus.log("MINIPC", f"{name} NOT_SENT: WAITING_FOR_MINIPC")
             self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {name}", source="PAR_BRIDGE")
-            return False
-        return self.bus.write_output(name, value, source=source)
+        return False
 
     def force_signal(self, name: str, value: Any, source: str = "PAR_FORCE") -> bool:
         # force z PAR-GUI też idzie przez PARcore, nie lokalny drugi PAR.
         if self.parcore_force_signal(name, value, source=source):
             return True
         if self._requires_minipc_connection(name):
-            self.bus.log("MINIPC", f"{name} blocked: miniPC/PARcore not connected")
+            self.bus.log("MINIPC", f"{name} NOT_SENT: WAITING_FOR_MINIPC")
             self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {name}", source="PAR_BRIDGE")
-            return False
-        return self.bus.force_signal(name, value, source=source)
+        return False
 
 
     def _requires_minipc_connection(self, name: str) -> bool:
@@ -545,18 +542,14 @@ class TarzanParBridge:
             return True
 
         if self._requires_minipc_connection(name):
-            self.bus.log("MINIPC", f"{name} blocked: miniPC/PARcore not connected")
+            self.bus.log("MINIPC", f"{name} NOT_SENT: WAITING_FOR_MINIPC")
             self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {name}", source="PAR_BRIDGE")
             return False
 
-        m = self.bus.get_meta(name)
-        if not m:
-            return self.bus.force_signal(name, value, source=source)
-        if m.is_output:
-            self.bus.log("MINIPC", f"{name} blocked: miniPC/PARcore not connected")
-            self.bus.set_input("par_last_error", f"MINIPC_NOT_CONNECTED: {name}", source="PAR_BRIDGE")
-            return False
-        return self.bus.set_input(name, value, source=source)
+        # Nawet sygnały HMI/UI na stacji powinny trafić do SignalBus na miniPC przez SET_SIGNAL
+        # jeśli miniPC jest dostępny. Jeśli nie - nie robimy lokalnego fallbacku który mógłby
+        # wprowadzić system w błąd co do stanu prawdy.
+        return False
 
     def call_action(self, name: str, payload: Optional[Dict[str, Any]] = None) -> bool:
         """PAR-GUI → TSP → PARcore.call_action(...)."""
@@ -594,26 +587,21 @@ class TarzanParBridge:
             "duration_ms": data.duration_ms() if callable(getattr(data, "duration_ms", None)) else getattr(data, "duration_ms", 0),
         }
         # EHR/TAKE z PAR-GUI trafia do PARcore jako TAKE payload.
-        if self._parcore_call("take_load", payload):
-            return data
-        if self._client_is_connected():
-            try:
-                self.tsp_client.load_take(payload)
-            except Exception as exc:
-                self.bus.log("TSP_ERROR", f"LOAD_TAKE legacy failed: {exc}")
+        if not self._parcore_call("take_load", payload):
+             self.bus.log("PAR", "LOAD_TAKE ignored: miniPC/PARcore not connected")
         return data
 
     def play_take(self) -> None:
-        if not self.call_action("take_play"):
-            self.take_player.play()
+        """Główny tor odtwarzania TAKE na miniPC."""
+        self.call_action("take_play")
 
     def pause_take(self) -> None:
-        if not self.call_action("take_pause"):
-            self.take_player.pause()
+        """Pauza odtwarzania na miniPC."""
+        self.call_action("take_pause")
 
     def stop_take(self) -> None:
-        if not self.call_action("take_stop"):
-            self.take_player.stop()
+        """Zatrzymanie odtwarzania na miniPC."""
+        self.call_action("take_stop")
 
     def step_take_index(self, index: int):
         return self.take_player.step_to_index(index)

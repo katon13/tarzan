@@ -14,6 +14,17 @@ from typing import Any, Callable, Dict, List, Optional
 
 from core.tarzanUstawienia import CZAS_PROBKOWANIA_MS
 from core.tarzanSignalBus import TarzanSignalBus
+
+# Bindowania osi dla nakładania offsetów KHR
+AXIS_SIGNAL_BINDINGS: Dict[str, Dict[str, List[str]]] = {
+    "CAM_H": {"step": ["axis_cam_h_step", "axis_cam_h_auto_step", "axis_cam_h_rec_step"], "dir": ["axis_cam_h_dir", "axis_cam_h_auto_dir", "axis_cam_h_rec_dir"], "en": ["axis_cam_h_en"], "pulses": ["axis_cam_h_pulses"], "pos": ["axis_cam_h_pos"], "left": ["sensor_cam_h_limit_left"], "right": ["sensor_cam_h_limit_right"]},
+    "CAM_V": {"step": ["axis_cam_v_step", "axis_cam_v_auto_step", "axis_cam_v_rec_step"], "dir": ["axis_cam_v_dir", "axis_cam_v_auto_dir", "axis_cam_v_rec_dir"], "en": ["axis_cam_v_en"], "pulses": ["axis_cam_v_pulses"], "pos": ["axis_cam_v_pos"], "left": ["sensor_cam_v_limit_down"], "right": ["sensor_cam_v_limit_up"]},
+    "ARM_T": {"step": ["axis_arm_t_step", "axis_arm_t_auto_step", "axis_arm_t_rec_step"], "dir": ["axis_arm_t_dir", "axis_arm_t_auto_dir", "axis_arm_t_rec_dir"], "en": ["axis_arm_t_en"], "pulses": ["axis_arm_t_pulses"], "pos": ["axis_arm_t_pos"], "left": ["sensor_cam_t_limit"], "right": ["sensor_cam_t_limit"]},
+    "CAM_F": {"step": ["axis_cam_f_step", "axis_cam_f_auto_step", "axis_cam_f_rec_step"], "dir": ["axis_cam_f_dir", "axis_cam_f_auto_dir", "axis_cam_f_rec_dir"], "en": ["axis_cam_f_en"], "pulses": ["axis_cam_f_pulses"], "pos": ["axis_cam_f_pos"], "left": [], "right": []},
+    "ARM_H": {"step": ["axis_arm_h_step", "axis_arm_h_auto_step", "axis_arm_h_rec_step"], "dir": ["axis_arm_h_dir", "axis_arm_h_auto_dir", "axis_arm_h_rec_dir"], "en": ["axis_arm_h_en"], "pulses": ["axis_arm_h_pulses"], "pos": ["axis_arm_h_pos"], "left": ["sensor_arm_h_limit_left"], "right": ["sensor_arm_h_limit_right"]},
+    "ARM_V": {"step": ["axis_arm_v_step", "axis_arm_v_auto_step", "axis_arm_v_rec_step"], "dir": ["axis_arm_v_dir", "axis_arm_v_auto_dir", "axis_arm_v_rec_dir"], "en": ["axis_arm_v_en"], "pulses": ["axis_arm_v_pulses"], "pos": ["axis_arm_v_pos"], "left": ["sensor_arm_v_limit_down"], "right": ["sensor_arm_v_limit_up"]},
+    "DRON": {"step": ["axis_dron_step"], "dir": ["axis_dron_dir"], "en": ["axis_dron_en"], "pulses": ["axis_dron_pulses"], "pos": ["axis_dron_pos"], "left": [], "right": []},
+}
 try:
     from editor.PAR.tarzanParProtocolMapper import TarzanParProtocolMapper
 except ModuleNotFoundError:
@@ -37,9 +48,10 @@ class TarzanTakeData:
 
 
 class TarzanParTakePlayer:
-    def __init__(self, bus: TarzanSignalBus, mapper: TarzanParProtocolMapper) -> None:
+    def __init__(self, bus: TarzanSignalBus, mapper: TarzanParProtocolMapper, core: Any = None) -> None:
         self.bus = bus
         self.mapper = mapper
+        self.core = core
         self.take: Optional[TarzanTakeData] = None
         self.index = 0
         self.playing = False
@@ -144,7 +156,39 @@ class TarzanParTakePlayer:
         time_ms = self._row_time(row)
         self.bus.set_take_time(time_ms)
         mapped = self.mapper.map_row(row)
-        self.bus.write_many_outputs(mapped, source="TAKE", time_ms=time_ms)
+
+        # ZASADA SNAJPERA: Nakładamy offsety KHR na aktywny ruch TAKE
+        if str(self.bus.get("khr_state", "")) == "ACTIVE":
+            khr_map = {
+                "CAM_H": "khr_cam_h_offset", "CAM_V": "khr_cam_v_offset",
+                "ARM_H": "khr_arm_h_offset", "ARM_V": "khr_arm_v_offset",
+            }
+            for axis_key, offset_signal in khr_map.items():
+                offset = self.bus.get(offset_signal, 0)
+                if offset:
+                    pos_signals = AXIS_SIGNAL_BINDINGS.get(axis_key, {}).get("pos", [])
+                    for sig in pos_signals:
+                        if sig in mapped:
+                            try:
+                                mapped[sig] = float(mapped[sig]) + float(offset)
+                            except (ValueError, TypeError):
+                                pass
+
+        # Otwieramy batch dla całego wiersza TAKE, aby zoptymalizować zapisy do PoKeys
+        # Tor wykonania: PARcore / HardwareBridge / write_batch / EXEC
+        if self.core is not None:
+            # Sprawdzamy czy core to TarzanParBridge (ma parcore_action) czy TarzanParCore (ma hardware_bridge)
+            if hasattr(self.core, "parcore_action"):
+                # Przesyłamy batch przez TSP do miniPC (Główny tor PAR-GUI -> MiniPC)
+                self.core.parcore_action("write_batch", {"batch": mapped, "action_type": "EXEC"})
+            elif hasattr(self.core, "hardware_bridge") and self.core.hardware_bridge:
+                # Jeśli działamy w tym samym procesie co HardwareBridge (np. w PARcore lokalnie)
+                self.core.hardware_bridge.write_batch(mapped, action_type="EXEC")
+            else:
+                self.bus.log("TAKE", "MINIPC_NOT_CONNECTED: TAKE move waiting for connection")
+        else:
+            self.bus.log("TAKE", "NOT_SENT: TAKE move waiting for controller (core)")
+
         if self.on_row:
             self.on_row(row)
 
@@ -152,7 +196,7 @@ class TarzanParTakePlayer:
         if not self.take or not self.take.rows or self.playing:
             return
         if self._after is None:
-            self.bus.log("TAKE", "PLAY zablokowany: brak app.after()")
+            self.bus.log("TAKE", "NOT_SENT: PLAY waiting for scheduler (app.after)")
             return
         self.playing = True
         self.bus.force_signal("take_status", "PLAY", source="TAKE_PLAY")

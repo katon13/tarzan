@@ -229,12 +229,9 @@ class TarzanTspSignalProvider:
         from core.tarzanSignalBus import get_signal_bus
         bus = get_signal_bus()
         
-        # ZASADA SNAJPERA: wybudzamy hardware tylko dla realnych strzałów.
-        # Handshake PAR/EHR, statusy, STOP, tM i odświeżenia UI są lekkie.
-        from core.tarzanSnajper import TarzanSnajperHardwarePolicy
-        snajper_policy = TarzanSnajperHardwarePolicy()
-        if snajper_policy.should_wake_for_signal(name, value, source=source):
-            bus.force_signal("cmd_hardware_awake", 1, source=f"SNAJPER_SIG_{source}")
+        # ZASADA SNAJPERA: wybudzanie hardware jest teraz zarządzane przez PARcore
+        # lub bezpośrednio w HardwareBridge na podstawie typu sygnału.
+        # Nie używamy już ogólnego, ślepego cmd_hardware_awake=1 w tym miejscu.
         
         if not bus.exists(name):
             with self._lock:
@@ -347,12 +344,8 @@ class TarzanTspSignalProvider:
         from core.tarzanSignalBus import get_signal_bus
         bus = get_signal_bus()
         
-        # ZASADA SNAJPERA: tylko akcja wykonawcza budzi hardware.
-        # Samo PAR connect/get_state/Nextion page nie trzyma PoKeys.
-        from core.tarzanSnajper import TarzanSnajperHardwarePolicy
-        snajper_policy = TarzanSnajperHardwarePolicy()
-        if snajper_policy.should_wake_for_action(name, payload, source="TSP_ACTION"):
-            bus.force_signal("cmd_hardware_awake", 1, source=f"SNAJPER_ACT_{name}")
+        # ZASADA SNAJPERA: wybudzanie hardware dla akcji jest zarządzane w PARcore.call_action.
+        # Nie używamy już ogólnego cmd_hardware_awake=1 tutaj.
         
         payload = payload or {}
         parcore = getattr(self, "parcore", None)

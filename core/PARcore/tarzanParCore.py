@@ -531,9 +531,10 @@ class _TimerScheduler:
 
 
 class TarzanParTakePlayer:
-    def __init__(self, bus: TarzanSignalBus, mapper: TarzanParProtocolMapper) -> None:
+    def __init__(self, bus: TarzanSignalBus, mapper: TarzanParProtocolMapper, core: Any = None) -> None:
         self.bus = bus
         self.mapper = mapper
+        self.core = core
         self.take: Optional[TarzanTakeData] = None
         self.index = 0
         self.playing = False
@@ -617,7 +618,40 @@ class TarzanParTakePlayer:
         time_ms = self._row_time(row)
         self.bus.set_take_time(time_ms)
         mapped = self.mapper.map_row(row)
-        self.bus.write_many_outputs(mapped, source="TAKE", time_ms=time_ms)
+        
+        # ZASADA SNAJPERA: Nakładamy offsety KHR na aktywny ruch TAKE
+        if str(self.bus.get("khr_state", "")) == "ACTIVE":
+            khr_map = {
+                "CAM_H": "khr_cam_h_offset", "CAM_V": "khr_cam_v_offset",
+                "ARM_H": "khr_arm_h_offset", "ARM_V": "khr_arm_v_offset",
+            }
+            for axis_key, offset_signal in khr_map.items():
+                offset = self.bus.get(offset_signal, 0)
+                if offset:
+                    pos_signals = AXIS_SIGNAL_BINDINGS.get(axis_key, {}).get("pos", [])
+                    for sig in pos_signals:
+                        if sig in mapped:
+                            try:
+                                mapped[sig] = float(mapped[sig]) + float(offset)
+                            except Exception:
+                                pass
+
+        # Otwieramy batch dla całego wiersza TAKE, aby zoptymalizować zapisy do PoKeys
+        bridge = self.core.hardware_bridge if self.core is not None else None
+        if bridge is not None and hasattr(bridge, "begin_hardware_batch"):
+            bridge.begin_hardware_batch(source="TAKE_ROW", action_type="EXEC")
+        
+        try:
+            if self.core is not None:
+                # OPTYMALIZACJA: Używamy write_batch zamiast pętli pojedynczych zapisów.
+                # To gwarantuje jeden cykl USB dla całego wiersza TAKE.
+                self.core.write_batch(mapped, source="TAKE", action_type="EXEC")
+            else:
+                self.bus.log("TAKE", "NOT_SENT: TAKE move waiting for controller (core)")
+        finally:
+            if bridge is not None and hasattr(bridge, "end_hardware_batch"):
+                bridge.end_hardware_batch(source="TAKE_ROW")
+
         if self.on_row:
             self.on_row(row)
 
@@ -625,7 +659,7 @@ class TarzanParTakePlayer:
         if not self.take or not self.take.rows or self.playing:
             return
         if self._after is None:
-            self.bus.log("TAKE", "PLAY zablokowany: brak schedulera")
+            self.bus.log("TAKE", "NOT_SENT: PLAY waiting for scheduler (app.after)")
             return
         self.playing = True
         self.bus.force_signal("take_status", "PLAY", source="TAKE_PLAY")
@@ -855,7 +889,7 @@ class TarzanParCore:
         self.tsp_host = tsp_host or TSP_MINI_PC_HOST
         self.enable_tsp_client = bool(enable_tsp_client)
         self.mapper = TarzanParProtocolMapper(self.bus.names())
-        self.take_player = TarzanParTakePlayer(self.bus, self.mapper)
+        self.take_player = TarzanParTakePlayer(self.bus, self.mapper, core=self)
         self.scheduler = _TimerScheduler() if enable_headless_take_scheduler else None
         if self.scheduler is not None:
             self.take_player.set_scheduler(self.scheduler.after, self.scheduler.after_cancel)
@@ -1455,44 +1489,59 @@ class TarzanParCore:
         return self._set_signal(name, value, source=source)
 
     def set_input(self, name: str, value: Any, source: str = "PARCORE_INPUT") -> bool:
-        # ZASADA SNAJPERA: Wybudzamy hardware tylko dla istotnych sygnałów sprzętowych. (Etap 18)
-        if self.bus:
-            from core.tarzanZmienneSygnalowe import AWAKE_SIGNAL_PREFIXES, AWAKE_SIGNAL_NAMES
-            if name.startswith(AWAKE_SIGNAL_PREFIXES) or name in AWAKE_SIGNAL_NAMES:
-                if name != "cmd_hardware_awake":
-                    self.bus.force_signal("cmd_hardware_awake", 1, source=f"ACT_{source}")
-        
         ok = bool(self.bus.set_input(name, value, source=source))
+        if self.hardware_bridge is not None:
+            # Nawet wejścia trafiają do HardwareBridge (zostaną odfiltrowane w Bridge.write),
+            # co zapewnia jeden wspólny tor wykonania dla wszystkich typów sygnałów.
+            self._write_hardware(name, value, action_type="STATUS_UPDATE")
         self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"set_input:{name}")
         return ok
 
-    def write_output(self, name: str, value: Any, source: str = "PARCORE_OUTPUT") -> bool:
-        # ZASADA SNAJPERA: Wybudzamy hardware tylko dla istotnych sygnałów sprzętowych. (Etap 18)
-        if self.bus:
-            from core.tarzanZmienneSygnalowe import AWAKE_SIGNAL_PREFIXES, AWAKE_SIGNAL_NAMES
-            if name.startswith(AWAKE_SIGNAL_PREFIXES) or name in AWAKE_SIGNAL_NAMES:
-                if name != "cmd_hardware_awake":
-                    self.bus.force_signal("cmd_hardware_awake", 1, source=f"ACT_{source}")
-                    
-        ok = bool(self.bus.write_output(name, value, source=source))
+    def write_output(self, name: str, value: Any, source: str = "PARCORE_OUTPUT", action_type: str = "EXEC") -> bool:
+        # 1. Tor fizyczny: PARcore → HardwareBridge._write_hardware
+        # Zapewnia wybudzenie hardware w odpowiednim stanie (np. EXEC).
         if self.hardware_bridge is not None:
-            self._write_hardware(name, value)
+            self._write_hardware(name, value, action_type=action_type)
+            
+        # 2. Tor stanu: Aktualizacja SignalBus.
+        # Używamy force_signal zamiast bus.write_output, aby uniknąć ponownego (redundantnego)
+        # wywołania adaptera przez SignalBus.
+        ok = bool(self.bus.force_signal(name, value, source=source))
+        
         self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"write_output:{name}")
         return ok
 
-    def force_signal(self, name: str, value: Any, source: str = "PARCORE_FORCE") -> bool:
-        # ZASADA SNAJPERA: Wybudzamy hardware tylko dla istotnych sygnałów sprzętowych. (Etap 18)
-        if self.bus:
-            from core.tarzanZmienneSygnalowe import AWAKE_SIGNAL_PREFIXES, AWAKE_SIGNAL_NAMES
-            if name.startswith(AWAKE_SIGNAL_PREFIXES) or name in AWAKE_SIGNAL_NAMES:
-                if name != "cmd_hardware_awake":
-                    self.bus.force_signal("cmd_hardware_awake", 1, source=f"ACT_{source}")
-                    
-        ok = bool(self.bus.force_signal(name, value, source=source))
+    def force_signal(self, name: str, value: Any, source: str = "PARCORE_FORCE", action_type: str = "EXEC") -> bool:
+        # 1. Tor fizyczny: PARcore → HardwareBridge._write_hardware
         if self.hardware_bridge is not None:
-            self._write_hardware(name, value)
+            self._write_hardware(name, value, action_type=action_type)
+
+        # 2. Tor stanu: Aktualizacja SignalBus.
+        ok = bool(self.bus.force_signal(name, value, source=source))
+        
         self._send_to_tsp_if_ready(lambda c: c.set_signal(name, value), f"force_signal:{name}")
         return ok
+
+    def write_batch(self, batch: Dict[str, Any], action_type: str = "EXEC", source: str = "PARCORE_BATCH") -> bool:
+        """Zapisuje grupę sygnałów jednym wywołaniem do HardwareBridge (optymalizacja USB)."""
+        if not batch:
+            return True
+
+        # Tor wykonania: PARcore → HardwareBridge.write_batch
+        # HardwareBridge.write_batch bierze jeden lock i wykonuje paczkę operacji USB.
+        if self.hardware_bridge is not None and hasattr(self.hardware_bridge, "write_batch"):
+            self.hardware_bridge.write_batch(batch, action_type=action_type)
+
+        # Dopiero po fizycznym wysłaniu do sprzętu aktualizujemy SignalBus (Tablicę Stanu).
+        # Robimy to po cichu (force_signal), aby uniknąć pętli zwrotnej przez subskrybentów
+        # i pojedynczych, nadmiarowych zapisów do hardware'u.
+        if self.bus:
+            for name, value in batch.items():
+                self.bus.force_signal(name, value, source=source)
+        
+        # Synchronizacja z ewentualnymi klientami (np. gdy PARcore działa jako mostek TSP)
+        self._send_to_tsp_if_ready(lambda c: [c.set_signal(k, v) for k, v in batch.items()], f"write_batch:{len(batch)}")
+        return True
 
     def _set_signal(self, name: str, value: Any, source: str = "PARCORE") -> bool:
         try:
@@ -1590,7 +1639,7 @@ class TarzanParCore:
             return False
 
     def _signal_blocked(self, name: str) -> bool:
-        """Czy sygnał jest zablokowany dla ręcznego wymuszenia PAR.
+        """Czy sygnał oczekuje na połączenie z miniPC lub jest zablokowany.
 
         Zachowuje zasadę paneli: nie klikamy bokiem w wejścia sprzętowe,
         blokady safety i aktywne tory TAKE/automatyki.
@@ -1629,7 +1678,7 @@ class TarzanParCore:
         """Oryginalna zasada paneli: klik bez wartości przełącza, z wartością wymusza."""
         if self._signal_blocked(name) and not self._signal_clickable_input(name):
             self.force_signal("par_last_error", f"WRITE_DENIED:{name}", source=source)
-            self._bus_log("WRITE_DENIED", f"{name} blocked")
+            self._bus_log("WRITE_DENIED", f"{name} WAITING_FOR_MINIPC")
             return {"ok": False, "error": "WRITE_DENIED", "signal": name}
         if value is None:
             current = self.read_input(name, 0)
@@ -1978,25 +2027,23 @@ class TarzanParCore:
     def _snajper_update_section_cnc(self, signal_name: str = "", value: Any = None) -> Dict[str, Any]:
         return self._snajper_update_section("cnc", {"signal": signal_name, "value": value})
 
-    def _write_hardware(self, name: str, value: Any) -> None:
+    def _write_hardware(self, name: str, value: Any, action_type: str = "EXEC") -> None:
         bridge = self.hardware_bridge
         if bridge is None:
             return
-        for method in ("write", "write_output", "set_signal", "force_signal"):
-            fn = getattr(bridge, method, None)
-            if callable(fn):
-                try:
-                    fn(name, value)
-                    return
-                except TypeError:
-                    try:
-                        fn(name, value, source="PARCORE")
-                        return
-                    except Exception:
-                        pass
-                except Exception as exc:
-                    self._bus_log("HW_ERROR", f"{method}({name}) failed: {exc}")
-                    return
+        
+        # W nowym modelu HardwareBridge zawsze używamy metody write z action_type.
+        # Usuwamy fallbacki do starych metod, aby wymusić czysty tor wykonania przez miniPC.
+        fn_write = getattr(bridge, "write", None)
+        if callable(fn_write):
+            try:
+                fn_write(name, value, action_type=action_type)
+                return
+            except Exception as exc:
+                self._bus_log("HW_ERROR", f"bridge.write({name}) failed: {exc}")
+                return
+        
+        self._bus_log("HW_ERROR", f"HardwareBridge has no 'write' method. Cannot send {name}.")
 
     # ------------------------------------------------------------------
     # Snajper fizyczny / RRP / MODE — domknięcie transplantu zasad.
@@ -2380,6 +2427,12 @@ class TarzanParCore:
         return False
 
     def _rrp_tick_all(self) -> None:
+        bridge = self.hardware_bridge
+        
+        # 1. NAJPIERW DIR DLA WSZYSTKICH AKTYWNYCH GRACZY (Zgodnie z zasadą: DIR przed STEP)
+        dir_batch: Dict[str, Any] = {}
+        player_data = {}
+        
         for player in ("p1", "p2"):
             axis = str(self.bus.get(f"par_rrp_{player}_selected_axis", "") or "").upper()
             if not axis:
@@ -2389,43 +2442,98 @@ class TarzanParCore:
             pot_signal = str(self.bus.get(f"par_rrp_{player}_pot_signal", "") or "")
             if not step_signal or not dir_signal or not pot_signal:
                 continue
+            
             try:
                 pot_val = max(0.0, min(4095.0, float(self.bus.get(pot_signal, 0) or 0)))
                 sens = max(0.0, min(100.0, float(self.bus.get(f"par_rrp_{player}_sens", 50) or 50)))
                 speed_mul = int(float(self.bus.get(f"rrp_{player}_speed_mul", 1) or 1))
+                direction = int(self.bus.get(f"par_rrp_{player}_dir", 0) or 0)
             except Exception:
                 continue
+            
+            dir_batch[dir_signal] = direction
+            player_data[player] = {
+                "pot_val": pot_val,
+                "sens": sens,
+                "speed_mul": speed_mul,
+                "step_signal": step_signal,
+                "dir_signal": dir_signal,
+                "direction": direction
+            }
+
+        if dir_batch:
+            if bridge is not None and hasattr(bridge, "write_batch"):
+                bridge.write_batch(dir_batch, action_type="EXEC")
+            else:
+                for sig, val in dir_batch.items():
+                    self.force_signal(sig, val, source="PARCORE_RRP_GEN")
+
+        # 2. TERAZ GENEROWANIE IMPULSÓW STEP I STATUS (OPTYMALIZACJA USB)
+        max_pulses = 0
+        for player, data in player_data.items():
+            pot_val = data["pot_val"]
+            speed_mul = data["speed_mul"]
+            sens = data["sens"]
+            
             speed_mul = speed_mul if speed_mul in {1, 2, 3, 4} else 1
             pot_norm = pot_val / 4095.0
             sens_norm = sens / 100.0
             rate_hz = max(0.0, min(1000.0, 1000.0 * sens_norm * float(speed_mul) * pot_norm))
+            
             rt = self._rrp_runtime[player]
             now = time.monotonic()
             elapsed_s = max(0.0, min(0.1, now - float(rt.get("last_tick_ts", now))))
             rt["last_tick_ts"] = now
             rt["pulse_accumulator"] = min(30.0, float(rt.get("pulse_accumulator", 0.0)) + rate_hz * elapsed_s)
-            pulse_count = int(rt["pulse_accumulator"])
-            if pulse_count <= 0:
-                continue
-            rt["pulse_accumulator"] = float(rt["pulse_accumulator"]) - pulse_count
-            direction = int(self.bus.get(f"par_rrp_{player}_dir", 0) or 0)
+            
+            p_count = int(rt["pulse_accumulator"])
+            if p_count > max_pulses:
+                max_pulses = p_count
+                
             try:
                 axis_index = int(self.bus.get(f"rrp_{player}_axis_index", -1) or -1)
                 self._apply_rrp_to_axis(axis_index, int(round(pot_val * 1023.0 / 4095.0)), player)
             except Exception:
                 pass
-            self.force_signal(dir_signal, direction, source="PARCORE_RRP_GEN")
-            for _ in range(pulse_count):
-                self.force_signal(step_signal, 1, source="PARCORE_RRP_GEN")
-                self.force_signal(step_signal, 0, source="PARCORE_RRP_GEN")
+            
             self.force_signal(f"par_rrp_{player}_val", int(pot_val), source="PARCORE_RRP_GEN")
             self.force_signal(f"rrp_{player}_val", int(pot_val), source="PARCORE_RRP_GEN")
+
+        # Generowanie zbiorczych impulsów STEP dla wszystkich graczy
+        for _ in range(max_pulses):
+            batch_high = {}
+            batch_low = {}
+            for player, rt in self._rrp_runtime.items():
+                if int(rt["pulse_accumulator"]) > 0:
+                    step_sig = player_data[player]["step_signal"]
+                    batch_high[step_sig] = 1
+                    batch_low[step_sig] = 0
+                    rt["pulse_accumulator"] -= 1.0
+            
+            if batch_high:
+                if bridge is not None and hasattr(bridge, "write_batch"):
+                    bridge.write_batch(batch_high, action_type="EXEC")
+                    bridge.write_batch(batch_low, action_type="EXEC")
+                else:
+                    for s, v in batch_high.items():
+                        self.force_signal(s, v, source="PARCORE_RRP_GEN")
+                    for s, v in batch_low.items():
+                        self.force_signal(s, v, source="PARCORE_RRP_GEN")
 
     # ------------------------------------------------------------------
     # TAKE / EHR transport
     # ------------------------------------------------------------------
     def take_load(self, path: str | Path) -> TarzanTakeData:
         data = self.take_player.load(path)
+        
+        # Aktualizacja metadanych TFD (Tarzan Frame Data)
+        try:
+            self._write_tfd_meta_value("take_name", Path(path).name)
+            self._write_tfd_meta_value("take_path", str(path))
+            self._write_tfd_meta_value("take_duration_ms", data.duration_ms)
+        except Exception:
+            pass
+
         # Transplant z tarzanParBridge.load_take(): jeśli PARcore działa jako klient TSP,
         # przesyła TAKE do miniPC tym samym kontraktem payloadu.
         if self._client_is_connected() and self.tsp_client is not None:
@@ -2470,6 +2578,14 @@ class TarzanParCore:
         self.bus.force_signal("loaded_take_path", name, source="TAKE_LOAD_REMOTE")
         self.bus.force_signal("take_status", "LOADED", source="TAKE_LOAD_REMOTE")
         self.bus.set_take_time(0)
+        
+        # Aktualizacja metadanych TFD
+        try:
+            self._write_tfd_meta_value("take_name", name)
+            self._write_tfd_meta_value("take_duration_ms", data.duration_ms)
+        except Exception:
+            pass
+
         self._bus_log("TAKE", f"Załadowano TAKE payload: {name}, rows={len(data.rows)}, duration={data.duration_ms} ms")
         return data
 
@@ -2569,13 +2685,10 @@ class TarzanParCore:
         for n in bind.get("dir", []):
             self.force_signal(n, dir_val, source="PARCORE_AXIS_TEST")
         pulses = max(1, int(pulses))
+        step_signals = bind.get("step", [])
         for _ in range(pulses):
-            for n in bind.get("step", []):
-                self.force_signal(n, 1, source="PARCORE_AXIS_TEST")
-            if delay_ms > 0:
-                time.sleep(delay_ms / 1000.0)
-            for n in bind.get("step", []):
-                self.force_signal(n, 0, source="PARCORE_AXIS_TEST")
+            self._pulse_many_signals(step_signals, delay_ms=delay_ms, src="PARCORE_AXIS_TEST")
+        
         self._increment_axis_counter(axis_name, pulses=pulses, direction=dir_val)
         self.force_signal(f"axis_{axis_name.lower()}_last_error", "", source="PARCORE_AXIS_TEST")
         self.force_signal(f"axis_{axis_name.lower()}_ready", 1, source="PARCORE_AXIS_TEST")
@@ -2692,12 +2805,20 @@ class TarzanParCore:
         return val
 
     def _pulse_many_signals(self, names: Sequence[str], delay_ms: int = 10, src: str = "PARCORE_PULSE") -> None:
-        for n in names:
-            self.force_signal(n, 1, source=src)
-        if delay_ms > 0:
-            time.sleep(delay_ms / 1000.0)
-        for n in names:
-            self.force_signal(n, 0, source=src)
+        bridge = self.hardware_bridge
+        if bridge is not None and hasattr(bridge, "write_batch"):
+            # Optymalizacja USB przez zapis zbiorczy
+            bridge.write_batch({str(n): 1 for n in names}, action_type="EXEC")
+            if delay_ms > 0:
+                time.sleep(delay_ms / 1000.0)
+            bridge.write_batch({str(n): 0 for n in names}, action_type="EXEC")
+        else:
+            for n in names:
+                self.force_signal(n, 1, source=src)
+            if delay_ms > 0:
+                time.sleep(delay_ms / 1000.0)
+            for n in names:
+                self.force_signal(n, 0, source=src)
 
     # ------------------------------------------------------------------
     # Administracja wykonawcza z paneli PAR: system, EHR/KHR, safety, trace.
@@ -2762,12 +2883,6 @@ class TarzanParCore:
     # Komendy wspólne dla TSP / PARtext / Nextion7.
     # ------------------------------------------------------------------
     def call_action(self, action: str, args: Optional[Dict[str, Any]] = None) -> Any:
-        # ZASADA SNAJPERA: Wybudzamy hardware tylko dla realnych akcji sprzętowych. (Etap 18)
-        if self.bus:
-            from core.tarzanZmienneSygnalowe import AWAKE_ACTION_NAMES
-            if action in AWAKE_ACTION_NAMES:
-                self.force_signal("cmd_hardware_awake", 1, source=f"LOCAL_CMD_{action}")
-            
         args = dict(args or {})
         action_norm = str(action or "").strip().lower()
         aliases = {
@@ -2852,6 +2967,7 @@ class TarzanParCore:
             "build_par_log_preview": self.build_par_log_preview,
             "build_nextion7_log_preview": self.build_nextion7_log_preview,
             "set_signal": self.set_signal,
+            "write_batch": self.write_batch,
             "force_signal": self.force_signal,
             "_force_signal": self._force_signal,
             "_manual_axis_step": self._manual_axis_step,
@@ -3055,8 +3171,8 @@ class TarzanParCore:
             from core.tarzanZmienneSygnalowe import AWAKE_ACTION_NAMES
             # Nextion wysyła klucze, które często mapują się na akcje
             is_awake = key in AWAKE_ACTION_NAMES or any(prefix in key for prefix in ["mode", "take", "axis", "sensor", "sok", "safety"])
-            if is_awake:
-                self.bus.force_signal("cmd_hardware_awake", 1, source="LOCAL_N7")
+            # ZASADA: Nie używamy ślepego cmd_hardware_awake=1. 
+            # Realna akcja wykonawcza i tak wywoła _write_hardware() z odpowiednim action_type.
 
         if key in {"stop"} and str(value) in {"1", "true", "True", "ON", "on"}:
             return self._handle_rrp_event("rrp:stop=1")

@@ -814,6 +814,189 @@ class TarzanPoKeys:
         return None
 
     # ------------------------------------------------------------------
+    # LKS-N5 widoczne testy sprzętu — jedyny tor przez tarzanPoKeys
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _lcd_text(value: str, width: int = 20) -> str:
+        repl = str(value).replace("ł", "l").replace("Ł", "L").replace("ó", "o").replace("Ó", "O")
+        repl = repl.replace("ą", "a").replace("ę", "e").replace("ś", "s").replace("ż", "z").replace("ź", "z")
+        repl = repl.replace("ń", "n").replace("ć", "c")
+        return repl[:width]
+
+    def lcd_init(self, board: str = "PLAY") -> Dict[str, Any]:
+        with self._lock:
+            if self.logical_sleep:
+                self.logical_wake()
+            device = self.get_device(board)
+            if device is None:
+                return {"ok": False, "board": board, "error": f"{board} not connected"}
+            try:
+                lcd = device.device.contents.LCD
+                lcd.Configuration = 2
+                lcd.Rows = 2
+                lcd.Columns = 16
+                for call, name in (
+                    (device.PK_LCDConfigurationSet, "PK_LCDConfigurationSet"),
+                    (lambda: device.PK_LCDChangeMode(0), "PK_LCDChangeMode"),
+                    (device.PK_LCDInit, "PK_LCDInit"),
+                    (device.PK_LCDClear, "PK_LCDClear"),
+                ):
+                    rc = call()
+                    if rc != 0:
+                        raise RuntimeError(f"{name} zwróciło {rc}")
+                return {"ok": True, "board": board}
+            except Exception as exc:
+                return {"ok": False, "board": board, "error": str(exc)}
+
+    def lcd_write_lines(self, board: str, line1: str, line2: str) -> Dict[str, Any]:
+        with self._lock:
+            if self.logical_sleep:
+                self.logical_wake()
+            device = self.get_device(board)
+            if device is None:
+                return {"ok": False, "board": board, "error": f"{board} not connected"}
+            try:
+                if device.PK_LCDMoveCursor(1, 1) != 0:
+                    raise RuntimeError("PK_LCDMoveCursor(1,1) failed")
+                if device.PK_LCDPrint(self._lcd_text(line1, 16).ljust(16)) != 0:
+                    raise RuntimeError("PK_LCDPrint line1 failed")
+                if device.PK_LCDMoveCursor(2, 1) != 0:
+                    raise RuntimeError("PK_LCDMoveCursor(2,1) failed")
+                if device.PK_LCDPrint(self._lcd_text(line2, 16).ljust(16)) != 0:
+                    raise RuntimeError("PK_LCDPrint line2 failed")
+                return {"ok": True, "board": board, "line1": line1, "line2": line2}
+            except Exception as exc:
+                return {"ok": False, "board": board, "error": str(exc)}
+
+    def test_lcd_1602_once(self, visible: bool = False, boards: Iterable[str] = ("PLAY", "REC")) -> Dict[str, Any]:
+        out: Dict[str, Any] = {"ok": False, "boards": {}, "errors": []}
+        for board in [str(b).upper() for b in boards]:
+            if visible:
+                init = self.lcd_init(board)
+                if not init.get("ok"):
+                    out["boards"][board] = init
+                    out["errors"].append(f"{board}: {init.get('error')}")
+                    continue
+                self.lcd_write_lines(board, f"LKS-N5 {board}", "TEST LCD")
+                time.sleep(0.25)
+                final = self.lcd_write_lines(board, "BEZ BLEDOW", "GOTOWE")
+                out["boards"][board] = final
+                if not final.get("ok"):
+                    out["errors"].append(f"{board}: {final.get('error')}")
+            else:
+                ok = self.test_board_once(board)
+                out["boards"][board] = {"ok": ok, "board": board}
+                if not ok:
+                    out["errors"].append(f"{board}: board test failed")
+        out["ok"] = not out["errors"]
+        return out
+
+    _MATRIX_FONT_5X7: Dict[str, List[int]] = {
+        " ": [0, 0, 0, 0, 0], "O": [0x3E, 0x41, 0x41, 0x41, 0x3E], "K": [0x7F, 0x08, 0x14, 0x22, 0x41],
+        "T": [0x01, 0x01, 0x7F, 0x01, 0x01], "E": [0x7F, 0x49, 0x49, 0x49, 0x41], "S": [0x46, 0x49, 0x49, 0x49, 0x31],
+    }
+
+    def _matrix_text_columns(self, text_value: str) -> List[int]:
+        cols: List[int] = []
+        for ch in self._lcd_text(text_value.upper(), 16):
+            cols.extend(self._MATRIX_FONT_5X7.get(ch, self._MATRIX_FONT_5X7[" "]))
+            cols.append(0)
+        return cols or [0] * 8
+
+    @staticmethod
+    def _matrix_rows_from_columns(columns: Iterable[int]) -> List[int]:
+        col_list = list(columns)
+        rows: List[int] = []
+        for row in range(8):
+            value = 0
+            for col in range(min(8, len(col_list))):
+                if int(col_list[col]) & (1 << row):
+                    value |= 1 << col
+            rows.append(value & 0xFF)
+        return rows
+
+    def matrix_write_frame(self, board: str = "REC", rows: Iterable[int] = ()) -> Dict[str, Any]:
+        with self._lock:
+            if self.logical_sleep:
+                self.logical_wake()
+            device = self.get_device(board)
+            if device is None:
+                return {"ok": False, "board": board, "error": f"{board} not connected"}
+            try:
+                matrix_ptr = device.device.contents.MatrixLED
+                matrix = matrix_ptr[0]
+                matrix.displayEnabled = 1
+                matrix.rows = 8
+                matrix.columns = 8
+                matrix.RefreshFlag = 1
+                row_list = list(rows)
+                for i in range(8):
+                    matrix.data[i] = int(row_list[i]) & 0xFF if i < len(row_list) else 0
+                rc = device.PK_MatrixLEDConfigurationSet()
+                if rc != 0:
+                    raise RuntimeError(f"PK_MatrixLEDConfigurationSet zwróciło {rc}")
+                rc = device.PK_MatrixLEDUpdate()
+                if rc != 0:
+                    raise RuntimeError(f"PK_MatrixLEDUpdate zwróciło {rc}")
+                return {"ok": True, "board": board}
+            except Exception as exc:
+                return {"ok": False, "board": board, "error": str(exc)}
+
+    def test_matrix_led_once(self, visible: bool = False, board: str = "REC") -> Dict[str, Any]:
+        if not visible:
+            return {"ok": self.test_board_once(board), "board": board}
+        cols = self._matrix_text_columns("OK")
+        res = self.matrix_write_frame(board, self._matrix_rows_from_columns(cols[:8]))
+        time.sleep(0.20)
+        self.matrix_write_frame(board, [0] * 8)
+        return res
+
+    def read_f_buttons_once(self) -> Dict[str, Any]:
+        with self._lock:
+            dev = self.get_device("REC")
+            if dev is None:
+                return {"ok": False, "values": {}, "error": "REC not connected"}
+            try:
+                values = {name: self.read_pin(dev, pin) for name, pin in self.F_BUTTON_PINS.items()}
+                return {"ok": True, "values": values}
+            except Exception as exc:
+                return {"ok": False, "values": {}, "error": str(exc)}
+
+    def blink_f_led_once(self, visible: bool = False) -> Dict[str, Any]:
+        with self._lock:
+            dev = self.get_device("REC")
+            if dev is None:
+                return {"ok": False, "error": "REC not connected"}
+            try:
+                if visible:
+                    for pin in self.F_LED_PINS.values():
+                        self.set_digital_output(dev, pin, 0)
+                    for pin in self.F_LED_PINS.values():
+                        self.set_digital_output(dev, pin, 1)
+                        time.sleep(0.08)
+                        self.set_digital_output(dev, pin, 0)
+                return {"ok": True, "pins": dict(self.F_LED_PINS)}
+            except Exception as exc:
+                return {"ok": False, "error": str(exc)}
+
+    def read_keypad_once(self) -> Dict[str, Any]:
+        with self._lock:
+            dev = self.get_device("PLAY")
+            if dev is None:
+                return {"ok": False, "error": "PLAY not connected"}
+            try:
+                rc = dev.PK_MatrixKBConfigurationGet()
+                if rc != 0:
+                    raise RuntimeError(f"PK_MatrixKBConfigurationGet zwróciło {rc}")
+                rc = dev.PK_MatrixKBStatusGet()
+                if rc != 0:
+                    raise RuntimeError(f"PK_MatrixKBStatusGet zwróciło {rc}")
+                values = [int(dev.device.contents.matrixKB.matrixKBvalues[i]) for i in range(128)]
+                return {"ok": True, "values": values}
+            except Exception as exc:
+                return {"ok": False, "error": str(exc)}
+
+    # ------------------------------------------------------------------
     # Testy punktowe używane przez LKS / PARcore
     # ------------------------------------------------------------------
     def test_board_once(self, board: str) -> bool:

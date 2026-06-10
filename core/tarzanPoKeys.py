@@ -158,6 +158,11 @@ class TarzanPoKeys:
         self._i2c_force_min_gap_s = 2.0
         self._slow_i2c_reads_enabled = os.environ.get("TARZAN_ENABLE_SLOW_I2C_SENSOR_READS") == "1"
         self._runtime_i2c_scan_enabled = os.environ.get("TARZAN_ALLOW_RUNTIME_I2C_SCAN") == "1"
+        # libPoKeys/libusb na Linuxie uruchamia własny read_thread.
+        # Przy stop usługi agresywne PK_DisconnectDevice potrafi zrobić core dump,
+        # jeżeli read_thread nadal siedzi w libusb_handle_events.
+        self._shutting_down = False
+        self._disconnect_on_stop = os.environ.get("TARZAN_POKEYS_DISCONNECT_ON_STOP") == "1"
 
     # ------------------------------------------------------------------
     # Biblioteka / połączenia
@@ -184,6 +189,7 @@ class TarzanPoKeys:
 
     def connect_all(self, lib_path: Optional[str] = None) -> int:
         with self._lock:
+            self._shutting_down = False
             old_state = self.state
             self.state = "POINT_TEST"
             try:
@@ -253,20 +259,45 @@ class TarzanPoKeys:
             return True
 
     def safe_stop(self) -> None:
-        """Zamknięcie uchwytów tylko przy STOP usługi, raz i pod lockiem."""
+        """Bezpieczne zamknięcie PoKeys przy STOP usługi.
+
+        Na Linuxie libPoKeys/libusb ma własny read_thread. Logi z miniPC pokazały,
+        że równoległe PK_DisconnectDevice podczas stop/restart potrafi wejść w
+        libusb_close, gdy read_thread nadal jest w libusb_handle_events, i kończy
+        proces core dumpem. Dlatego domyślnie nie wołamy fizycznego Disconnect
+        przy stop usługi. Zostawiamy zamknięcie uchwytów procesowi systemd/kernel.
+
+        Wymuszenie starego zachowania tylko diagnostycznie:
+            TARZAN_POKEYS_DISCONNECT_ON_STOP=1
+        """
         with self._lock:
+            self._shutting_down = True
+            self.logical_sleep = True
+            self.state = "IDLE"
+            self.snajper.disarm()
+
+            if not self._disconnect_on_stop:
+                connected = [board for board, device in self.devices.items() if device is not None]
+                for board in connected:
+                    self.devices[board] = None
+                self.logger.info(
+                    "POKEYS SAFE SHUTDOWN: skipped PK_DisconnectDevice for boards=%s "
+                    "to avoid libusb read_thread crash.",
+                    ",".join(connected) if connected else "none",
+                )
+                return
+
             for board, device in list(self.devices.items()):
                 if device is None:
                     continue
                 try:
                     device.Disconnect()
                     self.logger.info("Disconnected %s board.", board)
-                except Exception as exc:
+                except BaseException as exc:
                     self.logger.warning("PoKeys safe_stop disconnect %s ignored: %s", board, exc)
                 finally:
                     self.devices[board] = None
-            self.logical_sleep = False
-            self.snajper.disarm()
+            self.logger.warning("POKEYS SAFE SHUTDOWN: forced PK_DisconnectDevice was enabled by env.")
 
     def set_state(self, state: str) -> None:
         """Ustawia stan bramki (IDLE, FAST_SAMPLE, POINT_TEST, FULL_DIAGNOSTICS)."""
@@ -1318,6 +1349,9 @@ class TarzanPoKeys:
         i jednolity format wyniku dla metod wykonawczych.
         """
         with self._lock:
+            if self._shutting_down:
+                return {"ok": False, "skipped": True, "method": method_name, "reason": "shutting_down"}
+
             # 1. Inkrementacja liczników dla monitoringu
             if method_name in self.call_counters:
                 self.call_counters[method_name] += 1

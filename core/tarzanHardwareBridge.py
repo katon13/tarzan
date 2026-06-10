@@ -66,6 +66,8 @@ class TarzanHardwareBridge:
         self._snajper_policy = TarzanSnajperHardwarePolicy()
         self._last_connect_failed = False # Flaga dla selektywnego cooldownu
         self._hardware_logical_sleep = False  # IDLE: pauza logiczna bez PK_DisconnectDevice.
+        self._startup_i2c_test_done = False
+        self._startup_i2c_test_error = ""
         
         # Optymalizacja (Etap 17): cache wejść hardware'owych
         # ZASADA SNAJPERA: nie brudzimy SignalBus jeśli na pinach cisza.
@@ -117,6 +119,9 @@ class TarzanHardwareBridge:
             self.running = True
             self.bus.set_input("hardware_connected", 0, source="HW_BRIDGE")
             self.bus.set_live_adapter(self)
+            # Start systemu ma wykonać jednorazowe sprawdzenie PoKeys/I2C,
+            # potem HardwareBridge wraca do IDLE bez pollingu.
+            self.request_hardware_awake(source="HW_STARTUP_I2C", grace_ms=15000, ensure=False)
             
             # Subskrypcja offsetów KHR (Etap 15)
             self.bus.subscribe(self._on_signal_change)
@@ -293,6 +298,50 @@ class TarzanHardwareBridge:
                 self._last_connect_failed = False
                 
             self.bus.set_input("hardware_connected", connected_count, source="HW_BRIDGE")
+            if connected_count > 0 and not self._startup_i2c_test_done:
+                self._run_startup_i2c_test_once()
+
+    def _run_startup_i2c_test_once(self) -> None:
+        """Jednorazowy test PoKeys BUS/I2C przy starcie runtime.
+
+        To jest test startowy, nie pętla. Ma dać jasny ślad w logu, że
+        I2C/PoSensors są realnie sprawdzane przez core/tarzanPoKeys.py.
+        """
+        self._startup_i2c_test_done = True
+        try:
+            self.logger.info("STARTUP_I2C_TEST begin")
+            play_scan = self.pokeys.scan_i2c_once("PLAY")
+            rec_scan = self.pokeys.scan_i2c_once("REC")
+            try:
+                posensors = self.pokeys.read_posensors_once("PLAY")
+            except Exception as exc:
+                posensors = {"ok": False, "error": str(exc)}
+
+            play_addrs = play_scan.get("addresses") or play_scan.get("found") or []
+            rec_addrs = rec_scan.get("addresses") or rec_scan.get("found") or []
+            ok = bool(play_scan.get("ok") or rec_scan.get("ok"))
+            if play_addrs or rec_addrs:
+                ok = True
+
+            try:
+                self.bus.set_input("i2c_bus", 1 if ok else 0, source="HW.STARTUP_I2C")
+                if play_addrs:
+                    self.bus.set_input("i2c_play_addresses", ",".join(f"0x{int(x):02X}" for x in play_addrs), source="HW.STARTUP_I2C")
+                if rec_addrs:
+                    self.bus.set_input("i2c_rec_addresses", ",".join(f"0x{int(x):02X}" for x in rec_addrs), source="HW.STARTUP_I2C")
+            except Exception:
+                pass
+
+            self.logger.info(
+                "STARTUP_I2C_TEST result ok=%s PLAY=%s REC=%s PoSensors=%s",
+                ok,
+                ",".join(f"0x{int(x):02X}" for x in play_addrs) or "none",
+                ",".join(f"0x{int(x):02X}" for x in rec_addrs) or "none",
+                bool(isinstance(posensors, dict) and posensors.get("ok")),
+            )
+        except Exception as exc:
+            self._startup_i2c_test_error = str(exc)
+            self.logger.warning("STARTUP_I2C_TEST failed: %s", exc)
 
     def _ensure_disconnected(self) -> None:
         """Przełącza hardware w IDLE bez fizycznego zamykania PoKeys.
@@ -590,13 +639,16 @@ class TarzanHardwareBridge:
         serial_links = sorted(glob.glob("/dev/serial/by-id/*"))
         tty_links = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
         usb_detail = "USB=" + (",".join(serial_links[:3] or tty_links[:3]) or "no-tty")
-        result = self.pokeys.scan_i2c_once("PLAY")
-        found = result.get("found", []) if isinstance(result, dict) else []
-        if not result.get("ok"):
-            return self._lks_test_result("i2c_bus", False, detail=usb_detail, error=str(result.get("error", "i2c failed")))
-        if not found:
+        play = self.pokeys.scan_i2c_once("PLAY")
+        rec = self.pokeys.scan_i2c_once("REC")
+        play_found = list((play.get("addresses") or play.get("found") or []) if isinstance(play, dict) else [])
+        rec_found = list((rec.get("addresses") or rec.get("found") or []) if isinstance(rec, dict) else [])
+        ok = bool((play.get("ok") if isinstance(play, dict) else False) or (rec.get("ok") if isinstance(rec, dict) else False))
+        if not ok:
+            return self._lks_test_result("i2c_bus", False, detail=usb_detail, error=f"PLAY={play} REC={rec}")
+        if not play_found and not rec_found:
             return self._lks_test_result("i2c_bus", False, detail=usb_detail, error="brak adresów BUS/I2C")
-        bus_detail = "addresses=" + ",".join(f"0x{int(x):02X}" for x in found)
+        bus_detail = "PLAY=" + (",".join(f"0x{int(x):02X}" for x in play_found) or "none") + " REC=" + (",".join(f"0x{int(x):02X}" for x in rec_found) or "none")
         return self._lks_test_result("i2c_bus", True, detail=f"{bus_detail}; {usb_detail}")
 
     def _lks_test_nextion7(self) -> Dict[str, Any]:

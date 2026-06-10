@@ -141,14 +141,18 @@ class TarzanTspLksHardwareTests:
     def scan_i2c_bus(self, board: str = "PLAY"):
         self._ensure_connected()
         data = self.pokeys.scan_i2c_once(board.upper())
-        return list(data.get("found", [])), str(data)
+        return list(data.get("addresses") or data.get("found") or []), str(data)
 
     def test_i2c_bus(self, visible: bool = False) -> LksHardwareTestResult:
         try:
             self._ensure_connected()
-            data = self.pokeys.scan_i2c_once("PLAY")
-            ok = bool(data.get("ok") and data.get("found"))
-            return self._res("i2c_bus", ok, True, "PoKeys BUS/I2C TarzanPoKeys scan", detail=str(data)[:220], error="" if ok else str(data.get("error", "brak adresow BUS/I2C")))
+            play = self.pokeys.scan_i2c_once("PLAY")
+            rec = self.pokeys.scan_i2c_once("REC")
+            play_found = list(play.get("addresses") or play.get("found") or [])
+            rec_found = list(rec.get("addresses") or rec.get("found") or [])
+            ok = bool((play.get("ok") or rec.get("ok")) and (play_found or rec_found))
+            detail = "PLAY=" + (",".join(f"0x{int(x):02X}" for x in play_found) or "none") + " REC=" + (",".join(f"0x{int(x):02X}" for x in rec_found) or "none")
+            return self._res("i2c_bus", ok, True, "PoKeys BUS/I2C TarzanPoKeys scan", detail=detail, error="" if ok else f"PLAY={play} REC={rec}")
         except Exception as exc:
             return self._res("i2c_bus", False, True, "PoKeys BUS/I2C TarzanPoKeys scan", error=str(exc))
 

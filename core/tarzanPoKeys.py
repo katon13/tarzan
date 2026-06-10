@@ -481,17 +481,30 @@ class TarzanPoKeys:
     # I2C / EasySensors / PoExtBus / Pulse Engine
     # ------------------------------------------------------------------
     def scan_i2c_once(self, board: str = "PLAY") -> Dict[str, Any]:
+        """Jednorazowy skan I2C przez PoKeys.
+
+        Zwraca oba klucze: ``addresses`` i ``found``. Starsze testery LKS
+        używały ``found``, a nowy core używał ``addresses`` — przez to I2C
+        mogło wyglądać jak nietestowane mimo poprawnego skanu.
+        """
+        board = str(board or "PLAY").upper()
         device = self.get_device(board)
         if device is None:
-            return {"ok": False, "addresses": [], "error": f"{board} not connected"}
+            result = {"ok": False, "addresses": [], "found": [], "error": f"{board} not connected"}
+            self.logger.info("I2C_SCAN board=%s ok=False error=%s", board, result["error"])
+            return result
         try:
             device.PK_I2CBusScanStart()
             time.sleep(0.35)
             data = device.PK_I2CBusScanGetResults()
             addrs = [addr for addr in range(0, min(128, len(data))) if int(data[addr]) == 1]
-            return {"ok": True, "addresses": addrs}
+            result = {"ok": True, "addresses": addrs, "found": addrs}
+            self.logger.info("I2C_SCAN board=%s ok=True addresses=%s", board, ",".join(f"0x{x:02X}" for x in addrs) or "none")
+            return result
         except Exception as exc:
-            return {"ok": False, "addresses": [], "error": str(exc)}
+            result = {"ok": False, "addresses": [], "found": [], "error": str(exc)}
+            self.logger.info("I2C_SCAN board=%s ok=False error=%s", board, exc)
+            return result
 
     def _i2c_addr8(self, addr7: int) -> int:
         """PoKeys wrapper pracuje jak przykłady z dokumentacji: adres 7-bit przesunięty w lewo."""

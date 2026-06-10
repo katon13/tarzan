@@ -44,6 +44,7 @@ class TarzanTspLks:
         self._last_reason = "start"
         self._screen_initialized = False
         self._last_lines: list[str] = []
+        self._tty_file = None
 
     def start(self) -> None:
         if not self.enabled or self.running:
@@ -57,6 +58,7 @@ class TarzanTspLks:
         self.running = False
         self._event.set()
         self._show_cursor_safe()
+        self._close_tty_safe()
 
     def mark_dirty(self, reason: str = "event") -> None:
         """Zgłasza ważne zdarzenie do szybszego odświeżenia ekranu.
@@ -88,44 +90,54 @@ class TarzanTspLks:
         if self.tty_path == "-":
             return
 
-        path = Path(self.tty_path)
-        if not path.exists():
+        f = self._open_tty_safe()
+        if f is None:
             return
 
-        # Bez migania: NIE czyścimy całego ekranu przy każdym odświeżeniu.
-        # Pierwszy render robi tylko jednorazowe czyszczenie, kolejne rendery
-        # nadpisują zmienione linie w miejscu. Dzięki temu LKS zachowuje się
-        # jak delikatna lampka kontrolna, a nie migający ekran logów.
-        lines = text.splitlines()
-        with path.open("w", encoding="utf-8", errors="replace") as f:
-            if not self._screen_initialized:
-                f.write("\033[?25l")      # hide cursor
-                f.write("\033[2J\033[H")  # one-time clear + home
-                self._screen_initialized = True
-                self._last_lines = []
+        # Stabilny ekran miniPC: trzymamy otwarty /dev/tty7 i rysujemy pełny
+        # dashboard od góry. Dzięki temu ręczny wpis, wygaszenie albo inny zapis
+        # na tty7 nie zostawia pustego/obcego ekranu po zakończeniu testów.
+        f.write("\033[?25l")
+        f.write("\033[H")
+        f.write(text)
+        f.write("\033[J")
+        f.flush()
+        self._screen_initialized = True
+        self._last_lines = text.splitlines()
 
-            max_lines = max(len(lines), len(self._last_lines))
-            for idx in range(max_lines):
-                new_line = lines[idx] if idx < len(lines) else ""
-                old_line = self._last_lines[idx] if idx < len(self._last_lines) else None
-                if new_line == old_line:
-                    continue
-                f.write(f"\033[{idx + 1};1H")
-                f.write(new_line)
-                f.write("\033[K")  # clear to end of line only
+    def _open_tty_safe(self):
+        if self.tty_path == "-":
+            return None
+        try:
+            if self._tty_file is not None and not self._tty_file.closed:
+                return self._tty_file
+            path = Path(self.tty_path)
+            if not path.exists():
+                return None
+            self._tty_file = path.open("w", encoding="utf-8", errors="replace", buffering=1)
+            self._tty_file.write("\033[2J\033[H")
+            self._tty_file.flush()
+            return self._tty_file
+        except Exception:
+            self._tty_file = None
+            return None
 
-            f.flush()
-        self._last_lines = lines
+    def _close_tty_safe(self) -> None:
+        try:
+            if self._tty_file is not None and not self._tty_file.closed:
+                self._tty_file.close()
+        except Exception:
+            pass
+        self._tty_file = None
 
     def _show_cursor_safe(self) -> None:
         if self.tty_path == "-":
             return
         try:
-            path = Path(self.tty_path)
-            if path.exists():
-                with path.open("w", encoding="utf-8", errors="replace") as f:
-                    f.write("\033[?25h")
-                    f.flush()
+            f = self._open_tty_safe()
+            if f is not None:
+                f.write("\033[?25h")
+                f.flush()
         except Exception:
             pass
 

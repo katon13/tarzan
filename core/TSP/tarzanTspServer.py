@@ -625,6 +625,10 @@ class TarzanTspServer:
         except Exception as exc:
             self.logger.error("Could not init SignalBus in TarzanTspServer: %s", exc)
 
+        # LKS-TTY na miniPC startuje PRZED diagnostyką hardware, żeby ekran
+        # /dev/tty7 był aktywny przez cały boot/test i nie znikał po testach.
+        self.lks.start()
+
         # ETAP 5: Spięcie SignalBus z Hardware Bridge na miniPC (tor wykonawczy)
         try:
             from core.tarzanHardwareBridge import TarzanHardwareBridge
@@ -657,7 +661,6 @@ class TarzanTspServer:
         except Exception:
             pass
 
-        self.lks.start()
         self._init_lks_n5()
         self._accept_thread = threading.Thread(target=self._accept_loop, name="TSP-ACCEPT", daemon=True)
         self._lane_thread = threading.Thread(target=self._lane_loop, name="TSP-LANES", daemon=True)

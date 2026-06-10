@@ -786,6 +786,19 @@ class TarzanPoKeys:
             self.logger.debug("PE axis enable failed axis=%s: %s", axis_idx, exc)
             return False
 
+
+    def set_pulse_axis_position(self, device: Any, axis_idx: int, target_pos: int) -> bool:
+        """Ustawia pozycję osi Pulse Engine przez jeden wspólny tor TARZAN PoKeys."""
+        try:
+            axis_idx = int(axis_idx)
+            target_pos = int(target_pos)
+            device.PK_PEv2_StatusGet()
+            device.device.contents.PEv2.Axes[axis_idx].Position = target_pos
+            return device.PK_PEv2_PositionSet() == 0
+        except Exception as exc:
+            self.logger.debug("PE position set failed axis=%s target=%s: %s", axis_idx, target_pos, exc)
+            return False
+
     def write_pulse_signal(self, sig: TarzanSygnal, value: Any) -> bool:
         # Ruch właściwy zostaje w Snajper/PARcore/HardwareBridge. Tu jest punkt wejścia biblioteki.
         # Nie generujemy ruchu w ciemno, jeśli sygnał nie ma jawnego kanału osi.
@@ -823,11 +836,21 @@ class TarzanPoKeys:
         repl = repl.replace("ń", "n").replace("ć", "c")
         return repl[:width]
 
-    def lcd_init(self, board: str = "PLAY") -> Dict[str, Any]:
+    def _resolve_device_target(self, target: Any, default_board: str = "PLAY") -> Tuple[str, Any]:
+        """Przyjmuje nazwę płytki PLAY/REC albo już otwarty uchwyt PoKeys."""
+        if isinstance(target, str):
+            board = target.upper()
+            return board, self.get_device(board)
+        for board, dev in self.devices.items():
+            if dev is target:
+                return board, dev
+        return default_board.upper(), target
+
+    def lcd_init(self, board: Any = "PLAY") -> Dict[str, Any]:
         with self._lock:
             if self.logical_sleep:
                 self.logical_wake()
-            device = self.get_device(board)
+            board, device = self._resolve_device_target(board, "PLAY")
             if device is None:
                 return {"ok": False, "board": board, "error": f"{board} not connected"}
             try:
@@ -848,11 +871,11 @@ class TarzanPoKeys:
             except Exception as exc:
                 return {"ok": False, "board": board, "error": str(exc)}
 
-    def lcd_write_lines(self, board: str, line1: str, line2: str) -> Dict[str, Any]:
+    def lcd_write_lines(self, board: Any, line1: str, line2: str) -> Dict[str, Any]:
         with self._lock:
             if self.logical_sleep:
                 self.logical_wake()
-            device = self.get_device(board)
+            board, device = self._resolve_device_target(board, "PLAY")
             if device is None:
                 return {"ok": False, "board": board, "error": f"{board} not connected"}
             try:
@@ -915,11 +938,11 @@ class TarzanPoKeys:
             rows.append(value & 0xFF)
         return rows
 
-    def matrix_write_frame(self, board: str = "REC", rows: Iterable[int] = ()) -> Dict[str, Any]:
+    def matrix_write_frame(self, board: Any = "REC", rows: Iterable[int] = ()) -> Dict[str, Any]:
         with self._lock:
             if self.logical_sleep:
                 self.logical_wake()
-            device = self.get_device(board)
+            board, device = self._resolve_device_target(board, "REC")
             if device is None:
                 return {"ok": False, "board": board, "error": f"{board} not connected"}
             try:
@@ -997,6 +1020,421 @@ class TarzanPoKeys:
                 return {"ok": False, "error": str(exc)}
 
     # ------------------------------------------------------------------
+    # Pełniejsza warstwa wykonawcza PoKeys wg dokumentacji / bindingu
+    # ------------------------------------------------------------------
+    def _call_device(self, board: Any, method_name: str, *args: Any, default_board: str = "PLAY") -> Dict[str, Any]:
+        """Jedno bezpieczne wejście do funkcji PK_*.
+
+        Runtime TARZANA nie powinien wołać PK_* poza tym plikiem. Ta metoda
+        daje wspólny lock, logical_wake, obsługę braku urządzenia i jednolity
+        format wyniku dla metod wykonawczych.
+        """
+        with self._lock:
+            if self.logical_sleep:
+                self.logical_wake()
+            resolved_board, device = self._resolve_device_target(board, default_board)
+            if device is None:
+                return {"ok": False, "board": resolved_board, "method": method_name, "error": f"{resolved_board} not connected"}
+            try:
+                fn = getattr(device, method_name, None)
+                if fn is None:
+                    return {"ok": False, "board": resolved_board, "method": method_name, "error": "method unavailable"}
+                rc = fn(*args)
+                return {"ok": rc == 0 or rc is True or rc is None, "board": resolved_board, "method": method_name, "rc": rc}
+            except Exception as exc:
+                return {"ok": False, "board": resolved_board, "method": method_name, "error": str(exc)}
+
+    @staticmethod
+    def _plain_value(value: Any, max_items: int = 32) -> Any:
+        """Mały konwerter ctypes/list do prostego dict/list bez ciężkiego chodzenia po pamięci."""
+        try:
+            if isinstance(value, (str, int, float, bool)) or value is None:
+                return value
+            if isinstance(value, bytes):
+                return value[:max_items].hex()
+            if hasattr(value, "value") and not hasattr(value, "_fields_"):
+                return value.value
+            if hasattr(value, "_fields_"):
+                out: Dict[str, Any] = {}
+                for name, _typ in list(value._fields_)[:max_items]:
+                    try:
+                        out[name] = TarzanPoKeys._plain_value(getattr(value, name), max_items=8)
+                    except Exception:
+                        out[name] = "<unreadable>"
+                return out
+            if hasattr(value, "__len__") and not isinstance(value, dict):
+                return [TarzanPoKeys._plain_value(value[i], max_items=8) for i in range(min(len(value), max_items))]
+            return str(value)
+        except Exception:
+            return str(value)
+
+    def _device_snapshot(self, board: Any, section: Optional[str] = None, default_board: str = "PLAY") -> Dict[str, Any]:
+        with self._lock:
+            resolved_board, device = self._resolve_device_target(board, default_board)
+            if device is None:
+                return {"ok": False, "board": resolved_board, "error": f"{resolved_board} not connected"}
+            try:
+                root = device.device.contents
+                if section:
+                    return {"ok": True, "board": resolved_board, "section": section, "data": self._plain_value(getattr(root, section))}
+                return {"ok": True, "board": resolved_board, "data": self._plain_value(root)}
+            except Exception as exc:
+                return {"ok": False, "board": resolved_board, "section": section, "error": str(exc)}
+
+    # --- konfiguracja urządzenia / podstawy ---------------------------------
+    def save_configuration(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_SaveConfiguration")
+
+    def clear_configuration(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_ClearConfiguration")
+
+    def get_connection_type(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_GetCurrentDeviceConnectionType")
+
+    def get_device_data_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        res = self._call_device(board, "PK_DeviceDataGet")
+        if res.get("ok"):
+            snap = self._device_snapshot(board, "DeviceData")
+            res["data"] = snap.get("data")
+        return res
+
+    def get_pin_configuration_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        res = self._call_device(board, "PK_PinConfigurationGet")
+        if res.get("ok"):
+            snap = self._device_snapshot(board, "Pins")
+            res["pins"] = snap.get("data")
+        return res
+
+    def set_pin_configuration_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PinConfigurationSet")
+
+    # --- GPIO / liczniki / analog --------------------------------------------
+    def digital_io_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        res = self._call_device(board, "PK_DigitalIOGet")
+        if res.get("ok"):
+            res["values"] = self.poll_gpio_inputs_once()
+        return res
+
+    def digital_io_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_DigitalIOSet")
+
+    def digital_io_set_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_DigitalIOSetGet")
+
+    def digital_io_get_single_once(self, board: Any = "PLAY", pin: int = 1) -> Dict[str, Any]:
+        with self._lock:
+            resolved_board, device = self._resolve_device_target(board, "PLAY")
+            if device is None:
+                return {"ok": False, "board": resolved_board, "pin": pin, "error": f"{resolved_board} not connected"}
+            try:
+                value = device.PK_DigitalIOGetSingle(int(pin) - 1)
+                return {"ok": True, "board": resolved_board, "pin": int(pin), "value": int(value)}
+            except Exception as exc:
+                return {"ok": False, "board": resolved_board, "pin": pin, "error": str(exc)}
+
+    def digital_counter_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        res = self._call_device(board, "PK_DigitalCounterGet")
+        if res.get("ok"):
+            snap = self._device_snapshot(board, "Pins")
+            res["pins"] = snap.get("data")
+        return res
+
+    def is_counter_available_once(self, board: Any = "PLAY", pin: int = 1) -> Dict[str, Any]:
+        return self._call_device(board, "PK_IsCounterAvailable", int(pin) - 1)
+
+    def analog_io_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        res = self._call_device(board, "PK_AnalogIOGet")
+        if res.get("ok"):
+            res["values"] = self.poll_analog_inputs_once()
+        return res
+
+    def analog_filter_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        res = self._call_device(board, "PK_AnalogRCFilterGet")
+        if res.get("ok"):
+            snap = self._device_snapshot(board, "DeviceData")
+            res["data"] = snap.get("data")
+        return res
+
+    def analog_filter_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_AnalogRCFilterSet")
+
+    # --- PWM ------------------------------------------------------------------
+    def pwm_configuration_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        res = self._call_device(board, "PK_PWMConfigurationGet")
+        if res.get("ok"):
+            snap = self._device_snapshot(board, "PWM")
+            res["pwm"] = snap.get("data")
+        return res
+
+    def pwm_configuration_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PWMConfigurationSet")
+
+    def pwm_update_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PWMUpdate")
+
+    def pwm_set_direct_once(self, board: Any = "PLAY", period: int = 0, duty_cycles: Optional[Iterable[int]] = None) -> Dict[str, Any]:
+        duty = list(duty_cycles or [])
+        return self._call_device(board, "PK_PWMConfigurationSetDirectly", int(period), duty)
+
+    def pwm_update_direct_once(self, board: Any = "PLAY", duty_cycles: Optional[Iterable[int]] = None) -> Dict[str, Any]:
+        duty = list(duty_cycles or [])
+        return self._call_device(board, "PK_PWMUpdateDirectly", duty)
+
+    # --- enkodery -------------------------------------------------------------
+    def encoder_configuration_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        res = self._call_device(board, "PK_EncoderConfigurationGet")
+        if res.get("ok"):
+            snap = self._device_snapshot(board, "Encoders")
+            res["encoders"] = snap.get("data")
+        return res
+
+    def encoder_configuration_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_EncoderConfigurationSet")
+
+    def encoder_values_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        res = self._call_device(board, "PK_EncoderValuesGet")
+        if res.get("ok"):
+            snap = self._device_snapshot(board, "Encoders")
+            res["encoders"] = snap.get("data")
+        return res
+
+    def encoder_values_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_EncoderValuesSet")
+
+    # --- LCD / Matrix config niskiego poziomu przez tarzanPoKeys -------------
+    def lcd_configuration_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        res = self._call_device(board, "PK_LCDConfigurationGet")
+        if res.get("ok"):
+            snap = self._device_snapshot(board, "LCD")
+            res["lcd"] = snap.get("data")
+        return res
+
+    def lcd_configuration_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_LCDConfigurationSet")
+
+    def lcd_update_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_LCDUpdate")
+
+    def matrix_led_configuration_get_once(self, board: Any = "REC") -> Dict[str, Any]:
+        res = self._call_device(board, "PK_MatrixLEDConfigurationGet", default_board="REC")
+        if res.get("ok"):
+            snap = self._device_snapshot(board, "MatrixLED", default_board="REC")
+            res["matrix"] = snap.get("data")
+        return res
+
+    def matrix_led_configuration_set_once(self, board: Any = "REC") -> Dict[str, Any]:
+        return self._call_device(board, "PK_MatrixLEDConfigurationSet", default_board="REC")
+
+    def matrix_led_update_once(self, board: Any = "REC") -> Dict[str, Any]:
+        return self._call_device(board, "PK_MatrixLEDUpdate", default_board="REC")
+
+    def matrix_keyboard_configuration_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        res = self._call_device(board, "PK_MatrixKBConfigurationGet")
+        if res.get("ok"):
+            snap = self._device_snapshot(board, "matrixKB")
+            res["keyboard"] = snap.get("data")
+        return res
+
+    def matrix_keyboard_configuration_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_MatrixKBConfigurationSet")
+
+    def matrix_keyboard_status_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self.read_keypad_once()
+
+    # --- Pulse Engine / CNC / PoStep -----------------------------------------
+    def pulse_engine_setup_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_PulseEngineSetup")
+
+    def pulse_engine_state_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_PulseEngineStateSet")
+
+    def pulse_engine_move_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_PulseEngineMove")
+
+    def pulse_engine_move_pv_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_PulseEngineMovePV")
+
+    def pulse_engine_status2_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_Status2Get")
+
+    def pulse_engine_external_outputs_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_ExternalOutputsGet")
+
+    def pulse_engine_external_outputs_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_ExternalOutputsSet")
+
+    def pulse_engine_buffer_clear_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_BufferClear")
+
+    def pulse_engine_reboot_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_PulseEngineReboot")
+
+    def pulse_engine_homing_start_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_HomingStart")
+
+    def pulse_engine_homing_finish_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_HomingFinish")
+
+    def pulse_engine_probing_start_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_ProbingStart")
+
+    def pulse_engine_probing_finish_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_ProbingFinish")
+
+    def pulse_engine_threading_status_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_ThreadingStatusGet")
+
+    def pulse_engine_threading_cancel_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_ThreadingCancel")
+
+    def postep_configuration_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoStep_ConfigurationGet")
+
+    def postep_configuration_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoStep_ConfigurationSet")
+
+    def postep_status_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoStep_StatusGet")
+
+    def postep_driver_configuration_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoStep_DriverConfigurationGet")
+
+    def postep_driver_configuration_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoStep_DriverConfigurationSet")
+
+    def internal_drivers_configuration_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_InternalDriversConfigurationGet")
+
+    def internal_drivers_configuration_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PEv2_InternalDriversConfigurationSet")
+
+    # --- EasySensors / 1-Wire -------------------------------------------------
+    def easy_sensors_setup_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_EasySensorsSetupGet")
+
+    def easy_sensors_setup_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_EasySensorsSetupSet")
+
+    def one_wire_status_set_once(self, board: Any = "PLAY", activated: bool = True) -> Dict[str, Any]:
+        return self._call_device(board, "PK_1WireStatusSet", 1 if activated else 0)
+
+    def one_wire_status_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_1WireStatusGet")
+
+    def one_wire_read_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_1WireRead")
+
+    def one_wire_scan_once(self, board: Any = "PLAY", pin: int = 1, retries: int = 5) -> Dict[str, Any]:
+        return self._call_device(board, "PK_1WireScan", int(pin) - 1, int(retries))
+
+    def easy_sensor_configure_1wire_once(
+        self,
+        board: Any = "PLAY",
+        slot: int = 0,
+        pin: int = 1,
+        rom: Optional[Iterable[int]] = None,
+        reading_id: int = 0,
+        period: int = 10,
+        failsafe: int = 0,
+    ) -> Dict[str, Any]:
+        return self._call_device(board, "PK_EasySensorConfigure_1wire", int(slot), int(pin) - 1, list(rom or []), int(reading_id), int(period), int(failsafe))
+
+    # --- PoExtBus / PoNET -----------------------------------------------------
+    def poextbus_get_once(self, board: Any = "REC") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoExtBusGet", default_board="REC")
+
+    def poextbus_set_once(self, board: Any = "REC") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoExtBusSet", default_board="REC")
+
+    def ponet_status_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoNETGetPoNETStatus")
+
+    def ponet_module_settings_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoNETGetModuleSettings")
+
+    def ponet_module_status_request_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoNETGetModuleStatusRequest")
+
+    def ponet_module_status_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoNETGetModuleStatus")
+
+    def ponet_module_status_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoNETSetModuleStatus")
+
+    def ponet_module_pwm_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoNETSetModulePWM")
+
+    def ponet_module_light_request_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoNETGetModuleLightRequest")
+
+    def ponet_module_light_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoNETGetModuleLight")
+
+    # --- CAN / SPI / RTC ------------------------------------------------------
+    def can_configure_once(self, board: Any = "PLAY", bitrate: int = 125000) -> Dict[str, Any]:
+        return self._call_device(board, "PK_CANConfigure", int(bitrate))
+
+    def can_register_filter_once(self, board: Any = "PLAY", frame_format: int = 0, can_id: int = 0) -> Dict[str, Any]:
+        return self._call_device(board, "PK_CANRegisterFilter", int(frame_format), int(can_id))
+
+    def can_flush_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_CANFlush")
+
+    def spi_configure_once(self, board: Any = "PLAY", prescaler: int = 250, frame_format: int = 0) -> Dict[str, Any]:
+        return self._call_device(board, "PK_SPIConfigure", int(prescaler), int(frame_format))
+
+    def spi_write_once(self, board: Any = "PLAY", data: Optional[Iterable[int]] = None, pin_cs: int = 8) -> Dict[str, Any]:
+        return self._call_device(board, "PK_SPIWrite", list(data or []), int(pin_cs))
+
+    def spi_read_once(self, board: Any = "PLAY", read_len: int = 1) -> Dict[str, Any]:
+        return self._call_device(board, "PK_SPIRead", int(read_len))
+
+    def spi_transfer_once(self, board: Any = "PLAY", data: Optional[Iterable[int]] = None, pin_cs: int = 8) -> Dict[str, Any]:
+        return self._call_device(board, "PK_SPI", list(data or []), int(pin_cs))
+
+    def rtc_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_RTCGet")
+
+    def rtc_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_RTCSet")
+
+    # --- PoIL -----------------------------------------------------------------
+    def poil_get_state_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoILGetState")
+
+    def poil_set_core_state_once(self, board: Any = "PLAY", state: int = 0) -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoILSetCoreState", int(state))
+
+    def poil_set_master_enable_once(self, board: Any = "PLAY", enabled: bool = False) -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoILSetMasterEnable", 1 if enabled else 0)
+
+    def poil_reset_core_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoILResetCore")
+
+    def poil_task_status_once(self, board: Any = "PLAY") -> Dict[str, Any]:
+        return self._call_device(board, "PK_PoILTaskStatus")
+
+    def diagnostic_capability_report_once(self) -> Dict[str, Any]:
+        """Raport pokrycia metod wykonawczych. Bez ciężkich testów i bez pętli."""
+        groups = self.inventory()
+        return {
+            "ok": True,
+            "connected": self.connected_count(),
+            "all_connected": self.is_all_connected(),
+            "inventory": groups,
+            "runtime_rule": "PK_* only inside core/tarzanPoKeys.py",
+            "method_groups": {
+                "boards": ["connect_all", "connect_board", "logical_idle", "logical_wake", "safe_stop"],
+                "gpio_analog": ["digital_io_get_once", "digital_io_get_single_once", "analog_io_get_once", "poll_gpio_inputs_once", "poll_analog_inputs_once"],
+                "i2c_sensors": ["scan_i2c_once", "read_bh1750_lux_once", "read_lm75_temp_once", "read_sht21_once", "read_mma7660_level_once", "read_mcp3425_adc_once", "read_posensors_once"],
+                "ui_hardware": ["lcd_write_lines", "matrix_write_frame", "read_f_buttons_once", "blink_f_led_once", "read_keypad_once"],
+                "cnc_postep": ["get_pulse_engine_status", "set_pulse_axis_enable", "set_pulse_axis_position", "postep_status_get_once"],
+                "extended": ["pwm_configuration_get_once", "encoder_values_get_once", "one_wire_scan_once", "ponet_status_get_once", "spi_transfer_once", "rtc_get_once"],
+            },
+        }
+
+
+    # ------------------------------------------------------------------
     # Testy punktowe używane przez LKS / PARcore
     # ------------------------------------------------------------------
     def test_board_once(self, board: str) -> bool:
@@ -1013,12 +1451,17 @@ class TarzanPoKeys:
 
     def test_all_once(self, update: Optional[Callable[[str, Any, str], None]] = None) -> Dict[str, Any]:
         return {
+            "capabilities": self.diagnostic_capability_report_once(),
             "inventory": self.inventory(),
             "boards": {"PLAY": self.test_board_once("PLAY"), "REC": self.test_board_once("REC")},
+            "device_data": {"PLAY": self.get_device_data_once("PLAY"), "REC": self.get_device_data_once("REC")},
             "potentiometers": self.test_potentiometers_once(update),
             "xyz_poksyg": self.read_xyz_poksyg_once(update),
             "posensors": self.read_posensors_once("PLAY", update),
             "sensors": self.test_sensors_once(update),
             "cnc": self.test_cnc_once(),
+            "postep": {"PLAY": self.postep_status_get_once("PLAY"), "REC": self.postep_status_get_once("REC")},
+            "poextbus": self.poextbus_get_once("REC"),
+            "easy_sensors": self.easy_sensors_setup_get_once("PLAY"),
             "tfluna_uart": self.read_tfluna_uart_once(),
         }

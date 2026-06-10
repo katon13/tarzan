@@ -413,35 +413,36 @@ class TarzanHardwareBridge:
             if play is not None:
                 self._poll_pulse_engine_status(play)
 
-    def _poll_pulse_engine_status(self, device: Any) -> None:
-        """Czyta READY, ALARM i pozycję z Pulse Engine v2."""
-        try:
-            device.PK_PEv2_StatusGet()
 
-            # Mapowanie osi TARZAN na kanały PE
+    def _poll_pulse_engine_status(self, device: Any) -> None:
+        """Czyta READY, ALARM i pozycję przez core/tarzanPoKeys.py."""
+        try:
+            status = self.pokeys.get_pulse_engine_status(device)
+            if not status.get("ok"):
+                err = status.get("error")
+                if err:
+                    self.logger.debug("Pulse Engine poll error: %s", err)
+                return
+
             from core.tarzanZmienneSygnalowe import LISTA_NAZW_OSI
 
+            axes = status.get("axes", {}) or {}
             for idx, ax_name in enumerate(LISTA_NAZW_OSI):
-                if idx >= 8: break # PoKeys obsługuje do 8 osi
-
-                axis_state = device.PEv2.AxesState[idx]
-                axis_pos = device.PEv2.CurrentPosition[idx]
-
-                # Bity statusu PE v2:
-                # Bit 0: Axis enabled, Bit 1: Axis running, Bit 2: Axis error/alarm
+                if idx >= 8:
+                    break
+                axis = axes.get(str(idx), {}) if isinstance(axes, dict) else {}
+                axis_state = int(axis.get("state", 0) or 0)
+                axis_pos = int(axis.get("pos", 0) or 0)
                 is_enabled = (axis_state & 0x01) == 0x01
                 is_running = (axis_state & 0x02) == 0x02
                 has_alarm = (axis_state & 0x04) == 0x04
                 axis_ready = 1 if (is_enabled and not has_alarm) else 0
-
-                # ZASADA SNAJPERA: Aktualizacja SignalBus TYLKO przy zmianie
                 self._update_if_changed(f"axis_{ax_name}_ready", axis_ready, source="HW.PE", is_input=True)
                 self._update_if_changed(f"axis_{ax_name}_alarm", 1 if has_alarm else 0, source="HW.PE", is_input=True)
                 self._update_if_changed(f"axis_{ax_name}_running", 1 if is_running else 0, source="HW.PE", is_input=True)
                 self._update_if_changed(f"axis_{ax_name}_pos", axis_pos, source="HW.PE", force_signal=True)
-
         except Exception as e:
-            self.logger.debug(f"Pulse Engine poll error: {e}")
+            self.logger.debug("Pulse Engine poll error: %s", e)
 
     def _update_if_changed(self, name: str, value: Any, source: str, is_input: bool = False, force_signal: bool = False) -> None:
         """Pomocnik aktualizujący sygnał tylko przy realnej zmianie hardware."""
@@ -479,53 +480,19 @@ class TarzanHardwareBridge:
             repl = repl.replace(src, dst)
         return repl[:width].ljust(width)
 
+
     def _lks_lcd_init(self, device: Any) -> None:
-        lcd = device.device.contents.LCD
-        lcd.Configuration = 2
-        lcd.Rows = 2
-        lcd.Columns = 16
-        for call, name in (
-            (device.PK_LCDConfigurationSet, "PK_LCDConfigurationSet"),
-            (lambda: device.PK_LCDChangeMode(0), "PK_LCDChangeMode"),
-            (device.PK_LCDInit, "PK_LCDInit"),
-            (device.PK_LCDClear, "PK_LCDClear"),
-        ):
-            rc = call()
-            if rc != 0:
-                raise RuntimeError(f"{name} zwróciło {rc}")
+        # Stary bezpośredni tor LCD został przeniesiony do core/tarzanPoKeys.py.
+        self.pokeys.lcd_init(device)
+
 
     def _lks_lcd_write_lines(self, device: Any, line1: str, line2: str) -> None:
-        if device.PK_LCDMoveCursor(1, 1) != 0:
-            raise RuntimeError("PK_LCDMoveCursor(1,1) failed")
-        if device.PK_LCDPrint(self._lcd_text(line1, 16)) != 0:
-            raise RuntimeError("PK_LCDPrint line1 failed")
-        if device.PK_LCDMoveCursor(2, 1) != 0:
-            raise RuntimeError("PK_LCDMoveCursor(2,1) failed")
-        if device.PK_LCDPrint(self._lcd_text(line2, 16)) != 0:
-            raise RuntimeError("PK_LCDPrint line2 failed")
+        # Stary bezpośredni tor LCD został przeniesiony do core/tarzanPoKeys.py.
+        self.pokeys.lcd_write_lines(device, line1, line2)
+
 
     def _lks_test_lcd_1602(self, visible: bool = True) -> Dict[str, Any]:
-        details: List[str] = []
-        errors: List[str] = []
-        for board in ("PLAY", "REC"):
-            device = self._device_ready(board)
-            if device is None:
-                errors.append(f"{board}: not connected")
-                continue
-            try:
-                if visible:
-                    self._lks_lcd_init(device)
-                    self._lks_lcd_write_lines(device, f"LKS-N5 {board}", "TEST LCD")
-                    time.sleep(0.60)
-                    try:
-                        device.PK_LCDClear()
-                    except Exception:
-                        pass
-                    self._lks_lcd_write_lines(device, "BEZ BLEDOW", "GOTOWE")
-                details.append(self._device_identity_text(board, device))
-            except Exception as exc:
-                errors.append(f"{board}: {exc}")
-        return self._lks_test_result("lcd_1602", not errors, detail="; ".join(details), error="; ".join(errors))
+        return self.pokeys.test_lcd_1602_once(visible=visible)
 
     _MATRIX_FONT_5X7: Dict[str, List[int]] = {
         " ": [0, 0, 0, 0, 0],
@@ -556,47 +523,14 @@ class TarzanHardwareBridge:
             rows.append(value & 0xFF)
         return rows
 
+
     def _lks_matrix_write_frame(self, device: Any, rows: Sequence[int]) -> None:
-        matrix_ptr = device.device.contents.MatrixLED
-        if not matrix_ptr:
-            raise RuntimeError("PoKeysLib nie udostępnił struktury MatrixLED")
-        matrix = matrix_ptr[0]
-        matrix.displayEnabled = 1
-        matrix.rows = 8
-        matrix.columns = 8
-        matrix.RefreshFlag = 1
-        for i in range(8):
-            matrix.data[i] = int(rows[i]) & 0xFF if i < len(rows) else 0
-        rc = device.PK_MatrixLEDConfigurationSet()
-        if rc != 0:
-            raise RuntimeError(f"PK_MatrixLEDConfigurationSet zwróciło {rc}")
-        rc = device.PK_MatrixLEDUpdate()
-        if rc != 0:
-            raise RuntimeError(f"PK_MatrixLEDUpdate zwróciło {rc}")
+        # Stary bezpośredni tor MatrixLED został przeniesiony do core/tarzanPoKeys.py.
+        self.pokeys.matrix_write_frame(device, rows)
+
 
     def _lks_test_matrix_led(self, visible: bool = True) -> Dict[str, Any]:
-        device = self._device_ready("REC")
-        if device is None:
-            return self._lks_test_result("matrix_led", False, error="REC not connected")
-        try:
-            if visible:
-                try:
-                    try:
-                        device.PK_MatrixLEDConfigurationGet()
-                    except Exception:
-                        pass
-                    self._lks_matrix_write_frame(device, self._matrix_rows_from_text("OK"))
-                    time.sleep(0.45)
-                    self._lks_matrix_write_frame(device, [0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55])
-                    time.sleep(0.35)
-                finally:
-                    try:
-                        self._lks_matrix_write_frame(device, [0] * 8)
-                    except Exception:
-                        pass
-            return self._lks_test_result("matrix_led", True, detail=self._device_identity_text("REC", device))
-        except Exception as exc:
-            return self._lks_test_result("matrix_led", False, error=str(exc))
+        return self.pokeys.test_matrix_led_once(visible=visible)
 
     def _lks_read_pin(self, device: Any, pin: int) -> int:
         return self.pokeys.read_pin(device, pin)
@@ -647,49 +581,23 @@ class TarzanHardwareBridge:
         except Exception as exc:
             return self._lks_test_result("f_button", False, error=str(exc))
 
-    def _lks_test_keypad(self, visible: bool = True) -> Dict[str, Any]:
-        device = self._device_ready("PLAY")
-        if device is None:
-            return self._lks_test_result("keypad", False, error="PLAY not connected")
-        try:
-            rc = device.PK_MatrixKBConfigurationGet()
-            if rc != 0:
-                raise RuntimeError(f"PK_MatrixKBConfigurationGet zwróciło {rc}")
-            rc = device.PK_MatrixKBStatusGet()
-            if rc != 0:
-                raise RuntimeError(f"PK_MatrixKBStatusGet zwróciło {rc}")
-            base = [int(device.device.contents.matrixKB.matrixKBvalues[i]) for i in range(128)]
-            if visible:
-                end = time.time() + 2.5
-                while time.time() < end:
-                    device.PK_MatrixKBStatusGet()
-                    cur = [int(device.device.contents.matrixKB.matrixKBvalues[i]) for i in range(128)]
-                    if cur != base:
-                        return self._lks_test_result("keypad", True, detail="matrix value changed")
-                    time.sleep(0.05)
-                return self._lks_test_result("keypad", False, error="nie wykryto klawisza")
-            return self._lks_test_result("keypad", True, detail="PK_MatrixKBStatusGet OK")
-        except Exception as exc:
-            return self._lks_test_result("keypad", False, error=str(exc))
+
+    def _lks_test_keypad(self, visible: bool = False) -> Dict[str, Any]:
+        return self.pokeys.read_keypad_once()
+
 
     def _lks_test_i2c_bus(self) -> Dict[str, Any]:
-        device = self._device_ready("PLAY")
         serial_links = sorted(glob.glob("/dev/serial/by-id/*"))
         tty_links = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
         usb_detail = "USB=" + (",".join(serial_links[:3] or tty_links[:3]) or "no-tty")
-        if device is None:
-            return self._lks_test_result("i2c_bus", False, detail=usb_detail, error="PLAY not connected")
-        try:
-            device.PK_I2CBusScanStart()
-            time.sleep(0.35)
-            devices = device.PK_I2CBusScanGetResults()
-            found = [addr for addr in range(0, min(128, len(devices))) if int(devices[addr]) == 1]
-            if not found:
-                return self._lks_test_result("i2c_bus", False, detail=usb_detail, error="brak adresów BUS/I2C")
-            bus_detail = "addresses=" + ",".join(f"0x{x:02X}" for x in found)
-            return self._lks_test_result("i2c_bus", True, detail=f"{bus_detail}; {usb_detail}")
-        except Exception as exc:
-            return self._lks_test_result("i2c_bus", False, detail=usb_detail, error=str(exc))
+        result = self.pokeys.scan_i2c_once("PLAY")
+        found = result.get("found", []) if isinstance(result, dict) else []
+        if not result.get("ok"):
+            return self._lks_test_result("i2c_bus", False, detail=usb_detail, error=str(result.get("error", "i2c failed")))
+        if not found:
+            return self._lks_test_result("i2c_bus", False, detail=usb_detail, error="brak adresów BUS/I2C")
+        bus_detail = "addresses=" + ",".join(f"0x{int(x):02X}" for x in found)
+        return self._lks_test_result("i2c_bus", True, detail=f"{bus_detail}; {usb_detail}")
 
     def _lks_test_nextion7(self) -> Dict[str, Any]:
         """Bezpieczny test obecności portu Nextion 7 / USB-UART bez otwierania HMI."""
@@ -718,25 +626,12 @@ class TarzanHardwareBridge:
             return self._lks_test_result("next_7", True, detail=", ".join(existing[:3]))
         return self._lks_test_result("next_7", False, detail=", ".join(candidates[:3]), error="brak portu Nextion 7 na miniPC")
 
+
     def _lks_test_bh1750(self, address: int = 0x5C) -> Dict[str, Any]:
-        device = self._device_ready("PLAY")
-        if device is None:
-            return self._lks_test_result("light_bh1750", False, error="PLAY not connected")
-        try:
-            device.PK_I2CWrite(int(address), [0x01])
-            time.sleep(0.02)
-            device.PK_I2CWrite(int(address), [0x07])
-            time.sleep(0.02)
-            device.PK_I2CWrite(int(address), [0x20])
-            time.sleep(0.18)
-            data = device.PK_I2CRead(int(address), 2)
-            if data is None or len(data) < 2:
-                raise RuntimeError(f"brak 2 bajtów z 0x{address:02X}")
-            raw = (int(data[0]) << 8) | int(data[1])
-            lux = raw / 1.2
-            return self._lks_test_result("light_bh1750", True, detail=f"0x{address:02X} raw={raw} lux={lux:.2f}")
-        except Exception as exc:
-            return self._lks_test_result("light_bh1750", False, error=str(exc))
+        result = self.pokeys.read_bh1750_lux_once(board="PLAY", addr7=address)
+        if not result.get("ok"):
+            return self._lks_test_result("light_bh1750", False, error=str(result.get("error", "BH1750 failed")))
+        return self._lks_test_result("light_bh1750", True, detail=f"0x{int(result.get('addr', address)):02X} raw={result.get('raw')} lux={float(result.get('lux', 0.0)):.2f}")
 
     def _normalize_lks_component(self, component: str) -> str:
         raw = str(component or "").strip()
@@ -1024,72 +919,44 @@ class TarzanHardwareBridge:
             except Exception as exc:
                 self.logger.debug(f"Write hardware error ({name}={value}): {exc}")
 
+
     def _handle_pulse_engine_enable(self, syg: TarzanSygnal, value: Any, device: Any) -> None:
-        """Włącza/wyłącza oś w Pulse Engine (Etap 13)."""
+        """Włącza/wyłącza oś przez core/tarzanPoKeys.py."""
         try:
-            axis_idx = int(syg.kanal) if syg.kanal and syg.kanal.isdigit() else 0
-            # Konfiguracja osi
-            device.PK_PEv2_AxisConfigurationGet(axis_idx)
-            if value == 1:
-                device.PEv2.AxesConfig[axis_idx] |= 0x01 # PK_AC_ENABLED
-            else:
-                device.PEv2.AxesConfig[axis_idx] &= ~0x01
-            device.PK_PEv2_AxisConfigurationSet(axis_idx)
-            
-            # Aktualizujemy status w SignalBus
-            ax_base = syg.nazwa.replace("_en", "")
-            self.bus.set_input(f"{ax_base}_enabled", 1 if value else 0, source="HW.PE")
+            axis_idx = self.pokeys.axis_index_from_signal(syg)
+            if axis_idx is None:
+                axis_idx = int(syg.kanal) if syg.kanal and str(syg.kanal).isdigit() else 0
+            ok = self.pokeys.set_pulse_axis_enable(device, int(axis_idx), bool(value))
+            if ok:
+                ax_base = syg.nazwa.replace("_en", "")
+                self.bus.set_input(f"{ax_base}_enabled", 1 if value else 0, source="HW.PE")
         except Exception as e:
-            self.logger.debug(f"Pulse Engine EN error: {e}")
+            self.logger.debug("Pulse Engine EN error: %s", e)
+
 
     def _handle_pulse_engine_write(self, syg: TarzanSygnal, value: Any, device: Any) -> None:
-        """
-        Implementacja Pulse Engine v2 dla PoKeys (Etap 14 + 15).
-        Obsługuje narastające zbocza impulsów STEP i nakłada korekty KHR.
-        """
+        """STEP/DIR/pozycja osi przez core/tarzanPoKeys.py, bez bezpośredniego toru PoKeys w Bridge."""
         if not self.safety_axis_unlock:
-            # Blokada bezpieczeństwa - logujemy tylko raz na jakiś czas
             if time.time() % 10 < 0.1:
                 self.logger.warning("PHYSICAL MOTION BLOCKED by safety_axis_unlock=False (Etap 13 Safety)")
             return
-
         try:
-            # Zakładamy, że 'kanal' sygnału to indeks osi (np. "0", "1", ...)
-            axis_idx = int(syg.kanal) if syg.kanal and syg.kanal.isdigit() else 0
-            
-            # Pobieramy nazwę bazową osi, np. axis_cam_h
-            # Nazwa sygnału to np. axis_cam_h_step
+            axis_idx = self.pokeys.axis_index_from_signal(syg)
+            if axis_idx is None:
+                axis_idx = int(syg.kanal) if syg.kanal and str(syg.kanal).isdigit() else 0
             axis_base = syg.nazwa.replace("_step", "")
-            
             if axis_base not in self._abs_positions:
                 self._abs_positions[axis_base] = 0
-
-            # Reagujemy tylko na impuls (zbocze narastające)
             if value == 1:
-                # Sprawdzamy kierunek w SignalBus
                 dir_signal = axis_base + "_dir"
                 dir_val = self.bus.read(dir_signal, 1)
-                
-                # Aktualizujemy licznik lokalny (Etap 14 - Playback stream)
-                step_inc = 1 if dir_val == 1 else -1
-                self._abs_positions[axis_base] += step_inc
-
-            # PROTOKOŁ KOREKTY KHR (Etap 15 - Szkielet / Blending)
-            # Obecnie implementujemy prosty offset pozycji.
-            # Docelowo: wygładzanie (lerp) i blending z krzywą bazową.
+                self._abs_positions[axis_base] += 1 if dir_val == 1 else -1
             khr_signal = f"khr_{axis_base[5:]}_offset"
             khr_offset = int(float(self.bus.read(khr_signal, 0.0)))
-            
-            # Pozycja docelowa = TAKE (local counter) + KHR offset
             target_pos = self._abs_positions[axis_base] + khr_offset
-            
-            # Aktualizujemy PoKeys Pulse Engine
-            device.PK_PEv2_StatusGet()
-            device.PEv2.Axes[axis_idx].Position = target_pos
-            device.PK_PEv2_PositionSet()
-            
+            self.pokeys.set_pulse_axis_position(device, int(axis_idx), int(target_pos))
         except Exception as exc:
-            self.logger.debug(f"Pulse Engine robust write error: {exc}")
+            self.logger.debug("Pulse Engine robust write error: %s", exc)
 
     def snapshot(self) -> Dict[str, Any]:
         """Zwraca aktualny stan hardware (jeśli adapter ma własną tablicę)."""

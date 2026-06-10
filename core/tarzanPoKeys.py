@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import platform
 import threading
 import time
@@ -134,7 +135,10 @@ class TarzanPoKeys:
         self._signal_groups = self.build_signal_groups(WSZYSTKIE_SYGNALY)
         self.snajper = TarzanPoKeysSnajper(logger, default_sample_ms=10)
         self._i2c_scan_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
-        self._i2c_scan_cache_ttl_s = 5.0
+        self._i2c_scan_cache_ttl_s = 30.0
+        self._i2c_force_min_gap_s = 2.0
+        self._slow_i2c_reads_enabled = os.environ.get("TARZAN_ENABLE_SLOW_I2C_SENSOR_READS") == "1"
+        self._runtime_i2c_scan_enabled = os.environ.get("TARZAN_ALLOW_RUNTIME_I2C_SCAN") == "1"
 
     # ------------------------------------------------------------------
     # Biblioteka / połączenia
@@ -172,7 +176,8 @@ class TarzanPoKeys:
                 if self.devices.get(board) is None:
                     self.devices[board] = self.connect_board(board, serial, path)
             self.logical_sleep = False
-            self.snajper.arm("connect_all", duration_s=2.0, sample_ms=10)
+            # Samo połączenie PLAY/REC nie oznacza aktywnego próbkowania.
+            # Próbkowanie uruchamia jawnie HardwareBridge/Snajper/KHR albo test punktowy.
             return self.connected_count()
 
     def connect_board(self, board: str, serial: int, lib_path: Optional[str] = None) -> Any:
@@ -318,6 +323,30 @@ class TarzanPoKeys:
     def signals(self, group: str) -> List[TarzanSygnal]:
         return list(self._signal_groups.get(group, []))
 
+    def begin_active_sampling(self, source: str = "SNAJPER", duration_s: float = 1.5, sample_ms: int = 10) -> None:
+        """Jawne okno próbkowania PoKeys dla Snajpera/KHR/testu punktowego.
+
+        IDLE nie odpytuje sprzętu. Ten przełącznik jest wejściem dla warstwy,
+        która naprawdę potrzebuje szybkich próbek. Minimalny krok to 10 ms.
+        """
+        self.snajper.arm(source=source, duration_s=duration_s, sample_ms=max(10, int(sample_ms)))
+
+    def end_active_sampling(self) -> None:
+        self.snajper.disarm()
+
+    def enable_slow_i2c_reads(self, enabled: bool = True) -> None:
+        """Włącza ciężkie odczyty I2C sensorów tylko dla jawnego testu/serwisu."""
+        self._slow_i2c_reads_enabled = bool(enabled)
+        if enabled:
+            self._runtime_i2c_scan_enabled = True
+
+    def enable_i2c_diagnostics(self, enabled: bool = True) -> None:
+        """Pozwala na diagnostyczny scan I2C; domyślnie runtime/startup nie skanuje I2C."""
+        self._runtime_i2c_scan_enabled = bool(enabled)
+
+    def _i2c_allowed(self, *, force: bool = False) -> bool:
+        return bool(force or self._slow_i2c_reads_enabled or self._runtime_i2c_scan_enabled)
+
     # ------------------------------------------------------------------
     # Odczyty niskiego poziomu: tylko na żądanie / aktywne okno
     # ------------------------------------------------------------------
@@ -411,9 +440,9 @@ class TarzanPoKeys:
     # ------------------------------------------------------------------
     # Poll jednorazowy, tylko gdy aktywnie testujemy / wykonujemy
     # ------------------------------------------------------------------
-    def poll_gpio_inputs_once(self, gpio_inputs: Iterable[TarzanSygnal], update: Callable[[str, Any, str], None]) -> None:
+    def poll_gpio_inputs_once(self, gpio_inputs: Iterable[TarzanSygnal], update: Callable[[str, Any, str], None], *, force: bool = False) -> None:
         with self._lock:
-            if not self._snajper_due("gpio_inputs", sample_ms=10):
+            if not self._snajper_due("gpio_inputs", sample_ms=10, force=force):
                 return
             for board_name, device in self.devices.items():
                 if device is None:
@@ -430,9 +459,9 @@ class TarzanPoKeys:
                 except Exception as exc:
                     self.logger.debug("PoKeys GPIO poll %s error: %s", board_name, exc)
 
-    def poll_analog_inputs_once(self, analog_inputs: Iterable[TarzanSygnal], update: Callable[[str, Any, str], None]) -> None:
+    def poll_analog_inputs_once(self, analog_inputs: Iterable[TarzanSygnal], update: Callable[[str, Any, str], None], *, force: bool = False) -> None:
         with self._lock:
-            if not self._snajper_due("analog_inputs", sample_ms=10):
+            if not self._snajper_due("analog_inputs", sample_ms=10, force=force):
                 return
             grouped: Dict[str, List[TarzanSygnal]] = {"PLAY": [], "REC": []}
             for sig in analog_inputs:
@@ -457,6 +486,47 @@ class TarzanPoKeys:
     # ------------------------------------------------------------------
     # Potencjometry RRP / CNC / sensory — testy na żądanie
     # ------------------------------------------------------------------
+    def sample_fast_once(
+        self,
+        update: Optional[Callable[[str, Any, str], None]] = None,
+        *,
+        include_counters: bool = False,
+        force: bool = False,
+    ) -> Dict[str, Any]:
+        """Szybka próbka dla KHR/Snajpera: analog + digital, maksymalnie co 10 ms.
+
+        Nie dotyka I2C, LCD, Matrix, PoExtBus ani Pulse Engine. Liczniki/CTR
+        tylko gdy caller jawnie poda include_counters=True.
+        """
+        if self.logical_sleep and not force:
+            return self._skipped("fast_sample")
+        if not self.snajper.due("fast_sample", sample_ms=10, force=force):
+            return {"ok": False, "skipped": True, "reason": "snajper_not_due"}
+
+        result: Dict[str, Any] = {"ok": False, "analog": {}, "digital": {}, "counters": {}, "errors": []}
+
+        def _upd(name: str, val: Any, source: str) -> None:
+            if update:
+                update(name, val, source)
+
+        try:
+            self.poll_analog_inputs_once(self.signals("analog_in"), lambda n, v, src: (result["analog"].__setitem__(n, v), _upd(n, v, src)), force=True)
+        except Exception as exc:
+            result["errors"].append(f"analog: {exc}")
+        try:
+            gpio = [s for s in (self.signals("gpio_in") + self.signals("sensors") + self.signals("limits")) if s.pin is not None]
+            self.poll_gpio_inputs_once(gpio, lambda n, v, src: (result["digital"].__setitem__(n, v), _upd(n, v, src)), force=True)
+        except Exception as exc:
+            result["errors"].append(f"digital: {exc}")
+        if include_counters:
+            for board in ("PLAY", "REC"):
+                try:
+                    result["counters"][board] = self.digital_counter_get_once(board)
+                except Exception as exc:
+                    result["errors"].append(f"counters.{board}: {exc}")
+        result["ok"] = not result["errors"]
+        return result
+
     def test_potentiometers_once(self, update: Optional[Callable[[str, Any, str], None]] = None) -> Dict[str, Any]:
         out: Dict[str, Any] = {"ok": False, "values": {}, "errors": []}
         with self._lock:
@@ -537,19 +607,10 @@ class TarzanPoKeys:
             self.poll_gpio_inputs_once(sensor_gpio, lambda n, v, s: (result["digital"].__setitem__(n, v), _upd(n, v, s)))
         except Exception as exc:
             result["errors"].append(f"digital: {exc}")
-        try:
-            result["i2c_scan"] = self.scan_i2c_once("PLAY")
-        except Exception as exc:
-            result["errors"].append(f"i2c_scan: {exc}")
-        try:
-            # read_posensors_once korzysta z cache skanu, nie wykonuje kolejnego scan jeśli cache jest świeży.
-            result["posensors"] = self.read_posensors_once("PLAY", update=update)
-        except Exception as exc:
-            result["errors"].append(f"posensors: {exc}")
-        try:
-            result["easy_sensors"] = self.read_easy_sensors_once("PLAY")
-        except Exception as exc:
-            result["errors"].append(f"easy_sensors: {exc}")
+        # I2C/PoSensors to wolny tor diagnostyczny. Nie uruchamiamy go w runtime/startup.
+        result["i2c_scan"] = {"ok": False, "skipped": True, "reason": "i2c_runtime_disabled"}
+        result["posensors"] = {"ok": False, "skipped": True, "reason": "slow_i2c_reads_disabled_in_runtime"}
+        result["easy_sensors"] = {"ok": False, "skipped": True, "reason": "slow_i2c_reads_disabled_in_runtime"}
         result["ok"] = len(result["errors"]) == 0
         return result
 
@@ -562,12 +623,21 @@ class TarzanPoKeys:
         now = time.monotonic()
         ttl = self._i2c_scan_cache_ttl_s if cache_ttl_s is None else max(0.0, float(cache_ttl_s))
         cached = self._i2c_scan_cache.get(board)
-        if cached and not force and ttl > 0 and (now - cached[0]) <= ttl:
+        if cached and ttl > 0 and (now - cached[0]) <= ttl:
             out = dict(cached[1])
             out["cached"] = True
             return out
+        # Nawet force nie ma prawa młócić magistrali kilka razy pod rząd.
+        # Do twardego debugowania użyć cache_ttl_s=0.
+        if cached and ttl > 0 and (now - cached[0]) <= self._i2c_force_min_gap_s:
+            out = dict(cached[1])
+            out["cached"] = True
+            out["force_throttled"] = True
+            return out
         if self.logical_sleep and not force:
             return {"ok": False, "addresses": [], "found": [], "skipped": True, "reason": "logical_sleep", "board": board}
+        if not self._i2c_allowed(force=force):
+            return {"ok": False, "addresses": [], "found": [], "skipped": True, "reason": "i2c_runtime_disabled", "board": board}
         device = self.get_device(board)
         if device is None:
             result = {"ok": False, "addresses": [], "found": [], "error": f"{board} not connected", "board": board}
@@ -579,7 +649,7 @@ class TarzanPoKeys:
             data = device.PK_I2CBusScanGetResults()
             addrs = [addr for addr in range(0, min(128, len(data))) if int(data[addr]) == 1]
             result = {"ok": True, "addresses": addrs, "found": addrs, "board": board}
-            self._i2c_scan_cache[board] = (now, dict(result))
+            self._i2c_scan_cache[board] = (time.monotonic(), dict(result))
             self.logger.info("I2C_SCAN board=%s ok=True addresses=%s", board, ",".join(f"0x{x:02X}" for x in addrs) or "none")
             return result
         except Exception as exc:
@@ -592,6 +662,8 @@ class TarzanPoKeys:
         return (int(addr7) & 0x7F) << 1
 
     def i2c_write(self, board: str, addr7: int, data: Iterable[int]) -> bool:
+        if not self._i2c_allowed():
+            return False
         device = self.get_device(board)
         if device is None:
             return False
@@ -603,6 +675,8 @@ class TarzanPoKeys:
             return False
 
     def i2c_read(self, board: str, addr7: int, n: int) -> Optional[List[int]]:
+        if not self._i2c_allowed():
+            return None
         device = self.get_device(board)
         if device is None:
             return None
@@ -616,6 +690,8 @@ class TarzanPoKeys:
             return None
 
     def i2c_write_read(self, board: str, addr7: int, write: Iterable[int], n: int) -> Optional[List[int]]:
+        if not self._i2c_allowed():
+            return None
         device = self.get_device(board)
         if device is None:
             return None
@@ -759,7 +835,11 @@ class TarzanPoKeys:
         """
         if self.logical_sleep and not force:
             return self._skipped("posensors")
-        scan = self.scan_i2c_once(board, force=force)
+        if not self._slow_i2c_reads_enabled:
+            # PoSensors po I2C są wolne i nie są to próbki 10 ms dla KHR.
+            # Domyślnie nie robimy nawet scan_i2c_once, żeby startup/runtime nie młócił magistrali.
+            return {"ok": False, "skipped": True, "reason": "slow_i2c_reads_disabled", "board": str(board).upper()}
+        scan = self.scan_i2c_once(board, force=True)
         out: Dict[str, Any] = {
             "scan": scan,
             "bh1750": self.read_bh1750_lux_once(board, scan=scan),
@@ -1235,7 +1315,15 @@ class TarzanPoKeys:
     def digital_io_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
         res = self._call_device(board, "PK_DigitalIOGet")
         if res.get("ok"):
-            res["values"] = self.poll_gpio_inputs_once()
+            values: Dict[str, Any] = {}
+            b = str(board).upper()
+            device = self.get_device(b)
+            if device is not None:
+                pins_ptr = device.device.contents.Pins
+                for sig in self.signals("gpio_in"):
+                    if str(sig.plytka).upper() == b and sig.pin is not None:
+                        values[sig.nazwa] = 1 if pins_ptr[int(sig.pin) - 1].DigitalValueGet else 0
+            res["values"] = values
         return res
 
     def digital_io_set_once(self, board: Any = "PLAY") -> Dict[str, Any]:
@@ -1268,7 +1356,15 @@ class TarzanPoKeys:
     def analog_io_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
         res = self._call_device(board, "PK_AnalogIOGet")
         if res.get("ok"):
-            res["values"] = self.poll_analog_inputs_once()
+            values: Dict[str, Any] = {}
+            b = str(board).upper()
+            device = self.get_device(b)
+            if device is not None:
+                pins = device.device.contents.Pins
+                for sig in self.signals("analog_in"):
+                    if str(sig.plytka).upper() == b and sig.pin is not None:
+                        values[sig.nazwa] = int(pins[int(sig.pin) - 1].AnalogValue)
+            res["values"] = values
         return res
 
     def analog_filter_get_once(self, board: Any = "PLAY") -> Dict[str, Any]:
@@ -1561,6 +1657,8 @@ class TarzanPoKeys:
     # Testy punktowe używane przez LKS / PARcore
     # ------------------------------------------------------------------
     def test_board_once(self, board: str) -> bool:
+        if self.logical_sleep:
+            return False
         device = self.get_device(board)
         if device is None:
             return False
@@ -1577,14 +1675,15 @@ class TarzanPoKeys:
 
         Nie jest to pętla runtime. PoSensors czytamy raz; reszta korzysta z lekkich testów.
         """
-        posensors = self.read_posensors_once("PLAY", update)
+        i2c_scan = {"ok": False, "skipped": True, "reason": "i2c_runtime_disabled"}
         return {
             "capabilities": self.diagnostic_capability_report_once(),
             "inventory": self.inventory(),
             "boards": {"PLAY": self.test_board_once("PLAY"), "REC": self.test_board_once("REC")},
             "potentiometers": self.test_potentiometers_once(update),
             "xyz_poksyg": self.read_xyz_poksyg_once(update),
-            "posensors": posensors,
+            "i2c_scan": i2c_scan,
+            "posensors": {"ok": False, "skipped": True, "reason": "slow_i2c_reads_disabled_in_test_all"},
             "cnc": self.test_cnc_once(),
             "poextbus": self.poextbus_get_once("REC"),
             "tfluna_uart": self.read_tfluna_uart_once(),

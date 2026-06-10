@@ -21,6 +21,8 @@ from core.tarzanZmienneSygnalowe import (
     HW_POEXTBUS,
     HW_PULSE,
     HW_PWM,
+    HW_RESERVED,
+    HW_SYSTEM,
     TarzanSygnal,
 )
 
@@ -202,13 +204,14 @@ class TarzanPoKeys:
                     if self.devices.get(board) is None:
                         self.devices[board] = self.connect_board(board, serial, path)
                 self.logical_sleep = False
-                # Po połączeniu musi przyjść twarde potwierdzenie ABC.
-                # Brak potwierdzenia z core/tarzanPokABC.py = FAIL CLOSED.
-                abc = self.assert_project_configuration_once(force_i2c=False)
+                # ABC nie tylko sprawdza. Jeżeli płytka ma stary setup, robimy
+                # JEDEN restore konfiguracji z tarzanPokABC.py, zapis do PoKeys,
+                # odczyt kontrolny i ponowny verify. Bez pętli.
+                abc = self.configure_and_verify_project_once(force_i2c=False, restore_if_needed=True)
                 if not abc.get("ok"):
                     self._abc_boot_confirmed = False
                     self._abc_last_result = abc
-                    self.logger.error("POKEYS ABC BOOT BLOCK: PLAY/REC not confirmed by tarzanPokABC.py")
+                    self.logger.error("POKEYS ABC BOOT BLOCK: PLAY/REC not confirmed after ABC restore-once")
                     return 0
                 self._abc_boot_confirmed = True
                 self._abc_last_result = abc
@@ -1402,6 +1405,7 @@ class TarzanPoKeys:
                     "PK_DigitalCounterGet", "PK_DigitalIOSetSingle",
                     "PK_PinConfigurationGet", "PK_PinConfigurationSet",
                     "PK_PoExtBusSet", "PK_PoExtBusGet", "PK_PEv2_PositionSet",
+                    "PK_SaveConfiguration", "PK_ClearConfiguration",
                     # EXEC obejmuje realny zapis akcesoriów z PAR (LCD/Matrix/FLED),
                     # ale nie jest używany do stałego pollingu ani I2C scanów.
                     "PK_LCDInit", "PK_LCDUpdate", "PK_LCDConfigurationGet", "PK_LCDConfigurationSet",
@@ -1419,7 +1423,8 @@ class TarzanPoKeys:
                     "PK_IsConnected", "PK_GetCurrentDeviceConnectionType",
                     "PK_DigitalCounterGet", "PK_DigitalIOSetSingle",
                     "PK_PoExtBusSet", "PK_PoExtBusGet", "PK_PEv2_PositionSet",
-                    "PK_DeviceDataGet", "PK_PinConfigurationGet",
+                    "PK_SaveConfiguration", "PK_ClearConfiguration",
+                    "PK_DeviceDataGet", "PK_PinConfigurationGet", "PK_PinConfigurationSet",
                     "PK_LCDInit", "PK_LCDUpdate", "PK_LCDConfigurationGet", "PK_LCDConfigurationSet",
                     "PK_LCDClear", "PK_LCDPrint", "PK_LCDMoveCursor", "PK_LCDChangeMode",
                     "PK_MatrixLEDConfigurationGet", "PK_MatrixLEDConfigurationSet", "PK_MatrixLEDUpdate",
@@ -1992,6 +1997,242 @@ class TarzanPoKeys:
         item["ok"] = not item["errors"]
         return item
 
+
+    def _abc_expected_pin_function(self, sig: TarzanSygnal) -> Optional[int]:
+        """Bazowa funkcja pinu wg TARZAN ABC.
+
+        Oparta o dokumentację PoKeys: pin ma bazową funkcję digital input,
+        digital output albo analog input; funkcje specjalne LCD/Matrix/I2C/
+        PoExtBus/Pulse mają osobne ACK, ale pin musi mieć bezpieczny bazowy
+        kierunek. Nie generuje ruchu osi.
+        """
+        if ePK_PinCap is None:
+            return None
+        typ = str(sig.typ or "").upper()
+        direction = str(sig.kierunek or "").upper()
+        hf = str(sig.hardware_function or "").upper()
+        try:
+            if typ == "ANALOG" or hf == HW_ANALOG:
+                return int(ePK_PinCap.PK_PinCap_analogInput)
+            if typ == "RESERVED" or direction == "RESERVED" or hf in {HW_RESERVED, HW_SYSTEM}:
+                restricted = getattr(ePK_PinCap, "PK_PinCap_pinRestricted", None)
+                if restricted is not None:
+                    return int(restricted)
+                return int(ePK_PinCap.PK_PinCap_digitalInput)
+            if direction == "OUT":
+                return int(ePK_PinCap.PK_PinCap_digitalOutput)
+            if direction == "IN":
+                return int(ePK_PinCap.PK_PinCap_digitalInput)
+            if typ == "F":
+                return int(ePK_PinCap.PK_PinCap_digitalOutput)
+        except Exception:
+            return None
+        return None
+
+    def _abc_safe_output_value(self, sig: TarzanSygnal) -> Optional[int]:
+        """Domyślny stan bezpieczny TARZAN po konfiguracji ABC.
+
+        WAŻNE PoKeys: dla zwykłego nieodwróconego wyjścia cyfrowego zapis
+        wartości 0 daje fizycznie stan wysoki ok. 3.3 V, a zapis 1 daje
+        fizycznie stan niski 0 V. Dlatego bezpieczne OFF/LOW dla TARZAN to
+        tutaj wartość zapisywana do PoKeys = 1.
+
+        Cel: LED off, ENABLE off, STEP low, bridge/mass/auto off.
+        Nie odpalamy PulseEngineMove, MovePV ani żadnego ruchu osi.
+        """
+        if str(sig.kierunek or "").upper() != "OUT":
+            return None
+
+        # Fizyczny LOW/OFF na PoKeys digital output. Nie zmieniać na 0:
+        # 0 w API PoKeys daje fizycznie HIGH na nieodwróconym wyjściu.
+        return 1
+
+    def apply_project_board_configuration_once(self, board: str = "PLAY", *, save_to_flash: bool = True) -> Dict[str, Any]:
+        """Ustawia JEDNĄ płytkę PLAY/REC według ABC i zapisuje do PoKeys.
+
+        To jest restore-once dla starego setupu płytki. Nie działa w pętli,
+        nie generuje STEP, nie uruchamia Pulse Engine move.
+        """
+        board = str(board or "").upper()
+        out: Dict[str, Any] = {"ok": False, "board": board, "applied": 0, "safe_outputs": 0, "saved": False, "errors": [], "warnings": []}
+        if self.pokabc is None:
+            out["errors"].append("ABC_NOT_AVAILABLE")
+            return out
+        contract = self.project_board_contract(board)
+        if not contract.get("ok"):
+            out["errors"].append("ABC_CONTRACT_FAIL")
+            out["contract_errors"] = contract.get("errors", [])
+            return out
+        with self._lock:
+            old_state = self.state
+            self.set_state("POINT_TEST")
+            try:
+                dev = self.get_device(board)
+                if dev is None:
+                    out["errors"].append("NO_DEVICE")
+                    return out
+                data_res = self._call_device(board, "PK_DeviceDataGet")
+                if not data_res.get("ok"):
+                    out["errors"].append(f"PK_DeviceDataGet:{data_res.get('error') or data_res.get('rc')}")
+                    return out
+                try:
+                    actual_serial = int(getattr(dev.device.contents.DeviceData, "SerialNumber", 0))
+                    ident = self.pokabc.verify_board_identity_from_serial(board, actual_serial)
+                    out["identity"] = ident
+                    if not ident.get("ok"):
+                        out["errors"].append("BAD_SERIAL")
+                        return out
+                except Exception as exc:
+                    out["errors"].append(f"SERIAL_READ_ERROR:{exc}")
+                    return out
+
+                cfg_get = self._call_device(board, "PK_PinConfigurationGet")
+                if not cfg_get.get("ok"):
+                    out["errors"].append(f"PK_PinConfigurationGet:{cfg_get.get('error') or cfg_get.get('rc')}")
+                    return out
+
+                pins_ptr = dev.device.contents.Pins
+                board_signals = [s for s in WSZYSTKIE_SYGNALY.values() if str(s.plytka or "").upper() == board and s.pin is not None]
+                for sig in sorted(board_signals, key=lambda s: int(s.pin or 999)):
+                    expected = self._abc_expected_pin_function(sig)
+                    if expected is None:
+                        out["warnings"].append(f"P{sig.pin}:{sig.nazwa}:NO_EXPECTED_PIN_FUNCTION")
+                        continue
+                    try:
+                        pins_ptr[int(sig.pin) - 1].PinFunction = int(expected)
+                        out["applied"] += 1
+                    except Exception as exc:
+                        out["errors"].append(f"P{sig.pin}:{sig.nazwa}:PIN_APPLY_ERROR:{exc}")
+
+                if out["errors"]:
+                    return out
+                cfg_set = self._call_device(board, "PK_PinConfigurationSet")
+                out["pin_configuration_set"] = cfg_set
+                if not cfg_set.get("ok"):
+                    out["errors"].append(f"PK_PinConfigurationSet:{cfg_set.get('error') or cfg_set.get('rc')}")
+                    return out
+
+                # Default safe state: wszystkie OUT ustawiamy w fizyczne LOW/OFF.
+                # W PoKeys zapis 1 oznacza fizycznie 0 V na nieodwróconym wyjściu.
+                for sig in sorted(board_signals, key=lambda s: int(s.pin or 999)):
+                    value = self._abc_safe_output_value(sig)
+                    if value is None:
+                        continue
+                    try:
+                        pin_idx = int(sig.pin) - 1
+                        pins_ptr[pin_idx].DigitalValueSet = int(value)
+                        res = self._call_device(board, "PK_DigitalIOSetSingle", pin_idx, int(value))
+                        if not res.get("ok"):
+                            out["warnings"].append(f"P{sig.pin}:{sig.nazwa}:SAFE_OUTPUT_SET_WARN:{res.get('error') or res.get('rc')}")
+                        else:
+                            out["safe_outputs"] += 1
+                    except Exception as exc:
+                        out["warnings"].append(f"P{sig.pin}:{sig.nazwa}:SAFE_OUTPUT_ERROR:{exc}")
+
+                # Odczyt po ustawieniu, potem zapis do pamięci PoKeys.
+                self._call_device(board, "PK_DigitalIOGet")
+                self._call_device(board, "PK_PinConfigurationGet")
+                if save_to_flash:
+                    save_res = self.save_configuration(board)
+                    out["save"] = save_res
+                    out["saved"] = bool(save_res.get("ok"))
+                    if not save_res.get("ok"):
+                        out["errors"].append(f"PK_SaveConfiguration:{save_res.get('error') or save_res.get('rc')}")
+                        return out
+                out["ok"] = not out["errors"]
+                return out
+            finally:
+                self.set_state(old_state)
+
+    def apply_project_configuration_once(self, *, save_to_flash: bool = True) -> Dict[str, Any]:
+        """Ustawia PLAY i REC według ABC dokładnie raz."""
+        play = self.apply_project_board_configuration_once("PLAY", save_to_flash=save_to_flash)
+        rec = self.apply_project_board_configuration_once("REC", save_to_flash=save_to_flash)
+        errors: List[str] = []
+        warnings: List[str] = []
+        for res in (play, rec):
+            errors.extend([f"{res.get('board')}:{e}" for e in res.get("errors", [])])
+            warnings.extend([f"{res.get('board')}:{w}" for w in res.get("warnings", [])])
+        return {"ok": not errors, "boards": {"PLAY": play, "REC": rec}, "errors": errors, "warnings": warnings, "restore_once": True}
+
+    def apply_default_safe_state_once(self) -> Dict[str, Any]:
+        """Zeruje bezpieczne wyjścia PLAY/REC po poprawnym ABC, bez zapisu pętlowego."""
+        out: Dict[str, Any] = {"ok": True, "boards": {}, "errors": [], "warnings": []}
+        for board in ("PLAY", "REC"):
+            board_res: Dict[str, Any] = {"ok": True, "board": board, "safe_outputs": 0, "warnings": [], "errors": []}
+            with self._lock:
+                old_state = self.state
+                self.set_state("POINT_TEST")
+                try:
+                    dev = self.get_device(board)
+                    if dev is None:
+                        board_res["errors"].append("NO_DEVICE")
+                        board_res["ok"] = False
+                    else:
+                        for sig in sorted(WSZYSTKIE_SYGNALY.values(), key=lambda s: int(s.pin or 999)):
+                            if str(sig.plytka or "").upper() != board or sig.pin is None:
+                                continue
+                            value = self._abc_safe_output_value(sig)
+                            if value is None:
+                                continue
+                            pin_idx = int(sig.pin) - 1
+                            res = self._call_device(board, "PK_DigitalIOSetSingle", pin_idx, int(value))
+                            if res.get("ok"):
+                                board_res["safe_outputs"] += 1
+                            else:
+                                board_res["warnings"].append(f"P{sig.pin}:{sig.nazwa}:{res.get('error') or res.get('rc')}")
+                finally:
+                    self.set_state(old_state)
+            out["boards"][board] = board_res
+            out["errors"].extend([f"{board}:{e}" for e in board_res.get("errors", [])])
+            out["warnings"].extend([f"{board}:{w}" for w in board_res.get("warnings", [])])
+        out["ok"] = not out["errors"]
+        return out
+
+    def configure_and_verify_project_once(self, *, force_i2c: bool = False, restore_if_needed: bool = True) -> Dict[str, Any]:
+        """Verify ABC; gdy wykryje stary setup, restore ABC RAZ, save, readback, verify.
+
+        Brak pętli. Jedno podejście restore na start albo po wykrytym rozjeździe.
+        """
+        first = self.verify_project_configuration_once(force_i2c=force_i2c)
+        if first.get("ok"):
+            safe = self.apply_default_safe_state_once()
+            first["abc_confirmed"] = True
+            first["restored"] = False
+            first["safe_state"] = safe
+            self._abc_boot_confirmed = True
+            self._abc_last_result = first
+            self.logger.info("POKEYS ABC OK: PLAY/REC already confirmed; default safe state applied once")
+            return first
+        if not restore_if_needed:
+            first["abc_confirmed"] = False
+            self._abc_boot_confirmed = False
+            self._abc_last_result = first
+            return first
+
+        self.logger.warning("POKEYS ABC RESTORE_ONCE: config mismatch detected, applying TARZAN ABC to PLAY/REC once")
+        apply_res = self.apply_project_configuration_once(save_to_flash=True)
+        second = self.verify_project_configuration_once(force_i2c=force_i2c)
+        safe = self.apply_default_safe_state_once() if second.get("ok") else {"ok": False, "skipped": True, "reason": "ABC_VERIFY_AFTER_RESTORE_FAILED"}
+        result = {
+            "ok": bool(second.get("ok")),
+            "abc_confirmed": bool(second.get("ok")),
+            "restored": True,
+            "first_verify": first,
+            "apply": apply_res,
+            "second_verify": second,
+            "safe_state": safe,
+            "errors": [] if second.get("ok") else list(second.get("errors", [])),
+            "warnings": list(first.get("warnings", [])) + list(apply_res.get("warnings", [])) + list(second.get("warnings", [])),
+        }
+        self._abc_boot_confirmed = bool(result.get("ok"))
+        self._abc_last_result = result
+        if result.get("ok"):
+            self.logger.info("POKEYS ABC RESTORE_ONCE OK: PLAY/REC saved, read back and confirmed")
+        else:
+            self.logger.error("POKEYS ABC RESTORE_ONCE FAIL: %s", "; ".join(str(x) for x in result.get("errors", [])[:20]))
+        return result
+
     def verify_project_board_configuration_once(
         self,
         board: str = "PLAY",
@@ -2156,12 +2397,15 @@ class TarzanPoKeys:
             self._abc_last_result = res
             self.logger.error("POKEYS ABC FAIL: core/tarzanPokABC.py unavailable")
             return res
-        res = self.verify_project_configuration_once(force_i2c=force_i2c)
+        res = self.configure_and_verify_project_once(force_i2c=force_i2c, restore_if_needed=True)
         res["abc_confirmed"] = bool(res.get("ok"))
         self._abc_boot_confirmed = bool(res.get("ok"))
         self._abc_last_result = res
         if res.get("ok"):
-            self.logger.info("POKEYS ABC OK: PLAY/REC confirmed by core/tarzanPokABC.py")
+            if res.get("restored"):
+                self.logger.info("POKEYS ABC OK: restored once, saved and confirmed by core/tarzanPokABC.py")
+            else:
+                self.logger.info("POKEYS ABC OK: PLAY/REC confirmed by core/tarzanPokABC.py")
         else:
             self.logger.error("POKEYS ABC FAIL: %s", "; ".join(str(x) for x in res.get("errors", [])[:20]))
         return res

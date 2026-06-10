@@ -481,27 +481,25 @@ class TarzanTspServer:
             self.logger.info("LKS-N5 POINT TEST component=%s", name)
             self.lks_n5.blink_component(name, base_value=base)
 
-            # ETAP 1I: PAR/EHR nie są lokalnym sprzętem miniPC. Ich status na
-            # LKS-N5 ma wynikać z realnego połączenia klienta TSP, a nie z
-            # konserwatywnej diagnostyki repo/procesów, która nie widzi aplikacji
-            # PAR uruchomionej na stacji operatorskiej. Dzięki temu kliknięcie
-            # ikony PAR na Nextion 5 sprawdza prawdziwy stan LIVE: czy PAR jest
-            # podłączony i heartbeat/ping przechodzi przez TSP.
-            if name == "par_sys":
-                ok = len(self.clients()) > 0
+            hw_bridge = getattr(self, "hw_bridge", None)
+            if hw_bridge is None or not hasattr(hw_bridge, "test_lks_component"):
+                result = {"ok": False, "error": "NO_HARDWAREBRIDGE", "detail": ""}
             else:
-                bridge_components = {"pok_play", "pok_rec", "lcd_1602", "matrix_led", "f_button", "f_led", "keypad", "i2c_bus", "light_bh1750", "next_7"}
-                hw_bridge = getattr(self, "hw_bridge", None)
-                if name in bridge_components and hw_bridge is not None and hasattr(hw_bridge, "test_lks_component"):
-                    result = hw_bridge.test_lks_component(name, visible=True)
-                    ok = bool(result.get("ok", False))
-                    detail = str(result.get("detail", "") or result.get("error", ""))
-                    if detail:
-                        self.logger.info("LKS-N5 POINT TEST DETAIL component=%s %s", name, detail)
-                else:
-                    diagnostics = TarzanTspLksDiagnostics()
-                    diagnostics.run_component(name)
-                    ok = bool(diagnostics.status_map().get(name, False))
+                result = hw_bridge.test_lks_component(name, visible=True)
+
+            ok = bool(result.get("ok", False))
+            detail = str(result.get("detail", "") or "")
+            error = str(result.get("error", "") or "")
+            self.logger.info(
+                "LKS-N5 POINT TEST MATRIX component=%s ok=%s tester=%s method=%s expect=%s detail=%s error=%s",
+                name,
+                ok,
+                result.get("tester", ""),
+                result.get("method", ""),
+                result.get("expect", ""),
+                detail,
+                error,
+            )
 
             self.lks_n5.set_status(name, ok)
             self._lks_n5_status_cache[name] = ok

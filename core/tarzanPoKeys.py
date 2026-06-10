@@ -15,6 +15,7 @@ from core.tarzanZmienneSygnalowe import (
     HW_ANALOG,
     HW_GPIO,
     HW_I2C,
+    HW_KEYBOARD,
     HW_LCD,
     HW_MATRIX_LED,
     HW_POEXTBUS,
@@ -22,6 +23,14 @@ from core.tarzanZmienneSygnalowe import (
     HW_PWM,
     TarzanSygnal,
 )
+
+try:
+    from core.tarzanPokABC import TarzanPokABC, TARZAN_POKEYS_BOARD_ARCHITECTURE
+    TARZAN_POKABC_AVAILABLE = True
+except Exception:  # pragma: no cover - boot must fail closed when ABC is unavailable
+    TarzanPokABC = None  # type: ignore[assignment]
+    TARZAN_POKEYS_BOARD_ARCHITECTURE = {}  # type: ignore[assignment]
+    TARZAN_POKABC_AVAILABLE = False
 
 # PoKeys binding for TARZAN miniPC/Linux.
 # Runtime nie używa już starego toru Windows DLL ani hardware/pokeys/.
@@ -143,6 +152,9 @@ class TarzanPoKeys:
         self.last_lib_path = ""
         self._last_error: Dict[str, str] = {}
         self._signal_groups = self.build_signal_groups(WSZYSTKIE_SYGNALY)
+        self.pokabc = TarzanPokABC(logger, WSZYSTKIE_SYGNALY) if TARZAN_POKABC_AVAILABLE and TarzanPokABC is not None else None
+        self._abc_boot_confirmed = False
+        self._abc_last_result: Dict[str, Any] = {"ok": False, "error": "ABC_NOT_CONFIRMED"}
         self.snajper = TarzanPoKeysSnajper(logger, default_sample_ms=10)
         self._i2c_scan_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
         self._i2c_scan_cache_ttl_s = 30.0
@@ -190,6 +202,16 @@ class TarzanPoKeys:
                     if self.devices.get(board) is None:
                         self.devices[board] = self.connect_board(board, serial, path)
                 self.logical_sleep = False
+                # Po połączeniu musi przyjść twarde potwierdzenie ABC.
+                # Brak potwierdzenia z core/tarzanPokABC.py = FAIL CLOSED.
+                abc = self.assert_project_configuration_once(force_i2c=False)
+                if not abc.get("ok"):
+                    self._abc_boot_confirmed = False
+                    self._abc_last_result = abc
+                    self.logger.error("POKEYS ABC BOOT BLOCK: PLAY/REC not confirmed by tarzanPokABC.py")
+                    return 0
+                self._abc_boot_confirmed = True
+                self._abc_last_result = abc
                 # Samo połączenie PLAY/REC nie oznacza aktywnego próbkowania.
                 # Próbkowanie uruchamia jawnie HardwareBridge/Snajper/KHR albo test punktowy.
                 return self.connected_count()
@@ -1809,6 +1831,422 @@ class TarzanPoKeys:
     def poil_task_status_once(self, board: Any = "PLAY") -> Dict[str, Any]:
         return self._call_device(board, "PK_PoILTaskStatus")
 
+
+    # ------------------------------------------------------------------
+    # ŚWIĘTA KONFIGURACJA PLAY/REC wg core/tarzanZmienneSygnalowe.py
+    # ------------------------------------------------------------------
+    def project_board_contract(self, board: str) -> Dict[str, Any]:
+        """Statyczny kontrakt PLAY/REC z core/tarzanPokABC.py.
+
+        Brak ABC oznacza FAIL. tarzanPoKeys.py nie ma prawa samodzielnie
+        udawać, że konfiguracja PLAY/REC jest poprawna.
+        """
+        board = str(board or "").upper()
+        if self.pokabc is None:
+            return {"ok": False, "board": board, "error": "ABC_NOT_AVAILABLE", "errors": ["ABC_NOT_AVAILABLE"]}
+        return self.pokabc.board_contract(board)
+
+    def project_configuration_contract(self) -> Dict[str, Any]:
+        """Kontrakt całego zestawu PLAY+REC z core/tarzanPokABC.py."""
+        if self.pokabc is None:
+            return {"ok": False, "error": "ABC_NOT_AVAILABLE", "errors": ["ABC_NOT_AVAILABLE"], "boards": {}}
+        return self.pokabc.configuration_contract()
+
+    def _project_expected_role(self, sig: TarzanSygnal) -> str:
+        typ = str(sig.typ or "").upper()
+        direction = str(sig.kierunek or "").upper()
+        hf = str(sig.hardware_function or "").upper()
+        if typ == "RESERVED" or direction == "RESERVED":
+            return "RESERVED"
+        if hf == HW_ANALOG or typ == "ANALOG":
+            return "ANALOG_IN"
+        if hf == HW_LCD:
+            return "LCD_SPECIAL"
+        if hf == HW_MATRIX_LED:
+            return "MATRIX_LED_SPECIAL"
+        if hf == HW_KEYBOARD:
+            return "KEYBOARD_SPECIAL"
+        if hf == HW_I2C:
+            return "I2C_SPECIAL"
+        if hf == HW_POEXTBUS:
+            return "POEXTBUS_SPECIAL"
+        if hf == HW_PWM:
+            return "PWM_SPECIAL" if direction == "OUT" else "PWM_CAPABLE_INPUT"
+        if hf == HW_PULSE:
+            if typ == "CTR" and direction == "OUT":
+                return "PULSE_STEP_OUT"
+            if direction == "OUT":
+                return "PULSE_GPIO_OUT"
+            if typ == "CTR":
+                return "COUNTER_INPUT"
+            return "PULSE_CAPABLE_INPUT"
+        if typ == "CTR":
+            return "COUNTER_INPUT" if direction == "IN" else "COUNTER_OUTPUT"
+        if direction == "OUT":
+            return "DIGITAL_OUT"
+        if direction == "IN":
+            return "DIGITAL_IN"
+        if direction == "F" or typ == "F":
+            return "SPECIAL"
+        return "UNKNOWN"
+
+    def _project_expected_cap_names(self, sig: TarzanSygnal) -> List[str]:
+        """Nazwy enumów PoKeys dopuszczalne dla danego pinu.
+
+        Dajemy kilka wariantów nazw, bo wrappery PoKeys różnie nazywają ePK_PinCap.
+        Jeżeli dany enum nie istnieje w bindingu, walidacja nie zgaduje — zgłasza
+        PIN_CAP_ENUM_UNAVAILABLE zamiast udawać OK.
+        """
+        typ = str(sig.typ or "").upper()
+        direction = str(sig.kierunek or "").upper()
+        hf = str(sig.hardware_function or "").upper()
+        if typ == "RESERVED" or direction == "RESERVED":
+            return []
+        if hf == HW_ANALOG or typ == "ANALOG":
+            return ["PK_PinCap_analogInput", "PK_PinCap_analog", "PK_PinCap_digitalInput"]
+        if hf == HW_GPIO:
+            if direction == "OUT":
+                return ["PK_PinCap_digitalOutput", "PK_PinCap_digitalIO"]
+            return ["PK_PinCap_digitalInput", "PK_PinCap_digitalIO"]
+        if hf == HW_LCD:
+            return ["PK_PinCap_LCD", "PK_PinCap_lcd", "PK_PinCap_digitalOutput"]
+        if hf == HW_MATRIX_LED:
+            return ["PK_PinCap_matrixLED", "PK_PinCap_MatrixLED", "PK_PinCap_digitalOutput"]
+        if hf == HW_KEYBOARD:
+            return ["PK_PinCap_matrixKeyboard", "PK_PinCap_Keyboard", "PK_PinCap_digitalInput"]
+        if hf == HW_I2C:
+            return ["PK_PinCap_I2C", "PK_PinCap_i2c"]
+        if hf == HW_POEXTBUS:
+            return ["PK_PinCap_PoExtBus", "PK_PinCap_poExtBus", "PK_PinCap_digitalOutput", "PK_PinCap_digitalInput"]
+        if hf == HW_PWM:
+            return ["PK_PinCap_PWM", "PK_PinCap_pwm", "PK_PinCap_digitalOutput", "PK_PinCap_digitalInput"]
+        if hf == HW_PULSE:
+            if direction == "OUT":
+                return ["PK_PinCap_pulseEngine", "PK_PinCap_PulseEngine", "PK_PinCap_digitalOutput"]
+            return ["PK_PinCap_digitalInput", "PK_PinCap_digitalIO"]
+        if typ == "CTR":
+            return ["PK_PinCap_digitalInput", "PK_PinCap_counter", "PK_PinCap_digitalIO"]
+        if direction == "OUT":
+            return ["PK_PinCap_digitalOutput", "PK_PinCap_digitalIO"]
+        if direction == "IN":
+            return ["PK_PinCap_digitalInput", "PK_PinCap_digitalIO"]
+        return []
+
+    def _pin_cap_values(self, cap_names: Iterable[str]) -> Dict[str, int]:
+        values: Dict[str, int] = {}
+        if ePK_PinCap is None:
+            return values
+        for name in cap_names:
+            try:
+                value = getattr(ePK_PinCap, str(name), None)
+                if value is not None:
+                    values[str(name)] = int(value)
+            except Exception:
+                continue
+        return values
+
+    def _read_pin_config_value(self, pin_obj: Any) -> Optional[int]:
+        for attr in ("PinFunction", "pinFunction", "PinCap", "PinCapability"):
+            try:
+                if hasattr(pin_obj, attr):
+                    return int(getattr(pin_obj, attr))
+            except Exception:
+                continue
+        return None
+
+    def _verify_signal_pin_against_device(self, board: str, sig: TarzanSygnal, pin_obj: Any, *, strict_pin_function: bool = True) -> Dict[str, Any]:
+        expected_caps = self._project_expected_cap_names(sig)
+        cap_values = self._pin_cap_values(expected_caps)
+        actual_cap = self._read_pin_config_value(pin_obj)
+        item: Dict[str, Any] = {
+            "signal": sig.nazwa,
+            "board": board,
+            "pin": int(sig.pin or 0),
+            "type": sig.typ,
+            "direction": sig.kierunek,
+            "hardware_function": sig.hardware_function,
+            "hardware_label": sig.hardware_label,
+            "role": self._project_expected_role(sig),
+            "expected_pin_caps": expected_caps,
+            "expected_pin_cap_values": cap_values,
+            "actual_pin_function": actual_cap,
+            "ok": True,
+            "errors": [],
+            "warnings": [],
+        }
+        if not sig.pin_is_fixed:
+            item["errors"].append("PIN_NOT_FIXED_IN_SIGNAL_MAP")
+        if str(sig.typ).upper() == "RESERVED" or str(sig.kierunek).upper() == "RESERVED":
+            item["warnings"].append("RESERVED_PIN_NOT_ACTIVE_TESTED")
+            return item
+        if strict_pin_function and expected_caps and not cap_values:
+            item["warnings"].append("PIN_CAP_ENUM_UNAVAILABLE")
+        if strict_pin_function and cap_values and actual_cap is not None and actual_cap not in set(cap_values.values()):
+            # Nie każdy pin PoKeys przechowuje funkcję specjalną tak samo, dlatego shared pins
+            # traktujemy jako błąd tylko dla czystych GPIO/ANALOG; dla funkcji specjalnych jest FAIL_WARN
+            # plus test specjalny niżej (LCD/Matrix/I2C/PoExtBus/Pulse).
+            if str(sig.hardware_function).upper() in {HW_GPIO, HW_ANALOG} and not bool(sig.is_shared_pin):
+                item["errors"].append("BAD_PIN_CONFIG")
+            else:
+                item["warnings"].append("PIN_FUNCTION_DIFFERS_FROM_EXPECTED_SPECIAL_OR_SHARED")
+        item["ok"] = not item["errors"]
+        return item
+
+    def verify_project_board_configuration_once(
+        self,
+        board: str = "PLAY",
+        *,
+        strict_pin_function: bool = True,
+        check_special: bool = True,
+        force_i2c: bool = False,
+    ) -> Dict[str, Any]:
+        """Twardy audyt jednej płyty PoKeys względem mapy TARZANA.
+
+        Sprawdza:
+        - czy podłączona jest właściwa płytka PLAY/REC po serialu,
+        - czy konfiguracja pinów z PoKeys jest czytelna,
+        - czy każdy fizyczny pin z tarzanZmienneSygnalowe.py pasuje do projektu,
+        - czy funkcje specjalne odpowiadają swojej grupie: LCD/Matrix/Keyboard/I2C/PoExtBus/Pulse,
+        - bez ruchu osi i bez stałego pollingu.
+        """
+        board = str(board or "").upper()
+        if self.pokabc is None:
+            return {"ok": False, "board": board, "error": "ABC_NOT_AVAILABLE", "errors": ["ABC_NOT_AVAILABLE"], "abc_confirmed": False}
+        abc_static = self.pokabc.confirm_signal_map_abc()
+        if not abc_static.get("ok"):
+            return {"ok": False, "board": board, "error": "ABC_SIGNAL_MAP_FAIL", "errors": abc_static.get("errors", []), "abc_confirmed": False, "abc": abc_static}
+        contract = self.project_board_contract(board)
+        if not contract.get("ok"):
+            return {**contract, "abc_confirmed": False}
+        out: Dict[str, Any] = {
+            "ok": False,
+            "abc_confirmed": False,
+            "abc_source": "core/tarzanPokABC.py",
+            "board": board,
+            "expected_serial": self.BOARDS.get(board),
+            "serial_ok": False,
+            "pin_config_ok": False,
+            "pins_checked": 0,
+            "pins": {},
+            "special": {},
+            "errors": [],
+            "warnings": [],
+        }
+        with self._lock:
+            old_state = self.state
+            self.set_state("POINT_TEST")
+            try:
+                dev = self.get_device(board)
+                if dev is None:
+                    out["errors"].append("NO_DEVICE")
+                    return out
+                data_res = self._call_device(board, "PK_DeviceDataGet")
+                if not data_res.get("ok"):
+                    out["errors"].append(f"PK_DeviceDataGet:{data_res.get('error') or data_res.get('rc')}")
+                    return out
+                try:
+                    serial = int(getattr(dev.device.contents.DeviceData, "SerialNumber", 0))
+                    ident = self.pokabc.verify_board_identity_from_serial(board, serial) if self.pokabc is not None else {"ok": False, "error": "ABC_NOT_AVAILABLE"}
+                    out["actual_serial"] = serial
+                    out["serial_ok"] = bool(ident.get("ok"))
+                    out["identity"] = ident
+                    if not out["serial_ok"]:
+                        out["errors"].append(ident.get("error") or "BAD_BOARD_SERIAL")
+                except Exception as exc:
+                    out["errors"].append(f"SERIAL_READ_ERROR:{exc}")
+
+                cfg_res = self._call_device(board, "PK_PinConfigurationGet")
+                if not cfg_res.get("ok"):
+                    out["errors"].append(f"PK_PinConfigurationGet:{cfg_res.get('error') or cfg_res.get('rc')}")
+                    return out
+                out["pin_config_ok"] = True
+                pins_ptr = dev.device.contents.Pins
+                for sig in sorted(WSZYSTKIE_SYGNALY.values(), key=lambda s: int(s.pin or 999)):
+                    if str(sig.plytka or "").upper() != board or sig.pin is None:
+                        continue
+                    pin = int(sig.pin)
+                    item = self.pokabc.verify_signal_pin_against_device(board, sig, pins_ptr[pin - 1], cap_enum=ePK_PinCap, strict_pin_function=strict_pin_function) if self.pokabc is not None else self._verify_signal_pin_against_device(board, sig, pins_ptr[pin - 1], strict_pin_function=strict_pin_function)
+                    out["pins"][str(pin)] = item
+                    out["pins_checked"] += 1
+                    for err in item.get("errors", []):
+                        out["errors"].append(f"P{pin}:{sig.nazwa}:{err}")
+                    for warn in item.get("warnings", []):
+                        out["warnings"].append(f"P{pin}:{sig.nazwa}:{warn}")
+
+                if check_special:
+                    out["special"] = self.verify_project_special_functions_once(board, force_i2c=force_i2c)
+                    for err in out["special"].get("errors", []):
+                        out["errors"].append(f"SPECIAL:{err}")
+                    for warn in out["special"].get("warnings", []):
+                        out["warnings"].append(f"SPECIAL:{warn}")
+                out["ok"] = bool(out["serial_ok"] and out["pin_config_ok"] and not out["errors"])
+                out["abc_confirmed"] = bool(out["ok"])
+                return out
+            finally:
+                self.set_state(old_state)
+
+    def verify_project_special_functions_once(self, board: str = "PLAY", *, force_i2c: bool = False) -> Dict[str, Any]:
+        """Sprawdza funkcje specjalne przypisane w mapie sygnałów dla PLAY/REC."""
+        board = str(board or "").upper()
+        out: Dict[str, Any] = {"ok": False, "board": board, "checks": {}, "errors": [], "warnings": []}
+        board_signals = [s for s in WSZYSTKIE_SYGNALY.values() if str(s.plytka or "").upper() == board]
+        hfs = {str(s.hardware_function or "").upper() for s in board_signals}
+        if HW_LCD in hfs:
+            res = self._call_device(board, "PK_LCDConfigurationGet")
+            out["checks"]["LCD"] = res
+            if not res.get("ok"):
+                out["errors"].append(f"LCD_CONFIG_NO_ACK:{res.get('error') or res.get('rc')}")
+        if HW_MATRIX_LED in hfs:
+            res = self._call_device(board, "PK_MatrixLEDConfigurationGet")
+            out["checks"]["MATRIX_LED"] = res
+            if not res.get("ok"):
+                out["errors"].append(f"MATRIX_CONFIG_NO_ACK:{res.get('error') or res.get('rc')}")
+        if HW_KEYBOARD in hfs:
+            res = self._call_device(board, "PK_MatrixKBConfigurationGet")
+            out["checks"]["KEYBOARD"] = res
+            if not res.get("ok"):
+                out["errors"].append(f"KEYBOARD_CONFIG_NO_ACK:{res.get('error') or res.get('rc')}")
+        if HW_POEXTBUS in hfs:
+            res = self._call_device(board, "PK_PoExtBusGet")
+            out["checks"]["POEXTBUS"] = res
+            if not res.get("ok"):
+                out["errors"].append(f"POEXTBUS_NO_ACK:{res.get('error') or res.get('rc')}")
+        if HW_PULSE in hfs:
+            dev = self.get_device(board)
+            res = self.get_pulse_engine_status(dev) if dev is not None else {"ok": False, "error": "NO_DEVICE"}
+            out["checks"]["PULSE_ENGINE"] = res
+            if not res.get("ok"):
+                out["errors"].append(f"PULSE_ENGINE_NO_ACK:{res.get('error') or res.get('rc')}")
+        if HW_I2C in hfs:
+            if force_i2c:
+                old_scan = self._runtime_i2c_scan_enabled
+                self._runtime_i2c_scan_enabled = True
+                try:
+                    res = self.scan_i2c_once(board, force=True, cache_ttl_s=0)
+                finally:
+                    self._runtime_i2c_scan_enabled = old_scan
+                out["checks"]["I2C"] = res
+                if not res.get("ok"):
+                    out["errors"].append(f"I2C_SCAN_NO_ACK:{res.get('error') or res.get('reason')}")
+            else:
+                out["checks"]["I2C"] = {"ok": False, "skipped": True, "reason": "force_i2c_false"}
+                out["warnings"].append("I2C_SCAN_SKIPPED_SET_force_i2c_TRUE_FOR_PHYSICAL_SCAN")
+        out["ok"] = not out["errors"]
+        return out
+
+    def verify_project_configuration_once(self, *, force_i2c: bool = False) -> Dict[str, Any]:
+        """Audyt obu płytek PLAY+REC względem świętej mapy sygnałów."""
+        play = self.verify_project_board_configuration_once("PLAY", force_i2c=force_i2c)
+        rec = self.verify_project_board_configuration_once("REC", force_i2c=force_i2c)
+        errors = []
+        warnings = []
+        for board_res in (play, rec):
+            errors.extend([f"{board_res.get('board')}:{e}" for e in board_res.get("errors", [])])
+            warnings.extend([f"{board_res.get('board')}:{w}" for w in board_res.get("warnings", [])])
+        return {"ok": not errors, "boards": {"PLAY": play, "REC": rec}, "errors": errors, "warnings": warnings}
+
+    def assert_project_configuration_once(self, *, force_i2c: bool = False) -> Dict[str, Any]:
+        """Jednoznaczny test świętości konfiguracji PLAY/REC dla boot/LKS.
+
+        Brak potwierdzenia z core/tarzanPokABC.py = błąd krytyczny.
+        """
+        if self.pokabc is None:
+            res = {"ok": False, "error": "ABC_NOT_AVAILABLE", "errors": ["ABC_NOT_AVAILABLE"], "abc_confirmed": False}
+            self._abc_boot_confirmed = False
+            self._abc_last_result = res
+            self.logger.error("POKEYS ABC FAIL: core/tarzanPokABC.py unavailable")
+            return res
+        res = self.verify_project_configuration_once(force_i2c=force_i2c)
+        res["abc_confirmed"] = bool(res.get("ok"))
+        self._abc_boot_confirmed = bool(res.get("ok"))
+        self._abc_last_result = res
+        if res.get("ok"):
+            self.logger.info("POKEYS ABC OK: PLAY/REC confirmed by core/tarzanPokABC.py")
+        else:
+            self.logger.error("POKEYS ABC FAIL: %s", "; ".join(str(x) for x in res.get("errors", [])[:20]))
+        return res
+
+
+    def test_cnc_axis_link_once(self, axis_signals: Optional[Iterable[str]] = None) -> Dict[str, Any]:
+        """Twardy test toru osi do płytki CNC/PoExtBus bez ruchu mechanicznego.
+
+        Ten test jest dla LKS point-test osi. Sprawdza fundament ABC oraz realne ACK
+        z PoKeys dla toru CNC: Pulse Engine + PoExtBusOC16-CNC. Nie wykonuje
+        PK_PEv2_Move, nie generuje STEP, nie zmienia pozycji.
+        """
+        signals = [str(x) for x in (axis_signals or []) if str(x or "")]
+        out: Dict[str, Any] = {
+            "ok": False,
+            "source": "tarzanPoKeys.test_cnc_axis_link_once",
+            "signals": signals,
+            "checks": {},
+            "errors": [],
+            "warnings": [],
+        }
+
+        # ABC jest warunkiem wejścia. Bez tego nie ma sensu testować CNC.
+        abc = self.abc_last_result()
+        if not abc.get("ok"):
+            abc = self.assert_project_configuration_once(force_i2c=False)
+        out["checks"]["ABC"] = abc
+        if not abc.get("ok"):
+            out["errors"].append("ABC_NOT_CONFIRMED")
+            out["ok"] = False
+            return out
+
+        play = self.get_device("PLAY")
+        rec = self.get_device("REC")
+        if play is None:
+            out["errors"].append("PLAY_NOT_CONNECTED")
+        if rec is None:
+            out["errors"].append("REC_NOT_CONNECTED")
+
+        # Oś/Pulse Engine: ACK z PLAY. To potwierdza tor PoKeys dla osi bez ruchu.
+        if play is not None:
+            pulse = self.get_pulse_engine_status(play)
+            out["checks"]["PULSE_ENGINE_PLAY"] = pulse
+            if not pulse.get("ok"):
+                out["errors"].append(f"PULSE_ENGINE_NO_ACK:{pulse.get('error') or pulse.get('rc')}")
+
+        # Płytka CNC jest po torze PoExtBus/REC w projekcie. Tu wymagamy ACK.
+        if rec is not None:
+            poext = self.poextbus_get_once("REC")
+            out["checks"]["POEXTBUS_CNC_REC"] = poext
+            if not poext.get("ok"):
+                out["errors"].append(f"CNC_POEXTBUS_NO_ACK:{poext.get('error') or poext.get('rc')}")
+
+        # PoStep status jeżeli binding/firmware udostępnia metodę. Błąd metody nie blokuje,
+        # bo podstawowym potwierdzeniem CNC w tym projekcie jest PoExtBus + Pulse Engine.
+        postep = self.postep_status_get_once("PLAY") if play is not None else {"ok": False, "error": "PLAY_NOT_CONNECTED"}
+        out["checks"]["POSTEP_STATUS_PLAY"] = postep
+        if not postep.get("ok"):
+            out["warnings"].append(f"POSTEP_STATUS_NO_ACK:{postep.get('error') or postep.get('rc')}")
+
+        # Sprawdzenie, czy sygnały osi naprawdę dotyczą CNC/PULSE/STEP/REC copy.
+        for name in signals:
+            sig = WSZYSTKIE_SYGNALY.get(name)
+            if sig is None:
+                out["errors"].append(f"{name}:BAD_SIGNAL_MAP")
+                continue
+            board = str(sig.plytka or "").upper()
+            hw = str(sig.hardware_function or "").upper()
+            group = str(sig.grupa or "").upper()
+            if board == "CNC" and hw != HW_PULSE:
+                out["errors"].append(f"{name}:CNC_SIGNAL_NOT_PULSE:{hw}")
+            if board == "PLAY" and group.startswith("STEP") and hw not in {HW_PULSE, HW_GPIO}:
+                out["errors"].append(f"{name}:PLAY_AXIS_BAD_HW:{hw}")
+            if board == "REC" and group not in {"COPY_CAMERA", "RECORD", "MOSTEK_PLAY_REC"} and "COPY" not in group:
+                out["warnings"].append(f"{name}:REC_AXIS_GROUP_CHECK:{group}")
+
+        out["ok"] = not out["errors"]
+        return out
+
+    def abc_boot_confirmed(self) -> bool:
+        return bool(self._abc_boot_confirmed)
+
+    def abc_last_result(self) -> Dict[str, Any]:
+        return dict(self._abc_last_result or {"ok": False, "error": "ABC_NOT_CONFIRMED"})
+
     def diagnostic_capability_report_once(self) -> Dict[str, Any]:
         """Raport pokrycia metod wykonawczych. Bez ciężkich testów i bez pętli."""
         groups = self.inventory()
@@ -1819,7 +2257,7 @@ class TarzanPoKeys:
             "inventory": groups,
             "runtime_rule": "PK_* only inside core/tarzanPoKeys.py",
             "method_groups": {
-                "boards": ["connect_all", "connect_board", "logical_idle", "logical_wake", "safe_stop"],
+                "boards": ["connect_all", "connect_board", "logical_idle", "logical_wake", "safe_stop", "verify_project_configuration_once", "assert_project_configuration_once"],
                 "gpio_analog": ["digital_io_get_once", "digital_io_get_single_once", "analog_io_get_once", "poll_gpio_inputs_once", "poll_analog_inputs_once"],
                 "i2c_sensors": ["scan_i2c_once", "read_bh1750_lux_once", "read_lm75_temp_once", "read_sht21_once", "read_mma7660_level_once", "read_mcp3425_adc_once", "read_posensors_once"],
                 "ui_hardware": ["lcd_write_lines", "matrix_write_frame", "read_f_buttons_once", "blink_f_led_once", "read_keypad_once"],
@@ -1833,9 +2271,10 @@ class TarzanPoKeys:
     # Testy punktowe używane przez LKS / PARcore
     # ------------------------------------------------------------------
     def test_board_once(self, board: str) -> bool:
-        res1 = self._call_device(board, "PK_DeviceDataGet")
-        res2 = self._call_device(board, "PK_PinConfigurationGet")
-        return bool(res1.get("ok") and res2.get("ok"))
+        # Twardy test płyty TARZAN: samo PK_DeviceDataGet nie wystarcza.
+        # PLAY/REC musi zgadzać się z core/tarzanZmienneSygnalowe.py.
+        res = self.verify_project_board_configuration_once(board, force_i2c=False)
+        return bool(res.get("ok"))
 
     def test_all_once(self, update: Optional[Callable[[str, Any, str], None]] = None) -> Dict[str, Any]:
         """Pełny test na żądanie, bez dublowania ciężkich odczytów.
@@ -1849,6 +2288,7 @@ class TarzanPoKeys:
                 return {
                     "capabilities": self.diagnostic_capability_report_once(),
                     "inventory": self.inventory(),
+                    "project_config": self.assert_project_configuration_once(force_i2c=True),
                     "boards": {"PLAY": self.test_board_once("PLAY"), "REC": self.test_board_once("REC")},
                     "potentiometers": self.test_potentiometers_once(update),
                     "xyz_poksyg": self.read_xyz_poksyg_once(update),

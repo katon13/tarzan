@@ -42,21 +42,11 @@ from core.TSP.tarzanTspLksHardwareTests import TarzanTspLksHardwareTests, LksHar
 DEFAULT_INVENTORY_PATH = "data/lks_n5/lks_n5_hardware_inventory.json"
 DEFAULT_REQUIREMENTS_PATH = "data/lks_n5/lks_n5_hardware_requirements.json"
 
-# Tylko te komponenty wolno kierować w runtime przez aktywny HardwareBridge.
-# Reszta idzie diagnostyką read-only/statusową, bez zapętlenia
-# Diagnostics -> HardwareBridge -> Diagnostics i bez bocznego PoKeys.
-HARDWAREBRIDGE_POINT_COMPONENTS = {
-    "pok_play",
-    "pok_rec",
-    "lcd_1602",
-    "matrix_led",
-    "f_led",
-    "f_button",
-    "keypad",
-    "i2c_bus",
-    "light_bh1750",
-    "next_7",
-}
+# Runtime LKS nie ma już ręcznej whitelisty. Każdy point-test przechodzi przez
+# jedną matrix: core/TSP/tarzanTspLksTestMatrix.py.
+from core.TSP.tarzanTspLksTestMatrix import hardwarebridge_components
+
+HARDWAREBRIDGE_POINT_COMPONENTS = set(hardwarebridge_components())
 
 
 @dataclass

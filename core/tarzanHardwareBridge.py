@@ -7,7 +7,7 @@ import platform
 import glob
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, List, Sequence
+from typing import Any, Dict, Optional, List, Sequence, Mapping
 
 from core.tarzanZmienneSygnalowe import (
     WSZYSTKIE_SYGNALY,
@@ -782,73 +782,281 @@ class TarzanHardwareBridge:
             return self._lks_test_result(name, False, error=str(exc))
         return None
 
-    def test_lks_component(self, component: str, visible: bool = True) -> Dict[str, Any]:
-        """Punktowy test LKS-N5: akcja -> reakcja, bez ADHD-loop.
-        
-        Klik status_main budzi tylko potrzebny tor na czas testu w trybie POINT_TEST.
-        Po zakończeniu HardwareBridge wraca do IDLE.
-        """
-        name = self._normalize_lks_component(component)
+    def _lks_matrix_error(self, component: str, code: str, detail: str = "", supported: bool = True) -> Dict[str, Any]:
+        return self._lks_test_result(component, False, detail=str(detail or ""), error=str(code or "FAIL"), supported=supported)
 
-        # Jawne wybudzenie w trybie POINT_TEST dla komponentów PoKeys
-        if self._snajper_policy.lks_component_needs_pokeys(name):
+    def _lks_matrix_signals(self, entry: Mapping[str, Any]) -> List[TarzanSygnal]:
+        component = str(entry.get("component") or "")
+        result: List[TarzanSygnal] = []
+        missing: List[str] = []
+        for name in entry.get("signals", ()) or ():
+            if not name:
+                continue
+            sig = WSZYSTKIE_SYGNALY.get(str(name))
+            if sig is None:
+                missing.append(str(name))
+            else:
+                result.append(sig)
+        if missing:
+            raise RuntimeError("BAD_SIGNAL_MAP missing=" + ",".join(missing))
+        return result
+
+    def _lks_board_ready(self, board: str) -> tuple[Optional[Any], str]:
+        name = str(board or "").upper()
+        if name == "CNC":
+            dev = self._device_ready("PLAY") or self._device_ready("REC")
+            return dev, "CNC/PULSE via " + ("PLAY/REC" if dev is not None else "NO_DEVICE")
+        dev = self._device_ready(name)
+        return dev, name
+
+    def _lks_test_pokeys_device_matrix(self, component: str, entry: Mapping[str, Any]) -> Dict[str, Any]:
+        board = str(entry.get("board") or "").upper()
+        dev = self._device_ready(board)
+        if dev is None:
+            return self._lks_matrix_error(component, f"NO_DEVICE {board}")
+        return self._lks_test_result(component, True, detail=self._device_identity_text(board, dev))
+
+    def _lks_test_signal_reads_matrix(self, component: str, entry: Mapping[str, Any]) -> Dict[str, Any]:
+        signals = self._lks_matrix_signals({**dict(entry), "component": component})
+        if not signals:
+            return self._lks_matrix_error(component, "BAD_SIGNAL_MAP no signals")
+        values: Dict[str, Any] = {}
+        ack_boards: Dict[str, bool] = {}
+        errors: List[str] = []
+        for sig in signals:
+            board = str(sig.plytka or "").upper()
+            dev, board_label = self._lks_board_ready(board)
+            if dev is None:
+                errors.append(f"{sig.nazwa}:NO_DEVICE:{board_label}")
+                continue
+            ack_boards[board_label] = True
+            try:
+                typ = str(sig.typ or "").upper()
+                direction = str(sig.kierunek or "").upper()
+                hw = str(sig.hardware_function or "").upper()
+                if sig.pin is None:
+                    # Funkcja specjalna/CNC bez numeru pinu: potwierdzamy mapę i obecność PoKeys.
+                    values[sig.nazwa] = f"ACK:{board_label}:{hw}:{typ}:{direction}"
+                elif typ == "ANALOG" or hw == "ANALOG":
+                    values[sig.nazwa] = self.pokeys.read_analog_pin(dev, int(sig.pin))
+                elif direction == "IN" or typ in {"LH", "CTR"}:
+                    values[sig.nazwa] = self.pokeys.read_pin(dev, int(sig.pin))
+                else:
+                    # OUT w point-test osi: bez zapisu i bez ruchu. ACK = urządzenie + konfiguracja/mapa.
+                    values[sig.nazwa] = f"ACK:NO_WRITE:P{int(sig.pin)}:{hw}:{typ}:{direction}"
+            except Exception as exc:
+                errors.append(f"{sig.nazwa}:{exc}")
+        ok = bool(values) and not errors
+        detail = "; ".join(f"{k}={v}" for k, v in list(values.items())[:10])
+        if len(values) > 10:
+            detail += f"; +{len(values)-10} signals"
+        return self._lks_test_result(component, ok, detail=detail, error="; ".join(errors))
+
+    def _lks_axis_expected_config_errors(self, component: str, entry: Mapping[str, Any], signals: List[TarzanSygnal]) -> List[str]:
+        by_name = {sig.nazwa: sig for sig in signals}
+        expected_config = entry.get("expected_config") or {}
+        errors: List[str] = []
+        for name, expected in expected_config.items():
+            sig = by_name.get(str(name))
+            if sig is None:
+                errors.append(f"{name}:BAD_SIGNAL_MAP")
+                continue
+            checks = (
+                ("plytka", "BAD_BOARD"),
+                ("pin", "BAD_PIN_CONFIG"),
+                ("kanal", "BAD_CHANNEL"),
+                ("typ", "BAD_SIGNAL_TYPE"),
+                ("kierunek", "BAD_DIRECTION"),
+                ("hardware_function", "BAD_HW_FUNCTION"),
+                ("pin_is_fixed", "BAD_FIXED_PIN"),
+            )
+            for field, code in checks:
+                if field not in expected:
+                    continue
+                actual_value = getattr(sig, field, None)
+                expected_value = expected.get(field)
+                if actual_value != expected_value:
+                    errors.append(f"{name}:{code}:{field}={actual_value!r}:expected={expected_value!r}")
+        if not expected_config:
+            errors.append(f"{component}:NO_EXPECTED_AXIS_CONFIG")
+        return errors
+
+    def _lks_test_axis_matrix_no_motion(self, component: str, entry: Mapping[str, Any]) -> Dict[str, Any]:
+        signals = self._lks_matrix_signals({**dict(entry), "component": component})
+        if not signals:
+            return self._lks_matrix_error(component, "BAD_SIGNAL_MAP no axis signals")
+        errors: List[str] = []
+        ack: List[str] = []
+
+        # Najpierw twarda kontrola mapy osi: pin/kanał/kierunek/typ/funkcja muszą zgadzać się
+        # z oczekiwaną konfiguracją matrix. Jeżeli sygnały osi rozjadą się w mapie, test ma FAIL.
+        errors.extend(self._lks_axis_expected_config_errors(component, entry, signals))
+
+        # Drugi obowiązkowy próg dla osi: ABC + realne ACK toru CNC/PoExtBus/Pulse Engine.
+        # Bez tego sama zgodność pinów w mapie nie wystarcza.
+        try:
+            if hasattr(self.pokeys, "test_cnc_axis_link_once"):
+                cnc = self.pokeys.test_cnc_axis_link_once(entry.get("signals", ()))
+                if cnc.get("ok"):
+                    ack.append("CNC_LINK_OK:ABC+PULSE_ENGINE+POEXTBUS")
+                else:
+                    for err in cnc.get("errors", []) or ["CNC_LINK_FAIL"]:
+                        errors.append(f"CNC:{err}")
+                    for warn in cnc.get("warnings", []) or []:
+                        ack.append(f"CNC_WARN:{warn}")
+            else:
+                errors.append("CNC:POKEYS_CNC_LINK_TEST_MISSING")
+        except Exception as exc:
+            errors.append(f"CNC_LINK_ERROR:{exc}")
+
+        for sig in signals:
+            board = str(sig.plytka or "").upper()
+            dev, board_label = self._lks_board_ready(board)
+            if dev is None:
+                errors.append(f"{sig.nazwa}:NO_DEVICE:{board_label}")
+                continue
+            hw = str(sig.hardware_function or "").upper()
+            typ = str(sig.typ or "").upper()
+            direction = str(sig.kierunek or "").upper()
+            if direction == "OUT" and hw in {"PULSE_ENGINE", "GPIO", "PWM"}:
+                # Świadomie bez DigitalIOSet/PulseStart. To test toru/mapy/ACK, nie ruch.
+                pin_text = "PIN_NONE" if sig.pin is None else f"P{int(sig.pin)}"
+                channel_text = str(sig.kanal or "")
+                ack.append(f"{sig.nazwa}:PINCFG_OK:{board_label}:{pin_text}:{channel_text}:{hw}:{typ}:{direction}:NO_MOTION")
+            elif direction == "IN" and sig.pin is not None:
+                try:
+                    value = self.pokeys.read_pin(dev, int(sig.pin))
+                    ack.append(f"{sig.nazwa}:PINCFG_OK:P{int(sig.pin)}:{value}")
+                except Exception as exc:
+                    errors.append(f"{sig.nazwa}:{exc}")
+            else:
+                pin_text = "PIN_NONE" if sig.pin is None else f"P{int(sig.pin)}"
+                ack.append(f"{sig.nazwa}:PINCFG_OK:{board_label}:{pin_text}:{hw}:{typ}:{direction}")
+        ok = bool(ack) and not errors
+        return self._lks_test_result(component, ok, detail="; ".join(ack[:8]), error="; ".join(errors))
+
+    def _lks_test_runtime_matrix(self, component: str, entry: Mapping[str, Any]) -> Dict[str, Any]:
+        method = str(entry.get("method") or "")
+        try:
+            if method == "linux_runtime_alive":
+                return self._lks_test_result(component, bool(self.running), detail=f"pid={os.getpid()} running={self.running}", error="RUNTIME_NOT_RUNNING" if not self.running else "")
+            if method == "snajper_alive":
+                return self._lks_test_result(component, self._snajper_policy is not None, detail="Snajper policy active")
+            if method == "take_state":
+                state = str(self.bus.read("transport_state", "STOP"))
+                return self._lks_test_result(component, True, detail=state)
+            if method == "par_tsp_client":
+                state = str(self.bus.read("par_state", self.bus.read("par_status", "NOT_CONNECTED")))
+                ok = state.upper() in {"CONNECTED", "PAR_CONNECTED", "ACTIVE", "LIVE", "AVAILABLE"}
+                return self._lks_test_result(component, ok, detail=state, error="RUNTIME_NOT_CONNECTED" if not ok else "")
+            if method == "ehr_tsp_client":
+                state = str(self.bus.read("ehr_state", self.bus.read("ehr_status", "NOT_CONNECTED")))
+                ok = state.upper() in {"CONNECTED", "EHR_CONNECTED", "ACTIVE", "LIVE", "AVAILABLE"}
+                return self._lks_test_result(component, ok, detail=state, error="RUNTIME_NOT_CONNECTED" if not ok else "")
+        except Exception as exc:
+            return self._lks_matrix_error(component, "RUNTIME_ERROR", str(exc))
+        return self._lks_matrix_error(component, "BAD_TEST_METHOD " + method)
+
+    def _lks_test_usb_camera_matrix(self, component: str, entry: Mapping[str, Any]) -> Dict[str, Any]:
+        nodes = sorted(glob.glob("/dev/video*"))
+        index = int(entry.get("camera_index", 0) or 0)
+        if len(nodes) <= index:
+            return self._lks_matrix_error(component, "NO_DEVICE", ", ".join(nodes[:4]) or "no /dev/video*")
+        node = nodes[index]
+        try:
+            flags = os.O_RDONLY
+            if hasattr(os, "O_NONBLOCK"):
+                flags |= os.O_NONBLOCK
+            fd = os.open(node, flags)
+            os.close(fd)
+            return self._lks_test_result(component, True, detail=f"open {node} ACK")
+        except Exception as exc:
+            return self._lks_matrix_error(component, "USB_ERROR", f"{node}: {exc}")
+
+    def _lks_test_xyz_matrix(self, component: str) -> Dict[str, Any]:
+        try:
+            data = self.pokeys.read_xyz_poksyg_once()
+            return self._lks_test_result(component, bool(data.get("ok")), detail=str(data.get("values", data))[:240], error="; ".join(str(x) for x in data.get("errors", [])))
+        except Exception as exc:
+            return self._lks_matrix_error(component, "I2C_ERROR", str(exc))
+
+    def _lks_execute_matrix_entry(self, component: str, entry: Mapping[str, Any], visible: bool = True) -> Dict[str, Any]:
+        tester = str(entry.get("tester") or "")
+        method = str(entry.get("method") or "")
+        if tester == "runtime_state":
+            return self._lks_test_runtime_matrix(component, entry)
+        if tester == "usb_camera":
+            return self._lks_test_usb_camera_matrix(component, entry)
+        if tester == "nextion_serial" or method == "nextion7_port_exists":
+            return self._lks_test_nextion7()
+        if tester == "poksyg_device":
+            return self._lks_test_pokeys_device_matrix(component, entry)
+        if method == "lcd_1602_ack":
+            return self._lks_test_lcd_1602(visible=visible)
+        if method == "matrix_led_ack":
+            return self._lks_test_matrix_led(visible=visible)
+        if method == "f_led_ack":
+            return self._lks_test_f_led(visible=visible)
+        if method == "keypad_read_ack":
+            data = self._lks_test_keypad(visible=visible)
+            if isinstance(data, dict) and "component" not in data:
+                return self._lks_test_result(component, bool(data.get("ok")), detail=str(data)[:220], error=str(data.get("error", "") or ""))
+            return data
+        if method == "scan_i2c":
+            return self._lks_test_i2c_bus()
+        if method == "bh1750_read":
+            return self._lks_test_bh1750()
+        if method == "xyz_read":
+            return self._lks_test_xyz_matrix(component)
+        if tester == "poksyg_axis" or method == "axis_wiring_ack_no_motion":
+            return self._lks_test_axis_matrix_no_motion(component, entry)
+        if tester == "poksyg_signals" or method in {"read_input_signals", "read_analog_signals"}:
+            return self._lks_test_signal_reads_matrix(component, entry)
+        return self._lks_matrix_error(component, "BAD_TEST_METHOD " + method)
+
+    def test_lks_component(self, component: str, visible: bool = True) -> Dict[str, Any]:
+        """Punktowy test LKS-N5 wyłącznie przez LKS_TEST_MATRIX.
+
+        Nie ma fallbacku do TarzanTspLksDiagnostics ani ręcznej whitelisty ikon.
+        Brak wpisu w matrix = NO_TEST_MATRIX.
+        """
+        from core.TSP.tarzanTspLksTestMatrix import MATRIX_ERRORS, LKS_TEST_MATRIX
+
+        name = self._normalize_lks_component(component)
+        if MATRIX_ERRORS:
+            return self._lks_matrix_error(name, "BAD_TEST_MATRIX", "; ".join(MATRIX_ERRORS[:6]))
+        entry = LKS_TEST_MATRIX.get(name)
+        if entry is None:
+            return self._lks_matrix_error(name, "NO_TEST_MATRIX", supported=False)
+
+        needs_pokeys = str(entry.get("tester") or "").startswith("poksyg") or str(entry.get("method") or "") in {
+            "lcd_1602_ack", "matrix_led_ack", "f_led_ack", "keypad_read_ack", "scan_i2c", "bh1750_read", "xyz_read"
+        }
+        if needs_pokeys:
             self.request_hardware_awake(
-                source=f"LKS_{name}",
+                source=f"LKS_TEST_MATRIX_{name}",
                 grace_ms=self._snajper_policy.grace_ms_for("lks"),
                 ensure=True,
-                action_type="POINT_TEST"
+                action_type="POINT_TEST",
             )
 
         with self._lock:
-            # begin_point_test jest już wołane przez request_hardware_awake, 
-            # ale upewniamy się tutaj dla bezpieczeństwa.
-            self.pokeys.begin_point_test(name)
+            if needs_pokeys:
+                self.pokeys.begin_point_test(name)
             try:
-                if name == "pok_play":
-                    dev = self._device_ready("PLAY")
-                    return self._lks_test_result(name, dev is not None, detail=self._device_identity_text("PLAY", dev) if dev else "", error="PLAY not connected" if dev is None else "")
-                if name == "pok_rec":
-                    dev = self._device_ready("REC")
-                    return self._lks_test_result(name, dev is not None, detail=self._device_identity_text("REC", dev) if dev else "", error="REC not connected" if dev is None else "")
-                if name == "lcd_1602":
-                    return self._lks_test_lcd_1602(visible=visible)
-                if name == "matrix_led":
-                    return self._lks_test_matrix_led(visible=visible)
-                if name == "f_led":
-                    return self._lks_test_f_led(visible=visible)
-                if name == "f_button":
-                    return self._lks_test_f_buttons(visible=visible)
-                if name == "keypad":
-                    return self._lks_test_keypad(visible=visible)
-                if name == "i2c_bus":
-                    return self._lks_test_i2c_bus()
-                if name == "light_bh1750":
-                    return self._lks_test_bh1750()
-                if name == "next_7":
-                    return self._lks_test_nextion7()
-
-                logical = self._lks_status_from_bus(name)
-                if logical is not None:
-                    return logical
+                result = self._lks_execute_matrix_entry(name, entry, visible=visible)
+                result.setdefault("component", name)
+                result["matrix"] = True
+                result["tester"] = str(entry.get("tester") or "")
+                result["method"] = str(entry.get("method") or "")
+                result["expect"] = str(entry.get("expect") or "")
+                return result
             finally:
-                # Kategoryczny powrót do IDLE po teście punktowym,
-                # o ile nie trwa batch (diagnostyka startowa).
-                if self._hardware_batch_depth == 0:
-                    self.pokeys.end_active_state()
-                else:
-                    self.pokeys.begin_full_diagnostics(self._hardware_batch_source or "batch")
-
-        # Pozostałe kontrolki NIE wracają do TarzanTspLksDiagnostics.
-        # Inaczej powstaje pętla Diagnostics -> HardwareBridge -> Diagnostics,
-        # która blokowała boot na DEVICE TEST i odpalała ciężkie skanowanie repo.
-        # Diagnostyka read-only tych elementów zostaje po stronie Diagnostics.
-        return self._lks_test_result(
-            name,
-            False,
-            detail="no direct active HardwareBridge point test",
-            error="",
-            supported=False,
-        )
+                if needs_pokeys:
+                    if self._hardware_batch_depth == 0:
+                        self.pokeys.end_active_state()
+                    else:
+                        self.pokeys.begin_full_diagnostics(self._hardware_batch_source or "batch")
 
 
     # ------------------------------------------------------------------

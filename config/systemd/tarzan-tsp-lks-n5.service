@@ -2,6 +2,9 @@
 Description=TARZAN TSP Server with LKS-N5 Nextion 5 status lamp
 After=network-online.target
 Wants=network-online.target
+Conflicts=getty@tty1.service
+
+# TARZAN LKS-TTY owns /dev/tty1. Linux getty/login must not write to the same screen.
 
 [Service]
 Type=simple

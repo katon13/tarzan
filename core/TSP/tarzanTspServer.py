@@ -220,7 +220,7 @@ class TarzanTspServer:
         self._accept_thread: Optional[threading.Thread] = None
         self._lane_thread: Optional[threading.Thread] = None
         self._last_stats_ms = monotonic_ms()
-        self.lks = TarzanTspLks(self, tty_path=lks_tty, enabled=enable_lks)
+        self.lks = TarzanTspLks(self, tty_path=lks_tty, enabled=(enable_lks and bool(lks_tty) and lks_tty != "-"))
         self.lks_n5 = None
         self._lks_n5_enabled = bool(enable_lks_n5)
         self._lks_n5_port = lks_n5_port

@@ -39,7 +39,7 @@ class TarzanHardwareBridge:
         self.bus = bus
         self.logger = setup_tsp_logger("HW.BRIDGE")
         self.running = False
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.pokeys = TarzanPoKeys(self.logger)
         # Własny adapter core/tarzanPoKeys.py trzyma uchwyty PLAY/REC.
         # hardware/pokeys/PoKeys.py jest tylko bindingiem niskiego poziomu.
@@ -121,7 +121,7 @@ class TarzanHardwareBridge:
             self.bus.set_live_adapter(self)
             # Start systemu ma wykonać jednorazowe sprawdzenie PoKeys/I2C,
             # potem HardwareBridge wraca do IDLE bez pollingu.
-            self.request_hardware_awake(source="HW_STARTUP_I2C", grace_ms=15000, ensure=False)
+            self.request_hardware_awake(source="HW_STARTUP_I2C", grace_ms=15000, ensure=False, action_type="FULL_DIAGNOSTICS")
             
             # Subskrypcja offsetów KHR (Etap 15)
             self.bus.subscribe(self._on_signal_change)
@@ -240,7 +240,7 @@ class TarzanHardwareBridge:
         except Exception as exc:
             self.logger.debug("end_hardware_batch failed source=%s error=%s", source, exc)
 
-    def request_hardware_awake(self, source: str = "SNAJPER", grace_ms: int = 1500, ensure: bool = False) -> None:
+    def request_hardware_awake(self, source: str = "SNAJPER", grace_ms: int = 1500, ensure: bool = False, action_type: str = "CONNECT_ONLY") -> None:
         """Krótki strzał Snajpera w hardware: akcja -> reakcja.
 
         Nie jest to stały tryb pracy. Metoda daje okno aktywności, opcjonalnie
@@ -253,10 +253,24 @@ class TarzanHardwareBridge:
             with self._lock:
                 self._hardware_awake_until_ms = max(self._hardware_awake_until_ms, now + grace)
                 self._last_activity_ms = now
-                # Wybudzenie dla akcji/reakcji domyślnie ustawia FAST_SAMPLE,
-                # chyba że trwa diagnostyka.
-                if self.pokeys.state == "IDLE":
-                    self.pokeys.begin_fast_sample(source=f"AWAKE_{source}")
+                
+                # Rozdzielamy wybudzanie na jawne tory wg MAPY TARZANA.
+                # Brak jawnego typu NIE oznacza FAST_SAMPLE.
+                action_type = str(action_type or "CONNECT_ONLY").upper()
+                self.logger.info("HW AWAKE source=%s action_type=%s grace_ms=%s", source, action_type, grace)
+                if action_type == "POINT_TEST":
+                    self.pokeys.begin_point_test(source)
+                elif action_type == "FULL_DIAGNOSTICS":
+                    self.pokeys.begin_full_diagnostics(source)
+                elif action_type == "EXEC":
+                    self.pokeys.begin_exec(source)
+                elif action_type == "FAST_SAMPLE":
+                    # FAST_SAMPLE tylko jeśli nie trwa ważniejsza akcja
+                    if self.pokeys.state in ["IDLE", "FAST_SAMPLE"]:
+                        self.pokeys.begin_fast_sample(source=f"AWAKE_{source}")
+                elif action_type == "CONNECT_ONLY":
+                    # Tylko zapewnienie połączenia, bez zmiany stanu logicznego bramki
+                    pass
 
             try:
                 self.bus.set_input("hardware_realtime_required", 1, source=f"HW_AWAKE_{source}")
@@ -406,7 +420,7 @@ class TarzanHardwareBridge:
                 cmd_hardware_awake=cmd,
             ):
                 if self._snajper_policy.truthy(cmd):
-                    self.request_hardware_awake(source="SIGNALBUS_CMD", grace_ms=self._snajper_policy.grace_ms_for("default"), ensure=False)
+                    self.request_hardware_awake(source="SIGNALBUS_CMD", grace_ms=self._snajper_policy.grace_ms_for("default"), ensure=False, action_type="CONNECT_ONLY")
                 return True
 
             # Realtime z ModeLogic jest pomocniczy. Nie może zostać wiecznie
@@ -458,10 +472,15 @@ class TarzanHardwareBridge:
             return
 
         with self._lock:
-            # ZASADA SNAJPERA: pętla pollingu powinna działać w stanie FAST_SAMPLE,
-            # o ile nie trwa właśnie diagnostyka (POINT_TEST / FULL_DIAGNOSTICS).
+            # ZASADA SNAJPERA: pętla pollingu NIE MOŻE sama wybudzać hardware.
+            # Jeśli stan to IDLE, po prostu skipujemy polling do czasu jawnej akcji.
             if self.pokeys.state == "IDLE":
-                self.pokeys.begin_fast_sample(source="POLL_LOOP")
+                return
+
+            # W stanach diagnostycznych polling GPIO/Analog może być potrzebny,
+            # ale tylko jeśli jawnie to dopuszczamy.
+            if self.pokeys.state not in ["FAST_SAMPLE", "EXEC", "POINT_TEST", "FULL_DIAGNOSTICS"]:
+                return
 
             def _update(name: str, val: Any, source: str) -> None:
                 if self._input_cache.get(name) != val:
@@ -756,20 +775,24 @@ class TarzanHardwareBridge:
 
     def test_lks_component(self, component: str, visible: bool = True) -> Dict[str, Any]:
         """Punktowy test LKS-N5: akcja -> reakcja, bez ADHD-loop.
-
-        Klik status_main budzi tylko potrzebny tor na czas testu. Po grace period
-        HardwareBridge wraca do IDLE i PoKeys zostaje odpięty.
+        
+        Klik status_main budzi tylko potrzebny tor na czas testu w trybie POINT_TEST.
+        Po zakończeniu HardwareBridge wraca do IDLE.
         """
         name = self._normalize_lks_component(component)
 
+        # Jawne wybudzenie w trybie POINT_TEST dla komponentów PoKeys
         if self._snajper_policy.lks_component_needs_pokeys(name):
             self.request_hardware_awake(
                 source=f"LKS_{name}",
                 grace_ms=self._snajper_policy.grace_ms_for("lks"),
                 ensure=True,
+                action_type="POINT_TEST"
             )
 
         with self._lock:
+            # begin_point_test jest już wołane przez request_hardware_awake, 
+            # ale upewniamy się tutaj dla bezpieczeństwa.
             self.pokeys.begin_point_test(name)
             try:
                 if name == "pok_play":
@@ -793,23 +816,18 @@ class TarzanHardwareBridge:
                 if name == "light_bh1750":
                     return self._lks_test_bh1750()
                 if name == "next_7":
-                    # Nextion 7 jest UART/HMI: test portu nie wymaga PoKeys.
                     return self._lks_test_nextion7()
 
                 logical = self._lks_status_from_bus(name)
                 if logical is not None:
                     return logical
             finally:
-                # Powrót do IDLE po teście punktowym, chyba że trwa batch/realtime
-                if self._hardware_batch_depth == 0 and not self._is_system_active():
+                # Kategoryczny powrót do IDLE po teście punktowym,
+                # o ile nie trwa batch (diagnostyka startowa).
+                if self._hardware_batch_depth == 0:
                     self.pokeys.end_active_state()
                 else:
-                    # Jeśli coś innego trzyma hardware, wracamy do FAST_SAMPLE (bezpiecznik)
-                    # lub zachowujemy stan batcha (FULL_DIAGNOSTICS).
-                    if self._hardware_batch_depth > 0:
-                        self.pokeys.set_state("FULL_DIAGNOSTICS")
-                    else:
-                        self.pokeys.set_state("FAST_SAMPLE")
+                    self.pokeys.begin_full_diagnostics(self._hardware_batch_source or "batch")
 
         # Pozostałe kontrolki NIE wracają do TarzanTspLksDiagnostics.
         # Inaczej powstaje pętla Diagnostics -> HardwareBridge -> Diagnostics,
@@ -847,6 +865,10 @@ class TarzanHardwareBridge:
         target = mapping.get(name)
         if not target:
             return False
+        
+        # Wybudzamy hardware dla realnego zapisu PAR w trybie EXEC.
+        self.request_hardware_awake(source=f"LCD_WRITE_{name}", action_type="EXEC")
+        
         board, idx = target
         text = self._lcd_text(str(value), 16)
         with self._lock:
@@ -883,6 +905,10 @@ class TarzanHardwareBridge:
         """Wykonuje PAR -> miniPC -> Matrix LED przez aktywny HardwareBridge."""
         if name != "par_matrix_pattern":
             return False
+            
+        # Wybudzamy hardware dla realnego zapisu PAR w trybie EXEC.
+        self.request_hardware_awake(source="MATRIX_WRITE", action_type="EXEC")
+        
         rows = self._parse_matrix_pattern_rows(value)
         with self._lock:
             device = self.devices.get("REC")
@@ -911,6 +937,10 @@ class TarzanHardwareBridge:
         pin = mapping.get(name)
         if pin is None:
             return False
+            
+        # Wybudzamy hardware dla realnego zapisu PAR w trybie EXEC.
+        self.request_hardware_awake(source=f"FLED_WRITE_{name}", action_type="EXEC")
+        
         state = 1 if str(value).strip().lower() not in {"", "0", "false", "off", "none"} else 0
         with self._lock:
             device = self.devices.get("REC")
@@ -985,6 +1015,9 @@ class TarzanHardwareBridge:
             return
 
         with self._lock:
+            # Każdy zapis do hardware (GPIO/PWM/PE) musi wybudzić system w trybie EXEC
+            self.request_hardware_awake(source=f"WRITE_{name}", action_type="EXEC")
+            
             device = self.devices.get(syg.plytka)
             if not device:
                 return

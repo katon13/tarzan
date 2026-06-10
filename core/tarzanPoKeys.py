@@ -138,16 +138,7 @@ class TarzanPoKeys:
         self._lock = threading.RLock()
         self.devices: Dict[str, Any] = {"PLAY": None, "REC": None}
         self.state = "IDLE"  # Dostępne: IDLE, FAST_SAMPLE, POINT_TEST, FULL_DIAGNOSTICS
-        self.call_counters = {
-            "PK_DigitalIOGet": 0,
-            "PK_AnalogIOGet": 0,
-            "PK_DeviceDataGet": 0,
-            "PK_PinConfigurationGet": 0,
-            "PK_I2CBusScanStart": 0,
-            "PK_PEv2_StatusGet": 0,
-            "PK_EasySensorsValueGetAll": 0,
-            "PK_MatrixKBStatusGet": 0,
-        }
+        self.call_counters: Dict[str, int] = {}
         self.logical_sleep = False
         self.last_lib_path = ""
         self._last_error: Dict[str, str] = {}
@@ -317,7 +308,7 @@ class TarzanPoKeys:
             self.logical_sleep = False
             self.state = "FAST_SAMPLE"
             self.snajper.arm(source, duration_s=duration_s, sample_ms=sample_ms)
-            self.logger.info("POKEYS STATE: FAST_SAMPLE (source=%s, dur=%s, smp=%s)", source, duration_s, sample_ms)
+            self.logger.debug("POKEYS STATE: FAST_SAMPLE (source=%s, dur=%s, smp=%s)", source, duration_s, sample_ms)
 
     def begin_point_test(self, component: str) -> None:
         """Przełącza bramkę w tryb testu punktowego (np. klik ikonki LKS)."""
@@ -333,12 +324,20 @@ class TarzanPoKeys:
             self.state = "FULL_DIAGNOSTICS"
             self.logger.info("POKEYS STATE: FULL_DIAGNOSTICS (reason=%s)", reason)
 
+    def begin_exec(self, source: str = "") -> None:
+        """Przełącza bramkę w tryb realnego wykonania (ruchu/akcji)."""
+        with self._lock:
+            self.logical_sleep = False
+            self.state = "EXEC"
+            self.logger.info("POKEYS STATE: EXEC (source=%s)", source)
+
     def end_active_state(self) -> None:
         """Powrót do trybu IDLE."""
         with self._lock:
             self.state = "IDLE"
+            self.logical_sleep = True
             self.snajper.disarm()
-            self.logger.info("POKEYS STATE: IDLE")
+            self.logger.debug("POKEYS STATE: IDLE (returned from active state)")
 
     def snajper_arm(self, source: str = "SNAJPER", duration_s: float = 1.5, sample_ms: int = 10) -> None:
         """Jawne okno aktywnego próbkowania PoKeys; używać z HardwareBridge/Snajper/KHR."""
@@ -1352,46 +1351,67 @@ class TarzanPoKeys:
             if self._shutting_down:
                 return {"ok": False, "skipped": True, "method": method_name, "reason": "shutting_down"}
 
-            # 1. Inkrementacja liczników dla monitoringu
-            if method_name in self.call_counters:
-                self.call_counters[method_name] += 1
+            # 1. Inkrementacja liczników dla monitoringu - liczymy każde PK_
+            if method_name.startswith("PK_"):
+                self.call_counters[method_name] = self.call_counters.get(method_name, 0) + 1
 
-            # 2. Bramka logiczna IDLE - kategoryczny zakaz ciężkich operacji
+            # 2. Bramka logiczna IDLE - kategoryczny zakaz fizycznego pollingu PK_*
             if self.state == "IDLE":
                 # W IDLE pozwalamy TYLKO na całkowicie bezkosztowe sprawdzenie statusu połączenia
                 if method_name not in ["PK_IsConnected", "PK_GetCurrentDeviceConnectionType"]:
                     return {"ok": False, "skipped": True, "method": method_name, "reason": "system_idle"}
 
-            # 3. Bramka FAST_SAMPLE (Tryb KHR/Snajper 10ms)
+            # 3. Bramka FAST_SAMPLE (Tryb KHR/Snajper 10ms - TYLKO SZYBKIE ODCZYTY)
             if self.state == "FAST_SAMPLE":
                 allowed_fast = [
                     "PK_DigitalIOGet", "PK_AnalogIOGet", "PK_PEv2_StatusGet",
-                    "PK_IsConnected", "PK_PEv2_PositionSet", "PK_DigitalIOSetSingle",
-                    "PK_PoExtBusSet", "PK_PoExtBusGet", "PK_PinConfigurationSet",
-                    "PK_DigitalCounterGet", "PK_GetCurrentDeviceConnectionType"
+                    "PK_IsConnected", "PK_GetCurrentDeviceConnectionType",
+                    "PK_DigitalCounterGet"
                 ]
-                # W FAST_SAMPLE kategorycznie zabraniamy LCD, Matrix, I2C, MatrixKB
+                # W FAST_SAMPLE kategorycznie zabraniamy zapisu, konfiguracji, LCD, Matrix, I2C
                 if method_name not in allowed_fast:
                     return {"ok": False, "skipped": True, "method": method_name, "reason": "blocked_in_fast_sample"}
 
-            # 4. Bramka POINT_TEST / FULL_DIAGNOSTICS (Testy widoczne LKS / boot)
-            if self.state in ["POINT_TEST", "FULL_DIAGNOSTICS"]:
-                allowed_point = [
+            # 4. Bramka EXEC (Realne wykonanie ruchu/akcji)
+            if self.state == "EXEC":
+                allowed_exec = [
                     "PK_DigitalIOGet", "PK_AnalogIOGet", "PK_PEv2_StatusGet",
-                    "PK_IsConnected", "PK_PEv2_PositionSet", "PK_DigitalIOSetSingle",
-                    "PK_PoExtBusSet", "PK_PoExtBusGet", "PK_GetCurrentDeviceConnectionType",
+                    "PK_IsConnected", "PK_GetCurrentDeviceConnectionType",
+                    "PK_DigitalCounterGet", "PK_DigitalIOSetSingle",
+                    "PK_PinConfigurationGet", "PK_PinConfigurationSet",
+                    "PK_PoExtBusSet", "PK_PoExtBusGet", "PK_PEv2_PositionSet",
+                    # EXEC obejmuje realny zapis akcesoriów z PAR (LCD/Matrix/FLED),
+                    # ale nie jest używany do stałego pollingu ani I2C scanów.
+                    "PK_LCDInit", "PK_LCDUpdate", "PK_LCDConfigurationGet", "PK_LCDConfigurationSet",
+                    "PK_LCDClear", "PK_LCDPrint", "PK_LCDMoveCursor", "PK_LCDChangeMode",
+                    "PK_MatrixLEDConfigurationGet", "PK_MatrixLEDConfigurationSet", "PK_MatrixLEDUpdate"
+                ]
+                if method_name not in allowed_exec:
+                    return {"ok": False, "skipped": True, "method": method_name, "reason": "blocked_in_exec"}
+
+            # 5. Bramka POINT_TEST / FULL_DIAGNOSTICS (Testy widoczne LKS / boot)
+            if self.state in ["POINT_TEST", "FULL_DIAGNOSTICS"]:
+                # Tu pozwalamy na wszystko co potrzebne do testów akcesoriów
+                allowed_test = [
+                    "PK_DigitalIOGet", "PK_AnalogIOGet", "PK_PEv2_StatusGet",
+                    "PK_IsConnected", "PK_GetCurrentDeviceConnectionType",
+                    "PK_DigitalCounterGet", "PK_DigitalIOSetSingle",
+                    "PK_PoExtBusSet", "PK_PoExtBusGet", "PK_PEv2_PositionSet",
                     "PK_DeviceDataGet", "PK_PinConfigurationGet",
                     "PK_LCDInit", "PK_LCDUpdate", "PK_LCDConfigurationGet", "PK_LCDConfigurationSet",
-                    "PK_MatrixLedConfigurationGet", "PK_MatrixLedConfigurationSet", "PK_MatrixLedUpdate",
+                    "PK_LCDClear", "PK_LCDPrint", "PK_LCDMoveCursor", "PK_LCDChangeMode",
+                    "PK_MatrixLEDConfigurationGet", "PK_MatrixLEDConfigurationSet", "PK_MatrixLEDUpdate",
                     "PK_MatrixKBConfigurationGet", "PK_MatrixKBConfigurationSet", "PK_MatrixKBStatusGet",
-                    "PK_I2CBusScanStart", "PK_I2CBusRead", "PK_I2CBusWrite", "PK_PulseEngineSetup",
-                    "PK_PoStepDriverConfigurationGet", "PK_PoStepDriverConfigurationSet"
+                    "PK_I2CBusScanStart", "PK_I2CBusScanGetResults", "PK_I2CBusRead", "PK_I2CBusWrite", 
+                    "PK_I2CBusWriteAndRead", "PK_PulseEngineSetup", "PK_PEv2_PulseEngineSetup",
+                    "PK_PoStepDriverConfigurationGet", "PK_PoStepDriverConfigurationSet",
+                    "PK_PoStep_ConfigurationGet", "PK_PoStep_StatusGet"
                 ]
-                if method_name not in allowed_point:
+                if method_name not in allowed_test:
                     return {"ok": False, "skipped": True, "method": method_name, "reason": f"blocked_in_{self.state}"}
 
             if self.logical_sleep:
-                # Jeśli jesteśmy w logical_sleep (IDLE), ale chcemy coś wykonać
+                # Jeśli jesteśmy w logical_sleep (IDLE), ale chcemy coś wykonać (awaryjnie)
                 if method_name not in ["PK_IsConnected"]:
                     return {"ok": False, "skipped": True, "method": method_name, "reason": "logical_sleep"}
 

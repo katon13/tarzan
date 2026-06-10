@@ -30,6 +30,52 @@ except ImportError:
     LIB_POKEYS_AVAILABLE = False
 
 
+class TarzanPoKeysSnajper:
+    """Lekki strażnik próbkowania PoKeys.
+
+    Zasada TARZAN:
+    - w IDLE nic nie odpytuje PoKeys w pętli,
+    - gdy hardware jest potrzebny, okno aktywne jest jawne,
+    - szybkie sensory pracują z krokiem 10 ms, ale nie częściej,
+    - ciężkie odczyty I2C są cache'owane i wykonywane tylko na żądanie.
+    """
+
+    def __init__(self, logger: Any, default_sample_ms: int = 10) -> None:
+        self.logger = logger
+        self.default_sample_s = max(0.001, float(default_sample_ms) / 1000.0)
+        self.active_until = 0.0
+        self._next_due: Dict[str, float] = {}
+        self._lock = threading.RLock()
+
+    def arm(self, source: str = "SNAJPER", duration_s: float = 1.5, sample_ms: int = 10) -> None:
+        now = time.monotonic()
+        with self._lock:
+            self.default_sample_s = max(0.001, float(sample_ms) / 1000.0)
+            self.active_until = max(self.active_until, now + max(0.0, float(duration_s)))
+
+    def disarm(self) -> None:
+        with self._lock:
+            self.active_until = 0.0
+            self._next_due.clear()
+
+    def active(self) -> bool:
+        return time.monotonic() <= self.active_until
+
+    def due(self, key: str, sample_ms: Optional[int] = None, *, force: bool = False) -> bool:
+        if force:
+            return True
+        now = time.monotonic()
+        with self._lock:
+            if now > self.active_until:
+                return False
+            interval = max(0.001, float(sample_ms) / 1000.0) if sample_ms is not None else self.default_sample_s
+            due_at = self._next_due.get(key, 0.0)
+            if now < due_at:
+                return False
+            self._next_due[key] = now + interval
+            return True
+
+
 class TarzanPoKeys:
     """Własna biblioteka metod PoKeys dla TARZANA.
 
@@ -86,6 +132,9 @@ class TarzanPoKeys:
         self.last_lib_path = ""
         self._last_error: Dict[str, str] = {}
         self._signal_groups = self.build_signal_groups(WSZYSTKIE_SYGNALY)
+        self.snajper = TarzanPoKeysSnajper(logger, default_sample_ms=10)
+        self._i2c_scan_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+        self._i2c_scan_cache_ttl_s = 5.0
 
     # ------------------------------------------------------------------
     # Biblioteka / połączenia
@@ -123,6 +172,7 @@ class TarzanPoKeys:
                 if self.devices.get(board) is None:
                     self.devices[board] = self.connect_board(board, serial, path)
             self.logical_sleep = False
+            self.snajper.arm("connect_all", duration_s=2.0, sample_ms=10)
             return self.connected_count()
 
     def connect_board(self, board: str, serial: int, lib_path: Optional[str] = None) -> Any:
@@ -162,6 +212,7 @@ class TarzanPoKeys:
             if self.logical_sleep:
                 return False
             self.logical_sleep = True
+            self.snajper.disarm()
             self.logger.info("USB SLEEP: logical sleep; PoKeys handles kept open (no PK_DisconnectDevice in IDLE).")
             return True
 
@@ -170,6 +221,7 @@ class TarzanPoKeys:
             if not self.logical_sleep:
                 return False
             self.logical_sleep = False
+            self.snajper.arm("logical_wake", duration_s=1.5, sample_ms=10)
             self.logger.info("USB WAKE: logical wake; PoKeys handles already open.")
             return True
 
@@ -187,6 +239,29 @@ class TarzanPoKeys:
                 finally:
                     self.devices[board] = None
             self.logical_sleep = False
+            self.snajper.disarm()
+
+    def snajper_arm(self, source: str = "SNAJPER", duration_s: float = 1.5, sample_ms: int = 10) -> None:
+        """Jawne okno aktywnego próbkowania PoKeys; używać z HardwareBridge/Snajper/KHR."""
+        with self._lock:
+            self.logical_sleep = False
+            self.snajper.arm(source, duration_s=duration_s, sample_ms=sample_ms)
+
+    def snajper_disarm(self) -> None:
+        """Zamknięcie okna aktywnego próbkowania bez zamykania USB."""
+        with self._lock:
+            self.snajper.disarm()
+
+    def _snajper_due(self, key: str, sample_ms: int = 10, *, force: bool = False) -> bool:
+        if force:
+            return True
+        if self.logical_sleep:
+            return False
+        return self.snajper.due(key, sample_ms=sample_ms, force=False)
+
+    @staticmethod
+    def _skipped(name: str, reason: str = "logical_sleep") -> Dict[str, Any]:
+        return {"ok": False, "skipped": True, "name": name, "reason": reason}
 
     # ------------------------------------------------------------------
     # Inwentaryzacja wg core/tarzanZmienneSygnalowe.py
@@ -338,7 +413,7 @@ class TarzanPoKeys:
     # ------------------------------------------------------------------
     def poll_gpio_inputs_once(self, gpio_inputs: Iterable[TarzanSygnal], update: Callable[[str, Any, str], None]) -> None:
         with self._lock:
-            if self.logical_sleep:
+            if not self._snajper_due("gpio_inputs", sample_ms=10):
                 return
             for board_name, device in self.devices.items():
                 if device is None:
@@ -357,7 +432,7 @@ class TarzanPoKeys:
 
     def poll_analog_inputs_once(self, analog_inputs: Iterable[TarzanSygnal], update: Callable[[str, Any, str], None]) -> None:
         with self._lock:
-            if self.logical_sleep:
+            if not self._snajper_due("analog_inputs", sample_ms=10):
                 return
             grouped: Dict[str, List[TarzanSygnal]] = {"PLAY": [], "REC": []}
             for sig in analog_inputs:
@@ -467,6 +542,7 @@ class TarzanPoKeys:
         except Exception as exc:
             result["errors"].append(f"i2c_scan: {exc}")
         try:
+            # read_posensors_once korzysta z cache skanu, nie wykonuje kolejnego scan jeśli cache jest świeży.
             result["posensors"] = self.read_posensors_once("PLAY", update=update)
         except Exception as exc:
             result["errors"].append(f"posensors: {exc}")
@@ -480,17 +556,21 @@ class TarzanPoKeys:
     # ------------------------------------------------------------------
     # I2C / EasySensors / PoExtBus / Pulse Engine
     # ------------------------------------------------------------------
-    def scan_i2c_once(self, board: str = "PLAY") -> Dict[str, Any]:
-        """Jednorazowy skan I2C przez PoKeys.
-
-        Zwraca oba klucze: ``addresses`` i ``found``. Starsze testery LKS
-        używały ``found``, a nowy core używał ``addresses`` — przez to I2C
-        mogło wyglądać jak nietestowane mimo poprawnego skanu.
-        """
+    def scan_i2c_once(self, board: str = "PLAY", *, force: bool = False, cache_ttl_s: Optional[float] = None) -> Dict[str, Any]:
+        """Jednorazowy skan I2C przez PoKeys, z cache i bez młócenia w IDLE."""
         board = str(board or "PLAY").upper()
+        now = time.monotonic()
+        ttl = self._i2c_scan_cache_ttl_s if cache_ttl_s is None else max(0.0, float(cache_ttl_s))
+        cached = self._i2c_scan_cache.get(board)
+        if cached and not force and ttl > 0 and (now - cached[0]) <= ttl:
+            out = dict(cached[1])
+            out["cached"] = True
+            return out
+        if self.logical_sleep and not force:
+            return {"ok": False, "addresses": [], "found": [], "skipped": True, "reason": "logical_sleep", "board": board}
         device = self.get_device(board)
         if device is None:
-            result = {"ok": False, "addresses": [], "found": [], "error": f"{board} not connected"}
+            result = {"ok": False, "addresses": [], "found": [], "error": f"{board} not connected", "board": board}
             self.logger.info("I2C_SCAN board=%s ok=False error=%s", board, result["error"])
             return result
         try:
@@ -498,11 +578,12 @@ class TarzanPoKeys:
             time.sleep(0.35)
             data = device.PK_I2CBusScanGetResults()
             addrs = [addr for addr in range(0, min(128, len(data))) if int(data[addr]) == 1]
-            result = {"ok": True, "addresses": addrs, "found": addrs}
+            result = {"ok": True, "addresses": addrs, "found": addrs, "board": board}
+            self._i2c_scan_cache[board] = (now, dict(result))
             self.logger.info("I2C_SCAN board=%s ok=True addresses=%s", board, ",".join(f"0x{x:02X}" for x in addrs) or "none")
             return result
         except Exception as exc:
-            result = {"ok": False, "addresses": [], "found": [], "error": str(exc)}
+            result = {"ok": False, "addresses": [], "found": [], "error": str(exc), "board": board}
             self.logger.info("I2C_SCAN board=%s ok=False error=%s", board, exc)
             return result
 
@@ -547,17 +628,29 @@ class TarzanPoKeys:
             self.logger.debug("I2C write/read board=%s addr=0x%02X failed: %s", board, addr7, exc)
             return None
 
-    def _first_present_addr(self, board: str, names: Iterable[str]) -> Optional[int]:
-        scan = self.scan_i2c_once(board)
-        addrs = set(scan.get("addresses") or [])
+    def _addr_from_scan(self, scan: Optional[Dict[str, Any]], names: Iterable[str]) -> Optional[int]:
+        if not scan:
+            return None
+        addrs = set(scan.get("addresses") or scan.get("found") or [])
         for name in names:
             for addr in self.I2C_ADDR7.get(name, ()):  # type: ignore[arg-type]
                 if addr in addrs:
                     return int(addr)
         return None
 
-    def read_bh1750_lux_once(self, board: str = "PLAY", addr7: Optional[int] = None) -> Dict[str, Any]:
-        addr = int(addr7 if addr7 is not None else (self._first_present_addr(board, ["bh1750"]) or 0x23))
+    def _first_present_addr(self, board: str, names: Iterable[str], scan: Optional[Dict[str, Any]] = None) -> Optional[int]:
+        scan = scan if scan is not None else self.scan_i2c_once(board)
+        return self._addr_from_scan(scan, names)
+
+    @staticmethod
+    def _missing_sensor(sensor: str, board: str, names: Iterable[str]) -> Dict[str, Any]:
+        return {"ok": False, "sensor": sensor, "board": board, "skipped": True, "reason": "address_not_present", "names": list(names)}
+
+    def read_bh1750_lux_once(self, board: str = "PLAY", addr7: Optional[int] = None, scan: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        present = self._first_present_addr(board, ["bh1750"], scan) if addr7 is None else int(addr7)
+        if present is None:
+            return self._missing_sensor("BH1750", board, ["bh1750"])
+        addr = int(present)
         try:
             # Power on + continuous high resolution mode; pomiar około 120-180 ms.
             self.i2c_write(board, addr, [0x01])
@@ -572,8 +665,11 @@ class TarzanPoKeys:
         except Exception as exc:
             return {"ok": False, "sensor": "BH1750", "addr7": addr, "error": str(exc)}
 
-    def read_lm75_temp_once(self, board: str = "PLAY", addr7: Optional[int] = None) -> Dict[str, Any]:
-        addr = int(addr7 if addr7 is not None else (self._first_present_addr(board, ["lm75"]) or 0x48))
+    def read_lm75_temp_once(self, board: str = "PLAY", addr7: Optional[int] = None, scan: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        present = self._first_present_addr(board, ["lm75"], scan) if addr7 is None else int(addr7)
+        if present is None:
+            return self._missing_sensor("LM75", board, ["lm75"])
+        addr = int(present)
         data = self.i2c_write_read(board, addr, [0x00], 2)
         if not data or len(data) < 2:
             return {"ok": False, "sensor": "LM75", "addr7": addr, "error": "no data"}
@@ -583,8 +679,10 @@ class TarzanPoKeys:
         temp_c = raw * 0.125
         return {"ok": True, "sensor": "LM75", "addr7": addr, "raw": raw, "temp_c": temp_c}
 
-    def read_sht21_once(self, board: str = "PLAY", addr7: int = 0x40) -> Dict[str, Any]:
+    def read_sht21_once(self, board: str = "PLAY", addr7: int = 0x40, scan: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         # No-hold measurement commands: temp 0xF3, humidity 0xF5.
+        if scan is not None and int(addr7) not in set(scan.get("addresses") or scan.get("found") or []):
+            return self._missing_sensor("SHT21", board, ["sht21"])
         out: Dict[str, Any] = {"ok": False, "sensor": "SHT21", "addr7": addr7}
         try:
             self.i2c_write(board, addr7, [0xF3])
@@ -616,7 +714,9 @@ class TarzanPoKeys:
             b -= 0x40
         return b
 
-    def read_mma7660_level_once(self, board: str = "PLAY", addr7: int = 0x4C) -> Dict[str, Any]:
+    def read_mma7660_level_once(self, board: str = "PLAY", addr7: int = 0x4C, scan: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        if scan is not None and int(addr7) not in set(scan.get("addresses") or scan.get("found") or []):
+            return self._missing_sensor("MMA7660", board, ["mma7660"])
         try:
             # Standby, konfiguracja, active. Jeżeli sensor już aktywny, komendy są nieszkodliwe.
             self.i2c_write(board, addr7, [0x07, 0x00])
@@ -632,7 +732,9 @@ class TarzanPoKeys:
         except Exception as exc:
             return {"ok": False, "sensor": "MMA7660", "addr7": addr7, "error": str(exc)}
 
-    def read_mcp3425_adc_once(self, board: str = "PLAY", addr7: int = 0x68) -> Dict[str, Any]:
+    def read_mcp3425_adc_once(self, board: str = "PLAY", addr7: int = 0x68, scan: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        if scan is not None and int(addr7) not in set(scan.get("addresses") or scan.get("found") or []):
+            return self._missing_sensor("MCP3425", board, ["mcp3425"])
         try:
             # One-shot 16-bit, gain x1.
             self.i2c_write(board, addr7, [0x80])
@@ -649,14 +751,22 @@ class TarzanPoKeys:
         except Exception as exc:
             return {"ok": False, "sensor": "MCP3425", "addr7": addr7, "error": str(exc)}
 
-    def read_posensors_once(self, board: str = "PLAY", update: Optional[Callable[[str, Any, str], None]] = None) -> Dict[str, Any]:
-        """Odczyt całego modułu PoSensors: BH1750, LM75, SHT21, MMA7660, MCP3425."""
+    def read_posensors_once(self, board: str = "PLAY", update: Optional[Callable[[str, Any, str], None]] = None, *, force: bool = False) -> Dict[str, Any]:
+        """Odczyt PoSensors bez kaskady skanów I2C.
+
+        Jeden scan na wejściu, potem tylko sensory obecne pod znalezionymi adresami.
+        Brakujące adresy są SKIPPED, nie bombardujemy magistrali błędnymi odczytami.
+        """
+        if self.logical_sleep and not force:
+            return self._skipped("posensors")
+        scan = self.scan_i2c_once(board, force=force)
         out: Dict[str, Any] = {
-            "bh1750": self.read_bh1750_lux_once(board),
-            "lm75": self.read_lm75_temp_once(board),
-            "sht21": self.read_sht21_once(board),
-            "mma7660": self.read_mma7660_level_once(board),
-            "mcp3425": self.read_mcp3425_adc_once(board),
+            "scan": scan,
+            "bh1750": self.read_bh1750_lux_once(board, scan=scan),
+            "lm75": self.read_lm75_temp_once(board, scan=scan),
+            "sht21": self.read_sht21_once(board, scan=scan),
+            "mma7660": self.read_mma7660_level_once(board, scan=scan),
+            "mcp3425": self.read_mcp3425_adc_once(board, scan=scan),
         }
         ok = any(isinstance(v, dict) and v.get("ok") for v in out.values())
         out["ok"] = ok
@@ -1044,7 +1154,7 @@ class TarzanPoKeys:
         """
         with self._lock:
             if self.logical_sleep:
-                self.logical_wake()
+                return {"ok": False, "skipped": True, "method": method_name, "reason": "logical_sleep"}
             resolved_board, device = self._resolve_device_target(board, default_board)
             if device is None:
                 return {"ok": False, "board": resolved_board, "method": method_name, "error": f"{resolved_board} not connected"}
@@ -1463,18 +1573,19 @@ class TarzanPoKeys:
             return False
 
     def test_all_once(self, update: Optional[Callable[[str, Any, str], None]] = None) -> Dict[str, Any]:
+        """Pełny test na żądanie, bez dublowania ciężkich odczytów.
+
+        Nie jest to pętla runtime. PoSensors czytamy raz; reszta korzysta z lekkich testów.
+        """
+        posensors = self.read_posensors_once("PLAY", update)
         return {
             "capabilities": self.diagnostic_capability_report_once(),
             "inventory": self.inventory(),
             "boards": {"PLAY": self.test_board_once("PLAY"), "REC": self.test_board_once("REC")},
-            "device_data": {"PLAY": self.get_device_data_once("PLAY"), "REC": self.get_device_data_once("REC")},
             "potentiometers": self.test_potentiometers_once(update),
             "xyz_poksyg": self.read_xyz_poksyg_once(update),
-            "posensors": self.read_posensors_once("PLAY", update),
-            "sensors": self.test_sensors_once(update),
+            "posensors": posensors,
             "cnc": self.test_cnc_once(),
-            "postep": {"PLAY": self.postep_status_get_once("PLAY"), "REC": self.postep_status_get_once("REC")},
             "poextbus": self.poextbus_get_once("REC"),
-            "easy_sensors": self.easy_sensors_setup_get_once("PLAY"),
             "tfluna_uart": self.read_tfluna_uart_once(),
         }

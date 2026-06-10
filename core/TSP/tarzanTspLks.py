@@ -29,7 +29,7 @@ class TarzanTspLks:
     def __init__(
         self,
         server: Any,
-        tty_path: str = "/dev/tty1",
+        tty_path: str = "/dev/tty7",
         refresh_interval_s: float = 1.0,
         enabled: bool = True,
     ) -> None:
@@ -86,7 +86,6 @@ class TarzanTspLks:
     def render(self) -> None:
         text = self.build_screen()
         if self.tty_path == "-":
-            print(text, flush=True)
             return
 
         path = Path(self.tty_path)

@@ -6,11 +6,12 @@ Wants=network-online.target
 [Service]
 Type=simple
 Environment=PYTHONUNBUFFERED=1
+Environment=TARZAN_LKS_TTY=/dev/tty7
 WorkingDirectory=/opt/tarzan
+ExecStartPre=/bin/sh -c '/usr/bin/chvt 7 || true'
 ExecStart=/usr/bin/python3 /opt/tarzan/main.py
 Restart=on-failure
 RestartSec=3
-KillSignal=SIGINT
 TimeoutStopSec=8
 StandardOutput=journal
 StandardError=journal

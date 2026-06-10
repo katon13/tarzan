@@ -26,7 +26,7 @@ def main() -> None:
     p_server.add_argument("--node", default="tarzanMiniPC")
     p_server.add_argument("--lks", dest="lks", action="store_true", default=True, help="Włącz LKS na lokalnym TTY")
     p_server.add_argument("--no-lks", dest="lks", action="store_false", help="Wyłącz LKS")
-    p_server.add_argument("--lks-tty", default="/dev/tty1", help="Ścieżka TTY dla LKS, np. /dev/tty1 albo -")
+    p_server.add_argument("--lks-tty", default="/dev/tty7", help="Ścieżka TTY dla LKS, np. /dev/tty7 albo -")
     p_server.add_argument("--lks-n5", dest="lks_n5", action="store_true", default=False, help="Włącz równoległe wyjście LKS-N5 / Nextion 5")
     p_server.add_argument("--lks-n5-port", default="", help="Port Nextion 5, najlepiej /dev/serial/by-id/...")
     p_server.add_argument("--lks-n5-baudrate", type=int, default=9600)

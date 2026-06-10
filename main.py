@@ -61,7 +61,7 @@ def main():
     is_windows = platform.system().lower() == "windows"
     
     # Domyślne porty dla miniPC (na Windowsie używamy dry_run)
-    lks_tty = "-" if is_windows else "/dev/tty1"
+    lks_tty = os.environ.get("TARZAN_LKS_TTY") or ("-" if is_windows else "/dev/tty7")
     n5_port = "COM5" if is_windows else "/dev/serial/by-path/pci-0000:00:14.0-usb-0:3.2:1.0-port0"
     n5_dry_run = is_windows
     

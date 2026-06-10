@@ -16,17 +16,6 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-
-import os
-
-# TARZAN: plik przykładowy PoKeys nie może być importowany ani uruchamiany
-# przypadkiem przez runtime. Produkcyjny tor PoKeys to core/tarzanPoKeys.py.
-if os.environ.get("TARZAN_ALLOW_LEGACY_POKEYS_TOOLS") != "1":
-    raise RuntimeError(
-        "hardware/pokeys/PoKeysUsage.py jest przykładem legacy. "
-        "Użyj core/tarzanPoKeys.py albo ustaw TARZAN_ALLOW_LEGACY_POKEYS_TOOLS=1 tylko ręcznie."
-    )
-
 from tokenize import Triple
 from PoKeys import *
 

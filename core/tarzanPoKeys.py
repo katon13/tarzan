@@ -2048,17 +2048,41 @@ class TarzanPoKeys:
         # 0 w API PoKeys daje fizycznie HIGH na nieodwróconym wyjściu.
         return 1
 
+    def _abc_startup_bios_supported_signal(self, sig: TarzanSygnal) -> bool:
+        """Czy sygnał wolno wpisać do PoKeys 0x1E startup output values.
+
+        Dokumentacja 0x1E mówi o *digital outputs startup values*. Nie wpisujemy
+        tu pseudo-wyjść analogowych/I2C/LCD/Matrix/Keyboard, bo nie są one
+        zwykłą mapą startowych wyjść cyfrowych i powodują fałszywy mismatch.
+        PULSE_ENGINE/GPIO/PWM zostają, ale nadal bez ruchu: zapisujemy tylko
+        stan startowy OFF/LOW w flash/BIOS płytki.
+        """
+        if sig.pin is None:
+            return False
+        if str(sig.kierunek or "").upper() != "OUT":
+            return False
+        hw = str(sig.hardware_function or "").upper()
+        typ = str(sig.typ or "").upper()
+        if hw in {HW_ANALOG, HW_I2C, HW_LCD, HW_MATRIX_LED, HW_KEYBOARD, HW_RESERVED}:
+            return False
+        if hw in {HW_GPIO, HW_PWM, HW_PULSE, HW_SYSTEM, HW_POEXTBUS}:
+            return True
+        # Jeżeli mapa ma zwykły sygnał LH/CTR OUT bez jawnej funkcji, traktujemy
+        # go jako cyfrowy, ale niczego nie uruchamiamy poza bitami startup.
+        return typ in {"LH", "CTR", "GPIO", "PWM"}
+
     def _abc_startup_output_bytes(self, board_signals: Iterable[TarzanSygnal]) -> List[int]:
         """Startup output values for PoKeys command 0x1E, bytes 9..15.
 
         PoKeys stores startup output values separately from pin functions.
-        For TARZAN safe OFF we store value 1 for every configured OUT pin.
-        PoKeys digital outputs are inverted: value 1 gives physical LOW on a
-        non-inverted output, so this is safe/off for LED/ENABLE/STEP lines.
+        For TARZAN safe OFF we store value 1 only for configured digital OUT
+        pins supported by 0x1E. PoKeys digital outputs are inverted: value 1
+        gives physical LOW on a non-inverted output, so this is safe/off for
+        LED/ENABLE/STEP lines.
         """
         data = [0] * 7
         for sig in board_signals:
-            if sig.pin is None:
+            if not self._abc_startup_bios_supported_signal(sig):
                 continue
             value = self._abc_safe_output_value(sig)
             if value is None:
@@ -2376,12 +2400,113 @@ class TarzanPoKeys:
         out["ok"] = not out["errors"]
         return out
 
+    def ensure_project_board_startup_bios_once(self, board: str = "PLAY", *, save_to_flash: bool = True) -> Dict[str, Any]:
+        """Sprawdza i ustawia PoKeys 0x1E startup output values dla jednej płytki.
+
+        To jest startowy "BIOS" ABC TARZANA: przy starcie runtime sprawdzamy,
+        czy płytka ma w flash auto-initialize outputs + startup values. Jeśli nie,
+        zapisujemy RAW 0x1E, robimy SaveConfiguration 0x50 i czytamy ponownie.
+        Bez STEP/DIR ruchu, bez PulseEngineMove, bez pętli.
+        """
+        board = str(board or "PLAY").upper()
+        board_signals = [
+            sig for sig in sorted(WSZYSTKIE_SYGNALY.values(), key=lambda s: int(s.pin or 999))
+            if str(sig.plytka or "").upper() == board and sig.pin is not None
+        ]
+        expected = self._abc_startup_output_bytes(board_signals)
+        out: Dict[str, Any] = {
+            "ok": False,
+            "board": board,
+            "method": "ENSURE_STARTUP_BIOS_0x1E_0x50",
+            "changed": False,
+            "expected_startup_values_bytes": expected,
+            "expected_startup_values_hex": " ".join(f"{x:02X}" for x in expected),
+            "errors": [],
+            "warnings": [],
+        }
+        before = self._abc_verify_startup_output_settings(board, board_signals)
+        out["before"] = before
+        if before.get("ok"):
+            out["ok"] = True
+            out["actual_startup_values_hex"] = before.get("actual_startup_values_hex")
+            self.logger.info(
+                "POKEYS ABC STARTUP BIOS OK board=%s changed=False values=%s",
+                board,
+                out["expected_startup_values_hex"],
+            )
+            return out
+
+        write = self._abc_write_startup_output_settings(board, expected)
+        out["write"] = write
+        out["changed"] = True
+        if not write.get("ok"):
+            out["errors"].append(f"RAW_0x1E_WRITE:{write.get('error') or write.get('mismatch')}")
+            self.logger.error(
+                "POKEYS ABC STARTUP BIOS WRITE FAIL board=%s expected=%s actual=%s error=%s",
+                board,
+                out["expected_startup_values_hex"],
+                (write.get("readback") or {}).get("startup_values_hex"),
+                write.get("error") or write.get("mismatch"),
+            )
+            return out
+
+        if save_to_flash:
+            save = self.save_configuration(board)
+            out["save"] = save
+            if not save.get("ok"):
+                out["errors"].append(f"RAW_0x50_SAVE:{save.get('error') or save.get('rc')}")
+                self.logger.error("POKEYS ABC STARTUP BIOS SAVE FAIL board=%s error=%s", board, save.get("error") or save.get("rc"))
+                return out
+            time.sleep(0.25)
+
+        after = self._abc_verify_startup_output_settings(board, board_signals)
+        out["after"] = after
+        out["actual_startup_values_hex"] = after.get("actual_startup_values_hex")
+        out["ok"] = bool(after.get("ok"))
+        if out["ok"]:
+            self.logger.info(
+                "POKEYS ABC STARTUP BIOS WRITTEN board=%s changed=True values=%s",
+                board,
+                out["expected_startup_values_hex"],
+            )
+        else:
+            out["errors"].append(f"RAW_0x1E_AFTER_SAVE:{after.get('error')}")
+            self.logger.error(
+                "POKEYS ABC STARTUP BIOS VERIFY FAIL board=%s expected=%s actual=%s auto=%s present=%s",
+                board,
+                out["expected_startup_values_hex"],
+                after.get("actual_startup_values_hex"),
+                after.get("auto_initialize_outputs"),
+                after.get("startup_values_present"),
+            )
+        return out
+
+    def ensure_project_startup_bios_once(self, *, save_to_flash: bool = True) -> Dict[str, Any]:
+        """Sprawdza/ustawia startup BIOS ABC na PLAY i REC przy starcie systemu."""
+        result: Dict[str, Any] = {"ok": False, "boards": {}, "errors": [], "warnings": []}
+        for board in ("PLAY", "REC"):
+            board_res = self.ensure_project_board_startup_bios_once(board, save_to_flash=save_to_flash)
+            result["boards"][board] = board_res
+            result["errors"].extend([f"{board}:{e}" for e in board_res.get("errors", [])])
+            result["warnings"].extend([f"{board}:{w}" for w in board_res.get("warnings", [])])
+        result["ok"] = not result["errors"]
+        if result["ok"]:
+            self.logger.info("POKEYS ABC STARTUP BIOS READY PLAY/REC")
+        else:
+            self.logger.error("POKEYS ABC STARTUP BIOS FAIL: %s", "; ".join(str(x) for x in result.get("errors", [])[:10]))
+        return result
+
     def configure_and_verify_project_once(self, *, force_i2c: bool = False, restore_if_needed: bool = True) -> Dict[str, Any]:
         """Verify ABC; gdy wykryje stary setup, restore ABC RAZ, save, readback, verify.
 
         Brak pętli. Jedno podejście restore na start albo po wykrytym rozjeździe.
         """
+        # Najpierw startowy "BIOS" ABC: sprawdź RAW 0x1E i ustaw/zapisz do flash
+        # tylko jeśli PLAY/REC nie mają oczekiwanych startup output values.
+        startup_bios = self.ensure_project_startup_bios_once(save_to_flash=True)
+
         first = self.verify_project_configuration_once(force_i2c=force_i2c)
+        first["startup_bios"] = startup_bios
         if first.get("ok"):
             safe = self.apply_default_safe_state_once()
             first["abc_confirmed"] = True
@@ -2389,7 +2514,7 @@ class TarzanPoKeys:
             first["safe_state"] = safe
             self._abc_boot_confirmed = True
             self._abc_last_result = first
-            self.logger.info("POKEYS ABC OK: PLAY/REC already confirmed; default safe state applied once")
+            self.logger.info("POKEYS ABC OK: PLAY/REC already confirmed; startup BIOS checked; default safe state applied once")
             return first
         if not restore_if_needed:
             first["abc_confirmed"] = False
@@ -2405,6 +2530,7 @@ class TarzanPoKeys:
             "ok": bool(second.get("ok")),
             "abc_confirmed": bool(second.get("ok")),
             "restored": True,
+            "startup_bios": startup_bios,
             "first_verify": first,
             "apply": apply_res,
             "second_verify": second,

@@ -97,13 +97,13 @@ class TarzanTspLks:
         if f is None:
             return
 
-        # Stabilny ekran miniPC: trzymamy otwarty /dev/tty7 i rysujemy pełny
-        # dashboard od góry. Dzięki temu ręczny wpis, wygaszenie albo inny zapis
-        # na tty7 nie zostawia pustego/obcego ekranu po zakończeniu testów.
+        # Stabilny ekran miniPC: /dev/tty7 pracuje w trybie tekstowym 80 kolumn.
+        # Nie wolno wysyłać linii 100-120 znaków, bo konsola HDMI zawija tekst
+        # i obraz wygląda jakby "pojeżdżał". Rysujemy stałą ramkę 78 kolumn
+        # od pozycji 1;1, bez przewijania i bez kasowania do końca ekranu w cyklu.
         f.write("\033[?25l")
-        f.write("\033[H")
+        f.write("\033[1;1H")
         f.write(text)
-        f.write("\033[J")
         f.flush()
         self._screen_initialized = True
         self._last_lines = text.splitlines()
@@ -148,16 +148,21 @@ class TarzanTspLks:
         snapshot = self.server.debug.snapshot()
         stats = snapshot.get("stats", {})
         clients = self._clients_snapshot()
-        columns = shutil.get_terminal_size((100, 30)).columns
-        width = max(80, min(120, columns))
-        line = "─" * width
+        # LKS-TTY idzie na fizyczny monitor HDMI przez /dev/tty7.
+        # Usługa systemd nie zna realnej szerokości tej konsoli, więc
+        # shutil.get_terminal_size() potrafi zwrócić 100/120 kolumn,
+        # a prawdziwy tekstowy ekran ma 80. To powodowało zawijanie linii
+        # i efekt "pojeżdżania" obrazu. Używamy stałego, bezpiecznego
+        # bufora 78 kolumn.
+        width = 78
+        line = "-" * width
         now_txt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         header = [
-            "TARZAN LKS — LAMPKA KONTROLNA SYSTEMU"[:width],
+            "TARZAN LKS - LAMPKA KONTROLNA SYSTEMU"[:width],
             line,
-            f"NODE: {self.server.node_name}   TSP: RUNNING {self.server.host}:{self.server.port}   TIME: {now_txt}",
-            f"CLIENTS: {len(clients)}   RX: {stats.get('packets_rx', 0)}   TX: {stats.get('packets_tx', 0)}   ERR: {stats.get('errors', 0)}   DROP: {stats.get('dropped', 0)}",
+            f"NODE: {self.server.node_name}  TSP:{self.server.host}:{self.server.port}  {now_txt}",
+            f"CLIENTS:{len(clients)} RX:{stats.get('packets_rx', 0)} TX:{stats.get('packets_tx', 0)} ERR:{stats.get('errors', 0)} DROP:{stats.get('dropped', 0)}",
             f"LAST: {self._last_reason}",
             self._format_poksyg_last_forced(),
         ]
@@ -173,19 +178,23 @@ class TarzanTspLks:
 
         body = [
             line,
-            "RX — ostatnie komendy przychodzące:",
+            "RX - ostatnie komendy przychodzace:",
             *self._format_ring(snapshot.get("rx", []), direction="<-", limit=6),
             line,
-            "TX — ostatnie sygnały/ramki wychodzące:",
+            "TX - ostatnie sygnaly/ramki wychodzace:",
             *self._format_ring(snapshot.get("tx", []), direction="->", limit=6),
             line,
-            "ERROR — ostatnie błędy:",
+            "ERROR - ostatnie bledy:",
             *self._format_errors(snapshot.get("errors", []), limit=3),
             line,
-            "LKS: tylko podgląd | odświeżanie 1 s albo ważne zdarzenie | bez UI/PAR/sterowania",
+            "LKS: podglad lokalny | odswiezanie 1s | bez UI/PAR/sterowania",
         ]
 
-        return "\n".join(self._clip(row, width) for row in [*header, *body]) + "\n"
+        rows = [self._clip(row, width).ljust(width) for row in [*header, *body]]
+        rows = rows[:24]
+        while len(rows) < 24:
+            rows.append(" " * width)
+        return "\n".join(rows) + "\n"
 
     def _format_poksyg_last_forced(self) -> str:
         """Jedna trwała linia statusu POKSYG dla LKS-TTY.
@@ -235,7 +244,7 @@ class TarzanTspLks:
         for item in source:
             rows.append(self._format_event_item(item, direction))
         if not rows:
-            rows.append("  —")
+            rows.append("  -")
         return rows[-limit:]
 
     def _thin_tx_items(self, items: list[Dict[str, Any]], limit: int) -> list[Dict[str, Any]]:
@@ -332,7 +341,7 @@ class TarzanTspLks:
         parts = []
         for idx, (key, value) in enumerate(data.items()):
             if idx >= max_items:
-                parts.append("…")
+                parts.append("...")
                 break
             parts.append(f"{key}={value}")
         return "{" + ", ".join(parts) + "}"
@@ -347,4 +356,4 @@ class TarzanTspLks:
     def _clip(self, text: str, width: int) -> str:
         if len(text) <= width:
             return text
-        return text[: max(0, width - 1)] + "…"
+        return text[: max(0, width - 3)] + "..."

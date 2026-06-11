@@ -2498,9 +2498,12 @@ class TarzanPoKeys:
                     return out
                 out["pin_config_ok"] = True
                 pins_ptr = dev.device.contents.Pins
-                for sig in sorted(WSZYSTKIE_SYGNALY.values(), key=lambda s: int(s.pin or 999)):
-                    if str(sig.plytka or "").upper() != board or sig.pin is None:
-                        continue
+                board_signals = [
+                    sig
+                    for sig in sorted(WSZYSTKIE_SYGNALY.values(), key=lambda s: int(s.pin or 999))
+                    if str(sig.plytka or "").upper() == board and sig.pin is not None
+                ]
+                for sig in board_signals:
                     pin = int(sig.pin)
                     item = self.pokabc.verify_signal_pin_against_device(board, sig, pins_ptr[pin - 1], cap_enum=ePK_PinCap, strict_pin_function=strict_pin_function) if self.pokabc is not None else self._verify_signal_pin_against_device(board, sig, pins_ptr[pin - 1], strict_pin_function=strict_pin_function)
                     out["pins"][str(pin)] = item

@@ -145,6 +145,13 @@ class TarzanPoKeys:
         "mcp3425": (0x68,),
     }
 
+    # Mapowanie pinów, które wymagają odwrócenia stanu bezpiecznego startup.
+    # Format: ("BOARD", pin): value (0 lub 1)
+    # Zgłoszone 4 diody, które świecą a powinny być zgaszone.
+    ABC_STARTUP_SAFE_VALUE_OVERRIDES: Dict[Tuple[str, int], int] = {
+        # Na razie puste, zostanie uzupełnione po podaniu konkretnych pinów przez użytkownika.
+    }
+
     def __init__(self, logger: Any) -> None:
         self.logger = logger
         self._lock = threading.RLock()
@@ -158,6 +165,7 @@ class TarzanPoKeys:
         self.pokabc = TarzanPokABC(logger, WSZYSTKIE_SYGNALY) if TARZAN_POKABC_AVAILABLE and TarzanPokABC is not None else None
         self._abc_boot_confirmed = False
         self._abc_last_result: Dict[str, Any] = {"ok": False, "error": "ABC_NOT_CONFIRMED"}
+        self._abc_cold_verified: Dict[str, bool] = {}
         self.snajper = TarzanPoKeysSnajper(logger, default_sample_ms=10)
         self._i2c_scan_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
         self._i2c_scan_cache_ttl_s = 30.0
@@ -2030,7 +2038,7 @@ class TarzanPoKeys:
             return None
         return None
 
-    def _abc_safe_output_value(self, sig: TarzanSygnal) -> Optional[int]:
+    def _abc_safe_output_value(self, board: str, sig: TarzanSygnal) -> Optional[int]:
         """Domyślny stan bezpieczny TARZAN po konfiguracji ABC.
 
         WAŻNE PoKeys: dla zwykłego nieodwróconego wyjścia cyfrowego zapis
@@ -2043,6 +2051,13 @@ class TarzanPoKeys:
         """
         if str(sig.kierunek or "").upper() != "OUT":
             return None
+
+        board = str(board).upper()
+        pin = int(sig.pin) if sig.pin is not None else None
+        if pin is not None and (board, pin) in self.ABC_STARTUP_SAFE_VALUE_OVERRIDES:
+            val = self.ABC_STARTUP_SAFE_VALUE_OVERRIDES[(board, pin)]
+            # self.logger.debug("ABC safe value OVERRIDE board=%s pin=%d value=%d", board, pin, val)
+            return val
 
         # Fizyczny LOW/OFF na PoKeys digital output. Nie zmieniać na 0:
         # 0 w API PoKeys daje fizycznie HIGH na nieodwróconym wyjściu.
@@ -2071,7 +2086,7 @@ class TarzanPoKeys:
         # go jako cyfrowy, ale niczego nie uruchamiamy poza bitami startup.
         return typ in {"LH", "CTR", "GPIO", "PWM"}
 
-    def _abc_startup_output_bytes(self, board_signals: Iterable[TarzanSygnal]) -> List[int]:
+    def _abc_startup_output_bytes(self, board: str, board_signals: Iterable[TarzanSygnal]) -> List[int]:
         """Startup output values for PoKeys command 0x1E, bytes 9..15.
 
         PoKeys stores startup output values separately from pin functions.
@@ -2081,10 +2096,11 @@ class TarzanPoKeys:
         LED/ENABLE/STEP lines.
         """
         data = [0] * 7
+        board = str(board).upper()
         for sig in board_signals:
             if not self._abc_startup_bios_supported_signal(sig):
                 continue
-            value = self._abc_safe_output_value(sig)
+            value = self._abc_safe_output_value(board, sig)
             if value is None:
                 continue
             pin = int(sig.pin)
@@ -2221,7 +2237,7 @@ class TarzanPoKeys:
         }
 
     def _abc_verify_startup_output_settings(self, board: str, board_signals: Iterable[TarzanSygnal]) -> Dict[str, Any]:
-        expected = self._abc_startup_output_bytes(board_signals)
+        expected = self._abc_startup_output_bytes(board, board_signals)
         readback = self._abc_read_startup_output_settings(board)
         if not readback.get("ok"):
             return {"ok": False, "board": board, "expected_startup_values_bytes": expected, "readback": readback, "error": "STARTUP_VALUES_READ_FAIL"}
@@ -2413,7 +2429,7 @@ class TarzanPoKeys:
             sig for sig in sorted(WSZYSTKIE_SYGNALY.values(), key=lambda s: int(s.pin or 999))
             if str(sig.plytka or "").upper() == board and sig.pin is not None
         ]
-        expected = self._abc_startup_output_bytes(board_signals)
+        expected = self._abc_startup_output_bytes(board, board_signals)
         out: Dict[str, Any] = {
             "ok": False,
             "board": board,
@@ -2426,6 +2442,21 @@ class TarzanPoKeys:
         }
         before = self._abc_verify_startup_output_settings(board, board_signals)
         out["before"] = before
+
+        # COLD BOOT LOGIC
+        if board not in self._abc_cold_verified:
+            # Pierwszy odczyt po uruchomieniu usługi
+            self._abc_cold_verified[board] = True
+            self.logger.info(
+                "POKEYS ABC COLD READ board=%s auto=%s present=%s values=%s",
+                board,
+                before.get("auto_initialize_outputs"),
+                before.get("startup_values_present"),
+                before.get("actual_startup_values_hex"),
+            )
+            if before.get("ok"):
+                self.logger.info("POKEYS ABC FLASH COLD OK board=%s", board)
+
         if before.get("ok"):
             out["ok"] = True
             out["actual_startup_values_hex"] = before.get("actual_startup_values_hex")
@@ -2472,6 +2503,8 @@ class TarzanPoKeys:
                 board,
                 out["expected_startup_values_hex"],
             )
+            self.logger.info("POKEYS ABC STARTUP BIOS OK board=%s (RUNTIME)", board)
+            self.logger.warning("POKEYS ABC FLASH REQUIRES COLD POWER CYCLE board=%s", board)
         else:
             out["errors"].append(f"RAW_0x1E_AFTER_SAVE:{after.get('error')}")
             self.logger.error(

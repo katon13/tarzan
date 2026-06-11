@@ -60,8 +60,10 @@ def main():
 # 2. Konfiguracja parametrów serwera TSP
     is_windows = platform.system().lower() == "windows"
     
-    # Domyślne porty dla miniPC (na Windowsie używamy dry_run)
-    lks_tty = os.environ.get("TARZAN_LKS_TTY") or ("-" if is_windows else "/dev/tty7")
+    # LKS-TTY (ekran tekstowy miniPC) domyślnie wyłączony w normalnym runtime z Nextion 5.
+    # Włączenie tylko przez TARZAN_ENABLE_TTY_LKS=1.
+    enable_lks_tty = os.environ.get("TARZAN_ENABLE_TTY_LKS") == "1"
+    lks_tty = os.environ.get("TARZAN_LKS_TTY") or ("/dev/tty7" if enable_lks_tty and not is_windows else "-")
     n5_port = "COM5" if is_windows else "/dev/serial/by-path/pci-0000:00:14.0-usb-0:3.2:1.0-port0"
     n5_dry_run = is_windows
     
@@ -89,7 +91,7 @@ def main():
     # - LKS (Status panel)
     # - LKS-N5 (Nextion 5)
     server = TarzanTspServer(
-        enable_lks=True,
+        enable_lks=enable_lks_tty,
         lks_tty=lks_tty,
         enable_lks_n5=True,
         lks_n5_port=n5_port,

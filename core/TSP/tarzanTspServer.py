@@ -575,6 +575,7 @@ class TarzanTspServer:
                 "pok_play": self._lks_n5_status_cache.get("pok_play", True),
                 "pok_rec": self._lks_n5_status_cache.get("pok_rec", True),
                 "light_laser": self._lks_n5_status_cache.get("light_laser", False),
+                "light_bh1750": self._lks_n5_status_cache.get("light_bh1750", False),
                 "i2c_bus": bus_ok_from_statuses(self._lks_n5_status_cache),
             }
 
@@ -627,9 +628,13 @@ class TarzanTspServer:
         except Exception as exc:
             self.logger.error("Could not init SignalBus in TarzanTspServer: %s", exc)
 
-        # LKS-TTY na miniPC startuje PRZED diagnostyką hardware, żeby ekran
-        # /dev/tty7 był aktywny przez cały boot/test i nie znikał po testach.
-        self.lks.start()
+        # LKS-TTY na miniPC (tekstowy ekran /dev/tty7) ma być wyłączony w normalnej pracy
+        # z Nextion 5, aby nie czyścić monitora Linux i nie powodować skakania konsoli.
+        lks_tty_effective = str(getattr(self.lks, "tty_path", "") or "-")
+        if lks_tty_effective not in {"", "-"} and self.lks.enabled:
+            self.lks.start()
+        else:
+            self.logger.info("LKS-TTY DISABLED (tty=%s, enabled=%s)", lks_tty_effective, self.lks.enabled)
 
         # ETAP 5: Spięcie SignalBus z Hardware Bridge na miniPC (tor wykonawczy)
         try:

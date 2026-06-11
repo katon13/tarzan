@@ -725,6 +725,7 @@ class TarzanSnajperHardwarePolicy:
         "keypad",
         "i2c_bus",
         "light_bh1750",
+        "light_laser",
     }
     LKS_LIGHT_COMPONENTS = {
         "linux_sys",
@@ -768,6 +769,7 @@ class TarzanSnajperHardwarePolicy:
             "leds": "f_led",
             "bh1750": "light_bh1750",
             "light": "light_bh1750",
+            "laser": "light_laser",
             "i2c": "i2c_bus",
             "bus": "i2c_bus",
             "nextion7": "next_7",
@@ -854,13 +856,37 @@ class TarzanSnajperHardwarePolicy:
         control_owner: Any = "",
         cmd_hardware_awake: Any = 0,
     ) -> bool:
+        """Decyduje, czy pętla główna powinna pracować w trybie 10-100Hz.
+        
+        Zasada Snajpera: realtime jest wymagany tylko przy aktywnej akcji.
+        Obecność PAR_LIVE nie oznacza ciągłego pollingu PoKeys,
+        oznacza jedynie gotowość logiczną.
+        """
+        # Jawna komenda wybudzenia (np. z PARcore)
         if self.truthy(cmd_hardware_awake):
             return True
+            
+        # Aktywny ruch (PLAY/REC)
         if str(transport_state or "").strip().upper() in {"PLAY", "REC"}:
             return True
+            
+        # Tryby wykonawcze (np. tKHR, tEHR) oznaczają potrzebę realtime
         mode = str(active_mode or "").strip().lower()
         if mode in self.EXEC_MODES and mode not in self.IDLE_MODES:
+            # Jednak nawet w tEHR/tKHR, jeśli transport stoi, 
+            # HardwareBridge po grace period powinien móc zasnąć.
+            if mode == "tkhr": # KHR wymaga 10ms dla korekty
+                return True
+            if transport_state == "PLAY":
+                return True
+
+        # Control owner: LKS_DIAGNOSTIC wymaga realtime dla widocznych testów
+        if str(control_owner) == "LKS_DIAGNOSTIC":
             return True
+            
+        # PAR_LIVE oznacza gotowość, ale wybudzenie fizyczne 
+        # nastąpi dopiero przy write() lub jawnej akcji.
+        
         return False
 
     def grace_ms_for(self, kind: str = "default") -> int:

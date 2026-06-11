@@ -722,13 +722,10 @@ class TarzanHardwareBridge:
         laser_ok = False
         laser_detail = ""
         try:
-            from core.TSP.tarzanTspLksTestMatrix import LKS_TEST_MATRIX
-
-            entry = LKS_TEST_MATRIX.get("light_laser")
-            if isinstance(entry, dict):
-                laser = self._lks_test_signal_reads_matrix("light_laser", entry)
-                laser_ok = bool(laser.get("ok"))
-                laser_detail = str(laser.get("detail") or laser.get("error") or "")[:180]
+            # ETAP 1R: Realny test I2C czujnika TSL25911 (Light Laser)
+            laser = self._lks_test_tsl25911("REC", 0x29)
+            laser_ok = bool(laser.get("ok"))
+            laser_detail = str(laser.get("detail") or laser.get("error") or "")[:180]
         except Exception as exc:
             laser_detail = f"laser_test_error={exc}"
 
@@ -791,6 +788,27 @@ class TarzanHardwareBridge:
         return self._lks_test_result("next_7", False, detail=", ".join(candidates[:3]), error="brak portu Nextion 7 na miniPC")
 
 
+    def _lks_test_tsl25911(self, board: str = "REC", addr7: int = 0x29) -> Dict[str, Any]:
+        """Realny test czujnika Light Laser (TSL25911) zgodnie z dokumentacją.
+        Sprawdza rejestr ID (0x12) -> oczekiwane 0x50.
+        """
+        try:
+            # Rejestr ID dla TSL25911 to 0x12 (0x92 z command bit 10100000 | 0x12)
+            # W PoKeys i2c_write_read: board, addr7, write_bytes, read_len
+            # Command bit (0xA0) + register (0x12) = 0xB2
+            result = self.pokeys.i2c_write_read(board, addr7, [0xB2], 1)
+            if not result or not isinstance(result, list) or len(result) < 1:
+                return self._lks_test_result("light_laser", False, error="I2C_READ_FAIL")
+            
+            device_id = result[0]
+            # TSL2591 0x50, TSL25911 0x50
+            if device_id == 0x50:
+                return self._lks_test_result("light_laser", True, detail=f"TSL25911_ACK ID=0x{device_id:02X}")
+            else:
+                return self._lks_test_result("light_laser", False, detail=f"ID=0x{device_id:02X}", error="WRONG_DEVICE_ID")
+        except Exception as exc:
+            return self._lks_test_result("light_laser", False, error=str(exc))
+
     def _lks_test_bh1750(self, address: int = 0x5C) -> Dict[str, Any]:
         result = self.pokeys.read_bh1750_lux_once(board="PLAY", addr7=address)
         if not result.get("ok"):
@@ -812,6 +830,7 @@ class TarzanHardwareBridge:
             "f_buttons": "f_button",
             "f_leds": "f_led",
             "bh1750": "light_bh1750",
+            "laser": "light_laser",
             "i2c": "i2c_bus",
         }
         return aliases.get(raw, raw)
@@ -1069,6 +1088,8 @@ class TarzanHardwareBridge:
             return self._lks_test_i2c_bus()
         if method == "bh1750_read":
             return self._lks_test_bh1750()
+        if method == "tsl25911_read_id":
+            return self._lks_test_tsl25911("REC", 0x29)
         if method == "xyz_read":
             return self._lks_test_xyz_matrix(component)
         if tester == "poksyg_axis" or method == "axis_wiring_ack_no_motion":
@@ -1093,7 +1114,8 @@ class TarzanHardwareBridge:
             return self._lks_matrix_error(name, "NO_TEST_MATRIX", supported=False)
 
         needs_pokeys = str(entry.get("tester") or "").startswith("poksyg") or str(entry.get("method") or "") in {
-            "lcd_1602_ack", "matrix_led_ack", "f_led_ack", "keypad_read_ack", "scan_i2c", "bh1750_read", "xyz_read"
+            "lcd_1602_ack", "matrix_led_ack", "f_led_ack", "keypad_read_ack", "scan_i2c", "bh1750_read", "xyz_read",
+            "tsl25911_read_id"
         }
         if needs_pokeys:
             self.request_hardware_awake(
@@ -1113,6 +1135,12 @@ class TarzanHardwareBridge:
                 result["tester"] = str(entry.get("tester") or "")
                 result["method"] = str(entry.get("method") or "")
                 result["expect"] = str(entry.get("expect") or "")
+                
+                # Wymagany log DONE dla kliku/testu punktowego
+                ok = bool(result.get("ok", False))
+                detail = str(result.get("detail", "") or result.get("error", "") or "")
+                self.logger.info("LKS-N5 POINT TEST DONE component=%s ok=%s %s", name, ok, detail[:220])
+                
                 return result
             finally:
                 if needs_pokeys:

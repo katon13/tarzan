@@ -341,30 +341,15 @@ class TarzanTspLksNextion5:
 
 
     def set_poksyg_last_forced_status(self, signal: str, value: object, ack_ok: bool, message: str = "") -> None:
-        """Pokazuje trwały status ostatniego wymuszonego sygnału POKSYG na istniejącej kontrolce.
+        """Loguje status ostatniego wymuszonego sygnału POKSYG.
 
-        Aktualny eksport Nextion 5 status_main ma wyłącznie 30 dual-state buttonów,
-        bez osobnego dolnego pola tekstowego. Nie wysyłamy więc komend do
-        nieistniejących komponentów. Używamy istniejącej kontrolki pok_play:
-        - .val pokazuje OK/ERROR,
-        - .txt trzyma krótki opis ostatniego ACK.
-        Po dodaniu pola tekstowego w HMI można rozszerzyć tę metodę bez zmiany toru.
+        UWAGA: Zgodnie z nową polityką LKS-N5 nie nadpisujemy już ikony 'pok_play'
+        danymi ACK POKSYG. Ikony pok_play/pok_rec służą wyłącznie do raportowania
+        stanu fizycznych płytek PoKeys.
         """
-        sig = str(signal or "").strip()
-        val = str(value)
-        ok_txt = "OK" if bool(ack_ok) else "ERR"
-        if sig == "play_p37_step_disconnect_manual":
-            short = f"P37={val} {ok_txt}"
-        else:
-            short = f"{sig[:8]}={val} {ok_txt}"
-        try:
-            self.set_status("pok_play", bool(ack_ok))
-        except Exception:
-            pass
-        try:
-            self.txt("pok_play", short[:20])
-        except Exception:
-            pass
+        # ACK POKSYG zostaje tylko w logach (obsłużone w tarzanTspServer).
+        # Ta metoda w warstwie wizualnej N5 nie powinna modyfikować ikon sprzętowych.
+        pass
 
     def reset_status_main(self, components: Optional[Iterable[str]] = None) -> None:
         for component in components or all_components():

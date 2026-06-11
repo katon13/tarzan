@@ -220,7 +220,9 @@ class TarzanTspServer:
         self._accept_thread: Optional[threading.Thread] = None
         self._lane_thread: Optional[threading.Thread] = None
         self._last_stats_ms = monotonic_ms()
-        self.lks = TarzanTspLks(self, tty_path=lks_tty, enabled=enable_lks)
+        self._lks_tty_enabled = bool(enable_lks) and str(lks_tty or "-") != "-"
+        self._lks_tty_path = str(lks_tty or "-")
+        self.lks = TarzanTspLks(self, tty_path=self._lks_tty_path, enabled=self._lks_tty_enabled)
         self.lks_n5 = None
         self._lks_n5_enabled = bool(enable_lks_n5)
         self._lks_n5_port = lks_n5_port
@@ -625,9 +627,13 @@ class TarzanTspServer:
         except Exception as exc:
             self.logger.error("Could not init SignalBus in TarzanTspServer: %s", exc)
 
-        # LKS-TTY na miniPC startuje PRZED diagnostyką hardware, żeby ekran
-        # /dev/tty7 był aktywny przez cały boot/test i nie znikał po testach.
-        self.lks.start()
+        # Monitor miniPC nie jest LKS-N5. Tekstowy LKS na TTY jest trybem awaryjnym
+        # i domyślnie nie pisze na /dev/tty7, żeby nie czyścić lokalnej konsoli Linux.
+        if self._lks_tty_enabled:
+            self.lks.start()
+            self.logger.info("LKS-TTY STARTED tty=%s", self._lks_tty_path)
+        else:
+            self.logger.info("LKS-TTY DISABLED (tty=%s, enabled=False)", self._lks_tty_path)
 
         # ETAP 5: Spięcie SignalBus z Hardware Bridge na miniPC (tor wykonawczy)
         try:
@@ -1423,7 +1429,7 @@ def main() -> None:
     parser.add_argument("--node", default="tarzanMiniPC")
     parser.add_argument("--lks", dest="lks", action="store_true", default=True, help="Włącz LKS na lokalnym TTY")
     parser.add_argument("--no-lks", dest="lks", action="store_false", help="Wyłącz LKS")
-    parser.add_argument("--lks-tty", default="/dev/tty7", help="Ścieżka TTY dla LKS, np. /dev/tty7 albo -")
+    parser.add_argument("--lks-tty", default="-", help="Ścieżka TTY dla awaryjnego LKS, np. /dev/tty7 albo -")
     parser.add_argument("--lks-n5", dest="lks_n5", action="store_true", default=False, help="Włącz równoległe wyjście LKS-N5 / Nextion 5")
     parser.add_argument("--lks-n5-port", default="", help="Port Nextion 5, najlepiej /dev/serial/by-id/...")
     parser.add_argument("--lks-n5-baudrate", type=int, default=9600)

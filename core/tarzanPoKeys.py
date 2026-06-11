@@ -118,6 +118,11 @@ class TarzanPoKeys:
         "REC": int(POKEYS57U_REC_DEVICE_SERIAL),
     }
 
+    # Override dla pojedynczych linii, które fizycznie mają odwróconą logikę OFF.
+    # Klucz: ("PLAY" albo "REC", numer_pinu_1_55), wartość: 0 albo 1 zapisywane do PoKeys.
+    # Domyślnie puste: nie zmieniamy globalnie bezpiecznej logiki ABC.
+    ABC_STARTUP_SAFE_VALUE_OVERRIDES: Dict[Tuple[str, int], int] = {}
+
     # RRP / potencjometry z mapy sygnałowej projektu.
     RRP_POTS: Dict[str, Tuple[str, str, int, Tuple[str, ...]]] = {
         "P1": ("PLAY", "play_p45_rrp_pot_h", 45, ("sensor_rrp_pot_h", "par_rrp_p1_val", "rrp_p1_val")),
@@ -158,6 +163,8 @@ class TarzanPoKeys:
         self.pokabc = TarzanPokABC(logger, WSZYSTKIE_SYGNALY) if TARZAN_POKABC_AVAILABLE and TarzanPokABC is not None else None
         self._abc_boot_confirmed = False
         self._abc_last_result: Dict[str, Any] = {"ok": False, "error": "ABC_NOT_CONFIRMED"}
+        # Instance copy: gwarantuje istnienie mapy override także po reloadach/starych cache.
+        self.ABC_STARTUP_SAFE_VALUE_OVERRIDES = dict(getattr(self.__class__, "ABC_STARTUP_SAFE_VALUE_OVERRIDES", {}) or {})
         self.snajper = TarzanPoKeysSnajper(logger, default_sample_ms=10)
         self._i2c_scan_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
         self._i2c_scan_cache_ttl_s = 30.0
@@ -2041,14 +2048,33 @@ class TarzanPoKeys:
         Cel: LED off, ENABLE off, STEP low, bridge/mass/auto off.
         Nie odpalamy PulseEngineMove, MovePV ani żadnego ruchu osi.
         """
-        if str(sig.kierunek or "").upper() != "OUT":
-            return None
+        try:
+            if str(getattr(sig, "kierunek", "") or "").upper() != "OUT":
+                return None
 
-        board = str(board).upper()
-        pin = int(sig.pin) if sig.pin is not None else None
-        if pin is not None and (board, pin) in self.ABC_STARTUP_SAFE_VALUE_OVERRIDES:
-            val = self.ABC_STARTUP_SAFE_VALUE_OVERRIDES[(board, pin)]
-            return val
+            board = str(board or "").upper()
+            try:
+                pin = int(sig.pin) if sig.pin is not None else None
+            except Exception:
+                pin = None
+
+            # Mapa override musi być zawsze opcjonalna. Jej brak nie może wywrócić HardwareBridge.
+            overrides = getattr(self, "ABC_STARTUP_SAFE_VALUE_OVERRIDES", None)
+            if overrides is None:
+                overrides = getattr(self.__class__, "ABC_STARTUP_SAFE_VALUE_OVERRIDES", {}) or {}
+            if pin is not None and (board, pin) in overrides:
+                return int(overrides[(board, pin)]) & 1
+        except Exception as exc:
+            try:
+                self.logger.warning(
+                    "POKEYS ABC SAFE VALUE FALLBACK board=%s signal=%s error=%s",
+                    board,
+                    getattr(sig, "nazwa", "?"),
+                    exc,
+                )
+            except Exception:
+                pass
+            return 1
 
         # Fizyczny LOW/OFF na PoKeys digital output. Nie zmieniać na 0:
         # 0 w API PoKeys daje fizycznie HIGH na nieodwróconym wyjściu.
@@ -2510,7 +2536,13 @@ class TarzanPoKeys:
         """
         # Najpierw startowy "BIOS" ABC: sprawdź RAW 0x1E i ustaw/zapisz do flash
         # tylko jeśli PLAY/REC nie mają oczekiwanych startup output values.
-        startup_bios = self.ensure_project_startup_bios_once(save_to_flash=True)
+        try:
+            startup_bios = self.ensure_project_startup_bios_once(save_to_flash=True)
+        except Exception as exc:
+            # Startup BIOS nie może zabić HW_Bridge_Loop. To jest diagnostyka/flash,
+            # a runtime ABC i testy osi muszą dalej przejść przez verify/restore.
+            startup_bios = {"ok": False, "errors": [f"STARTUP_BIOS_EXCEPTION:{exc}"], "warnings": []}
+            self.logger.error("POKEYS ABC STARTUP BIOS EXCEPTION: %s", exc)
 
         first = self.verify_project_configuration_once(force_i2c=force_i2c)
         first["startup_bios"] = startup_bios

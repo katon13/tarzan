@@ -80,6 +80,7 @@ class TarzanTspLksNextion5:
         self.last_scene: str = ""
         self.last_status: Dict[str, bool] = {}
         self.last_error: str = ""
+        self._last_progress: int = 0
 
     def connect(self) -> None:
         connect = getattr(self.device, "connect", None)
@@ -121,7 +122,13 @@ class TarzanTspLksNextion5:
 
     def set_numbers(self, values: Mapping[str, int]) -> None:
         for component, value in values.items():
-            self.val(component, int(value))
+            value_int = int(value)
+            # Boot progress na Nextion 5 ma być monotoniczny.
+            # Nie wolno cofać paska do 0 przy zmianie strony albo retry cache.
+            if component in {"j_progress", "n_progress"}:
+                value_int = max(self._last_progress, value_int)
+                self._last_progress = value_int
+            self.val(component, value_int)
 
     def bkcmd(self, level: int = 3) -> None:
         getattr(self.device, "bkcmd")(int(level))

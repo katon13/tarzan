@@ -684,21 +684,84 @@ class TarzanHardwareBridge:
         return self.pokeys.read_keypad_once()
 
 
-    def _lks_test_i2c_bus(self) -> Dict[str, Any]:
+    def _lks_i2c_scan_summary(self) -> Dict[str, Any]:
+        """Jednorazowy, bezpieczny odczyt stanu PoKeys BUS/I2C.
+
+        Wynik OK nie może opierać się na samym CP2102/USB-UART.
+        Zielone dla i2c_bus wolno dać tylko po realnym potwierdzeniu:
+        - adresów PoKeys BUS/I2C,
+        - albo poprawnego odczytu PoSensors,
+        - albo poprawnego realnego testu czujnika laser/light_laser.
+        """
         serial_links = sorted(glob.glob("/dev/serial/by-id/*"))
         tty_links = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
         usb_detail = "USB=" + (",".join(serial_links[:3] or tty_links[:3]) or "no-tty")
-        play = self.pokeys.scan_i2c_once("PLAY")
-        rec = self.pokeys.scan_i2c_once("REC")
-        play_found = list((play.get("addresses") or play.get("found") or []) if isinstance(play, dict) else [])
-        rec_found = list((rec.get("addresses") or rec.get("found") or []) if isinstance(rec, dict) else [])
-        ok = bool((play.get("ok") if isinstance(play, dict) else False) or (rec.get("ok") if isinstance(rec, dict) else False))
-        if not ok:
-            return self._lks_test_result("i2c_bus", False, detail=usb_detail, error=f"PLAY={play} REC={rec}")
-        if not play_found and not rec_found:
-            return self._lks_test_result("i2c_bus", False, detail=usb_detail, error="brak adresów BUS/I2C")
-        bus_detail = "PLAY=" + (",".join(f"0x{int(x):02X}" for x in play_found) or "none") + " REC=" + (",".join(f"0x{int(x):02X}" for x in rec_found) or "none")
-        return self._lks_test_result("i2c_bus", True, detail=f"{bus_detail}; {usb_detail}")
+
+        def _scan(board: str) -> Dict[str, Any]:
+            try:
+                data = self.pokeys.scan_i2c_once(board)
+                return data if isinstance(data, dict) else {"ok": False, "raw": data}
+            except Exception as exc:
+                return {"ok": False, "error": str(exc)}
+
+        play = _scan("PLAY")
+        rec = _scan("REC")
+        play_found = list(play.get("addresses") or play.get("found") or [])
+        rec_found = list(rec.get("addresses") or rec.get("found") or [])
+        bus_scan_ok = bool((play.get("ok") or rec.get("ok")) and (play_found or rec_found))
+
+        posensors: Dict[str, Any]
+        try:
+            posensors = self.pokeys.read_posensors_once("PLAY")
+            if not isinstance(posensors, dict):
+                posensors = {"ok": False, "raw": posensors}
+        except Exception as exc:
+            posensors = {"ok": False, "error": str(exc)}
+        posensors_ok = bool(posensors.get("ok"))
+
+        laser_ok = False
+        laser_detail = ""
+        try:
+            from core.TSP.tarzanTspLksTestMatrix import LKS_TEST_MATRIX
+
+            entry = LKS_TEST_MATRIX.get("light_laser")
+            if isinstance(entry, dict):
+                laser = self._lks_test_signal_reads_matrix("light_laser", entry)
+                laser_ok = bool(laser.get("ok"))
+                laser_detail = str(laser.get("detail") or laser.get("error") or "")[:180]
+        except Exception as exc:
+            laser_detail = f"laser_test_error={exc}"
+
+        play_txt = ",".join(f"0x{int(x):02X}" for x in play_found) or "none"
+        rec_txt = ",".join(f"0x{int(x):02X}" for x in rec_found) or "none"
+        ok = bool(bus_scan_ok or posensors_ok or laser_ok)
+        detail = (
+            f"PLAY={play_txt} REC={rec_txt}; "
+            f"PoSensors={posensors_ok}; light_laser={laser_ok}; {usb_detail}"
+        )
+        errors = []
+        if not bus_scan_ok:
+            errors.append(f"BUS_SCAN_NO_ADDR PLAY={play} REC={rec}")
+        if not posensors_ok:
+            errors.append(f"PoSensors={str(posensors)[:160]}")
+        if not laser_ok:
+            errors.append(f"light_laser={laser_detail or 'NO_ACK'}")
+        return {
+            "ok": ok,
+            "detail": detail,
+            "error": " | ".join(errors),
+            "play": play,
+            "rec": rec,
+            "posensors": posensors,
+            "light_laser_ok": laser_ok,
+            "usb_detail": usb_detail,
+        }
+
+    def _lks_test_i2c_bus(self) -> Dict[str, Any]:
+        summary = self._lks_i2c_scan_summary()
+        if summary.get("ok"):
+            return self._lks_test_result("i2c_bus", True, detail="BUS_REAL_ACK; " + str(summary.get("detail", "")))
+        return self._lks_test_result("i2c_bus", False, detail=str(summary.get("detail", "")), error=str(summary.get("error", "I2C_BUS_FAIL")))
 
     def _lks_test_nextion7(self) -> Dict[str, Any]:
         """Bezpieczny test obecności portu Nextion 7 / USB-UART bez otwierania HMI."""

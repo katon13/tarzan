@@ -193,9 +193,17 @@ def bus_ok_from_statuses(statuses: Dict[str, bool]) -> bool:
 
     Zielone wystarcza, gdy:
     - punktowy tester i2c_bus potwierdził skan PoKeys BUS/I2C, albo
+    - PoSensors / laser-light module dał realny ACK, albo
     - BH1750 potwierdził realną komunikację po tej magistrali.
+
+    Nie uznajemy samego CP2102/USB-UART za OK; to może być tylko szczegół
+    diagnostyczny, nie potwierdzenie czujnika.
     """
-    return bool(statuses.get("i2c_bus", False) or statuses.get("light_bh1750", False))
+    return bool(
+        statuses.get("i2c_bus", False)
+        or statuses.get("light_laser", False)
+        or statuses.get("light_bh1750", False)
+    )
 
 
 

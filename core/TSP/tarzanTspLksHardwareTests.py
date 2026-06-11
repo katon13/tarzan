@@ -13,6 +13,7 @@ Zasada po poprawce:
 import argparse
 import logging
 import os
+import glob
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional, Sequence
@@ -170,17 +171,40 @@ class TarzanTspLksHardwareTests:
         return list(data.get("addresses") or data.get("found") or []), str(data)
 
     def test_i2c_bus(self, visible: bool = False) -> LksHardwareTestResult:
+        """Realny agregat BUS/I2C dla LKS-N5.
+
+        Nie uznajemy samej obecności CP2102/USB-UART za sukces.
+        OK wymaga realnego ACK: adresy PoKeys BUS/I2C albo PoSensors.
+        W runtime test light_laser jest dodatkowo wykonywany przez HardwareBridge,
+        bo tam mamy dostęp do matrix sygnałów i aktywnego SignalBus.
+        """
         try:
             self._ensure_connected()
             play = self.pokeys.scan_i2c_once("PLAY")
             rec = self.pokeys.scan_i2c_once("REC")
             play_found = list(play.get("addresses") or play.get("found") or [])
             rec_found = list(rec.get("addresses") or rec.get("found") or [])
-            ok = bool((play.get("ok") or rec.get("ok")) and (play_found or rec_found))
-            detail = "PLAY=" + (",".join(f"0x{int(x):02X}" for x in play_found) or "none") + " REC=" + (",".join(f"0x{int(x):02X}" for x in rec_found) or "none")
-            return self._res("i2c_bus", ok, True, "PoKeys BUS/I2C TarzanPoKeys scan", detail=detail, error="" if ok else f"PLAY={play} REC={rec}")
+            bus_scan_ok = bool((play.get("ok") or rec.get("ok")) and (play_found or rec_found))
+
+            try:
+                posensors = self.pokeys.read_posensors_once("PLAY")
+                if not isinstance(posensors, dict):
+                    posensors = {"ok": False, "raw": posensors}
+            except Exception as exc:
+                posensors = {"ok": False, "error": str(exc)}
+            posensors_ok = bool(posensors.get("ok"))
+
+            serial_links = sorted(glob.glob("/dev/serial/by-id/*"))
+            tty_links = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
+            usb_detail = "USB=" + (",".join(serial_links[:3] or tty_links[:3]) or "no-tty")
+            play_txt = ",".join(f"0x{int(x):02X}" for x in play_found) or "none"
+            rec_txt = ",".join(f"0x{int(x):02X}" for x in rec_found) or "none"
+            ok = bool(bus_scan_ok or posensors_ok)
+            detail = f"PLAY={play_txt} REC={rec_txt}; PoSensors={posensors_ok}; {usb_detail}"
+            error = "" if ok else f"BUS_SCAN_NO_ADDR PLAY={play} REC={rec}; PoSensors={str(posensors)[:160]}"
+            return self._res("i2c_bus", ok, True, "PoKeys BUS/I2C/PoSensors real ACK", detail=detail, error=error)
         except Exception as exc:
-            return self._res("i2c_bus", False, True, "PoKeys BUS/I2C TarzanPoKeys scan", error=str(exc))
+            return self._res("i2c_bus", False, True, "PoKeys BUS/I2C/PoSensors real ACK", error=str(exc))
 
     def test_bh1750(self, visible: bool = False, address: int = 0x5C) -> LksHardwareTestResult:
         try:
@@ -211,29 +235,38 @@ class TarzanTspLksHardwareTests:
 
     def test_component(self, component: str, visible: bool = False) -> LksHardwareTestResult:
         name = str(component)
-        if name == "pok_play":
-            return self.check_pokeys("PLAY")
-        if name == "pok_rec":
-            return self.check_pokeys("REC")
-        if name == "lcd_1602" or name in {"lcd", "display"}:
-            return self.test_lcd_1602(visible=visible)
-        if name == "matrix_led":
-            return self.test_matrix_led(visible=visible)
-        if name == "f_button":
-            return self.test_f_buttons(visible=visible)
-        if name == "f_led":
-            return self.test_f_led(visible=visible)
-        if name == "keypad":
-            return self.test_keypad(visible=visible)
-        if name == "i2c_bus":
-            return self.test_i2c_bus(visible=visible)
-        if name == "light_bh1750":
-            return self.test_bh1750(visible=visible)
-        if name in {"posensors", "sensors"}:
-            return self.test_posensors(visible=visible)
-        if name in {"level_xyz", "xyz", "mma7660"}:
-            return self.test_xyz_poksyg(visible=visible)
-        return self.unsupported(name)
+        
+        # Otwieramy bramkę stanów dla testów CLI/punktowych
+        if self.pokeys:
+            self.pokeys.begin_point_test(name)
+            
+        try:
+            if name == "pok_play":
+                return self.check_pokeys("PLAY")
+            if name == "pok_rec":
+                return self.check_pokeys("REC")
+            if name == "lcd_1602" or name in {"lcd", "display"}:
+                return self.test_lcd_1602(visible=visible)
+            if name == "matrix_led":
+                return self.test_matrix_led(visible=visible)
+            if name == "f_button":
+                return self.test_f_buttons(visible=visible)
+            if name == "f_led":
+                return self.test_f_led(visible=visible)
+            if name == "keypad":
+                return self.test_keypad(visible=visible)
+            if name == "i2c_bus":
+                return self.test_i2c_bus(visible=visible)
+            if name == "light_bh1750":
+                return self.test_bh1750(visible=visible)
+            if name in {"posensors", "sensors"}:
+                return self.test_posensors(visible=visible)
+            if name in {"level_xyz", "xyz", "mma7660"}:
+                return self.test_xyz_poksyg(visible=visible)
+            return self.unsupported(name)
+        finally:
+            if self.pokeys:
+                self.pokeys.end_active_state()
 
 
 def _build_parser() -> argparse.ArgumentParser:

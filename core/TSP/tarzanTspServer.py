@@ -301,26 +301,28 @@ class TarzanTspServer:
                 command_delay_s=0.02,
             )
             self.lks_n5.connect()
+            self.logger.info("LKS-N5 CONNECTED port=%s baudrate=%s", self._lks_n5_port, self._lks_n5_baudrate)
             self.lks_n5.bkcmd(3)
 
             # ETAP 13: od momentu startu usługi systemd Linux przejmuje ekran
             # i pokazuje realne kroki bootu. boot_loading pozostaje wyłącznie
             # ekranem oczekiwania przed startem usługi.
             try:
-                from .tarzanTspLksBootCheck import TarzanTspLksBootCheck
+                from .tarzanTspLksBootProgress import TarzanTspLksBootProgress
 
                 # ETAP 1N: boot-check musi dostać aktywny HardwareBridge.
                 # Inaczej startowa diagnostyka fizyczna idzie starą ścieżką,
                 # próbuje drugi raz otwierać PoKeys i statusy USB/LCD/I2C/Matrix
                 # nie przechodzą na starcie, choć klik punktowy działa.
-                boot = TarzanTspLksBootCheck(
+                boot = TarzanTspLksBootProgress(
                     self.lks_n5,
                     pause_s=0.12,
                     hardware_bridge=getattr(self, "hw_bridge", None),
                 )
                 boot.run()
                 self._lks_n5_status_page_ready = True
-                self._lks_n5_status_cache = dict(getattr(boot, "statuses", {}) or {})
+                boot_statuses = dict(getattr(boot, "statuses", {}) or {})
+                self._lks_n5_status_cache = boot_statuses
 
                 # ETAP 1L: Snajper na miniPC jest tworzony przed startem LKS-N5
                 # i subskrybuje SignalBus. Boot-check nie może czekać na późniejszy
@@ -328,10 +330,16 @@ class TarzanTspServer:
                 # Jeżeli runtime Snajpera istnieje, od razu pokazujemy status OK.
                 snajper_ok = getattr(self, "snajper", None) is not None
                 self._lks_n5_status_cache["snajper_sys"] = bool(snajper_ok)
-                try:
-                    self.lks_n5.set_status("snajper_sys", bool(snajper_ok))
-                except Exception:
-                    pass
+
+                # NAKŁADANIE CACHE STATUSÓW (3 razy w odstępach 0.5-1.0s)
+                # Nextion 5 po intro_status wchodzi na status_main, musimy upewnić się,
+                # że ikony zostaną poprawnie odświeżone.
+                for i in range(1, 4):
+                    time.sleep(0.6)
+                    self.lks_n5.set_many_statuses(self._lks_n5_status_cache)
+                    self.logger.info("LKS-N5 BOOT STATUS CACHE APPLIED retry=%d statuses=%d", i, len(self._lks_n5_status_cache))
+
+                self.logger.info("LKS-N5 FINAL STATUS CACHE APPLIED statuses=%d", len(self._lks_n5_status_cache))
 
                 self._lks_n5_dirty = False
                 self._lks_n5_dirty_reason = ""
@@ -347,7 +355,7 @@ class TarzanTspServer:
                 self._lks_n5_dirty_reason = "startup"
 
             self._lks_n5_last_refresh_ms = monotonic_ms()
-            self.logger.info("LKS-N5 START port=%s baudrate=%s dry_run=%s", self._lks_n5_port, self._lks_n5_baudrate, self._lks_n5_dry_run)
+            self.logger.info("LKS-N5 BOOT FINISHED port=%s baudrate=%s dry_run=%s", self._lks_n5_port, self._lks_n5_baudrate, self._lks_n5_dry_run)
         except Exception as exc:
             self.debug.record_error("lks_n5_start_failed", {"error": str(exc)})
             self.logger.warning("LKS-N5 start failed: %s", exc)
@@ -536,7 +544,8 @@ class TarzanTspServer:
                 bool(status.get("ack_ok", False)),
                 str(status.get("message", "")),
             )
-            self._lks_n5_status_cache["pok_play"] = bool(status.get("ack_ok", False))
+            # Nie zmieniać ikony pok_play na podstawie ACK POKSYG
+            # self._lks_n5_status_cache["pok_play"] = bool(status.get("ack_ok", False))
         except Exception as exc:
             self.debug.record_error("lks_n5_poksyg_last_forced_failed", {"error": str(exc)})
 
@@ -553,16 +562,18 @@ class TarzanTspServer:
             reason_low = reason.lower()
 
             _poksyg_last = self._read_poksyg_last_forced_status()
-            _pok_play_status = bool(_poksyg_last.get("ack_ok")) if _poksyg_last else True
-
+            
+            # pok_play ma być czystym statusem urządzenia, a nie ACK POKSYG.
+            # Domyślnie True, bo jeśli TSP działa, to zakładamy startowe OK,
+            # a realny status przyjdzie z HardwareBridge/SignalBus.
             desired_statuses: Dict[str, bool] = {
                 "linux_sys": True,
                 "snajper_sys": getattr(self, "snajper", None) is not None,
                 "take_sys": True,
                 "par_sys": client_count > 0,
                 "ehr_sys": client_count > 0,
-                "pok_play": _pok_play_status,
-                "pok_rec": True,
+                "pok_play": self._lks_n5_status_cache.get("pok_play", True),
+                "pok_rec": self._lks_n5_status_cache.get("pok_rec", True),
             }
 
             # WAŻNE: antymruganie.
@@ -717,7 +728,7 @@ class TarzanTspServer:
         TarzanTspLksDiagnostics, więc brak testu lub błąd matrix daje realny
         OFF/FAIL, a nie opisową zaślepkę.
         """
-        from .tarzanTspLksStatusMap import empty_statuses
+        from .tarzanTspLksStatusMap import empty_statuses, bus_ok_from_statuses
         from .tarzanTspLksTestMatrix import MATRIX_ERRORS, components
 
         statuses: Dict[str, bool] = empty_statuses(False)
@@ -737,21 +748,41 @@ class TarzanTspServer:
                 batch_started = False
         try:
             ok_count = 0
-            for component in all_components:
+            ordered_components = list(all_components)
+            for name in ("light_laser", "light_bh1750", "i2c_bus"):
+                if name in ordered_components:
+                    ordered_components.remove(name)
+            insert_at = ordered_components.index("level_xyz") + 1 if "level_xyz" in ordered_components else 0
+            ordered_components[insert_at:insert_at] = [c for c in ("light_laser", "light_bh1750", "i2c_bus") if c in all_components]
+
+            for component in ordered_components:
                 result = hw_bridge.test_lks_component(component, visible=visible)
                 ok = bool(result.get("ok", False))
                 statuses[component] = ok
+                if component == "light_laser" and ok:
+                    statuses["i2c_bus"] = True
                 if ok:
                     ok_count += 1
                 detail = str(result.get("detail", "") or result.get("error", "") or "")
-                if detail:
-                    self.logger.info("LKS-N5 FULL MATRIX TEST component=%s ok=%s %s", component, ok, detail[:220])
-            self.logger.info("LKS-N5 FULL TEST MATRIX APPLIED statuses=%d ok=%d", len(all_components), ok_count)
+                # Wymagany log DONE dla FULL MATRIX
+                self.logger.info("LKS-N5 FULL MATRIX TEST DONE component=%s ok=%s %s", component, ok, detail[:220])
+
+            aggregate_i2c = bus_ok_from_statuses(statuses)
+            if aggregate_i2c and not statuses.get("i2c_bus", False):
+                statuses["i2c_bus"] = True
+                ok_count += 1
+                self.logger.info("LKS-N5 FULL MATRIX TEST DONE component=i2c_bus ok=True AGGREGATED_FROM_BUS_DEVICE")
+            self.logger.info("LKS-N5 FULL MATRIX TEST APPLIED statuses=%d ok=%d", len(all_components), ok_count)
             return statuses
         finally:
             if batch_started and hasattr(hw_bridge, "end_hardware_batch"):
                 try:
                     hw_bridge.end_hardware_batch("LKS_FULL_MATRIX_REAL_TESTS", grace_ms=2000)
+                except Exception:
+                    pass
+            if hasattr(hw_bridge, "apply_lks_test_safe_state"):
+                try:
+                    hw_bridge.apply_lks_test_safe_state("LKS_FULL_MATRIX_REAL_TESTS")
                 except Exception:
                     pass
 
@@ -1344,11 +1375,9 @@ class TarzanTspServer:
         # Bez nowej sekcji i bez rozbudowy HMI: używamy istniejącej kontrolki pok_play.
         try:
             if str(source).upper() == "POKSYG" and "PLAY P37" in str(message):
-                ok = "ACK OK" in str(message)
-                if self.lks_n5 is not None:
-                    self.lks_n5.set_status("pok_play", ok)
-                    self._lks_n5_status_cache["pok_play"] = ok
-                    self._push_poksyg_last_forced_to_lks_n5()
+                # Usunięto set_status("pok_play", ok) i aktualizację cache ikon.
+                # ACK POKSYG tylko do logów i ewentualnego podglądu tekstowego.
+                self._push_poksyg_last_forced_to_lks_n5()
         except Exception:
             pass
 

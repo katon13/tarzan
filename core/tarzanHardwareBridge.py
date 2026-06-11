@@ -249,6 +249,27 @@ class TarzanHardwareBridge:
         except Exception as exc:
             self.logger.debug("end_hardware_batch failed source=%s error=%s", source, exc)
 
+    def apply_lks_test_safe_state(self, source: str = "LKS_TEST") -> Dict[str, Any]:
+        """Przywraca bezpieczny stan wyjść po testach LKS/ABC, bez ruchu osi.
+
+        Testy LKS mogą chwilowo mignąć LED/wyjściami. Po zakończeniu serii
+        wracamy do naturalnego stanu OFF/LOW zapisanego w tarzanPoKeys.
+        Nie zapisujemy konfiguracji i nie uruchamiamy STEP/DIR/ENABLE.
+        """
+        try:
+            if hasattr(self.pokeys, "apply_default_safe_state_once"):
+                result = self.pokeys.apply_default_safe_state_once()
+                self.logger.info(
+                    "POKEYS ABC SAFE STATE AFTER %s ok=%s",
+                    source,
+                    bool(isinstance(result, dict) and result.get("ok")),
+                )
+                return result if isinstance(result, dict) else {"ok": False, "raw": result}
+        except Exception as exc:
+            self.logger.warning("POKEYS ABC SAFE STATE AFTER %s failed: %s", source, exc)
+            return {"ok": False, "error": str(exc)}
+        return {"ok": False, "error": "NO_SAFE_STATE_METHOD"}
+
     def request_hardware_awake(self, source: str = "SNAJPER", grace_ms: int = 1500, ensure: bool = False, action_type: str = "CONNECT_ONLY") -> None:
         """Krótki strzał Snajpera w hardware: akcja -> reakcja.
 

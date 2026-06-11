@@ -19,7 +19,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
-from core.TSP.tarzanTspLksStatusMap import empty_statuses
+from core.TSP.tarzanTspLksStatusMap import empty_statuses, bus_ok_from_statuses
 from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
 from core.TSP.tarzanTspLksHardwareTests import TarzanTspLksHardwareTests
 from core.TSP.tarzanTspLksMessages import (
@@ -29,6 +29,7 @@ from core.TSP.tarzanTspLksMessages import (
     SCENE_BOOT_TEST,
     SCENE_READY,
     SCENE_INTRO_STATUS,
+    SCENE_STATUS,
 )
 
 
@@ -379,9 +380,14 @@ class TarzanTspLksBootProgress:
     def _check_i2c_nodes(self) -> Tuple[bool, str, str]:
         # W TARZANIE LKS-N5 podstawowa magistrala I2C/BUS dla operatora
         # jest testowana przez aktywny HardwareBridge, bez drugiego connect PoKeys.
+        # i2c_bus jest agregatem BUS/I2C: może zostać potwierdzony przez skan,
+        # BH1750 albo realny ACK light_laser. Nie wolno uznać samego CP2102.
         bridge_bus = self._bridge_test("i2c_bus", visible=False)
         if bridge_bus is not None and bridge_bus[0]:
             return bridge_bus
+        bridge_laser = self._bridge_test("light_laser", visible=False)
+        if bridge_laser is not None and bridge_laser[0]:
+            return True, ("LIGHT_LASER ACK; " + bridge_laser[1])[:180], ""
         bridge_bh = self._bridge_test("light_bh1750", visible=False)
         if bridge_bh is not None and bridge_bh[0]:
             return True, ("BH1750 OK; " + bridge_bh[1])[:180], ""
@@ -456,13 +462,25 @@ class TarzanTspLksBootProgress:
                 bridge_batch_started = False
 
         try:
-            total = max(1, len(all_components))
-            for idx, component in enumerate(all_components, start=1):
-                progress = 88 + int((idx / total) * 6)
+            # light_laser musi być potwierdzony przed agregatem i2c_bus,
+            # bo i2c_bus może korzystać z light_laser jako realnego ACK magistrali.
+            ordered_components = list(all_components)
+            for name in ("light_laser", "light_bh1750", "i2c_bus"):
+                if name in ordered_components:
+                    ordered_components.remove(name)
+            insert_at = ordered_components.index("level_xyz") + 1 if "level_xyz" in ordered_components else 0
+            ordered_components[insert_at:insert_at] = [c for c in ("light_laser", "light_bh1750", "i2c_bus") if c in all_components]
+
+            total = max(1, len(ordered_components))
+            for idx, component in enumerate(ordered_components, start=1):
+                progress = 88 + int((idx / total) * 10)
                 self._mark_running(SCENE_BOOT_TEST, progress, f"MATRIX {component}", "REAL")
                 result = bridge.test_lks_component(component, visible=True)
                 ok = bool(result.get("ok", False))
+                print(f"LKS-N5 FULL MATRIX TEST DONE component={component} ok={ok}")
                 statuses[component] = ok
+                if component == "light_laser" and ok:
+                    statuses["i2c_bus"] = True
                 if ok:
                     ok_count += 1
                 else:
@@ -485,9 +503,28 @@ class TarzanTspLksBootProgress:
                     bridge.end_hardware_batch("LKS_FULL_MATRIX_REAL_TESTS", grace_ms=2000)
                 except Exception:
                     pass
+            if hasattr(bridge, "apply_lks_test_safe_state"):
+                try:
+                    bridge.apply_lks_test_safe_state("LKS_BOOT_FULL_MATRIX")
+                except Exception:
+                    pass
+
+        # Po pełnej serii przeliczamy agregat i2c_bus z wyników peryferiów.
+        # To naprawia przypadek: i2c_bus testował się wcześniej jako OFF,
+        # a chwilę później light_laser dał realny ACK.
+        aggregate_i2c = bus_ok_from_statuses(statuses)
+        if aggregate_i2c and not statuses.get("i2c_bus", False):
+            statuses["i2c_bus"] = True
+            print("LKS-N5 FULL MATRIX TEST DONE component=i2c_bus ok=True AGGREGATED_FROM_BUS_DEVICE")
+            ok_count += 1
 
         self.statuses.update(statuses)
-        fail_count = len(all_components) - ok_count
+        fail_count = len([c for c in all_components if not self.statuses.get(c, False)])
+        try:
+            self._show_step(SCENE_BOOT_TEST, "DEVICE TEST", "FULL MATRIX: DONE", f"OK {ok_count}/{len(all_components)}", "", "real boot step", "100%", 100)
+        except Exception:
+            pass
+        print(f"LKS-N5 FULL MATRIX TEST APPLIED statuses={len(all_components)} ok={ok_count}")
         details = "; ".join(fail_details[:5])[:180]
         return True, f"LKS_TEST_MATRIX ok={ok_count}/{len(all_components)} fail={fail_count}", details
 
@@ -544,9 +581,16 @@ class TarzanTspLksBootProgress:
         self._show_ready_main()
         self._show_status_intro()
 
-        # Po zakończeniu intro Nextion jest już na status_main, więc ustawiamy
-        # wyłącznie wartości kontrolek. Nie robimy resetu całej strony ani
-        # ponownego page status_main.
+        # Po zakończeniu intro upewniamy się, że jesteśmy na status_main.
+        # intro_status nadal ma czas skończyć animację samodzielnie, ale po
+        # zapasie czasowym wolno jawnie ustawić status_main, żeby statusy ikon
+        # nie trafiły w starą stronę boot/test.
+        try:
+            self.n5.page(SCENE_STATUS)
+            self._current_scene = SCENE_STATUS
+            time.sleep(max(0.15, min(0.4, self.pause_s)))
+        except Exception:
+            pass
         self.n5.set_many_statuses(self.statuses)
         self._write_last_report()
         return list(self.results)

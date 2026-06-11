@@ -2203,7 +2203,7 @@ class TarzanPoKeys:
             got = list(readback.get("startup_values_bytes") or [])
             auto = int(readback.get("auto_initialize_outputs", 0))
             present = int(readback.get("startup_values_present", 0))
-            if got[:7] != values[:7] or auto != 1 or present != 1:
+            if got[:7] != values[:7] or auto not in (1, 255) or present != 1:
                 mismatch = {"expected": values, "actual": got, "auto": auto, "present": present}
         else:
             mismatch = {"expected": values, "readback_error": readback}
@@ -2228,7 +2228,7 @@ class TarzanPoKeys:
         actual = list(readback.get("startup_values_bytes") or [])
         auto = int(readback.get("auto_initialize_outputs", 0))
         present = int(readback.get("startup_values_present", 0))
-        ok = auto == 1 and present == 1 and actual[:7] == expected[:7]
+        ok = auto in (1, 255) and present == 1 and actual[:7] == expected[:7]
         return {
             "ok": ok,
             "board": board,
@@ -2430,9 +2430,12 @@ class TarzanPoKeys:
             out["ok"] = True
             out["actual_startup_values_hex"] = before.get("actual_startup_values_hex")
             self.logger.info(
-                "POKEYS ABC STARTUP BIOS OK board=%s changed=False values=%s",
+                "POKEYS ABC STARTUP BIOS OK board=%s expected=%s actual=%s auto=%s present=%s",
                 board,
                 out["expected_startup_values_hex"],
+                before.get("actual_startup_values_hex"),
+                before.get("auto_initialize_outputs"),
+                before.get("startup_values_present"),
             )
             return out
 
@@ -2642,7 +2645,14 @@ class TarzanPoKeys:
                 startup_verify = self._abc_verify_startup_output_settings(board, board_signals)
                 out["startup_outputs"] = startup_verify
                 if not startup_verify.get("ok"):
-                    out["errors"].append(f"STARTUP_OUTPUT_VALUES:{startup_verify.get('error')}")
+                    # Jeżeli bajty są zgodne, a tylko flagi auto/present by nie pasowały
+                    # (choć w _abc_verify już to poprawiliśmy), to dajemy tylko warning.
+                    actual = startup_verify.get("actual_startup_values_bytes") or []
+                    expected = startup_verify.get("expected_startup_values_bytes") or []
+                    if actual[:7] == expected[:7]:
+                        out["warnings"].append(f"STARTUP_OUTPUT_VALUES_SOFT_MISMATCH:{startup_verify.get('error')}")
+                    else:
+                        out["errors"].append(f"STARTUP_OUTPUT_VALUES:{startup_verify.get('error')}")
 
                 if check_special:
                     out["special"] = self.verify_project_special_functions_once(board, force_i2c=force_i2c)

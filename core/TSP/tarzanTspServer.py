@@ -64,7 +64,7 @@ from .tarzanTspProtocol import (
 from core.tarzanProfiler import profile_block, profile_method
 from .tarzanTspSignals import TarzanTspSignalProvider
 from .tarzanTspLks import TarzanTspLks
-from .tarzanTspLksStatusMap import component_from_nextion_id, validate_component
+from .tarzanTspLksStatusMap import component_from_nextion_id, validate_component, bus_ok_from_statuses
 from .tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
 from .tarzanTspLksInventory import TarzanTspLksInventory
 
@@ -574,6 +574,8 @@ class TarzanTspServer:
                 "ehr_sys": client_count > 0,
                 "pok_play": self._lks_n5_status_cache.get("pok_play", True),
                 "pok_rec": self._lks_n5_status_cache.get("pok_rec", True),
+                "light_laser": self._lks_n5_status_cache.get("light_laser", False),
+                "i2c_bus": bus_ok_from_statuses(self._lks_n5_status_cache),
             }
 
             # WAŻNE: antymruganie.

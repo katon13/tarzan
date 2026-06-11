@@ -60,14 +60,16 @@ def main():
 # 2. Konfiguracja parametrów serwera TSP
     is_windows = platform.system().lower() == "windows"
     
-    # Monitor miniPC to Linux/konsola serwisowa. LKS operatorski idzie na Nextion 5.
-    # Tekstowy LKS na /dev/tty7 jest domyślnie WYŁĄCZONY, żeby nie czyścił i nie przesuwał ekranu miniPC.
-    enable_lks_tty = os.environ.get("TARZAN_ENABLE_TTY_LKS") == "1"
-    lks_tty = (os.environ.get("TARZAN_LKS_TTY") or "/dev/tty7") if enable_lks_tty and not is_windows else "-"
+    # LKS ma dwa równoległe wyjścia:
+    # - LKS-TTY: lokalny ekran statusowy miniPC na HDMI/TTY (/dev/tty7),
+    # - LKS-N5: Nextion 5 po UART.
+    # Na Windowsie TTY wyłączamy, na miniPC działa domyślnie.
+    lks_tty = os.environ.get("TARZAN_LKS_TTY") or ("-" if is_windows else "/dev/tty7")
+    enable_lks_tty = (not is_windows) and str(lks_tty or "-") != "-"
     n5_port = "COM5" if is_windows else "/dev/serial/by-path/pci-0000:00:14.0-usb-0:3.2:1.0-port0"
     n5_dry_run = is_windows
-    
-    print(f"Initializing TSP Server (LKS={lks_tty}, LKS_TTY_ENABLED={enable_lks_tty}, N5={n5_port}, DryRun={n5_dry_run})...")
+
+    print(f"Initializing TSP Server (LKS={lks_tty}, N5={n5_port}, DryRun={n5_dry_run})...")
 
     # Wymuszenie czystego importu serwera (na wypadek problemów z bytecode na miniPC)
     try:

@@ -15,7 +15,6 @@ Zasada pracy:
 
 from __future__ import annotations
 
-import os
 import shutil
 import threading
 import time
@@ -37,10 +36,10 @@ class TarzanTspLks:
         self.server = server
         self.tty_path = tty_path
         self.refresh_interval_s = max(0.25, float(refresh_interval_s))
-        # Twarda blokada: lokalny monitor miniPC nie jest LKS operatorskim.
-        # Bez jawnego TARZAN_ENABLE_TTY_LKS=1 ten moduł nie pisze na /dev/tty7,
-        # nawet gdy starszy kod przypadkiem przekaże enabled=True.
-        self.enabled = bool(enabled) and os.environ.get("TARZAN_ENABLE_TTY_LKS") == "1" and str(tty_path or "-") != "-"
+        # LKS-TTY jest lokalnym ekranem statusowym miniPC na HDMI/TTY.
+        # Domyślnie działa na /dev/tty7. Nextion 5 jest osobnym, równoległym
+        # wyjściem LKS-N5 po UART.
+        self.enabled = bool(enabled) and str(tty_path or "-") != "-"
         self.running = False
         self._thread: Optional[threading.Thread] = None
         self._event = threading.Event()

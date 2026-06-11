@@ -627,8 +627,10 @@ class TarzanTspServer:
         except Exception as exc:
             self.logger.error("Could not init SignalBus in TarzanTspServer: %s", exc)
 
-        # Monitor miniPC nie jest LKS-N5. Tekstowy LKS na TTY jest trybem awaryjnym
-        # i domyślnie nie pisze na /dev/tty7, żeby nie czyścić lokalnej konsoli Linux.
+        # LKS ma dwa równoległe wyjścia:
+        # - LKS-TTY: lokalny ekran statusowy miniPC na HDMI/TTY (/dev/tty7),
+        # - LKS-N5: Nextion 5 po UART.
+        # Nie są zamienne i nie wolno wyłączać TTY przy normalnym starcie miniPC.
         if self._lks_tty_enabled:
             self.lks.start()
             self.logger.info("LKS-TTY STARTED tty=%s", self._lks_tty_path)

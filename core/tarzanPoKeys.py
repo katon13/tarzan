@@ -5,6 +5,7 @@ import platform
 import sys
 import threading
 import time
+import ctypes
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
@@ -2047,6 +2048,176 @@ class TarzanPoKeys:
         # 0 w API PoKeys daje fizycznie HIGH na nieodwróconym wyjściu.
         return 1
 
+    def _abc_startup_output_bytes(self, board_signals: Iterable[TarzanSygnal]) -> List[int]:
+        """Startup output values for PoKeys command 0x1E, bytes 9..15.
+
+        PoKeys stores startup output values separately from pin functions.
+        For TARZAN safe OFF we store value 1 for every configured OUT pin.
+        PoKeys digital outputs are inverted: value 1 gives physical LOW on a
+        non-inverted output, so this is safe/off for LED/ENABLE/STEP lines.
+        """
+        data = [0] * 7
+        for sig in board_signals:
+            if sig.pin is None:
+                continue
+            value = self._abc_safe_output_value(sig)
+            if value is None:
+                continue
+            pin = int(sig.pin)
+            if pin < 1 or pin > 55:
+                continue
+            if int(value) & 1:
+                idx = pin - 1
+                data[idx // 8] |= 1 << (idx % 8)
+        return [x & 0xFF for x in data]
+
+    def _abc_raw_request(self, board: str, cmd: int, p1: int = 0, p2: int = 0, p3: int = 0, p4: int = 0, payload: Optional[Iterable[int]] = None) -> Dict[str, Any]:
+        """Wysyła surową komendę PoKeys przez realne CreateRequest + SendRequest.
+
+        PoKeysLib nie ma wrappera Python dla komendy 0x1E (Additional pin settings),
+        więc nie wolno udawać tego przez nieistniejące PK_CustomRequest.
+        Używamy funkcji z PoKeysLibCore: CreateRequest(request, cmd, p1..p4),
+        potem dopisujemy bajty payload od byte 9, potem SendRequest(device).
+        """
+        board = str(board or "PLAY").upper()
+        dev = self.get_device(board)
+        if dev is None:
+            return {"ok": False, "board": board, "cmd": int(cmd), "error": "NO_DEVICE"}
+        try:
+            lib = getattr(dev, "libObj", None)
+            if lib is None:
+                return {"ok": False, "board": board, "cmd": int(cmd), "error": "NO_LIBOBJ"}
+            create = getattr(lib, "CreateRequest", None)
+            send = getattr(lib, "SendRequest", None)
+            if create is None or send is None:
+                return {"ok": False, "board": board, "cmd": int(cmd), "error": "POKEYSLIB_CORE_RAW_REQUEST_UNAVAILABLE"}
+            try:
+                create.restype = ctypes.c_int32
+                send.restype = ctypes.c_int32
+            except Exception:
+                pass
+
+            req = dev.device.contents.request
+            resp = dev.device.contents.response
+            for i in range(68):
+                try:
+                    req[i] = 0
+                except Exception:
+                    break
+            rc_create = create(req, int(cmd) & 0xFF, int(p1) & 0xFF, int(p2) & 0xFF, int(p3) & 0xFF, int(p4) & 0xFF)
+            if int(rc_create or 0) != 0:
+                return {"ok": False, "board": board, "cmd": int(cmd), "rc_create": int(rc_create), "error": "CreateRequest_FAILED"}
+            if payload is not None:
+                for offset, value in enumerate(list(payload)):
+                    if offset >= 55:
+                        break
+                    req[8 + offset] = int(value) & 0xFF
+            rc_send = send(dev.device)
+            ok = int(rc_send or 0) == 0
+            response = [int(resp[i]) & 0xFF for i in range(0, 64)]
+            return {
+                "ok": bool(ok),
+                "board": board,
+                "cmd": int(cmd),
+                "rc_create": int(rc_create or 0),
+                "rc_send": int(rc_send or 0),
+                "response": response,
+                "response_cmd": response[1] if len(response) > 1 else None,
+            }
+        except Exception as exc:
+            return {"ok": False, "board": board, "cmd": int(cmd), "error": str(exc)}
+
+    def _abc_read_startup_output_settings(self, board: str = "PLAY") -> Dict[str, Any]:
+        """Odczyt komendy PoKeys 0x1E: Additional pin settings.
+
+        Byte 3 odpowiedzi = auto-initialize outputs on startup.
+        Byte 4 odpowiedzi = czy bytes 9..15 zawierają startup output values.
+        Bytes 9..15 = zapisane wartości startowe wyjść 1..55.
+        """
+        board = str(board or "PLAY").upper()
+        raw = self._abc_raw_request(board, 0x1E, 0, 0, 0, 0)
+        if not raw.get("ok"):
+            return {"ok": False, "board": board, "method": "RAW_0x1E_READ", "raw": raw, "error": raw.get("error") or raw.get("rc_send")}
+        response = list(raw.get("response") or [])
+        values = [int(response[i]) & 0xFF for i in range(8, 15)]
+        return {
+            "ok": True,
+            "board": board,
+            "method": "RAW_0x1E_READ",
+            "raw": raw,
+            "auto_initialize_outputs": int(response[2]) & 0xFF,
+            "startup_values_present": int(response[3]) & 0xFF,
+            "startup_values_bytes": values,
+            "startup_values_hex": " ".join(f"{x:02X}" for x in values),
+        }
+
+    def _abc_write_startup_output_settings(self, board: str, startup_values: Iterable[int]) -> Dict[str, Any]:
+        """Zapis komendy PoKeys 0x1E: auto-init outputs + startup values.
+
+        Poprawna kolejność wg PoKeysLibCore:
+        CreateRequest(0x1E, 1, 1, 1, 0) -> wpis payload bytes 9..15 -> SendRequest.
+        """
+        board = str(board or "PLAY").upper()
+        values = [int(x) & 0xFF for x in list(startup_values)[:7]]
+        while len(values) < 7:
+            values.append(0)
+        raw = self._abc_raw_request(board, 0x1E, 1, 1, 1, 0, payload=values)
+        if not raw.get("ok"):
+            return {
+                "ok": False,
+                "board": board,
+                "method": "RAW_0x1E_WRITE",
+                "startup_values_bytes": values,
+                "startup_values_hex": " ".join(f"{x:02X}" for x in values),
+                "raw": raw,
+                "error": raw.get("error") or raw.get("rc_send"),
+            }
+        time.sleep(0.05)
+        readback = self._abc_read_startup_output_settings(board)
+        mismatch = None
+        if readback.get("ok"):
+            got = list(readback.get("startup_values_bytes") or [])
+            auto = int(readback.get("auto_initialize_outputs", 0))
+            present = int(readback.get("startup_values_present", 0))
+            if got[:7] != values[:7] or auto != 1 or present != 1:
+                mismatch = {"expected": values, "actual": got, "auto": auto, "present": present}
+        else:
+            mismatch = {"expected": values, "readback_error": readback}
+        return {
+            "ok": mismatch is None,
+            "board": board,
+            "method": "RAW_0x1E_WRITE",
+            "raw": raw,
+            "auto_initialize_outputs": 1,
+            "startup_values_present": 1,
+            "startup_values_bytes": values,
+            "startup_values_hex": " ".join(f"{x:02X}" for x in values),
+            "readback": readback,
+            "mismatch": mismatch,
+        }
+
+    def _abc_verify_startup_output_settings(self, board: str, board_signals: Iterable[TarzanSygnal]) -> Dict[str, Any]:
+        expected = self._abc_startup_output_bytes(board_signals)
+        readback = self._abc_read_startup_output_settings(board)
+        if not readback.get("ok"):
+            return {"ok": False, "board": board, "expected_startup_values_bytes": expected, "readback": readback, "error": "STARTUP_VALUES_READ_FAIL"}
+        actual = list(readback.get("startup_values_bytes") or [])
+        auto = int(readback.get("auto_initialize_outputs", 0))
+        present = int(readback.get("startup_values_present", 0))
+        ok = auto == 1 and present == 1 and actual[:7] == expected[:7]
+        return {
+            "ok": ok,
+            "board": board,
+            "expected_startup_values_bytes": expected,
+            "expected_startup_values_hex": " ".join(f"{x:02X}" for x in expected),
+            "actual_startup_values_bytes": actual,
+            "actual_startup_values_hex": readback.get("startup_values_hex"),
+            "auto_initialize_outputs": auto,
+            "startup_values_present": present,
+            "readback": readback,
+            "error": None if ok else "STARTUP_OUTPUT_VALUES_MISMATCH",
+        }
+
     def apply_project_board_configuration_once(self, board: str = "PLAY", *, save_to_flash: bool = True) -> Dict[str, Any]:
         """Ustawia JEDNĄ płytkę PLAY/REC według ABC i zapisuje do PoKeys.
 
@@ -2129,15 +2300,31 @@ class TarzanPoKeys:
                     except Exception as exc:
                         out["warnings"].append(f"P{sig.pin}:{sig.nazwa}:SAFE_OUTPUT_ERROR:{exc}")
 
-                # Odczyt po ustawieniu, potem zapis do pamięci PoKeys.
+                # Odczyt po ustawieniu, potem trwały zapis startowych stanów wyjść.
+                # Funkcja pinu i stan startowy wyjścia to w PoKeys dwie różne rzeczy.
                 self._call_device(board, "PK_DigitalIOGet")
                 self._call_device(board, "PK_PinConfigurationGet")
+
+                startup_values = self._abc_startup_output_bytes(board_signals)
+                startup_res = self._abc_write_startup_output_settings(board, startup_values)
+                out["startup_outputs"] = startup_res
+                if not startup_res.get("ok"):
+                    out["errors"].append(f"PK_AdditionalSettings_0x1E:{startup_res.get('error') or startup_res.get('mismatch') or startup_res.get('rc')}")
+                    return out
+
                 if save_to_flash:
                     save_res = self.save_configuration(board)
                     out["save"] = save_res
                     out["saved"] = bool(save_res.get("ok"))
                     if not save_res.get("ok"):
                         out["errors"].append(f"PK_SaveConfiguration:{save_res.get('error') or save_res.get('rc')}")
+                        return out
+                    # Flash write can make the board busy for a moment.
+                    time.sleep(0.25)
+                    after_save = self._abc_verify_startup_output_settings(board, board_signals)
+                    out["startup_outputs_after_save"] = after_save
+                    if not after_save.get("ok"):
+                        out["errors"].append(f"PK_AdditionalSettings_0x1E_AFTER_SAVE:{after_save.get('error')}")
                         return out
                 out["ok"] = not out["errors"]
                 return out
@@ -2228,7 +2415,16 @@ class TarzanPoKeys:
         self._abc_boot_confirmed = bool(result.get("ok"))
         self._abc_last_result = result
         if result.get("ok"):
-            self.logger.info("POKEYS ABC RESTORE_ONCE OK: PLAY/REC saved, read back and confirmed")
+            try:
+                play_start = result.get("apply", {}).get("boards", {}).get("PLAY", {}).get("startup_outputs_after_save", {})
+                rec_start = result.get("apply", {}).get("boards", {}).get("REC", {}).get("startup_outputs_after_save", {})
+                self.logger.info(
+                    "POKEYS ABC RESTORE_ONCE OK: PLAY/REC saved, startup outputs confirmed PLAY=%s REC=%s",
+                    play_start.get("actual_startup_values_hex") or play_start.get("expected_startup_values_hex"),
+                    rec_start.get("actual_startup_values_hex") or rec_start.get("expected_startup_values_hex"),
+                )
+            except Exception:
+                self.logger.info("POKEYS ABC RESTORE_ONCE OK: PLAY/REC saved, read back and confirmed")
         else:
             self.logger.error("POKEYS ABC RESTORE_ONCE FAIL: %s", "; ".join(str(x) for x in result.get("errors", [])[:20]))
         return result
@@ -2313,6 +2509,11 @@ class TarzanPoKeys:
                         out["errors"].append(f"P{pin}:{sig.nazwa}:{err}")
                     for warn in item.get("warnings", []):
                         out["warnings"].append(f"P{pin}:{sig.nazwa}:{warn}")
+
+                startup_verify = self._abc_verify_startup_output_settings(board, board_signals)
+                out["startup_outputs"] = startup_verify
+                if not startup_verify.get("ok"):
+                    out["errors"].append(f"STARTUP_OUTPUT_VALUES:{startup_verify.get('error')}")
 
                 if check_special:
                     out["special"] = self.verify_project_special_functions_once(board, force_i2c=force_i2c)

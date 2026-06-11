@@ -123,7 +123,6 @@ REQUIRED_BUS_DEVICES: Tuple[str, ...] = (
     "light_bh1750",
     "level_xyz",
     "shock_alarm",
-    "light_laser",
 )
 
 ALL_GROUPS: Dict[str, Tuple[str, ...]] = {

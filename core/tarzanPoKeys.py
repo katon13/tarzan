@@ -145,13 +145,6 @@ class TarzanPoKeys:
         "mcp3425": (0x68,),
     }
 
-    # Mapowanie pinów, które wymagają odwrócenia stanu bezpiecznego startup.
-    # Format: ("BOARD", pin): value (0 lub 1)
-    # Zgłoszone 4 diody, które świecą a powinny być zgaszone.
-    ABC_STARTUP_SAFE_VALUE_OVERRIDES: Dict[Tuple[str, int], int] = {
-        # Na razie puste, zostanie uzupełnione po podaniu konkretnych pinów przez użytkownika.
-    }
-
     def __init__(self, logger: Any) -> None:
         self.logger = logger
         self._lock = threading.RLock()
@@ -165,7 +158,6 @@ class TarzanPoKeys:
         self.pokabc = TarzanPokABC(logger, WSZYSTKIE_SYGNALY) if TARZAN_POKABC_AVAILABLE and TarzanPokABC is not None else None
         self._abc_boot_confirmed = False
         self._abc_last_result: Dict[str, Any] = {"ok": False, "error": "ABC_NOT_CONFIRMED"}
-        self._abc_cold_verified: Dict[str, bool] = {}
         self.snajper = TarzanPoKeysSnajper(logger, default_sample_ms=10)
         self._i2c_scan_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
         self._i2c_scan_cache_ttl_s = 30.0
@@ -2056,7 +2048,6 @@ class TarzanPoKeys:
         pin = int(sig.pin) if sig.pin is not None else None
         if pin is not None and (board, pin) in self.ABC_STARTUP_SAFE_VALUE_OVERRIDES:
             val = self.ABC_STARTUP_SAFE_VALUE_OVERRIDES[(board, pin)]
-            # self.logger.debug("ABC safe value OVERRIDE board=%s pin=%d value=%d", board, pin, val)
             return val
 
         # Fizyczny LOW/OFF na PoKeys digital output. Nie zmieniać na 0:
@@ -2326,7 +2317,7 @@ class TarzanPoKeys:
                 # Default safe state: wszystkie OUT ustawiamy w fizyczne LOW/OFF.
                 # W PoKeys zapis 1 oznacza fizycznie 0 V na nieodwróconym wyjściu.
                 for sig in sorted(board_signals, key=lambda s: int(s.pin or 999)):
-                    value = self._abc_safe_output_value(sig)
+                    value = self._abc_safe_output_value(board, sig)
                     if value is None:
                         continue
                     try:
@@ -2345,7 +2336,7 @@ class TarzanPoKeys:
                 self._call_device(board, "PK_DigitalIOGet")
                 self._call_device(board, "PK_PinConfigurationGet")
 
-                startup_values = self._abc_startup_output_bytes(board_signals)
+                startup_values = self._abc_startup_output_bytes(board, board_signals)
                 startup_res = self._abc_write_startup_output_settings(board, startup_values)
                 out["startup_outputs"] = startup_res
                 if not startup_res.get("ok"):
@@ -2399,7 +2390,7 @@ class TarzanPoKeys:
                         for sig in sorted(WSZYSTKIE_SYGNALY.values(), key=lambda s: int(s.pin or 999)):
                             if str(sig.plytka or "").upper() != board or sig.pin is None:
                                 continue
-                            value = self._abc_safe_output_value(sig)
+                            value = self._abc_safe_output_value(board, sig)
                             if value is None:
                                 continue
                             pin_idx = int(sig.pin) - 1
@@ -2442,31 +2433,13 @@ class TarzanPoKeys:
         }
         before = self._abc_verify_startup_output_settings(board, board_signals)
         out["before"] = before
-
-        # COLD BOOT LOGIC
-        if board not in self._abc_cold_verified:
-            # Pierwszy odczyt po uruchomieniu usługi
-            self._abc_cold_verified[board] = True
-            self.logger.info(
-                "POKEYS ABC COLD READ board=%s auto=%s present=%s values=%s",
-                board,
-                before.get("auto_initialize_outputs"),
-                before.get("startup_values_present"),
-                before.get("actual_startup_values_hex"),
-            )
-            if before.get("ok"):
-                self.logger.info("POKEYS ABC FLASH COLD OK board=%s", board)
-
         if before.get("ok"):
             out["ok"] = True
             out["actual_startup_values_hex"] = before.get("actual_startup_values_hex")
             self.logger.info(
-                "POKEYS ABC STARTUP BIOS OK board=%s expected=%s actual=%s auto=%s present=%s",
+                "POKEYS ABC STARTUP BIOS OK board=%s changed=False values=%s",
                 board,
                 out["expected_startup_values_hex"],
-                before.get("actual_startup_values_hex"),
-                before.get("auto_initialize_outputs"),
-                before.get("startup_values_present"),
             )
             return out
 
@@ -2503,8 +2476,6 @@ class TarzanPoKeys:
                 board,
                 out["expected_startup_values_hex"],
             )
-            self.logger.info("POKEYS ABC STARTUP BIOS OK board=%s (RUNTIME)", board)
-            self.logger.warning("POKEYS ABC FLASH REQUIRES COLD POWER CYCLE board=%s", board)
         else:
             out["errors"].append(f"RAW_0x1E_AFTER_SAVE:{after.get('error')}")
             self.logger.error(

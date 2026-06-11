@@ -80,7 +80,6 @@ class TarzanTspLksNextion5:
         self.last_scene: str = ""
         self.last_status: Dict[str, bool] = {}
         self.last_error: str = ""
-        self._last_progress: int = 0
 
     def connect(self) -> None:
         connect = getattr(self.device, "connect", None)
@@ -122,12 +121,7 @@ class TarzanTspLksNextion5:
 
     def set_numbers(self, values: Mapping[str, int]) -> None:
         for component, value in values.items():
-            if component in {"j_progress", "n_progress"}:
-                safe_val = max(getattr(self, "_last_progress", 0), int(value))
-                self._last_progress = safe_val
-                self.val(component, safe_val)
-            else:
-                self.val(component, int(value))
+            self.val(component, int(value))
 
     def bkcmd(self, level: int = 3) -> None:
         getattr(self.device, "bkcmd")(int(level))

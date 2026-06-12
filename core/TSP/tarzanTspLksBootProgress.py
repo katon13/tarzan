@@ -509,6 +509,20 @@ class TarzanTspLksBootProgress:
                 except Exception:
                     pass
 
+            # OSTATNI FIZYCZNY REFRESH LCD:
+            # testy MatrixKB/Matrix LED mogą przełączyć współdzielone funkcje pinów
+            # i wyczyścić/zgubić tekst na LCD, mimo że API zwróciło OK.
+            # Dlatego po całej macierzy i po safe-state odświeżamy LCD jako ostatni
+            # widoczny test PLAY+REC. Nie rusza osi ani STEP/DIR/ENABLE.
+            try:
+                if hasattr(bridge, "test_lks_component"):
+                    lcd_result = bridge.test_lks_component("lcd_1602", visible=True)
+                    lcd_ok = bool(lcd_result.get("ok", False))
+                    statuses["lcd_1602"] = lcd_ok
+                    print(f"LKS-N5 FINAL LCD VISIBLE REFRESH component=lcd_1602 ok={lcd_ok} detail={str(lcd_result.get('detail', ''))[:120]}")
+            except Exception as exc:
+                print(f"LKS-N5 FINAL LCD VISIBLE REFRESH component=lcd_1602 ok=False error={exc}")
+
         # Po pełnej serii przeliczamy agregat i2c_bus z wyników peryferiów.
         # To naprawia przypadek: i2c_bus testował się wcześniej jako OFF,
         # a chwilę później light_laser dał realny ACK.

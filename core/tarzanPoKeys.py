@@ -1276,22 +1276,27 @@ class TarzanPoKeys:
                     self.logger.warning("LCD %s FAIL init=%s", board, init)
                     continue
 
-                write_test = self.lcd_write_lines(board, f"LKS-N5 {board}", "TEST LCD")
-                time.sleep(0.25)
-                final = self.lcd_write_lines(board, "BEZ BLEDOW", "GOTOWE")
+                # Test ma być widoczny fizycznie, nie tylko potwierdzony przez API.
+                # PLAY LCD współdzieli funkcje pinów z MatrixKB, więc po innych testach
+                # ekran może zostać nadpisany. Ten blok robi czytelny HOLD.
+                write_test = self.lcd_write_lines(board, f"LCD {board}", "TEST TRWA")
+                time.sleep(0.75)
+                final = self.lcd_write_lines(board, f"TARZAN {board}", "LCD OK HOLD")
+                time.sleep(1.25)
                 board_result.update({
                     "ok": bool(write_test.get("ok") and final.get("ok")),
                     "write_test": write_test,
                     "final": final,
-                    "line1": "BEZ BLEDOW",
-                    "line2": "GOTOWE",
+                    "line1": f"TARZAN {board}",
+                    "line2": "LCD OK HOLD",
+                    "visible_hold_s": 2.0,
                 })
                 if not board_result["ok"]:
                     board_result["error"] = final.get("error") or write_test.get("error") or "LCD write failed"
                     out["errors"].append(f"LCD {board}: {board_result['error']}")
                     self.logger.warning("LCD %s FAIL write_test=%s final=%s", board, write_test, final)
                 else:
-                    self.logger.info("LCD %s OK: init/write confirmed", board)
+                    self.logger.info("LCD %s VISIBLE OK: init/write/hold confirmed", board)
                 out["boards"][board] = board_result
             else:
                 ok = self.test_board_once(board)
@@ -1309,7 +1314,7 @@ class TarzanPoKeys:
             for board, data in out["boards"].items()
         )
         if out["ok"]:
-            self.logger.info("LCD 1602 BOTH OK: %s", out["summary"])
+            self.logger.info("LCD 1602 BOTH VISIBLE OK: %s", out["summary"])
         else:
             self.logger.warning("LCD 1602 FAIL: %s", out["summary"])
         return out

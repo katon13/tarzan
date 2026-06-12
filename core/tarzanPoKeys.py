@@ -1373,14 +1373,51 @@ class TarzanPoKeys:
             except Exception as exc:
                 return {"ok": False, "board": board, "error": str(exc)}
 
+    def matrix_led_off_once(self, board: Any = "REC") -> Dict[str, Any]:
+        """Twardo wygasza fizyczną matrycę LED.
+
+        Sam zapis pustej ramki [0]*8 zostawia sterownik MatrixLED w stanie
+        displayEnabled=1. Na realnym module może wtedy zostać pojedynczy
+        ghost-pixel po multipleksowaniu. Dlatego po teście zerujemy dane i
+        wyłączamy displayEnabled.
+        """
+        with self._lock:
+            if self.logical_sleep:
+                self.logical_wake()
+            board, device = self._resolve_device_target(board, "REC")
+            if device is None:
+                return {"ok": False, "board": board, "error": f"{board} not connected"}
+            try:
+                matrix_ptr = device.device.contents.MatrixLED
+                matrix = matrix_ptr[0]
+                matrix.rows = 8
+                matrix.columns = 8
+                matrix.displayEnabled = 0
+                matrix.RefreshFlag = 1
+                for i in range(8):
+                    matrix.data[i] = 0
+                res = self._call_device(board, "PK_MatrixLEDConfigurationSet")
+                if not res.get("ok"):
+                    raise RuntimeError(f"PK_MatrixLEDConfigurationSet failed: {res.get('error')}")
+                res = self._call_device(board, "PK_MatrixLEDUpdate")
+                if not res.get("ok"):
+                    raise RuntimeError(f"PK_MatrixLEDUpdate failed: {res.get('error')}")
+                return {"ok": True, "board": board, "displayEnabled": 0}
+            except Exception as exc:
+                return {"ok": False, "board": board, "error": str(exc)}
+
     def test_matrix_led_once(self, visible: bool = False, board: str = "REC") -> Dict[str, Any]:
         if not visible:
-            return {"ok": self.test_board_once(board), "board": board}
+            ok = self.test_board_once(board)
+            off = self.matrix_led_off_once(board)
+            return {"ok": bool(ok and off.get("ok")), "board": board, "matrix_off": off}
         cols = self._matrix_text_columns("OK")
         res = self.matrix_write_frame(board, self._matrix_rows_from_columns(cols[:8]))
         time.sleep(0.20)
-        self.matrix_write_frame(board, [0] * 8)
-        return res
+        off = self.matrix_led_off_once(board)
+        if not off.get("ok"):
+            return {"ok": False, "board": board, "write": res, "matrix_off": off}
+        return {"ok": bool(res.get("ok")), "board": board, "write": res, "matrix_off": off}
 
     def read_f_buttons_once(self) -> Dict[str, Any]:
         with self._lock:
@@ -3071,7 +3108,7 @@ class TarzanPoKeys:
                 "boards": ["connect_all", "connect_board", "logical_idle", "logical_wake", "safe_stop", "verify_project_configuration_once", "assert_project_configuration_once"],
                 "gpio_analog": ["digital_io_get_once", "digital_io_get_single_once", "analog_io_get_once", "poll_gpio_inputs_once", "poll_analog_inputs_once"],
                 "i2c_sensors": ["scan_i2c_once", "read_bh1750_lux_once", "read_lm75_temp_once", "read_sht21_once", "read_mma7660_level_once", "read_mcp3425_adc_once", "read_posensors_once"],
-                "ui_hardware": ["lcd_write_lines", "matrix_write_frame", "read_f_buttons_once", "blink_f_led_once", "read_keypad_once"],
+                "ui_hardware": ["lcd_write_lines", "matrix_write_frame", "matrix_led_off_once", "read_f_buttons_once", "blink_f_led_once", "read_keypad_once"],
                 "cnc_postep": ["get_pulse_engine_status", "set_pulse_axis_enable", "set_pulse_axis_position", "postep_status_get_once"],
                 "extended": ["pwm_configuration_get_once", "encoder_values_get_once", "one_wire_scan_once", "ponet_status_get_once", "spi_transfer_once", "rtc_get_once"],
             },

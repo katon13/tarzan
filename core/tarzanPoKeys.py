@@ -131,6 +131,9 @@ class TarzanPoKeys:
 
     # LED F1-F4 i przyciski F1-F4 wg mapy REC.
     F_LED_PINS: Dict[str, int] = {"F1": 46, "F2": 48, "F3": 50, "F4": 52}
+    # REC F-LED są aktywne stanem 0. Po teście i w spoczynku OFF = 1.
+    F_LED_ON_VALUE = 0
+    F_LED_OFF_VALUE = 1
     F_BUTTON_PINS: Dict[str, int] = {"F1": 45, "F2": 47, "F3": 49, "F4": 51}
 
     # Klawiatura panelu TARZAN: fizyczna matryca 4x3 na PLAY według schematu.
@@ -1390,22 +1393,60 @@ class TarzanPoKeys:
             except Exception as exc:
                 return {"ok": False, "values": {}, "error": str(exc)}
 
+    def set_f_leds_off_once(self) -> Dict[str, Any]:
+        """Gasi fizyczne diody F1-F4 na REC.
+
+        W okablowaniu TARZAN F-LED są aktywne stanem 0, więc OFF zapisujemy jako 1.
+        """
+        with self._lock:
+            dev = self.get_device("REC")
+            if dev is None:
+                return {"ok": False, "error": "REC not connected"}
+            errors: List[str] = []
+            for name, pin in self.F_LED_PINS.items():
+                try:
+                    self.set_digital_output(dev, pin, self.F_LED_OFF_VALUE)
+                except Exception as exc:
+                    errors.append(f"{name}/P{pin}: {exc}")
+            return {"ok": not errors, "pins": dict(self.F_LED_PINS), "off_value": self.F_LED_OFF_VALUE, "errors": errors}
+
     def blink_f_led_once(self, visible: bool = False) -> Dict[str, Any]:
         with self._lock:
             dev = self.get_device("REC")
             if dev is None:
                 return {"ok": False, "error": "REC not connected"}
+            errors: List[str] = []
             try:
+                # Test zaczynamy od OFF i kończymy OFF. Diody nie mają świecić stale.
+                off_res = self.set_f_leds_off_once()
+                if not off_res.get("ok"):
+                    errors.extend(off_res.get("errors", []))
+
                 if visible:
-                    for pin in self.F_LED_PINS.values():
-                        self.set_digital_output(dev, pin, 0)
-                    for pin in self.F_LED_PINS.values():
-                        self.set_digital_output(dev, pin, 1)
-                        time.sleep(0.08)
-                        self.set_digital_output(dev, pin, 0)
-                return {"ok": True, "pins": dict(self.F_LED_PINS)}
+                    for name, pin in self.F_LED_PINS.items():
+                        try:
+                            self.set_digital_output(dev, pin, self.F_LED_ON_VALUE)
+                            time.sleep(0.08)
+                            self.set_digital_output(dev, pin, self.F_LED_OFF_VALUE)
+                        except Exception as exc:
+                            errors.append(f"{name}/P{pin}: {exc}")
+
+                final_off = self.set_f_leds_off_once()
+                if not final_off.get("ok"):
+                    errors.extend(final_off.get("errors", []))
+                return {
+                    "ok": not errors,
+                    "pins": dict(self.F_LED_PINS),
+                    "on_value": self.F_LED_ON_VALUE,
+                    "off_value": self.F_LED_OFF_VALUE,
+                    "errors": errors,
+                }
             except Exception as exc:
-                return {"ok": False, "error": str(exc)}
+                try:
+                    self.set_f_leds_off_once()
+                except Exception:
+                    pass
+                return {"ok": False, "error": str(exc), "pins": dict(self.F_LED_PINS)}
 
     def _clear_matrix_keyboard_hid_mapping(self, kb: Any) -> None:
         """Zero USB HID key mapping/macro mapping for MatrixKB.

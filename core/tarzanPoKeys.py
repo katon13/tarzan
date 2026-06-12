@@ -133,6 +133,13 @@ class TarzanPoKeys:
     F_LED_PINS: Dict[str, int] = {"F1": 46, "F2": 48, "F3": 50, "F4": 52}
     F_BUTTON_PINS: Dict[str, int] = {"F1": 45, "F2": 47, "F3": 49, "F4": 51}
 
+    # Klawiatura panelu TARZAN: fizyczna matryca 4x3 na PLAY według schematu.
+    # ROW1=P27, ROW2=P26, ROW3=P25, ROW4=P24; COL_A=P44, COL_B=P43, COL_C=P42.
+    # Bardzo ważne: nie wolno mapować tego na USB HID keyboard/makra.
+    # TARZAN czyta status przez PK_MatrixKBStatusGet, a nie przyjmuje znaków z OS.
+    PLAY_KEYPAD_4X3_ROWS: Dict[int, int] = {1: 27, 2: 26, 3: 25, 4: 24}
+    PLAY_KEYPAD_4X3_COLUMNS: Dict[str, int] = {"A": 44, "B": 43, "C": 42}
+
     # XYZ w projekcie TARZAN to analogowe wejścia REC/Poksyg, nie osie CNC X/Y/Z.
     POKSYG_XYZ_ANALOG: Dict[str, Tuple[str, int, str]] = {
         "x": ("REC", 41, "sensor_level_x"),
@@ -1353,20 +1360,87 @@ class TarzanPoKeys:
             except Exception as exc:
                 return {"ok": False, "error": str(exc)}
 
+    def _clear_matrix_keyboard_hid_mapping(self, kb: Any) -> None:
+        """Zero USB HID key mapping/macro mapping for MatrixKB.
+
+        MatrixKB ma być skanowana przez PoKeys, ale nie może wysyłać znaków
+        do Windows/Linux jako wirtualna klawiatura USB.
+        """
+        for i in range(128):
+            kb.macroMappingOptions[i] = 0
+            kb.keyMappingKeyCode[i] = 0
+            kb.keyMappingKeyModifier[i] = 0
+            kb.keyMappingTriggeredKey[i] = 0
+            kb.keyMappingKeyCodeUp[i] = 0
+            kb.keyMappingKeyModifierUp[i] = 0
+
+    def configure_play_keypad_4x3_api_only_once(self, *, save_to_flash: bool = False) -> Dict[str, Any]:
+        """Konfiguruje PLAY MatrixKB 4x3 wyłącznie do odczytu API.
+
+        Zgodnie ze schematem TARZAN: ROW1=P27, ROW2=P26, ROW3=P25, ROW4=P24,
+        COL_A=P44, COL_B=P43, COL_C=P42. Key mapping/macro/triggered HID są zerowane,
+        żeby PoKeys nigdy nie siało znaków typu 142580369 do systemu operacyjnego.
+        """
+        board = "PLAY"
+        dev = self.get_device(board)
+        if dev is None:
+            return {"ok": False, "board": board, "error": "PLAY not connected"}
+        try:
+            kb = dev.device.contents.matrixKB
+            kb.matrixKBconfiguration = 1
+            kb.matrixKBwidth = 3
+            kb.matrixKBheight = 4
+            kb.matrixKBScanningDecimation = 1
+
+            for i in range(8):
+                kb.matrixKBcolumnsPins[i] = 0
+            for i in range(16):
+                kb.matrixKBrowsPins[i] = 0
+
+            # PoKeys arrays are zero-based: columnsPins[0] = A, rowsPins[0] = row 1.
+            kb.matrixKBcolumnsPins[0] = int(self.PLAY_KEYPAD_4X3_COLUMNS["A"])
+            kb.matrixKBcolumnsPins[1] = int(self.PLAY_KEYPAD_4X3_COLUMNS["B"])
+            kb.matrixKBcolumnsPins[2] = int(self.PLAY_KEYPAD_4X3_COLUMNS["C"])
+            kb.matrixKBrowsPins[0] = int(self.PLAY_KEYPAD_4X3_ROWS[1])
+            kb.matrixKBrowsPins[1] = int(self.PLAY_KEYPAD_4X3_ROWS[2])
+            kb.matrixKBrowsPins[2] = int(self.PLAY_KEYPAD_4X3_ROWS[3])
+            kb.matrixKBrowsPins[3] = int(self.PLAY_KEYPAD_4X3_ROWS[4])
+
+            self._clear_matrix_keyboard_hid_mapping(kb)
+
+            set_res = self._call_device(board, "PK_MatrixKBConfigurationSet")
+            get_res = self._call_device(board, "PK_MatrixKBConfigurationGet")
+            save_res = {"ok": True, "skipped": True, "reason": "save_to_flash_false"}
+            if save_to_flash:
+                save_res = self.save_configuration(board)
+            ok = bool(set_res.get("ok") and get_res.get("ok") and save_res.get("ok"))
+            return {
+                "ok": ok,
+                "board": board,
+                "mode": "API_ONLY_NO_USB_HID",
+                "rows": dict(self.PLAY_KEYPAD_4X3_ROWS),
+                "columns": dict(self.PLAY_KEYPAD_4X3_COLUMNS),
+                "set": set_res,
+                "get": get_res,
+                "save": save_res,
+            }
+        except Exception as exc:
+            return {"ok": False, "board": board, "error": str(exc)}
+
     def read_keypad_once(self) -> Dict[str, Any]:
         with self._lock:
             dev = self.get_device("PLAY")
             if dev is None:
                 return {"ok": False, "error": "PLAY not connected"}
             try:
-                res = self._call_device("PLAY", "PK_MatrixKBConfigurationGet")
-                if not res.get("ok"):
-                    raise RuntimeError(f"PK_MatrixKBConfigurationGet failed: {res.get('error')}")
+                cfg = self.configure_play_keypad_4x3_api_only_once(save_to_flash=False)
+                if not cfg.get("ok"):
+                    raise RuntimeError(f"PLAY keypad 4x3 config failed: {cfg.get('error') or cfg}")
                 res = self._call_device("PLAY", "PK_MatrixKBStatusGet")
                 if not res.get("ok"):
                     raise RuntimeError(f"PK_MatrixKBStatusGet failed: {res.get('error')}")
                 values = [int(dev.device.contents.matrixKB.matrixKBvalues[i]) for i in range(128)]
-                return {"ok": True, "values": values}
+                return {"ok": True, "values": values, "config": cfg, "mode": "API_ONLY_NO_USB_HID"}
             except Exception as exc:
                 return {"ok": False, "error": str(exc)}
 
@@ -2340,6 +2414,13 @@ class TarzanPoKeys:
                     out["errors"].append(f"PK_PinConfigurationSet:{cfg_set.get('error') or cfg_set.get('rc')}")
                     return out
 
+                if board == "PLAY":
+                    keypad_res = self.configure_play_keypad_4x3_api_only_once(save_to_flash=False)
+                    out["play_keypad_4x3"] = keypad_res
+                    if not keypad_res.get("ok"):
+                        out["errors"].append(f"PLAY_KEYPAD_4X3_CONFIG:{keypad_res.get('error') or keypad_res}")
+                        return out
+
                 # Default safe state: wszystkie OUT ustawiamy w fizyczne LOW/OFF.
                 # W PoKeys zapis 1 oznacza fizycznie 0 V na nieodwróconym wyjściu.
                 for sig in sorted(board_signals, key=lambda s: int(s.pin or 999)):
@@ -2719,7 +2800,10 @@ class TarzanPoKeys:
             if not res.get("ok"):
                 out["errors"].append(f"MATRIX_CONFIG_NO_ACK:{res.get('error') or res.get('rc')}")
         if HW_KEYBOARD in hfs:
-            res = self._call_device(board, "PK_MatrixKBConfigurationGet")
+            if board == "PLAY":
+                res = self.configure_play_keypad_4x3_api_only_once(save_to_flash=False)
+            else:
+                res = self._call_device(board, "PK_MatrixKBConfigurationGet")
             out["checks"]["KEYBOARD"] = res
             if not res.get("ok"):
                 out["errors"].append(f"KEYBOARD_CONFIG_NO_ACK:{res.get('error') or res.get('rc')}")

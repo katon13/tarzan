@@ -56,6 +56,17 @@ TARZAN_POKEYS_BOARD_ROLES: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# Klawiatura fizyczna TARZAN na PLAY według schematu po korekcie 2026-06-12.
+# To jest standardowa matryca 4x3: ROW1-ROW4 + COL_A-COL_C = 7 linii.
+# NIE WOLNO sprowadzać jej do P24-P27 i NIE WOLNO mapować jej na USB HID keyboard.
+TARZAN_PLAY_KEYPAD_4X3: Dict[str, Any] = {
+    "board": "PLAY",
+    "rows": {1: 27, 2: 26, 3: 25, 4: 24},
+    "columns": {"A": 44, "B": 43, "C": 42},
+    "api_only": True,
+    "usb_hid_mapping_allowed": False,
+}
+
 
 def _signal_reserved(sig: TarzanSygnal) -> bool:
     return str(sig.typ or "").upper() == "RESERVED" or str(sig.kierunek or "").upper() == "RESERVED"
@@ -165,6 +176,43 @@ def _read_pin_config_value(pin_obj: Any) -> Optional[int]:
         except Exception:
             continue
     return None
+
+
+def _validate_play_keypad_4x3(signals: Dict[str, TarzanSygnal]) -> Dict[str, Any]:
+    """Statyczna blokada błędu, który powodował spam USB HID.
+
+    W schemacie TARZAN klawiatura PLAY jest pełną matrycą 4x3:
+    ROW1=P27, ROW2=P26, ROW3=P25, ROW4=P24, COL_A=P44, COL_B=P43, COL_C=P42.
+    Konfiguracja P24-P27 jako całej klawiatury jest błędna i ma być FAIL.
+    """
+    required = {
+        27: ("ROW1", "play_p27_kb1"),
+        26: ("ROW2", "play_p26_kb2"),
+        25: ("ROW3", "play_p25_kb3"),
+        24: ("ROW4", "play_p24_kb4"),
+        44: ("COL_A", "play_p44_kb_col_a"),
+        43: ("COL_B", "play_p43_kb_col_b"),
+        42: ("COL_C", "play_p42_kb_col_c"),
+    }
+    by_pin = {int(s.pin): s for s in signals.values() if str(s.plytka or "").upper() == "PLAY" and s.pin is not None}
+    errors: List[Any] = []
+    warnings: List[Any] = []
+    for pin, (channel, name) in required.items():
+        sig = by_pin.get(pin)
+        if sig is None:
+            errors.append({"pin": pin, "error": "PLAY_KEYPAD_4X3_PIN_MISSING", "expected": name, "channel": channel})
+            continue
+        if sig.nazwa != name:
+            errors.append({"pin": pin, "error": "PLAY_KEYPAD_4X3_BAD_SIGNAL_NAME", "actual": sig.nazwa, "expected": name, "channel": channel})
+        if str(sig.hardware_function or "").upper() != HW_KEYBOARD:
+            errors.append({"pin": pin, "signal": sig.nazwa, "error": "PLAY_KEYPAD_4X3_NOT_KEYBOARD", "actual_hw": sig.hardware_function})
+        if str(sig.kanal or "").upper() != channel:
+            errors.append({"pin": pin, "signal": sig.nazwa, "error": "PLAY_KEYPAD_4X3_BAD_CHANNEL", "actual": sig.kanal, "expected": channel})
+    for old_name in ("play_p42_res", "play_p43_res", "play_p44_res"):
+        if old_name in signals:
+            errors.append({"signal": old_name, "error": "PLAY_KEYPAD_COLUMN_STILL_MARKED_AS_RESERVE"})
+    warnings.append({"rule": "PLAY_KEYPAD_4X3_API_ONLY", "message": "MatrixKB may be enabled only for API status read; USB HID key mapping and macros must stay zero."})
+    return {"ok": not errors, "errors": errors, "warnings": warnings, "contract": TARZAN_PLAY_KEYPAD_4X3}
 
 
 def _build_static_architecture() -> Dict[str, Any]:
@@ -282,10 +330,15 @@ class TarzanPokABC:
     def configuration_contract(self) -> Dict[str, Any]:
         boards = {board: self.board_contract(board) for board in TARZAN_POKEYS_BOARD_ROLES}
         errors: List[Any] = []
+        warnings: List[Any] = []
         for board, res in boards.items():
             for err in res.get("errors", []):
                 errors.append({"board": board, **err} if isinstance(err, dict) else {"board": board, "error": err})
-        return {"ok": not errors, "boards": boards, "errors": errors, "architecture": self.architecture}
+        keypad = _validate_play_keypad_4x3(self.signals)
+        for err in keypad.get("errors", []):
+            errors.append({"board": "PLAY", **err} if isinstance(err, dict) else {"board": "PLAY", "error": err})
+        warnings.extend(keypad.get("warnings", []))
+        return {"ok": not errors, "boards": boards, "errors": errors, "warnings": warnings, "architecture": self.architecture, "play_keypad_4x3": keypad}
 
     def confirm_signal_map_abc(self) -> Dict[str, Any]:
         """Twarda kontrola statycznej mapy: PLAY i REC muszą mieć 1..55."""

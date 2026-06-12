@@ -103,16 +103,22 @@ class TarzanTspLksHardwareTests:
             self._ensure_connected()
             boards = ("PLAY", "REC") if board.upper() in {"BOTH", "ALL"} else (board.upper(),)
             data = self.pokeys.test_lcd_1602_once(visible=visible, boards=boards)
-            detail = str(data.get("boards", {}))[:240]
+            summary = str(data.get("summary") or "").strip()
+            if not summary:
+                summary = "; ".join(
+                    f"LCD {b} {'OK' if d.get('ok') else 'FAIL'}"
+                    for b, d in (data.get("boards") or {}).items()
+                )
+            detail = summary or str(data.get("boards", {}))[:240]
             error = "; ".join(str(x) for x in data.get("errors", []))
             return self._res(
                 "lcd_1602",
                 bool(data.get("ok")),
                 True,
-                "LCD 1602 TarzanPoKeys test",
-                detail=detail,
+                "LCD 1602 PLAY+REC TarzanPoKeys test",
+                detail=detail[:240],
                 error=error,
-                visible_action="LCD: TEST -> BEZ BLEDOW / GOTOWE" if visible and data.get("ok") else "",
+                visible_action="LCD PLAY+REC: TEST -> BEZ BLEDOW / GOTOWE" if visible and data.get("ok") else "",
             )
         except Exception as exc:
             return self._res("lcd_1602", False, True, "LCD 1602 TarzanPoKeys test", error=str(exc))

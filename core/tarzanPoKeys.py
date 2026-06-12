@@ -1250,26 +1250,68 @@ class TarzanPoKeys:
                 return {"ok": False, "board": board, "error": str(exc)}
 
     def test_lcd_1602_once(self, visible: bool = False, boards: Iterable[str] = ("PLAY", "REC")) -> Dict[str, Any]:
-        out: Dict[str, Any] = {"ok": False, "boards": {}, "errors": []}
-        for board in [str(b).upper() for b in boards]:
+        """Test LCD 1602 jawnie osobno dla PLAY i REC.
+
+        LKS ma jedną ikonę `lcd_1602`, ale fizycznie są dwa LCD-y: PLAY i REC.
+        Ten test ma więc zawsze raportować per-board, żeby nie było wrażenia,
+        że sprawdzony został tylko jeden wyświetlacz.
+        """
+        board_list = [str(b).upper() for b in boards]
+        out: Dict[str, Any] = {
+            "ok": False,
+            "boards": {},
+            "errors": [],
+            "tested_boards": board_list,
+            "summary": "",
+        }
+        for board in board_list:
+            board_result: Dict[str, Any] = {"ok": False, "board": board}
             if visible:
                 init = self.lcd_init(board)
+                board_result["init"] = init
                 if not init.get("ok"):
-                    out["boards"][board] = init
-                    out["errors"].append(f"{board}: {init.get('error')}")
+                    board_result["error"] = init.get("error") or "LCD init failed"
+                    out["boards"][board] = board_result
+                    out["errors"].append(f"LCD {board}: {board_result['error']}")
+                    self.logger.warning("LCD %s FAIL init=%s", board, init)
                     continue
-                self.lcd_write_lines(board, f"LKS-N5 {board}", "TEST LCD")
+
+                write_test = self.lcd_write_lines(board, f"LKS-N5 {board}", "TEST LCD")
                 time.sleep(0.25)
                 final = self.lcd_write_lines(board, "BEZ BLEDOW", "GOTOWE")
-                out["boards"][board] = final
-                if not final.get("ok"):
-                    out["errors"].append(f"{board}: {final.get('error')}")
+                board_result.update({
+                    "ok": bool(write_test.get("ok") and final.get("ok")),
+                    "write_test": write_test,
+                    "final": final,
+                    "line1": "BEZ BLEDOW",
+                    "line2": "GOTOWE",
+                })
+                if not board_result["ok"]:
+                    board_result["error"] = final.get("error") or write_test.get("error") or "LCD write failed"
+                    out["errors"].append(f"LCD {board}: {board_result['error']}")
+                    self.logger.warning("LCD %s FAIL write_test=%s final=%s", board, write_test, final)
+                else:
+                    self.logger.info("LCD %s OK: init/write confirmed", board)
+                out["boards"][board] = board_result
             else:
                 ok = self.test_board_once(board)
-                out["boards"][board] = {"ok": ok, "board": board}
+                board_result.update({"ok": bool(ok), "mode": "board_ack_only"})
+                out["boards"][board] = board_result
                 if not ok:
-                    out["errors"].append(f"{board}: board test failed")
-        out["ok"] = not out["errors"]
+                    out["errors"].append(f"LCD {board}: board test failed")
+                    self.logger.warning("LCD %s FAIL board_ack_only", board)
+                else:
+                    self.logger.info("LCD %s OK: board_ack_only", board)
+
+        out["ok"] = not out["errors"] and all(bool(v.get("ok")) for v in out["boards"].values())
+        out["summary"] = "; ".join(
+            f"LCD {board} {'OK' if data.get('ok') else 'FAIL'}"
+            for board, data in out["boards"].items()
+        )
+        if out["ok"]:
+            self.logger.info("LCD 1602 BOTH OK: %s", out["summary"])
+        else:
+            self.logger.warning("LCD 1602 FAIL: %s", out["summary"])
         return out
 
     _MATRIX_FONT_5X7: Dict[str, List[int]] = {

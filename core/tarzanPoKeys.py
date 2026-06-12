@@ -1406,18 +1406,28 @@ class TarzanPoKeys:
             except Exception as exc:
                 return {"ok": False, "board": board, "error": str(exc)}
 
+    def matrix_led_ready_heart_once(self, board: Any = "REC") -> Dict[str, Any]:
+        """Zostawia na matrycy LED znak gotowości systemu.
+
+        Realna matryca TARZAN oczekuje ramki w orientacji B: wzór jako
+        kolumny przeliczony przez _matrix_rows_from_columns(). Nie wyłączamy
+        sterownika MatrixLED, bo matryca ma oznaczać gotowość, a nie gasnąć.
+        """
+        heart_columns = [0x00, 0x66, 0xFF, 0xFF, 0x7E, 0x3C, 0x18, 0x00]
+        return self.matrix_write_frame(board, self._matrix_rows_from_columns(heart_columns))
+
     def test_matrix_led_once(self, visible: bool = False, board: str = "REC") -> Dict[str, Any]:
         if not visible:
             ok = self.test_board_once(board)
-            off = self.matrix_led_off_once(board)
-            return {"ok": bool(ok and off.get("ok")), "board": board, "matrix_off": off}
+            ready = self.matrix_led_ready_heart_once(board)
+            return {"ok": bool(ok and ready.get("ok")), "board": board, "matrix_ready": ready}
         cols = self._matrix_text_columns("OK")
         res = self.matrix_write_frame(board, self._matrix_rows_from_columns(cols[:8]))
         time.sleep(0.20)
-        off = self.matrix_led_off_once(board)
-        if not off.get("ok"):
-            return {"ok": False, "board": board, "write": res, "matrix_off": off}
-        return {"ok": bool(res.get("ok")), "board": board, "write": res, "matrix_off": off}
+        ready = self.matrix_led_ready_heart_once(board)
+        if not ready.get("ok"):
+            return {"ok": False, "board": board, "write": res, "matrix_ready": ready}
+        return {"ok": bool(res.get("ok")), "board": board, "write": res, "matrix_ready": ready}
 
     def read_f_buttons_once(self) -> Dict[str, Any]:
         with self._lock:
@@ -3108,7 +3118,7 @@ class TarzanPoKeys:
                 "boards": ["connect_all", "connect_board", "logical_idle", "logical_wake", "safe_stop", "verify_project_configuration_once", "assert_project_configuration_once"],
                 "gpio_analog": ["digital_io_get_once", "digital_io_get_single_once", "analog_io_get_once", "poll_gpio_inputs_once", "poll_analog_inputs_once"],
                 "i2c_sensors": ["scan_i2c_once", "read_bh1750_lux_once", "read_lm75_temp_once", "read_sht21_once", "read_mma7660_level_once", "read_mcp3425_adc_once", "read_posensors_once"],
-                "ui_hardware": ["lcd_write_lines", "matrix_write_frame", "matrix_led_off_once", "read_f_buttons_once", "blink_f_led_once", "read_keypad_once"],
+                "ui_hardware": ["lcd_write_lines", "matrix_write_frame", "matrix_led_ready_heart_once", "matrix_led_off_once", "read_f_buttons_once", "blink_f_led_once", "read_keypad_once"],
                 "cnc_postep": ["get_pulse_engine_status", "set_pulse_axis_enable", "set_pulse_axis_position", "postep_status_get_once"],
                 "extended": ["pwm_configuration_get_once", "encoder_values_get_once", "one_wire_scan_once", "ponet_status_get_once", "spi_transfer_once", "rtc_get_once"],
             },

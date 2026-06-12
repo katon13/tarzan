@@ -1444,14 +1444,14 @@ class TarzanPoKeys:
             for i in range(16):
                 kb.matrixKBrowsPins[i] = 0
 
-            # PoKeys arrays are zero-based: columnsPins[0] = A, rowsPins[0] = row 1.
-            kb.matrixKBcolumnsPins[0] = int(self.PLAY_KEYPAD_4X3_COLUMNS["A"])
-            kb.matrixKBcolumnsPins[1] = int(self.PLAY_KEYPAD_4X3_COLUMNS["B"])
-            kb.matrixKBcolumnsPins[2] = int(self.PLAY_KEYPAD_4X3_COLUMNS["C"])
-            kb.matrixKBrowsPins[0] = int(self.PLAY_KEYPAD_4X3_ROWS[1])
-            kb.matrixKBrowsPins[1] = int(self.PLAY_KEYPAD_4X3_ROWS[2])
-            kb.matrixKBrowsPins[2] = int(self.PLAY_KEYPAD_4X3_ROWS[3])
-            kb.matrixKBrowsPins[3] = int(self.PLAY_KEYPAD_4X3_ROWS[4])
+            # PoKeys MatrixKB stores pin indexes as ZERO-BASED values: physical P27 => 26. columnsPins[0] = A, rowsPins[0] = row 1.
+            kb.matrixKBcolumnsPins[0] = int(self.PLAY_KEYPAD_4X3_COLUMNS["A"]) - 1
+            kb.matrixKBcolumnsPins[1] = int(self.PLAY_KEYPAD_4X3_COLUMNS["B"]) - 1
+            kb.matrixKBcolumnsPins[2] = int(self.PLAY_KEYPAD_4X3_COLUMNS["C"]) - 1
+            kb.matrixKBrowsPins[0] = int(self.PLAY_KEYPAD_4X3_ROWS[1]) - 1
+            kb.matrixKBrowsPins[1] = int(self.PLAY_KEYPAD_4X3_ROWS[2]) - 1
+            kb.matrixKBrowsPins[2] = int(self.PLAY_KEYPAD_4X3_ROWS[3]) - 1
+            kb.matrixKBrowsPins[3] = int(self.PLAY_KEYPAD_4X3_ROWS[4]) - 1
 
             self._clear_matrix_keyboard_hid_mapping(kb)
 
@@ -1460,13 +1460,32 @@ class TarzanPoKeys:
             save_res = {"ok": True, "skipped": True, "reason": "save_to_flash_false"}
             if save_to_flash:
                 save_res = self.save_configuration(board)
-            ok = bool(set_res.get("ok") and get_res.get("ok") and save_res.get("ok"))
+            expected_rows_api = [
+                int(self.PLAY_KEYPAD_4X3_ROWS[1]) - 1,
+                int(self.PLAY_KEYPAD_4X3_ROWS[2]) - 1,
+                int(self.PLAY_KEYPAD_4X3_ROWS[3]) - 1,
+                int(self.PLAY_KEYPAD_4X3_ROWS[4]) - 1,
+            ]
+            expected_columns_api = [
+                int(self.PLAY_KEYPAD_4X3_COLUMNS["A"]) - 1,
+                int(self.PLAY_KEYPAD_4X3_COLUMNS["B"]) - 1,
+                int(self.PLAY_KEYPAD_4X3_COLUMNS["C"]) - 1,
+            ]
+            actual_rows_api = [int(kb.matrixKBrowsPins[i]) for i in range(4)]
+            actual_columns_api = [int(kb.matrixKBcolumnsPins[i]) for i in range(3)]
+            mapping_ok = actual_rows_api == expected_rows_api and actual_columns_api == expected_columns_api
+            ok = bool(set_res.get("ok") and get_res.get("ok") and save_res.get("ok") and mapping_ok)
             return {
                 "ok": ok,
                 "board": board,
                 "mode": "API_ONLY_NO_USB_HID",
                 "rows": dict(self.PLAY_KEYPAD_4X3_ROWS),
                 "columns": dict(self.PLAY_KEYPAD_4X3_COLUMNS),
+                "expected_rows_api": expected_rows_api,
+                "expected_columns_api": expected_columns_api,
+                "actual_rows_api": actual_rows_api,
+                "actual_columns_api": actual_columns_api,
+                "mapping_ok": mapping_ok,
                 "set": set_res,
                 "get": get_res,
                 "save": save_res,

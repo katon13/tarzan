@@ -523,6 +523,18 @@ class TarzanTspLksBootProgress:
             except Exception as exc:
                 print(f"LKS-N5 FINAL LCD VISIBLE REFRESH component=lcd_1602 ok=False error={exc}")
 
+            # OSTATNI FIZYCZNY ZNAK GOTOWOŚCI NA MATRIX LED:
+            # test Matrix LED pokazuje serce, ale późniejsze testy/refresh mogą nadpisać
+            # rejestry matrycy. Dlatego po LCD refresh zostawiamy serce jako ostatni
+            # widoczny stan gotowości. Nie rusza LCD, keypad, F-LED ani ABC.
+            try:
+                pokeys = getattr(bridge, "pokeys", None)
+                if pokeys is not None and hasattr(pokeys, "matrix_led_ready_heart_once"):
+                    heart_result = pokeys.matrix_led_ready_heart_once("REC")
+                    print(f"LKS-N5 FINAL MATRIX READY HEART component=matrix_led ok={bool(isinstance(heart_result, dict) and heart_result.get('ok'))} detail={str(heart_result)[:120]}")
+            except Exception as exc:
+                print(f"LKS-N5 FINAL MATRIX READY HEART component=matrix_led ok=False error={exc}")
+
         # Po pełnej serii przeliczamy agregat i2c_bus z wyników peryferiów.
         # To naprawia przypadek: i2c_bus testował się wcześniej jako OFF,
         # a chwilę później light_laser dał realny ACK.

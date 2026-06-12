@@ -1346,6 +1346,16 @@ class TarzanPoKeys:
             rows.append(value & 0xFF)
         return rows
 
+    def matrix_led_ready_heart_once(self, board: Any = "REC") -> Dict[str, Any]:
+        """Zostawia na Matrix LED znak gotowości: serce READY.
+
+        Orientacja B potwierdzona fizycznie:
+        heart_columns -> _matrix_rows_from_columns(heart_columns).
+        Sterownik zostaje aktywny, bo matryca ma pokazywać gotowość.
+        """
+        heart_columns = [0x00, 0x66, 0xFF, 0xFF, 0x7E, 0x3C, 0x18, 0x00]
+        return self.matrix_write_frame(board, self._matrix_rows_from_columns(heart_columns))
+
     def matrix_write_frame(self, board: Any = "REC", rows: Iterable[int] = ()) -> Dict[str, Any]:
         with self._lock:
             if self.logical_sleep:
@@ -1421,13 +1431,14 @@ class TarzanPoKeys:
             ok = self.test_board_once(board)
             ready = self.matrix_led_ready_heart_once(board)
             return {"ok": bool(ok and ready.get("ok")), "board": board, "matrix_ready": ready}
+
         cols = self._matrix_text_columns("OK")
         res = self.matrix_write_frame(board, self._matrix_rows_from_columns(cols[:8]))
         time.sleep(0.20)
         ready = self.matrix_led_ready_heart_once(board)
         if not ready.get("ok"):
             return {"ok": False, "board": board, "write": res, "matrix_ready": ready}
-        return {"ok": bool(res.get("ok")), "board": board, "write": res, "matrix_ready": ready}
+        return {"ok": bool(res.get("ok") and ready.get("ok")), "board": board, "write": res, "matrix_ready": ready}
 
     def read_f_buttons_once(self) -> Dict[str, Any]:
         with self._lock:

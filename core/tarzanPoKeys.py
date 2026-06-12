@@ -1427,18 +1427,21 @@ class TarzanPoKeys:
         return self.matrix_write_frame(board, self._matrix_rows_from_columns(heart_columns))
 
     def test_matrix_led_once(self, visible: bool = False, board: str = "REC") -> Dict[str, Any]:
+        """Test Matrix LED kończy się stałym sercem READY.
+
+        Ważne: nie zostawiamy pustej ramki ani nie wyłączamy displayEnabled,
+        bo matryca pełni funkcję gotowości systemu. Serce jest ustawiane także
+        później jako finalny stan bootu w tarzanTspLksBootProgress.py.
+        """
         if not visible:
             ok = self.test_board_once(board)
             ready = self.matrix_led_ready_heart_once(board)
-            return {"ok": bool(ok and ready.get("ok")), "board": board, "matrix_ready": ready}
-
+            return {"ok": bool(ok and ready.get("ok")), "board": board, "ready_heart": ready, "mode": "board_ack_plus_ready_heart"}
         cols = self._matrix_text_columns("OK")
-        res = self.matrix_write_frame(board, self._matrix_rows_from_columns(cols[:8]))
+        write = self.matrix_write_frame(board, self._matrix_rows_from_columns(cols[:8]))
         time.sleep(0.20)
         ready = self.matrix_led_ready_heart_once(board)
-        if not ready.get("ok"):
-            return {"ok": False, "board": board, "write": res, "matrix_ready": ready}
-        return {"ok": bool(res.get("ok") and ready.get("ok")), "board": board, "write": res, "matrix_ready": ready}
+        return {"ok": bool(write.get("ok") and ready.get("ok")), "board": board, "write": write, "ready_heart": ready}
 
     def read_f_buttons_once(self) -> Dict[str, Any]:
         with self._lock:

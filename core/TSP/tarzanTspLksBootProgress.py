@@ -618,8 +618,44 @@ class TarzanTspLksBootProgress:
         except Exception:
             pass
         self.n5.set_many_statuses(self.statuses)
+        self._apply_final_matrix_ready_heart()
         self._write_last_report()
         return list(self.results)
+
+
+    def _apply_final_matrix_ready_heart(self) -> None:
+        """Ostatni fizyczny zapis do Matrix LED po całym boot/status cache.
+
+        Serce po teście matrix_led może zostać nadpisane przez późniejsze etapy
+        bootu. Dlatego po ustawieniu status_main i statusów ikon wykonujemy
+        ostatni zapis PoKeys w stanie POINT_TEST. Nie czyścimy i nie gasimy
+        matrycy: ma zostać znak gotowości.
+        """
+        bridge = self.hardware_bridge
+        if bridge is None:
+            print("LKS-N5 FINAL MATRIX READY HEART component=matrix_led ok=False detail=NO_HARDWAREBRIDGE")
+            return
+        pokeys = getattr(bridge, "pokeys", None)
+        if pokeys is None or not hasattr(pokeys, "matrix_led_ready_heart_once"):
+            print("LKS-N5 FINAL MATRIX READY HEART component=matrix_led ok=False detail=NO_POKEYS_READY_HEART")
+            return
+        try:
+            if hasattr(pokeys, "begin_point_test"):
+                pokeys.begin_point_test("matrix_ready_heart_final")
+            result = pokeys.matrix_led_ready_heart_once("REC")
+            ok = bool(isinstance(result, dict) and result.get("ok"))
+            detail = ""
+            if isinstance(result, dict):
+                detail = str(result.get("error") or result.get("reason") or result.get("pattern") or "")[:120]
+            print(f"LKS-N5 FINAL MATRIX READY HEART component=matrix_led ok={ok} detail={detail}")
+        except Exception as exc:
+            print(f"LKS-N5 FINAL MATRIX READY HEART component=matrix_led ok=False detail={exc}")
+        finally:
+            try:
+                if pokeys is not None and hasattr(pokeys, "end_active_state"):
+                    pokeys.end_active_state()
+            except Exception:
+                pass
 
     def _write_last_report(self) -> None:
         try:

@@ -150,8 +150,8 @@ class TarzanPoKeys:
         "z": ("REC", 43, "sensor_level_z"),
     }
 
-    # Typowe adresy 7-bit I2C dla PoSensors; do wrappera PoKeys wysyłamy adres 8-bit (addr7 << 1),
-    # bo przykład PoKeys dla LM75 używa 0x90 zamiast 0x48.
+    # Typowe adresy I2C używane przez wrapper PoKeysLib w TARZAN.
+    # Potwierdzone na miniPC: BH1750/GY-302 odpowiada jako 0x5C bez przesuwania << 1.
     I2C_ADDR7 = {
         "bh1750": (0x23, 0x5C),
         "lm75": tuple(range(0x48, 0x50)),
@@ -487,7 +487,16 @@ class TarzanPoKeys:
         self._runtime_i2c_scan_enabled = bool(enabled)
 
     def _i2c_allowed(self, *, force: bool = False) -> bool:
-        return bool(force or self._slow_i2c_reads_enabled or self._runtime_i2c_scan_enabled)
+        # I2C nie działa w pętli IDLE. Wolno go używać tylko jawnie:
+        # - force/debug,
+        # - ustawienia serwisowe,
+        # - POINT_TEST/FULL_DIAGNOSTICS z LKS/boot.
+        return bool(
+            force
+            or self._slow_i2c_reads_enabled
+            or self._runtime_i2c_scan_enabled
+            or self.state in {"POINT_TEST", "FULL_DIAGNOSTICS"}
+        )
 
     # ------------------------------------------------------------------
     # Odczyty niskiego poziomu: tylko na żądanie / aktywne okno
@@ -806,8 +815,14 @@ class TarzanPoKeys:
             return result
 
     def _i2c_addr8(self, addr7: int) -> int:
-        """PoKeys wrapper pracuje jak przykłady z dokumentacji: adres 7-bit przesunięty w lewo."""
-        return (int(addr7) & 0x7F) << 1
+        """Adres I2C dla PoKeysLib podajemy bez przesuwania.
+
+        Potwierdzone na miniPC dla czujnika lasera BH1750/GY-302:
+        PLAY / BUS-I2C / 0x5C odpowiada w PoKeysLib jako 0x5C.
+        Nie wolno robić tu addr << 1, bo 0x5C zamienia się wtedy w 0xB8
+        i runtime nie widzi czujnika.
+        """
+        return int(addr7) & 0x7F
 
     def i2c_write(self, board: str, addr7: int, data: Iterable[int]) -> bool:
         if not self._i2c_allowed():
@@ -878,10 +893,14 @@ class TarzanPoKeys:
             return self._missing_sensor("BH1750", board, ["bh1750"])
         addr = int(present)
         try:
-            # Power on + continuous high resolution mode; pomiar około 120-180 ms.
+            # BH1750/GY-302 sprawdzony na miniPC przez PoKeysLib:
+            # power on -> reset -> one-time high resolution mode -> read 2 bytes.
             self.i2c_write(board, addr, [0x01])
-            self.i2c_write(board, addr, [0x10])
-            time.sleep(0.18)
+            time.sleep(0.05)
+            self.i2c_write(board, addr, [0x07])
+            time.sleep(0.05)
+            self.i2c_write(board, addr, [0x20])
+            time.sleep(0.22)
             data = self.i2c_read(board, addr, 2)
             if not data or len(data) < 2:
                 return {"ok": False, "sensor": "BH1750", "addr7": addr, "error": "no data"}
@@ -1679,7 +1698,9 @@ class TarzanPoKeys:
                     "PK_LCDClear", "PK_LCDPrint", "PK_LCDMoveCursor", "PK_LCDChangeMode",
                     "PK_MatrixLEDConfigurationGet", "PK_MatrixLEDConfigurationSet", "PK_MatrixLEDUpdate",
                     "PK_MatrixKBConfigurationGet", "PK_MatrixKBConfigurationSet", "PK_MatrixKBStatusGet",
-                    "PK_I2CBusScanStart", "PK_I2CBusScanGetResults", "PK_I2CBusRead", "PK_I2CBusWrite", 
+                    "PK_I2CBusScanStart", "PK_I2CBusScanGetResults",
+                    "PK_I2CSetStatus", "PK_I2CGetStatus", "PK_I2CRead", "PK_I2CWrite",
+                    "PK_I2CWriteAndRead", "PK_I2CBusRead", "PK_I2CBusWrite",
                     "PK_I2CBusWriteAndRead", "PK_PulseEngineSetup", "PK_PEv2_PulseEngineSetup",
                     "PK_PoStepDriverConfigurationGet", "PK_PoStepDriverConfigurationSet",
                     "PK_PoStep_ConfigurationGet", "PK_PoStep_StatusGet"
@@ -1697,7 +1718,12 @@ class TarzanPoKeys:
                 rc = fn(*args)
                 # Dla większości metod PoKeys 0 to sukces, None/True też.
                 # Metody typu GetResults zwracają listy - wtedy ok=True jeśli rc nie jest None.
-                ok = (rc == 0 or rc is True or rc is None)
+                # Uwaga: wysokopoziomowe wrappery I2C w hardware/PoKeysLib/Python/PoKeys.py
+                # zwracają 1 przy poprawnym zakończeniu operacji I2C (PK_I2C_STAT_COMPLETE).
+                if method_name.startswith("PK_I2C"):
+                    ok = (rc == 0 or rc == 1 or rc is True or rc is None)
+                else:
+                    ok = (rc == 0 or rc is True or rc is None)
                 if not ok and isinstance(rc, (list, bytes, str)):
                     ok = True
                 return {"ok": ok, "board": resolved_board, "method": method_name, "rc": rc}

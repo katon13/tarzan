@@ -220,10 +220,10 @@ LKS_TEST_MATRIX: Dict[str, Dict[str, Any]] = {
     },
     "light_laser": {
         "component_id": 15,
-        "tester": "poksyg_signals",
-        "method": "read_input_signals",
-        "signals": ("rec_p27_free_limit_res", "rec_p40_free_limit_res"),
-        "expect": "LASER_STATUS_ACK",
+        "tester": "poksyg_i2c",
+        "method": "laser_bh1750_read",
+        "signals": (),
+        "expect": "BH1750_PLAY_0x5C_READ_ACK",
     },
     "shock_alarm": {
         "component_id": 13,

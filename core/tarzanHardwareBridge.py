@@ -658,33 +658,26 @@ class TarzanHardwareBridge:
         self.pokeys.set_digital_output(device, pin, value)
 
     def _lks_test_f_led(self, visible: bool = True) -> Dict[str, Any]:
-        """Test F-LED z poprawnym stanem końcowym.
-
-        F-LED w TARZAN są aktywne stanem 0: ON=0, OFF=1.
-        Test może je kolejno zapalić, ale zawsze zaczyna i kończy stanem OFF.
-        """
         device = self._device_ready("REC")
         pins = [46, 48, 50, 52]
-        on_value = int(getattr(self.pokeys, "F_LED_ON_VALUE", 0))
-        off_value = int(getattr(self.pokeys, "F_LED_OFF_VALUE", 1))
         if device is None:
             return self._lks_test_result("f_led", False, error="REC not connected")
         try:
             if visible:
                 try:
                     for pin in pins:
-                        self._lks_set_led_pin(device, pin, off_value)
+                        self._lks_set_led_pin(device, pin, 0)
                     for pin in pins:
-                        self._lks_set_led_pin(device, pin, on_value)
+                        self._lks_set_led_pin(device, pin, 1)
                         time.sleep(0.18)
-                        self._lks_set_led_pin(device, pin, off_value)
+                        self._lks_set_led_pin(device, pin, 0)
                 finally:
                     for pin in pins:
                         try:
-                            self._lks_set_led_pin(device, pin, off_value)
+                            self._lks_set_led_pin(device, pin, 0)
                         except Exception:
                             pass
-            return self._lks_test_result("f_led", True, detail=f"REC P46/P48/P50/P52 ON={on_value} OFF={off_value}")
+            return self._lks_test_result("f_led", True, detail="REC P46/P48/P50/P52")
         except Exception as exc:
             return self._lks_test_result("f_led", False, error=str(exc))
 
@@ -750,8 +743,11 @@ class TarzanHardwareBridge:
         laser_ok = False
         laser_detail = ""
         try:
-            # ETAP 1R: Realny test I2C czujnika TSL25911 (Light Laser)
-            laser = self._lks_test_tsl25911("REC", 0x29)
+            # Obecnie fizycznie podpięty czujnik lasera to BH1750/GY-302
+            # na PLAY / BUS-I2C / adres 0x5C. Drugi taki sam czujnik
+            # na płytce zespolonej jest na razie niepodpięty i nie może
+            # decydować o awarii magistrali.
+            laser = self._lks_test_light_laser_bh1750("PLAY", 0x5C)
             laser_ok = bool(laser.get("ok"))
             laser_detail = str(laser.get("detail") or laser.get("error") or "")[:180]
         except Exception as exc:
@@ -816,6 +812,29 @@ class TarzanHardwareBridge:
         return self._lks_test_result("next_7", False, detail=", ".join(candidates[:3]), error="brak portu Nextion 7 na miniPC")
 
 
+
+    def _lks_test_light_laser_bh1750(self, board: str = "PLAY", address: int = 0x5C) -> Dict[str, Any]:
+        """Realny test obecnego czujnika światła lasera.
+
+        Ustalony sprzęt: jeden fizycznie podpięty czujnik BH1750/GY-302
+        na PLAY / BUS-I2C / adres 0x5C. To jest `light_laser`.
+        """
+        result = self.pokeys.read_bh1750_lux_once(board=board, addr7=address)
+        if not result.get("ok"):
+            return self._lks_test_result(
+                "light_laser",
+                False,
+                detail=f"BH1750_PLAY addr=0x{int(address):02X}",
+                error=str(result.get("error", "BH1750 laser failed")),
+            )
+        raw = result.get("raw")
+        lux = float(result.get("lux", 0.0))
+        return self._lks_test_result(
+            "light_laser",
+            True,
+            detail=f"BH1750_PLAY addr=0x{int(address):02X} raw={raw} lux={lux:.2f}",
+        )
+
     def _lks_test_tsl25911(self, board: str = "REC", addr7: int = 0x29) -> Dict[str, Any]:
         """Realny test czujnika Light Laser (TSL25911) zgodnie z dokumentacją.
         Sprawdza rejestr ID (0x12) -> oczekiwane 0x50.
@@ -838,10 +857,15 @@ class TarzanHardwareBridge:
             return self._lks_test_result("light_laser", False, error=str(exc))
 
     def _lks_test_bh1750(self, address: int = 0x5C) -> Dict[str, Any]:
-        result = self.pokeys.read_bh1750_lux_once(board="PLAY", addr7=address)
-        if not result.get("ok"):
-            return self._lks_test_result("light_bh1750", False, error=str(result.get("error", "BH1750 failed")))
-        return self._lks_test_result("light_bh1750", True, detail=f"0x{int(result.get('addr', address)):02X} raw={result.get('raw')} lux={float(result.get('lux', 0.0)):.2f}")
+        # Drugi taki sam czujnik światła będzie docelowo na płytce zespolonej / PoKSyg.
+        # Teraz nie jest fizycznie podpięty, więc NIE wolno czytać tu tego samego PLAY/0x5C,
+        # bo to zdublowałoby czujnik lasera i fałszywie zapaliło light_bh1750.
+        return self._lks_test_result(
+            "light_bh1750",
+            False,
+            detail="OPTIONAL_NOT_CONNECTED",
+            error="SECOND_LIGHT_SENSOR_NOT_PHYSICALLY_CONNECTED_YET",
+        )
 
     def _normalize_lks_component(self, component: str) -> str:
         raw = str(component or "").strip()
@@ -1116,6 +1140,8 @@ class TarzanHardwareBridge:
             return self._lks_test_i2c_bus()
         if method == "bh1750_read":
             return self._lks_test_bh1750()
+        if method == "laser_bh1750_read":
+            return self._lks_test_light_laser_bh1750("PLAY", 0x5C)
         if method == "tsl25911_read_id":
             return self._lks_test_tsl25911("REC", 0x29)
         if method == "xyz_read":
@@ -1142,8 +1168,8 @@ class TarzanHardwareBridge:
             return self._lks_matrix_error(name, "NO_TEST_MATRIX", supported=False)
 
         needs_pokeys = str(entry.get("tester") or "").startswith("poksyg") or str(entry.get("method") or "") in {
-            "lcd_1602_ack", "matrix_led_ack", "f_led_ack", "keypad_read_ack", "scan_i2c", "bh1750_read", "xyz_read",
-            "tsl25911_read_id"
+            "lcd_1602_ack", "matrix_led_ack", "f_led_ack", "keypad_read_ack", "scan_i2c", "bh1750_read",
+            "laser_bh1750_read", "xyz_read", "tsl25911_read_id"
         }
         if needs_pokeys:
             self.request_hardware_awake(

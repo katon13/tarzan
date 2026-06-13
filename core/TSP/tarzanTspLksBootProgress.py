@@ -23,6 +23,7 @@ from core.TSP.tarzanTspLksStatusMap import empty_statuses, bus_ok_from_statuses
 from core.TSP.tarzanTspLksDiagnostics import TarzanTspLksDiagnostics
 from core.TSP.tarzanTspLksHardwareTests import TarzanTspLksHardwareTests
 from core.TSP.tarzanTspLksMessages import (
+    SCENE_BOOT_LOADING,
     SCENE_BOOT_LINUX,
     SCENE_BOOT_SERVICES,
     SCENE_BOOT_HARDWARE,
@@ -98,6 +99,40 @@ class TarzanTspLksBootProgress:
         except Exception as exc:
             return 999, "", str(exc)
 
+    def _scene_title(self, scene: str) -> str:
+        return {
+            SCENE_BOOT_LOADING: "BOOT LOADING",
+            SCENE_BOOT_LINUX: "KERNEL STARTUP",
+            SCENE_BOOT_SERVICES: "STARTING SERVICES",
+            SCENE_BOOT_HARDWARE: "HARDWARE DETECTION",
+            SCENE_BOOT_TEST: "DEVICE TEST",
+            SCENE_READY: "SYSTEM READY",
+            SCENE_INTRO_STATUS: "INTRO STATUS",
+        }.get(scene, "TARZAN LKS-N5")
+
+    def _show_boot_loading_runtime(self) -> None:
+        """Uzupełnia pustą planszę boot_loading po starcie Pythona.
+
+        HMI może mieć puste pola tekstowe, bo zanim Linux wystartuje, Nextion
+        nie zna realnego stanu. Gdy usługa już ruszy, Python natychmiast
+        wpisuje tytuł, linie i procent, zanim przejdzie do boot_linux.
+        """
+        try:
+            self._show_step(
+                SCENE_BOOT_LOADING,
+                "BOOT LOADING",
+                "LINUX SYSTEM",
+                "LKS-N5 SERVICE",
+                "PLEASE WAIT",
+                "runtime connected",
+                "12%",
+                12,
+                subtitle="INITIALIZING MODULES",
+            )
+            self._pause()
+        except Exception:
+            pass
+
     def _systemctl_active(self, service: str) -> bool:
         rc, _, _ = self._run_cmd(["systemctl", "is-active", "--quiet", service], timeout=0.8)
         return rc == 0
@@ -145,10 +180,10 @@ class TarzanTspLksBootProgress:
             self.statuses[component] = bool(ok)
         return item
 
-    def _show_step(self, scene: str, title: str, line1: str, line2: str, line3: str, status: str, code: str, progress: int) -> None:
+    def _show_step(self, scene: str, title: str, line1: str, line2: str, line3: str, status: str, code: str, progress: int, subtitle: Optional[str] = None) -> None:
         """Aktualizuje teksty i globalny postęp bez migania strony.
 
-        Dla operatora pasek j_progress/n_progress oznacza postęp całego
+        Dla operatora pasek j_progress oraz tekstowe n_progress oznaczają postęp całego
         startu systemu, nie lokalny postęp pojedynczego testu. Dlatego:
         - strona Nextiona jest przełączana tylko przy zmianie sceny,
         - procent jest monotoniczny i nigdy się nie cofa,
@@ -160,20 +195,18 @@ class TarzanTspLksBootProgress:
         if self._current_scene != scene:
             self.n5.page(scene)
             self._current_scene = scene
-            # Nextion pokazuje wartości domyślne strony natychmiast po `page`.
-            # Na boot_linux/services/hardware domyślne n_progress bywa 0, więc
-            # najpierw nadpisujemy pasek/liczbę, a dopiero potem dłuższe teksty.
-            # To skraca widoczny powrót do 0 do minimum bez ruszania HMI.
-            try:
-                self.n5.set_numbers({"j_progress": safe_progress, "n_progress": safe_progress})
-            except Exception:
-                pass
+            # Nextion pokazuje domyślne wartości strony natychmiast po `page`.
+            # Docelowo procent na stronach boot_* jest tym samym komponentem n_progress, ale typu TEXT
+            # z pustą wartością startową, a nie Number n_progress=0. Dzięki temu
+            # nie ma migania "0" między stronami. Python aktualizuje pasek
+            # j_progress oraz tekst n_progress.txt; nie wysyła już n_progress.val.
+            self._set_progress_visual(safe_progress)
 
-        self.n5.set_numbers({"j_progress": safe_progress, "n_progress": safe_progress})
+        self._set_progress_visual(safe_progress)
         self.n5.set_texts(
             {
                 "t_title": title,
-                "t_subtitle": title,
+                "t_subtitle": subtitle if subtitle is not None else title,
                 "t_line1": line1,
                 "t_line2": line2,
                 "t_line3": line3,
@@ -182,17 +215,32 @@ class TarzanTspLksBootProgress:
             }
         )
 
+
+    def _set_progress_visual(self, progress: int) -> None:
+        """Ustawia pasek i procent bez używania Number n_progress.val.
+
+        V4 wymaga zmiany HMI: komponent ma dalej nazywać się ``n_progress``,
+        ale ma być typu ``Text`` z pustym domyślnym ``Text``.
+        Dzięki temu nie ma mignięcia defaultowego ``0`` przy zmianie strony.
+        ``j_progress`` zostaje klasycznym paskiem postępu, a Python pisze
+        procent do ``n_progress.txt``.
+        """
+        value = max(self._global_progress, int(progress))
+        try:
+            self.n5.set_numbers({"j_progress": value})
+        except Exception:
+            pass
+        try:
+            self.n5.set_texts({"n_progress": str(value)})
+        except Exception:
+            # Jeżeli HMI nadal ma Number n_progress, tekst nie przejdzie i ekran
+            # dalej może pokazać własne 0. To wymaga wgrania nowego TFT.
+            pass
+
     def _mark_running(self, scene: str, progress: int, label: str, detail: str = "") -> None:
-        if scene == SCENE_BOOT_LINUX:
-            self._show_step(scene, "LINUX", label, detail, "", "checking", f"{progress}%", progress)
-        elif scene == SCENE_BOOT_SERVICES:
-            self._show_step(scene, "SERVICES", label, detail, "", "checking", f"{progress}%", progress)
-        elif scene == SCENE_BOOT_HARDWARE:
-            self._show_step(scene, "HARDWARE", label, detail, "", "checking", f"{progress}%", progress)
-        elif scene == SCENE_INTRO_STATUS:
-            self._show_step(scene, "INTRO STATUS", label, detail, "", "ready", f"{progress}%", progress)
-        else:
-            self._show_step(scene, "DEVICE TEST", label, detail, "", "checking", f"{progress}%", progress)
+        title = self._scene_title(scene)
+        status = "ready" if scene == SCENE_INTRO_STATUS else "checking"
+        self._show_step(scene, title, label, detail, "", status, f"{progress}%", progress, subtitle=label)
 
 
     def _show_ready_main(self) -> None:
@@ -220,8 +268,8 @@ class TarzanTspLksBootProgress:
                 "t_code": "100%",
             }
         )
-        # ready_main ma własne pola liczbowe, nie ma klasycznego j_progress.
-        # Nie wysyłamy tu j_progress/n_progress, żeby nie wywoływać Invalid Variable.
+        # ready_main ma własne pola liczbowe, nie ma klasycznego j_progress/t_progress.
+        # Nie wysyłamy tu j_progress ani t_progress, żeby nie wywoływać Invalid Variable.
         self.n5.set_numbers({"n_test_idx": green, "n_level": 100})
         self._pause()
 
@@ -267,7 +315,7 @@ class TarzanTspLksBootProgress:
         ok, detail, error = fn()
         result = self._add_result(key, component, ok, label, detail=detail, error=error, progress=progress, start=start)
         state = "OK" if ok else "OFF"
-        self._show_step(scene, label[:20], f"{label}: {state}"[:26], detail[:26], error[:26], "real boot step", f"{progress}%", progress)
+        self._show_step(scene, self._scene_title(scene), f"{label}: {state}"[:26], detail[:26], error[:26], "real boot step", f"{progress}%", progress, subtitle=label[:20])
         self._pause()
         return result
 
@@ -462,15 +510,21 @@ class TarzanTspLksBootProgress:
                 # co na realnej matrycy wygląda jak dwie kreski. Dla matrix_led robimy
                 # niewidoczny ACK i od razu zapisujemy serce READY. Pozostałe widoczne
                 # komponenty, np. LCD/F-LED, dalej testują się fizycznie.
-                visible = False if component == "matrix_led" else True
-                result = bridge.test_lks_component(component, visible=visible)
-                ok = bool(result.get("ok", False))
+                if component == "matrix_led":
+                    # Nie wywołujemy test_matrix_led_once(), bo nawet przy visible=False
+                    # realny low-level może zostawić krótką testową ramkę/kreski.
+                    # Testem operatorskim Matrix LED jest od razu serce READY:
+                    # ma pojawić się raz i zostać do końca bootu.
+                    self._apply_matrix_ready_heart("MATRIX TEST READY HEART")
+                    ok = True
+                    result = {"detail": "READY_HEART_ONLY", "error": ""}
+                else:
+                    result = bridge.test_lks_component(component, visible=True)
+                    ok = bool(result.get("ok", False))
                 print(f"LKS-N5 FULL MATRIX TEST DONE component={component} ok={ok}")
                 statuses[component] = ok
                 if component == "light_laser" and ok:
                     statuses["i2c_bus"] = True
-                if component == "matrix_led":
-                    self._apply_matrix_ready_heart("AFTER MATRIX TEST")
                 if ok:
                     ok_count += 1
                 else:
@@ -534,6 +588,7 @@ class TarzanTspLksBootProgress:
         self._current_scene = ""
         self._global_progress = 0
         self.n5.bkcmd(3)
+        self._show_boot_loading_runtime()
 
         # Boot diagnostyka jest serią testów. Trzymamy hardware przez serię,
         # żeby Snajper nie robił reconnect-spinu PoKeys między komponentami.

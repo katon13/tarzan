@@ -11,19 +11,18 @@ Page boot_loading
     Events
         Postinitialize Event
             sendme
-            va_load.val=8
-            n_progress.val=va_load.val
+            va_load.val=12
             j_progress.val=va_load.val
             tm_load.tim=1000
-            tm_load.en=0
+            tm_load.en=1
         
 Variable (int32) va_load
     Attributes
-        ID   : 13
+        ID   : 11
         Scope: local
         Value: 0
     
-Number n_progress
+Text n_progress
     Attributes
         ID                      : 10
         Scope                   : local
@@ -40,57 +39,9 @@ Number n_progress
         Font Color              : 2016
         Horizontal Alignment    : center
         Vertical Alignment      : center
-        Value                   : 0
-        Significant digits shown: all
-        Format                  : decimal
-        Word wrap               : enabled
-        Horizontal Spacing      : 0
-        Vertical Spacing        : 0
-    
-Number n_level
-    Attributes
-        ID                      : 11
-        Scope                   : local
-        Send Component ID       : disabled
-        x coordinate            : 670
-        y coordinate            : 70
-        Width                   : 40
-        Height                  : 34
-        Fill                    : solid color
-        Style                   : flat
-        Associated Keyboard     : none
-        Font ID                 : 6
-        Back. Color             : 0
-        Font Color              : 2016
-        Horizontal Alignment    : center
-        Vertical Alignment      : center
-        Value                   : 0
-        Significant digits shown: all
-        Format                  : decimal
-        Word wrap               : enabled
-        Horizontal Spacing      : 0
-        Vertical Spacing        : 0
-    
-Number n_test_idx
-    Attributes
-        ID                      : 12
-        Scope                   : local
-        Send Component ID       : disabled
-        x coordinate            : 630
-        y coordinate            : 70
-        Width                   : 40
-        Height                  : 35
-        Fill                    : solid color
-        Style                   : flat
-        Associated Keyboard     : none
-        Font ID                 : 6
-        Back. Color             : 0
-        Font Color              : 2016
-        Horizontal Alignment    : center
-        Vertical Alignment      : center
-        Value                   : 0
-        Significant digits shown: all
-        Format                  : decimal
+        Input Type          : character
+        Text                : 
+        Max. Text Size      : 10
         Word wrap               : enabled
         Horizontal Spacing      : 0
         Vertical Spacing        : 0
@@ -113,7 +64,7 @@ Text t_title
         Horizontal Alignment: center
         Vertical Alignment  : center
         Input Type          : character
-        Text                : INITIALIZING MODULES
+        Text                : 
         Max. Text Size      : 100
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -137,7 +88,7 @@ Text t_subtitle
         Horizontal Alignment: left
         Vertical Alignment  : center
         Input Type          : character
-        Text                : LOADING...
+        Text                : 
         Max. Text Size      : 100
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -161,7 +112,7 @@ Text t_line1
         Horizontal Alignment: left
         Vertical Alignment  : center
         Input Type          : character
-        Text                : LINUX SYSTEM
+        Text                : 
         Max. Text Size      : 100
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -172,9 +123,9 @@ Text t_status
         ID                  : 5
         Scope               : local
         Send Component ID   : disabled
-        x coordinate        : 500
+        x coordinate        : 483
         y coordinate        : 320
-        Width               : 230
+        Width               : 250
         Height              : 25
         Fill                : solid color
         Style               : flat
@@ -185,7 +136,7 @@ Text t_status
         Horizontal Alignment: right
         Vertical Alignment  : center
         Input Type          : character
-        Text                : waiting for LKS-N5 service...
+        Text                : 
         Max. Text Size      : 100
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -209,7 +160,7 @@ Text t_line2
         Horizontal Alignment: left
         Vertical Alignment  : center
         Input Type          : character
-        Text                : PLEASE WAIT
+        Text                : 
         Max. Text Size      : 100
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -284,6 +235,19 @@ Timer tm_load
     Attributes
         ID         : 9
         Scope      : local
-        Period (ms): 400
-        Enabled    : yes
+        Period (ms): 1000
+        Enabled    : no
     
+    Events
+        Timer Event
+            if(va_load.val<90)
+            {
+                va_load.val=va_load.val+3
+                    j_progress.val=va_load.val
+            }else
+            {
+                va_load.val=90
+                j_progress.val=90
+                tm_load.en=0
+            }
+        

@@ -12,57 +12,9 @@ Page boot_linux
         Postinitialize Event
             sendme
         
-Number n_test_idx
+Text n_progress
     Attributes
-        ID                      : 2
-        Scope                   : local
-        Send Component ID       : disabled
-        x coordinate            : 642
-        y coordinate            : 82
-        Width                   : 40
-        Height                  : 35
-        Fill                    : solid color
-        Style                   : flat
-        Associated Keyboard     : none
-        Font ID                 : 6
-        Back. Color             : 0
-        Font Color              : 2016
-        Horizontal Alignment    : center
-        Vertical Alignment      : center
-        Value                   : 0
-        Significant digits shown: all
-        Format                  : decimal
-        Word wrap               : enabled
-        Horizontal Spacing      : 0
-        Vertical Spacing        : 0
-    
-Number n_level
-    Attributes
-        ID                      : 3
-        Scope                   : local
-        Send Component ID       : disabled
-        x coordinate            : 682
-        y coordinate            : 82
-        Width                   : 40
-        Height                  : 34
-        Fill                    : solid color
-        Style                   : flat
-        Associated Keyboard     : none
-        Font ID                 : 6
-        Back. Color             : 0
-        Font Color              : 2016
-        Horizontal Alignment    : center
-        Vertical Alignment      : center
-        Value                   : 0
-        Significant digits shown: all
-        Format                  : decimal
-        Word wrap               : enabled
-        Horizontal Spacing      : 0
-        Vertical Spacing        : 0
-    
-Number n_progress
-    Attributes
-        ID                      : 11
+        ID                      : 9
         Scope                   : local
         Send Component ID       : disabled
         x coordinate            : 409
@@ -77,9 +29,9 @@ Number n_progress
         Font Color              : 2016
         Horizontal Alignment    : center
         Vertical Alignment      : center
-        Value                   : 0
-        Significant digits shown: all
-        Format                  : decimal
+        Input Type          : character
+        Text                : 
+        Max. Text Size      : 10
         Word wrap               : enabled
         Horizontal Spacing      : 0
         Vertical Spacing        : 0
@@ -102,7 +54,7 @@ Text t_title
         Horizontal Alignment: center
         Vertical Alignment  : center
         Input Type          : character
-        Text                : KERNEL STARTUP
+        Text                : 
         Max. Text Size      : 100
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -110,7 +62,7 @@ Text t_title
     
 Text t_code
     Attributes
-        ID                  : 4
+        ID                  : 2
         Scope               : local
         Send Component ID   : disabled
         x coordinate        : 641
@@ -134,7 +86,7 @@ Text t_code
     
 Text t_subtitle
     Attributes
-        ID                  : 5
+        ID                  : 3
         Scope               : local
         Send Component ID   : disabled
         x coordinate        : 471
@@ -150,7 +102,7 @@ Text t_subtitle
         Horizontal Alignment: left
         Vertical Alignment  : center
         Input Type          : character
-        Text                : LINUX OK
+        Text                : 
         Max. Text Size      : 100
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -158,7 +110,7 @@ Text t_subtitle
     
 Text t_line1
     Attributes
-        ID                  : 6
+        ID                  : 4
         Scope               : local
         Send Component ID   : disabled
         x coordinate        : 471
@@ -174,7 +126,7 @@ Text t_line1
         Horizontal Alignment: left
         Vertical Alignment  : center
         Input Type          : character
-        Text                : SYSTEM STARTED
+        Text                : 
         Max. Text Size      : 100
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -182,7 +134,7 @@ Text t_line1
     
 Text t_line2
     Attributes
-        ID                  : 7
+        ID                  : 5
         Scope               : local
         Send Component ID   : disabled
         x coordinate        : 471
@@ -198,7 +150,7 @@ Text t_line2
         Horizontal Alignment: left
         Vertical Alignment  : center
         Input Type          : character
-        Text                : STARTING SERVICES
+        Text                : 
         Max. Text Size      : 100
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -206,7 +158,7 @@ Text t_line2
     
 Text t_line3
     Attributes
-        ID                  : 8
+        ID                  : 6
         Scope               : local
         Send Component ID   : disabled
         x coordinate        : 470
@@ -230,7 +182,7 @@ Text t_line3
     
 Text t_status
     Attributes
-        ID                  : 9
+        ID                  : 7
         Scope               : local
         Send Component ID   : disabled
         x coordinate        : 500
@@ -246,7 +198,7 @@ Text t_status
         Horizontal Alignment: right
         Vertical Alignment  : center
         Input Type          : character
-        Text                : waiting for LKS-N5 service...
+        Text                : 
         Max. Text Size      : 100
         Word wrap           : disabled
         Horizontal Spacing  : 0
@@ -254,7 +206,7 @@ Text t_status
     
 Progress Bar j_progress
     Attributes
-        ID                   : 10
+        ID                   : 8
         Scope                : local
         Send Component ID    : disabled
         x coordinate         : 491

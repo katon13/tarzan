@@ -358,19 +358,17 @@ class TarzanTspServer:
 
             self._lks_n5_last_refresh_ms = monotonic_ms()
             self.logger.info("LKS-N5 BOOT FINISHED port=%s baudrate=%s dry_run=%s", self._lks_n5_port, self._lks_n5_baudrate, self._lks_n5_dry_run)
-            self.logger.info("TARZAN SYSTEM IS READY AND RUNNING")
-            self._apply_lks_n5_ready_heart_after_boot()
         except Exception as exc:
             self.debug.record_error("lks_n5_start_failed", {"error": str(exc)})
             self.logger.warning("LKS-N5 start failed: %s", exc)
             self.lks_n5 = None
 
-    def _apply_lks_n5_ready_heart_after_boot(self) -> None:
-        """Ustawia serce Matrix LED dopiero po zakończeniu bootu LKS.
+    def apply_lks_n5_ready_heart_after_system_ready(self) -> None:
+        """Ustawia serce Matrix LED dopiero po pełnym READY z main.py.
 
-        Wcześniejsze etapy startu/testów czyszczą Matrix LED. Serce READY nie
-        może pojawiać się podczas bootu, bo oznacza żywy/gotowy system. Ten
-        zapis jest świadomie po logu `LKS-N5 BOOT FINISHED`.
+        To jest jedyne miejsce runtime, które ma rysować serce READY.
+        Wywołuje je main.py dopiero po ustawieniu tarzan_ready/runtime_state/system_state
+        i po wypisaniu `TARZAN SYSTEM IS READY AND RUNNING`.
         """
         bridge = getattr(self, "hw_bridge", None)
         pokeys = getattr(bridge, "pokeys", None) if bridge is not None else None
@@ -379,12 +377,15 @@ class TarzanTspServer:
             return
         started = False
         try:
-            if hasattr(pokeys, "set_lks_n5_boot_finished"):
-                pokeys.set_lks_n5_boot_finished(True)
+            if hasattr(pokeys, "set_lks_n5_system_ready"):
+                pokeys.set_lks_n5_system_ready(True)
             if hasattr(pokeys, "begin_point_test"):
-                pokeys.begin_point_test("post_boot_matrix_ready_heart")
+                pokeys.begin_point_test("matrix_ready_heart_system_ready")
                 started = True
-            result = pokeys.matrix_led_ready_heart_once("REC", force=True)
+            try:
+                result = pokeys.matrix_led_ready_heart_once("REC", force=True)
+            except TypeError:
+                result = pokeys.matrix_led_ready_heart_once("REC")
             ok = bool(isinstance(result, dict) and result.get("ok"))
             self.logger.info("LKS-N5 POST-BOOT MATRIX READY HEART component=matrix_led ok=%s detail=%s", ok, str(result)[:160])
         except Exception as exc:
@@ -396,6 +397,7 @@ class TarzanTspServer:
                         pokeys.end_active_state()
                 except Exception:
                     pass
+
 
     def _stop_lks_n5(self) -> None:
         """Zamyka LKS-N5 po zatrzymaniu pętli serwera.

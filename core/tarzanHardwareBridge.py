@@ -652,8 +652,8 @@ class TarzanHardwareBridge:
         """Matrix LED nie ma już pokazywać ramki testowej/kreski.
 
         Na realnym module wcześniejszy test wizualny zostawiał artefakty
-        kropek/kresek. Dlatego test matrix_led robi tylko ACK i kończy się
-        twardym OFF. Serce READY ustawia dopiero TSP Server po BOOT FINISHED.
+        kropek/kreski. Dlatego każdy test matrix_led robi tylko ACK i kończy
+        się twardym OFF/blank. Serce READY ustawia dopiero main.py po pełnym READY.
         """
         try:
             return self.pokeys.test_matrix_led_once(visible=False)

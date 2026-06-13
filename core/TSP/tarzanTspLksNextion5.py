@@ -124,11 +124,16 @@ class TarzanTspLksNextion5:
         for component, value in values.items():
             value_int = int(value)
             # Boot progress na Nextion 5 ma być monotoniczny.
-            # Nie wolno cofać paska do 0 przy zmianie strony albo retry cache.
+            # FIZYCZNY HMI: j_progress jest ProgressBar (.val), ale n_progress
+            # jest polem Text (.txt). Wysyłanie n_progress.val kasowało cyfrę
+            # procentu / dawało Invalid Variable.
             if component in {"j_progress", "n_progress"}:
                 value_int = max(self._last_progress, value_int)
                 self._last_progress = value_int
-            self.val(component, value_int)
+            if component == "n_progress":
+                self.txt(component, f"{value_int}%")
+            else:
+                self.val(component, value_int)
 
     def bkcmd(self, level: int = 3) -> None:
         getattr(self.device, "bkcmd")(int(level))

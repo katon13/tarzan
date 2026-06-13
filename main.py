@@ -167,6 +167,15 @@ def main():
     
     bus.log("MAIN", "System fully operational. Ready for PAR connection.")
 
+    # Matrix LED READY wolno zapalić dopiero tutaj: po pełnym READY main.py,
+    # nie tylko po zakończeniu boot-checku LKS-N5.
+    try:
+        apply_heart = getattr(server, "apply_lks_n5_ready_heart_after_system_ready", None)
+        if callable(apply_heart):
+            apply_heart()
+    except Exception as heart_exc:
+        bus.log("MAIN", f"LKS-N5 Matrix READY heart failed after system READY: {heart_exc}")
+
     # Pętla główna (blokująca)
     try:
         server.serve_forever()

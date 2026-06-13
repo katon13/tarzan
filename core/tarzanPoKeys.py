@@ -181,14 +181,14 @@ class TarzanPoKeys:
         self._i2c_force_min_gap_s = 2.0
         self._slow_i2c_reads_enabled = os.environ.get("TARZAN_ENABLE_SLOW_I2C_SENSOR_READS") == "1"
         self._runtime_i2c_scan_enabled = os.environ.get("TARZAN_ALLOW_RUNTIME_I2C_SCAN") == "1"
-        # Matrix READY heart jest dozwolone dopiero po pełnym końcu bootu LKS-N5.
-        # To zabezpiecza przed starymi/rozproszonymi wywołaniami serca podczas testów.
-        self._lks_n5_boot_finished = False
         # libPoKeys/libusb na Linuxie uruchamia własny read_thread.
         # Przy stop usługi agresywne PK_DisconnectDevice potrafi zrobić core dump,
         # jeżeli read_thread nadal siedzi w libusb_handle_events.
         self._shutting_down = False
         self._disconnect_on_stop = os.environ.get("TARZAN_POKEYS_DISCONNECT_ON_STOP") == "1"
+        # Matrix READY heart wolno zapalić dopiero po pełnym READY z main.py.
+        # Przy starcie każdy wcześniejszy zapis serca ma kończyć się blank/off.
+        self._lks_n5_system_ready = False
 
     # ------------------------------------------------------------------
     # Biblioteka / połączenia
@@ -1368,6 +1368,35 @@ class TarzanPoKeys:
             rows.append(value & 0xFF)
         return rows
 
+    def set_lks_n5_system_ready(self, ready: bool = True) -> None:
+        """Bramka Matrix READY: True dopiero po pełnym READY systemu."""
+        with self._lock:
+            self._lks_n5_system_ready = bool(ready)
+
+    def is_lks_n5_system_ready(self) -> bool:
+        with self._lock:
+            return bool(getattr(self, "_lks_n5_system_ready", False))
+
+    @staticmethod
+    def _matrix_led_clear_slot(matrix: Any, *, enabled: int = 0) -> None:
+        """Czyści pojedynczy slot MatrixLED PoKeys.
+
+        PoKeys57U ma dwie struktury MatrixLED. Konfiguracja jest wysyłana dla
+        obu naraz, więc drugi slot musi być zawsze jawnie wyzerowany, inaczej
+        po restarcie mogą zostać kropki/kreska ze starej pamięci sterownika.
+        """
+        matrix.displayEnabled = int(enabled)
+        matrix.rows = 8
+        matrix.columns = 8
+        matrix.RefreshFlag = 1
+        for i in range(8):
+            matrix.data[i] = 0
+
+    def _matrix_led_clear_all_slots(self, matrix_ptr: Any, *, enabled: int = 0) -> None:
+        """Czyści MatrixLED[0] i MatrixLED[1] przed wysłaniem konfiguracji."""
+        for slot in (0, 1):
+            self._matrix_led_clear_slot(matrix_ptr[slot], enabled=enabled)
+
     def matrix_write_frame(self, board: Any = "REC", rows: Iterable[int] = ()) -> Dict[str, Any]:
         with self._lock:
             if self.logical_sleep:
@@ -1377,6 +1406,12 @@ class TarzanPoKeys:
                 return {"ok": False, "board": board, "error": f"{board} not connected"}
             try:
                 matrix_ptr = device.device.contents.MatrixLED
+
+                # PoKeys wysyła konfigurację obu slotów MatrixLED naraz.
+                # Slot [1] musi być zawsze pusty/off, bo w przeciwnym razie
+                # zostają fizyczne kropki po restarcie lub po wcześniejszym teście.
+                self._matrix_led_clear_all_slots(matrix_ptr, enabled=0)
+
                 matrix = matrix_ptr[0]
                 matrix.displayEnabled = 1
                 matrix.rows = 8
@@ -1385,23 +1420,30 @@ class TarzanPoKeys:
                 row_list = list(rows)
                 for i in range(8):
                     matrix.data[i] = int(row_list[i]) & 0xFF if i < len(row_list) else 0
+
+                # Drugi slot zostaje jawnie wyłączony i pusty.
+                self._matrix_led_clear_slot(matrix_ptr[1], enabled=0)
+
                 res = self._call_device(board, "PK_MatrixLEDConfigurationSet")
                 if not res.get("ok"):
                     raise RuntimeError(f"PK_MatrixLEDConfigurationSet failed: {res.get('error')}")
                 res = self._call_device(board, "PK_MatrixLEDUpdate")
                 if not res.get("ok"):
                     raise RuntimeError(f"PK_MatrixLEDUpdate failed: {res.get('error')}")
-                return {"ok": True, "board": board}
+                return {"ok": True, "board": board, "slot0": "frame", "slot1": "blank_off"}
             except Exception as exc:
                 return {"ok": False, "board": board, "error": str(exc)}
 
     def matrix_led_off_once(self, board: Any = "REC") -> Dict[str, Any]:
-        """Twardo wygasza fizyczną matrycę LED.
+        """Twardo wygasza fizyczną matrycę LED i czyści pamięć obu slotów.
 
-        Sam zapis pustej ramki [0]*8 zostawia sterownik MatrixLED w stanie
-        displayEnabled=1. Na realnym module może wtedy zostać pojedynczy
-        ghost-pixel po multipleksowaniu. Dlatego po teście zerujemy dane i
-        wyłączamy displayEnabled.
+        Samo displayEnabled=0 nie wystarcza na realnym module TARZAN. PoKeys ma
+        MatrixLED[0] i MatrixLED[1], a PK_MatrixLEDConfigurationSet wysyła oba
+        sloty naraz. Jeżeli czyścimy tylko [0], slot [1] może zostawić cztery
+        kropki w linii po restarcie. Dlatego sekwencja czyści oba sloty:
+        1) pusta ramka dla obu przy displayEnabled=1 + update,
+        2) displayEnabled=0 dla obu + update,
+        3) drugi update OFF jako domknięcie po multipleksowaniu.
         """
         with self._lock:
             if self.logical_sleep:
@@ -1411,56 +1453,50 @@ class TarzanPoKeys:
                 return {"ok": False, "board": board, "error": f"{board} not connected"}
             try:
                 matrix_ptr = device.device.contents.MatrixLED
-                matrix = matrix_ptr[0]
-                matrix.rows = 8
-                matrix.columns = 8
-                matrix.displayEnabled = 0
-                matrix.RefreshFlag = 1
-                for i in range(8):
-                    matrix.data[i] = 0
+
+                # KROK 1: pusta ramka na obu slotach w trybie włączonym.
+                self._matrix_led_clear_all_slots(matrix_ptr, enabled=1)
                 res = self._call_device(board, "PK_MatrixLEDConfigurationSet")
                 if not res.get("ok"):
-                    raise RuntimeError(f"PK_MatrixLEDConfigurationSet failed: {res.get('error')}")
+                    raise RuntimeError(f"PK_MatrixLEDConfigurationSet blank failed: {res.get('error')}")
                 res = self._call_device(board, "PK_MatrixLEDUpdate")
                 if not res.get("ok"):
-                    raise RuntimeError(f"PK_MatrixLEDUpdate failed: {res.get('error')}")
-                return {"ok": True, "board": board, "displayEnabled": 0}
+                    raise RuntimeError(f"PK_MatrixLEDUpdate blank failed: {res.get('error')}")
+
+                # KROK 2: oba sloty puste i wyłączone.
+                self._matrix_led_clear_all_slots(matrix_ptr, enabled=0)
+                res = self._call_device(board, "PK_MatrixLEDConfigurationSet")
+                if not res.get("ok"):
+                    raise RuntimeError(f"PK_MatrixLEDConfigurationSet off failed: {res.get('error')}")
+                res = self._call_device(board, "PK_MatrixLEDUpdate")
+                if not res.get("ok"):
+                    raise RuntimeError(f"PK_MatrixLEDUpdate off failed: {res.get('error')}")
+
+                # KROK 3: drugi update OFF stabilizuje stan po restarcie usługi.
+                self._matrix_led_clear_all_slots(matrix_ptr, enabled=0)
+                res = self._call_device(board, "PK_MatrixLEDUpdate")
+                if not res.get("ok"):
+                    raise RuntimeError(f"PK_MatrixLEDUpdate off confirm failed: {res.get('error')}")
+                return {
+                    "ok": True,
+                    "board": board,
+                    "displayEnabled": 0,
+                    "blank_then_off": True,
+                    "slots_cleared": [0, 1],
+                }
             except Exception as exc:
                 return {"ok": False, "board": board, "error": str(exc)}
 
-    def set_lks_n5_boot_finished(self, finished: bool = True) -> None:
-        """Jawna bramka READY dla Matrix LED.
-
-        Serce READY wolno pokazać wyłącznie po pełnym zakończeniu bootu LKS-N5.
-        Start i diagnostyka mogą tylko wygaszać matrycę.
-        """
-        with self._lock:
-            self._lks_n5_boot_finished = bool(finished)
-
-    def matrix_led_ready_heart_once(self, board: Any = "REC", *, force: bool = False) -> Dict[str, Any]:
+    def matrix_led_ready_heart_once(self, board: Any = "REC", force: bool = False) -> Dict[str, Any]:
         """Zostawia na matrycy LED znak gotowości systemu.
 
-        Realna matryca TARZAN oczekuje ramki w orientacji B: wzór jako
-        kolumny przeliczony przez _matrix_rows_from_columns(). Nie wyłączamy
-        sterownika MatrixLED, bo matryca ma oznaczać gotowość, a nie gasnąć.
-
-        Domyślnie metoda ma bramkę bootu: przed `LKS-N5 BOOT FINISHED`
-        nie rysuje serca, tylko twardo wygasza matrycę. Dzięki temu żadne
-        stare wywołanie z testu/safe-state nie pokaże READY za wcześnie.
+        Bez force=True funkcja jest chroniona bramką system READY. Dzięki temu
+        test matrix_led, safe-state albo stare ukryte wywołanie nie zapali serca
+        w trakcie bootu.
         """
-        if not force and not bool(getattr(self, "_lks_n5_boot_finished", False)):
+        if not force and not self.is_lks_n5_system_ready():
             off = self.matrix_led_off_once(board)
-            try:
-                self.logger.info("POKEYS MATRIX READY HEART BLOCKED BEFORE LKS BOOT FINISHED")
-            except Exception:
-                pass
-            return {
-                "ok": bool(isinstance(off, dict) and off.get("ok")),
-                "board": board,
-                "blocked": True,
-                "reason": "LKS_BOOT_NOT_FINISHED",
-                "off": off,
-            }
+            return {"ok": bool(isinstance(off, dict) and off.get("ok")), "board": board, "skipped": "SYSTEM_NOT_READY", "off": off}
         heart_columns = [0x00, 0x66, 0xFF, 0xFF, 0x7E, 0x3C, 0x18, 0x00]
         return self.matrix_write_frame(board, self._matrix_rows_from_columns(heart_columns))
 

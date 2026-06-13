@@ -81,6 +81,8 @@ class TarzanTspLksNextion5:
         self.last_status: Dict[str, bool] = {}
         self.last_error: str = ""
         self._last_progress: int = 0
+        self._last_number_values: Dict[str, int] = {}
+        self._last_text_values: Dict[str, str] = {}
 
     def connect(self) -> None:
         connect = getattr(self.device, "connect", None)
@@ -106,14 +108,27 @@ class TarzanTspLksNextion5:
     def page(self, name: str) -> None:
         getattr(self.device, "page")(name)
         self.last_scene = name
+        # Po zmianie strony Nextion tworzy komponenty od nowa. Cache wartości
+        # musi zostać wyczyszczony, żeby pierwsza wartość na nowej planszy
+        # została wysłana natychmiast, ale dalsze identyczne wpisy nie mrugały.
+        self._last_number_values.clear()
+        self._last_text_values.clear()
         self._sleep()
 
     def txt(self, component: str, value: str) -> None:
-        getattr(self.device, "txt")(component, value)
+        value_str = str(value)
+        if self._last_text_values.get(component) == value_str:
+            return
+        getattr(self.device, "txt")(component, value_str)
+        self._last_text_values[component] = value_str
         self._sleep()
 
     def val(self, component: str, value: int) -> None:
-        getattr(self.device, "val")(component, int(value))
+        value_int = int(value)
+        if self._last_number_values.get(component) == value_int:
+            return
+        getattr(self.device, "val")(component, value_int)
+        self._last_number_values[component] = value_int
         self._sleep()
 
     def set_texts(self, values: Mapping[str, str]) -> None:
@@ -121,6 +136,7 @@ class TarzanTspLksNextion5:
             self.txt(component, str(value))
 
     def set_numbers(self, values: Mapping[str, int]) -> None:
+        normalized: Dict[str, int] = {}
         for component, value in values.items():
             value_int = int(value)
             # Boot progress na Nextion 5 ma być monotoniczny.
@@ -130,10 +146,19 @@ class TarzanTspLksNextion5:
             if component in {"j_progress", "n_progress"}:
                 value_int = max(self._last_progress, value_int)
                 self._last_progress = value_int
+            normalized[component] = value_int
+
+        # Stabilizacja cyfry procentów: po zmianie planszy Nextion potrafi przez
+        # ułamek sekundy pokazać wartość domyślną komponentu. Dlatego tekst
+        # procentu wysyłamy jako pierwszy, a potem pasek. Dodatkowo txt()/val()
+        # mają cache, więc identyczny procent nie jest nadpisywany dwa razy
+        # podczas jednego kroku diagnostyki.
+        if "n_progress" in normalized:
+            self.txt("n_progress", f"{normalized['n_progress']}%")
+        for component, value_int in normalized.items():
             if component == "n_progress":
-                self.txt(component, f"{value_int}%")
-            else:
-                self.val(component, value_int)
+                continue
+            self.val(component, value_int)
 
     def bkcmd(self, level: int = 3) -> None:
         getattr(self.device, "bkcmd")(int(level))

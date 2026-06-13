@@ -154,12 +154,19 @@ class TarzanTspLksBootProgress:
         - procent jest monotoniczny i nigdy się nie cofa,
         - wynik pojedynczego kroku zmienia tylko napisy, a nie restartuje strony.
         """
-        if self._current_scene != scene:
+        scene_changed = self._current_scene != scene
+        if scene_changed:
             self.n5.page(scene)
             self._current_scene = scene
 
         safe_progress = max(self._global_progress, int(progress))
         self._global_progress = safe_progress
+
+        # Po przejściu na nową planszę najpierw przywróć cyfry procentów.
+        # Wcześniej procent był wysyłany dopiero po kilku tekstach, przez co
+        # fizyczny Nextion mógł mrugnąć pustym / domyślnym n_progress.
+        if scene_changed:
+            self.n5.set_numbers({"n_progress": safe_progress, "j_progress": safe_progress})
 
         self.n5.set_texts(
             {

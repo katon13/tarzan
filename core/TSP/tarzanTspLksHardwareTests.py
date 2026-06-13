@@ -34,6 +34,118 @@ class LksHardwareTestResult:
     visible_action: str = ""
 
 
+@dataclass
+class LksFullMatrixRunResult:
+    """Wynik jednego, wspólnego toru pełnego testu LKS_TEST_MATRIX."""
+
+    statuses: Dict[str, bool]
+    ok_count: int
+    total: int
+    fail_details: list[str]
+    ordered_components: list[str]
+    aggregated_i2c: bool = False
+
+
+def run_lks_full_matrix_via_bridge(
+    bridge: object,
+    *,
+    visible: bool = True,
+    batch_name: str = "LKS_FULL_MATRIX_REAL_TESTS",
+    safe_state_source: str = "LKS_FULL_MATRIX_REAL_TESTS",
+    progress_start: int = 50,
+    progress_span: int = 40,
+    on_progress: Optional[object] = None,
+    on_component_done: Optional[object] = None,
+) -> LksFullMatrixRunResult:
+    """JEDYNY wspólny tor pełnego testu 30 komponentów LKS w runtime.
+
+    ETAP 3:
+    - BootProgress i TspServer nie mają już własnych kopii pętli pełnych testów.
+    - Oba wołają tę funkcję i dostają ten sam porządek komponentów, ten sam
+      agregat i2c_bus oraz ten sam safe-state po testach.
+    - Funkcja nie tworzy własnego TarzanPoKeys i nie otwiera drugiej sesji USB.
+    """
+    from core.TSP.tarzanTspLksStatusMap import empty_statuses, bus_ok_from_statuses
+    from core.TSP.tarzanTspLksTestMatrix import MATRIX_ERRORS, components
+
+    if bridge is None or not hasattr(bridge, "test_lks_component"):
+        raise RuntimeError("NO_HARDWAREBRIDGE_FOR_LKS_TEST_MATRIX")
+    if MATRIX_ERRORS:
+        raise RuntimeError("BAD_TEST_MATRIX: " + "; ".join(MATRIX_ERRORS[:6]))
+
+    statuses: Dict[str, bool] = empty_statuses(False)
+    all_components = tuple(components())
+    ordered_components = list(all_components)
+
+    # light_laser musi byc przed i2c_bus, bo i2c_bus moze byc agregowany
+    # z realnego ACK urzadzenia magistrali.
+    for name in ("light_laser", "light_bh1750", "i2c_bus"):
+        if name in ordered_components:
+            ordered_components.remove(name)
+    insert_at = ordered_components.index("level_xyz") + 1 if "level_xyz" in ordered_components else 0
+    ordered_components[insert_at:insert_at] = [c for c in ("light_laser", "light_bh1750", "i2c_bus") if c in all_components]
+
+    batch_started = False
+    if hasattr(bridge, "begin_hardware_batch"):
+        try:
+            bridge.begin_hardware_batch(batch_name, grace_ms=18000, ensure=False)
+            batch_started = True
+        except Exception:
+            batch_started = False
+
+    ok_count = 0
+    fail_details: list[str] = []
+    aggregated_i2c = False
+    total_ordered = max(1, len(ordered_components))
+
+    try:
+        for idx, component in enumerate(ordered_components, start=1):
+            progress = int(progress_start) + int((idx / total_ordered) * int(progress_span))
+            if on_progress is not None:
+                on_progress(component, idx, total_ordered, progress)
+
+            result = bridge.test_lks_component(component, visible=visible)
+            ok = bool(result.get("ok", False))
+            statuses[component] = ok
+            if component == "light_laser" and ok:
+                statuses["i2c_bus"] = True
+            if ok:
+                ok_count += 1
+            else:
+                err = str(result.get("error", "") or result.get("detail", "") or "FAIL")
+                fail_details.append(f"{component}:{err[:40]}")
+
+            if on_component_done is not None:
+                on_component_done(component, result, ok, progress)
+
+        if bus_ok_from_statuses(statuses) and not statuses.get("i2c_bus", False):
+            statuses["i2c_bus"] = True
+            ok_count += 1
+            aggregated_i2c = True
+            if on_component_done is not None:
+                on_component_done("i2c_bus", {"ok": True, "detail": "AGGREGATED_FROM_BUS_DEVICE"}, True, int(progress_start) + int(progress_span))
+
+        return LksFullMatrixRunResult(
+            statuses=statuses,
+            ok_count=ok_count,
+            total=len(all_components),
+            fail_details=fail_details,
+            ordered_components=ordered_components,
+            aggregated_i2c=aggregated_i2c,
+        )
+    finally:
+        if batch_started and hasattr(bridge, "end_hardware_batch"):
+            try:
+                bridge.end_hardware_batch(batch_name, grace_ms=2000)
+            except Exception:
+                pass
+        if safe_state_source and hasattr(bridge, "apply_lks_test_safe_state"):
+            try:
+                bridge.apply_lks_test_safe_state(safe_state_source)
+            except Exception:
+                pass
+
+
 class TarzanTspLksHardwareTests:
     """Suwerenne testery LKS-N5 oparte wyłącznie o TarzanPoKeys.
 

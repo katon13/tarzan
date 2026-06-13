@@ -181,6 +181,9 @@ class TarzanPoKeys:
         self._i2c_force_min_gap_s = 2.0
         self._slow_i2c_reads_enabled = os.environ.get("TARZAN_ENABLE_SLOW_I2C_SENSOR_READS") == "1"
         self._runtime_i2c_scan_enabled = os.environ.get("TARZAN_ALLOW_RUNTIME_I2C_SCAN") == "1"
+        # Matrix READY heart jest dozwolone dopiero po pełnym końcu bootu LKS-N5.
+        # To zabezpiecza przed starymi/rozproszonymi wywołaniami serca podczas testów.
+        self._lks_n5_boot_finished = False
         # libPoKeys/libusb na Linuxie uruchamia własny read_thread.
         # Przy stop usługi agresywne PK_DisconnectDevice potrafi zrobić core dump,
         # jeżeli read_thread nadal siedzi w libusb_handle_events.
@@ -1425,13 +1428,39 @@ class TarzanPoKeys:
             except Exception as exc:
                 return {"ok": False, "board": board, "error": str(exc)}
 
-    def matrix_led_ready_heart_once(self, board: Any = "REC") -> Dict[str, Any]:
+    def set_lks_n5_boot_finished(self, finished: bool = True) -> None:
+        """Jawna bramka READY dla Matrix LED.
+
+        Serce READY wolno pokazać wyłącznie po pełnym zakończeniu bootu LKS-N5.
+        Start i diagnostyka mogą tylko wygaszać matrycę.
+        """
+        with self._lock:
+            self._lks_n5_boot_finished = bool(finished)
+
+    def matrix_led_ready_heart_once(self, board: Any = "REC", *, force: bool = False) -> Dict[str, Any]:
         """Zostawia na matrycy LED znak gotowości systemu.
 
         Realna matryca TARZAN oczekuje ramki w orientacji B: wzór jako
         kolumny przeliczony przez _matrix_rows_from_columns(). Nie wyłączamy
         sterownika MatrixLED, bo matryca ma oznaczać gotowość, a nie gasnąć.
+
+        Domyślnie metoda ma bramkę bootu: przed `LKS-N5 BOOT FINISHED`
+        nie rysuje serca, tylko twardo wygasza matrycę. Dzięki temu żadne
+        stare wywołanie z testu/safe-state nie pokaże READY za wcześnie.
         """
+        if not force and not bool(getattr(self, "_lks_n5_boot_finished", False)):
+            off = self.matrix_led_off_once(board)
+            try:
+                self.logger.info("POKEYS MATRIX READY HEART BLOCKED BEFORE LKS BOOT FINISHED")
+            except Exception:
+                pass
+            return {
+                "ok": bool(isinstance(off, dict) and off.get("ok")),
+                "board": board,
+                "blocked": True,
+                "reason": "LKS_BOOT_NOT_FINISHED",
+                "off": off,
+            }
         heart_columns = [0x00, 0x66, 0xFF, 0xFF, 0x7E, 0x3C, 0x18, 0x00]
         return self.matrix_write_frame(board, self._matrix_rows_from_columns(heart_columns))
 

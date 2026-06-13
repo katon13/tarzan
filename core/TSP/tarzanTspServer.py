@@ -358,6 +358,7 @@ class TarzanTspServer:
 
             self._lks_n5_last_refresh_ms = monotonic_ms()
             self.logger.info("LKS-N5 BOOT FINISHED port=%s baudrate=%s dry_run=%s", self._lks_n5_port, self._lks_n5_baudrate, self._lks_n5_dry_run)
+            self.logger.info("TARZAN SYSTEM IS READY AND RUNNING")
             self._apply_lks_n5_ready_heart_after_boot()
         except Exception as exc:
             self.debug.record_error("lks_n5_start_failed", {"error": str(exc)})
@@ -378,10 +379,12 @@ class TarzanTspServer:
             return
         started = False
         try:
+            if hasattr(pokeys, "set_lks_n5_boot_finished"):
+                pokeys.set_lks_n5_boot_finished(True)
             if hasattr(pokeys, "begin_point_test"):
-                pokeys.begin_point_test("matrix_ready_heart_post_boot_finished")
+                pokeys.begin_point_test("post_boot_matrix_ready_heart")
                 started = True
-            result = pokeys.matrix_led_ready_heart_once("REC")
+            result = pokeys.matrix_led_ready_heart_once("REC", force=True)
             ok = bool(isinstance(result, dict) and result.get("ok"))
             self.logger.info("LKS-N5 POST-BOOT MATRIX READY HEART component=matrix_led ok=%s detail=%s", ok, str(result)[:160])
         except Exception as exc:

@@ -651,9 +651,9 @@ class TarzanHardwareBridge:
     def _lks_test_matrix_led(self, visible: bool = True) -> Dict[str, Any]:
         """Matrix LED nie ma już pokazywać ramki testowej/kreski.
 
-        Na realnym module wcześniejszy test wizualny zostawiał artefakt dwóch
-        kresek obok serca READY. Dlatego każdy test matrix_led kończy się
-        bezpośrednio sercem READY i nie używa widocznej ramki testowej.
+        Na realnym module wcześniejszy test wizualny zostawiał artefakty
+        kropek/kresek. Dlatego test matrix_led robi tylko ACK i kończy się
+        twardym OFF. Serce READY ustawia dopiero TSP Server po BOOT FINISHED.
         """
         try:
             return self.pokeys.test_matrix_led_once(visible=False)

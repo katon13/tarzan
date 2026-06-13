@@ -699,12 +699,23 @@ class TarzanTspLksBootProgress:
         except Exception as exc:
             print(f"LKS-N5 FINAL LCD READY ok=False error={exc}")
 
-        # F-LED finalnie OFF. W projekcie ON=0, OFF=1, ale nie dotykamy pinów
-        # tutaj ręcznie — używamy istniejącej metody PoKeys, jeśli jest dostępna.
+        # F-LED finalnie OFF. W projekcie ON=0, OFF=1.
+        # set_f_leds_off_once() używa PK_PinConfigurationSet/PK_DigitalIOSetSingle,
+        # więc musi wejść przez jawny POINT_TEST. Inaczej po safe-state Snajper
+        # może być już w IDLE i PoKeys poprawnie blokuje zapis jako system_idle.
         try:
             if hasattr(pokeys, "set_f_leds_off_once"):
-                result = pokeys.set_f_leds_off_once()
-                print(f"LKS-N5 FINAL F-LED OFF ok={bool(isinstance(result, dict) and result.get('ok'))} detail={str(result)[:120]}")
+                try:
+                    if hasattr(pokeys, "begin_point_test"):
+                        pokeys.begin_point_test("f_led_final_off")
+                    result = pokeys.set_f_leds_off_once()
+                    print(f"LKS-N5 FINAL F-LED OFF ok={bool(isinstance(result, dict) and result.get('ok'))} detail={str(result)[:120]}")
+                finally:
+                    try:
+                        if hasattr(pokeys, "end_active_state"):
+                            pokeys.end_active_state()
+                    except Exception:
+                        pass
         except Exception as exc:
             print(f"LKS-N5 FINAL F-LED OFF ok=False error={exc}")
 

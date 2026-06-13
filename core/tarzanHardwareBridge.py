@@ -658,26 +658,33 @@ class TarzanHardwareBridge:
         self.pokeys.set_digital_output(device, pin, value)
 
     def _lks_test_f_led(self, visible: bool = True) -> Dict[str, Any]:
+        """Test F-LED z poprawnym stanem końcowym.
+
+        F-LED w TARZAN są aktywne stanem 0: ON=0, OFF=1.
+        Test może je kolejno zapalić, ale zawsze zaczyna i kończy stanem OFF.
+        """
         device = self._device_ready("REC")
         pins = [46, 48, 50, 52]
+        on_value = int(getattr(self.pokeys, "F_LED_ON_VALUE", 0))
+        off_value = int(getattr(self.pokeys, "F_LED_OFF_VALUE", 1))
         if device is None:
             return self._lks_test_result("f_led", False, error="REC not connected")
         try:
             if visible:
                 try:
                     for pin in pins:
-                        self._lks_set_led_pin(device, pin, 0)
+                        self._lks_set_led_pin(device, pin, off_value)
                     for pin in pins:
-                        self._lks_set_led_pin(device, pin, 1)
+                        self._lks_set_led_pin(device, pin, on_value)
                         time.sleep(0.18)
-                        self._lks_set_led_pin(device, pin, 0)
+                        self._lks_set_led_pin(device, pin, off_value)
                 finally:
                     for pin in pins:
                         try:
-                            self._lks_set_led_pin(device, pin, 0)
+                            self._lks_set_led_pin(device, pin, off_value)
                         except Exception:
                             pass
-            return self._lks_test_result("f_led", True, detail="REC P46/P48/P50/P52")
+            return self._lks_test_result("f_led", True, detail=f"REC P46/P48/P50/P52 ON={on_value} OFF={off_value}")
         except Exception as exc:
             return self._lks_test_result("f_led", False, error=str(exc))
 

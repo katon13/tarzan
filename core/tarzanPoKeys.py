@@ -1365,16 +1365,6 @@ class TarzanPoKeys:
             rows.append(value & 0xFF)
         return rows
 
-    def matrix_led_ready_heart_once(self, board: Any = "REC") -> Dict[str, Any]:
-        """Zostawia na Matrix LED znak gotowości: serce READY.
-
-        Orientacja B potwierdzona fizycznie:
-        heart_columns -> _matrix_rows_from_columns(heart_columns).
-        Sterownik zostaje aktywny, bo matryca ma pokazywać gotowość.
-        """
-        heart_columns = [0x00, 0x66, 0xFF, 0xFF, 0x7E, 0x3C, 0x18, 0x00]
-        return self.matrix_write_frame(board, self._matrix_rows_from_columns(heart_columns))
-
     def matrix_write_frame(self, board: Any = "REC", rows: Iterable[int] = ()) -> Dict[str, Any]:
         with self._lock:
             if self.logical_sleep:
@@ -1446,21 +1436,23 @@ class TarzanPoKeys:
         return self.matrix_write_frame(board, self._matrix_rows_from_columns(heart_columns))
 
     def test_matrix_led_once(self, visible: bool = False, board: str = "REC") -> Dict[str, Any]:
-        """Test Matrix LED kończy się stałym sercem READY.
+        """Sprawdza Matrix LED bez rysowania READY podczas bootu.
 
-        Ważne: nie zostawiamy pustej ramki ani nie wyłączamy displayEnabled,
-        bo matryca pełni funkcję gotowości systemu. Serce jest ustawiane także
-        później jako finalny stan bootu w tarzanTspLksBootProgress.py.
+        Matrix ma własną pamięć stanu. W czasie startu systemu nie wolno
+        pokazywać serca READY ani testowych kropek/kreski, bo system jeszcze
+        nie jest gotowy. Ten test robi tylko ACK płytki i twarde wygaszenie
+        matrycy. Serce READY jest ustawiane dopiero po zakończeniu bootu przez
+        TSP Server.
         """
-        if not visible:
-            ok = self.test_board_once(board)
-            ready = self.matrix_led_ready_heart_once(board)
-            return {"ok": bool(ok and ready.get("ok")), "board": board, "ready_heart": ready, "mode": "board_ack_plus_ready_heart"}
-        cols = self._matrix_text_columns("OK")
-        write = self.matrix_write_frame(board, self._matrix_rows_from_columns(cols[:8]))
-        time.sleep(0.20)
-        ready = self.matrix_led_ready_heart_once(board)
-        return {"ok": bool(write.get("ok") and ready.get("ok")), "board": board, "write": write, "ready_heart": ready}
+        ok = self.test_board_once(board)
+        off = self.matrix_led_off_once(board)
+        return {
+            "ok": bool(ok and isinstance(off, dict) and off.get("ok")),
+            "board": board,
+            "off": off,
+            "mode": "board_ack_plus_matrix_off",
+            "visible": False,
+        }
 
     def read_f_buttons_once(self) -> Dict[str, Any]:
         with self._lock:

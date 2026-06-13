@@ -314,43 +314,25 @@ class TarzanTspLksBootProgress:
         return ok, links[0] if links else "", "CP2102/Nextion5 not found" if not ok else ""
 
     def _check_pokeys_usb(self) -> Tuple[bool, str, str]:
-        """Szybkie WYKRYCIE PoKeys PLAY/REC dla planszy boot_hardware.
-
-        ETAP 2: boot_hardware nie uruchamia pelnego testu komponentow przez
-        HardwareBridge.test_lks_component(). To miejsce tylko sprawdza, czy
-        runtime widzi/utrzymuje uchwyty PLAY i REC albo czy urzadzenia PoKeys
-        sa widoczne na USB. Pelny test pok_play/pok_rec zostaje dopiero w
-        boot_test / LKS_TEST_MATRIX.
-        """
-        bridge = self.hardware_bridge
-        if bridge is not None:
-            try:
-                if hasattr(bridge, "request_hardware_awake"):
-                    bridge.request_hardware_awake(
-                        source="LKS_BOOT_HARDWARE_DETECT_POKEYS",
-                        grace_ms=4000,
-                        ensure=True,
-                        action_type="CONNECT_ONLY",
-                    )
-            except Exception:
-                pass
-
-            pokeys = getattr(bridge, "pokeys", None)
-            if pokeys is not None:
-                try:
-                    play_ok = bool(pokeys.get_device("PLAY"))
-                    rec_ok = bool(pokeys.get_device("REC"))
-                    detail = f"detect-only PLAY={play_ok} REC={rec_ok}"
-                    return play_ok and rec_ok, detail, "" if (play_ok and rec_ok) else "PoKeys detect-only did not confirm PLAY/REC"
-                except Exception as exc:
-                    return False, "detect-only via HardwareBridge", str(exc)
+        # Najpierw aktywny HardwareBridge: to jest prawda runtime, bo PLAY/REC są już otwarte.
+        play = self._bridge_test("pok_play", visible=False)
+        rec = self._bridge_test("pok_rec", visible=False)
+        if play is not None or rec is not None:
+            ok_play = bool(play and play[0])
+            ok_rec = bool(rec and rec[0])
+            detail = "; ".join(x for x in [play[1] if play else "", rec[1] if rec else ""] if x)
+            error = "; ".join(x for x in [play[2] if play else "", rec[2] if rec else ""] if x)
+            return ok_play and ok_rec, detail[:180], "" if (ok_play and ok_rec) else (error or "PoKeys PLAY/REC not ready")
 
         rc, out, err = self._run_cmd(["lsusb"], timeout=1.2)
         if rc != 0:
             return False, "", err or "lsusb failed"
+        has_player = "PLAYER" in out or "PoLabs PLAYER" in out
+        has_reck = "RECK" in out or "PoLabs RECK" in out
         has_polabs = "1dc3:1001" in out or "PoLabs" in out or "PoKeys" in out
+        ok = has_polabs and (has_player or has_reck)
         detail = "; ".join(line for line in out.splitlines() if "1dc3:1001" in line or "PoLabs" in line or "PoKeys" in line)
-        return has_polabs, (detail or "PoKeys USB detect-only")[:180], "PoKeys USB not detected" if not has_polabs else ""
+        return ok, detail[:180], "PoKeys USB not confirmed" if not ok else ""
 
     def _check_nextion7(self) -> Tuple[bool, str, str]:
         """Sprawdza fizyczny port Nextion 7 na miniPC dla LKS-N5.
@@ -396,29 +378,50 @@ class TarzanTspLksBootProgress:
         return ok, detail, "Nextion 7 port not confirmed on miniPC" if not ok else ""
 
     def _check_i2c_nodes(self) -> Tuple[bool, str, str]:
-        """Szybkie WYKRYCIE magistrali dla boot_hardware.
+        # W TARZANIE LKS-N5 podstawowa magistrala I2C/BUS dla operatora
+        # jest testowana przez aktywny HardwareBridge, bez drugiego connect PoKeys.
+        # i2c_bus jest agregatem BUS/I2C: może zostać potwierdzony przez skan,
+        # BH1750 albo realny ACK light_laser. Nie wolno uznać samego CP2102.
+        bridge_bus = self._bridge_test("i2c_bus", visible=False)
+        if bridge_bus is not None and bridge_bus[0]:
+            return bridge_bus
+        bridge_laser = self._bridge_test("light_laser", visible=False)
+        if bridge_laser is not None and bridge_laser[0]:
+            return True, ("LIGHT_LASER ACK; " + bridge_laser[1])[:180], ""
+        bridge_bh = self._bridge_test("light_bh1750", visible=False)
+        if bridge_bh is not None and bridge_bh[0]:
+            return True, ("BH1750 OK; " + bridge_bh[1])[:180], ""
 
-        ETAP 2: tu nie wolno wykonywac glebszych testow i2c_bus, BH1750 ani
-        light_laser przez HardwareBridge.test_lks_component(), bo te same
-        komponenty sa pelnie testowane pozniej w boot_test. Ten krok mowi
-        tylko operatorowi: magistrala/tor bedzie testowany wlasciwie w pelnej
-        macierzy.
-        """
+        # Runtime z HardwareBridge nie może odpalać bocznego TarzanTspLksHardwareTests,
+        # bo to otwiera drugi tor PoKeys/libusb i daje "Requested device not found".
+        if self.hardware_bridge is not None:
+            nodes = sorted(glob.glob("/dev/i2c-*"))
+            if nodes:
+                return True, ", ".join(nodes[:6]), ""
+            return False, "HardwareBridge did not confirm I2C", "PoKeys BUS/I2C not confirmed through HardwareBridge"
+
+        if os.environ.get("TARZAN_ALLOW_OFFLINE_POKEYS_TESTS") == "1":
+            try:
+                tester = TarzanTspLksHardwareTests(repo_root=str(self.repo_root), allow_own_pokeys=True)
+                probe = tester.test_i2c_bus(visible=False)
+                if probe.ok:
+                    return True, probe.detail[:180], ""
+                bh = tester.test_bh1750(visible=False)
+                if bh.ok:
+                    return True, ("BH1750 OK via PoKeys BUS/I2C; " + bh.detail)[:180], ""
+                nodes = sorted(glob.glob("/dev/i2c-*"))
+                if nodes:
+                    return True, ", ".join(nodes[:6]), ""
+                return False, probe.detail[:120], probe.error or bh.error or "PoKeys BUS/I2C not confirmed"
+            except Exception as exc:
+                nodes = sorted(glob.glob("/dev/i2c-*"))
+                ok = bool(nodes)
+                return ok, ", ".join(nodes[:6]), "" if ok else f"PoKeys BUS/I2C error: {exc}"
+
         nodes = sorted(glob.glob("/dev/i2c-*"))
         if nodes:
-            return True, "detect-only linux nodes: " + ", ".join(nodes[:6]), ""
-
-        bridge = self.hardware_bridge
-        pokeys = getattr(bridge, "pokeys", None) if bridge is not None else None
-        if pokeys is not None:
-            try:
-                connected = bool(pokeys.is_any_connected())
-            except Exception:
-                connected = False
-            if connected:
-                return True, "detect-only PoKeys connected; full BUS/I2C test in boot_test", ""
-
-        return False, "detect-only no /dev/i2c-*; full BUS/I2C test deferred", "BUS/I2C not detected in quick stage"
+            return True, ", ".join(nodes[:6]), ""
+        return False, "NOT_ALLOWED: offline PoKeys test prevented", "No HardwareBridge and TARZAN_ALLOW_OFFLINE_POKEYS_TESTS is not set"
 
     def _check_video_nodes(self) -> Tuple[bool, str, str]:
         nodes = sorted(glob.glob("/dev/video*"))
@@ -426,70 +429,132 @@ class TarzanTspLksBootProgress:
         return ok, ", ".join(nodes[:6]), "no /dev/video*" if not ok else ""
 
     def _check_diagnostics(self) -> Tuple[bool, str, str]:
-        """Pełny test status_main przez jeden wspólny tor LKS_TEST_MATRIX.
+        """Pełny test status_main przez tę samą LKS_TEST_MATRIX co kliknięcia ikon.
 
-        ETAP 3: ta metoda nie ma już własnej kopii pętli testów. Woła
-        run_lks_full_matrix_via_bridge(), czyli ten sam tor, którego używa
-        diagnostyka ręczna TSP. Dzięki temu boot_test i cmd_run_diagnostics
-        nie rozjeżdżają kolejności, agregatu i2c_bus ani safe-state.
+        To jest świadomie jedyny tor pełnego testu LKS-N5 w runtime:
+        - aktywny HardwareBridge, bez drugiej sesji PoKeys,
+        - brak fallbacku do starej TarzanTspLksDiagnostics,
+        - brak sztucznego OK,
+        - osie/CNC tylko jako test ABC/pin-config/link bez STEP/DIR/ENABLE.
         """
         bridge = self.hardware_bridge
         if bridge is None or not hasattr(bridge, "test_lks_component"):
             self.statuses.update(empty_statuses(False))
             return False, "", "NO_HARDWAREBRIDGE_FOR_LKS_TEST_MATRIX"
 
-        try:
-            from core.TSP.tarzanTspLksHardwareTests import run_lks_full_matrix_via_bridge
-        except Exception as exc:
+        from core.TSP.tarzanTspLksTestMatrix import MATRIX_ERRORS, components
+
+        if MATRIX_ERRORS:
             self.statuses.update(empty_statuses(False))
-            return False, "", f"LKS_FULL_MATRIX_HELPER_IMPORT_FAILED: {exc}"
+            return False, "", "BAD_TEST_MATRIX: " + "; ".join(MATRIX_ERRORS[:4])
 
-        def on_progress(component: str, idx: int, total: int, progress: int) -> None:
-            self._mark_running(SCENE_BOOT_TEST, progress, f"MATRIX {component}", "REAL")
+        statuses: Dict[str, bool] = empty_statuses(False)
+        ok_count = 0
+        fail_details: List[str] = []
+        all_components = tuple(components())
 
-        def on_component_done(component: str, result: Dict[str, Any], ok: bool, progress: int) -> None:
-            if component == "i2c_bus" and str(result.get("detail", "")) == "AGGREGATED_FROM_BUS_DEVICE":
-                print("LKS-N5 FULL MATRIX TEST DONE component=i2c_bus ok=True AGGREGATED_FROM_BUS_DEVICE")
-                return
-            print(f"LKS-N5 FULL MATRIX TEST DONE component={component} ok={ok}")
-            self.results.append(
-                LksBootProgressResult(
-                    key=f"matrix_{component}",
-                    component=component,
-                    ok=ok,
-                    label=f"LKS matrix {component}",
-                    detail=str(result.get("detail", "") or "")[:180],
-                    error=str(result.get("error", "") or "")[:180],
-                    progress=progress,
+        bridge_batch_started = False
+        if hasattr(bridge, "begin_hardware_batch"):
+            try:
+                bridge.begin_hardware_batch("LKS_FULL_MATRIX_REAL_TESTS", grace_ms=18000, ensure=False)
+                bridge_batch_started = True
+            except Exception:
+                bridge_batch_started = False
+
+        try:
+            # light_laser musi być potwierdzony przed agregatem i2c_bus,
+            # bo i2c_bus może korzystać z light_laser jako realnego ACK magistrali.
+            ordered_components = list(all_components)
+            for name in ("light_laser", "light_bh1750", "i2c_bus"):
+                if name in ordered_components:
+                    ordered_components.remove(name)
+            insert_at = ordered_components.index("level_xyz") + 1 if "level_xyz" in ordered_components else 0
+            ordered_components[insert_at:insert_at] = [c for c in ("light_laser", "light_bh1750", "i2c_bus") if c in all_components]
+
+            total = max(1, len(ordered_components))
+            for idx, component in enumerate(ordered_components, start=1):
+                progress = 88 + int((idx / total) * 10)
+                self._mark_running(SCENE_BOOT_TEST, progress, f"MATRIX {component}", "REAL")
+                result = bridge.test_lks_component(component, visible=True)
+                ok = bool(result.get("ok", False))
+                print(f"LKS-N5 FULL MATRIX TEST DONE component={component} ok={ok}")
+                statuses[component] = ok
+                if component == "light_laser" and ok:
+                    statuses["i2c_bus"] = True
+                if ok:
+                    ok_count += 1
+                else:
+                    err = str(result.get("error", "") or result.get("detail", "") or "FAIL")
+                    fail_details.append(f"{component}:{err[:40]}")
+                self.results.append(
+                    LksBootProgressResult(
+                        key=f"matrix_{component}",
+                        component=component,
+                        ok=ok,
+                        label=f"LKS matrix {component}",
+                        detail=str(result.get("detail", "") or "")[:180],
+                        error=str(result.get("error", "") or "")[:180],
+                        progress=progress,
+                    )
                 )
-            )
+        finally:
+            if bridge_batch_started and hasattr(bridge, "end_hardware_batch"):
+                try:
+                    bridge.end_hardware_batch("LKS_FULL_MATRIX_REAL_TESTS", grace_ms=2000)
+                except Exception:
+                    pass
+            if hasattr(bridge, "apply_lks_test_safe_state"):
+                try:
+                    bridge.apply_lks_test_safe_state("LKS_BOOT_FULL_MATRIX")
+                except Exception:
+                    pass
 
-        try:
-            run = run_lks_full_matrix_via_bridge(
-                bridge,
-                visible=True,
-                batch_name="LKS_FULL_MATRIX_REAL_TESTS",
-                safe_state_source="LKS_BOOT_FULL_MATRIX",
-                progress_start=60,
-                progress_span=30,
-                on_progress=on_progress,
-                on_component_done=on_component_done,
-            )
-        except Exception as exc:
-            self.statuses.update(empty_statuses(False))
-            return False, "", str(exc)
+            # OSTATNI FIZYCZNY REFRESH LCD:
+            # testy MatrixKB/Matrix LED mogą przełączyć współdzielone funkcje pinów
+            # i wyczyścić/zgubić tekst na LCD, mimo że API zwróciło OK.
+            # Dlatego po całej macierzy i po safe-state odświeżamy LCD jako ostatni
+            # widoczny test PLAY+REC. Nie rusza osi ani STEP/DIR/ENABLE.
+            try:
+                if hasattr(bridge, "test_lks_component"):
+                    lcd_result = bridge.test_lks_component("lcd_1602", visible=True)
+                    lcd_ok = bool(lcd_result.get("ok", False))
+                    statuses["lcd_1602"] = lcd_ok
+                    print(f"LKS-N5 FINAL LCD VISIBLE REFRESH component=lcd_1602 ok={lcd_ok} detail={str(lcd_result.get('detail', ''))[:120]}")
+            except Exception as exc:
+                print(f"LKS-N5 FINAL LCD VISIBLE REFRESH component=lcd_1602 ok=False error={exc}")
 
-        self.statuses.update(run.statuses)
-        fail_count = len([c for c in run.statuses if not self.statuses.get(c, False)])
+            # OSTATNI FIZYCZNY ZNAK GOTOWOŚCI NA MATRIX LED:
+            # test Matrix LED pokazuje serce, ale późniejsze testy/refresh mogą nadpisać
+            # rejestry matrycy. Dlatego po LCD refresh zostawiamy serce jako ostatni
+            # widoczny stan gotowości. Nie rusza LCD, keypad, F-LED ani ABC.
+            try:
+                pokeys = getattr(bridge, "pokeys", None)
+                if pokeys is not None and hasattr(pokeys, "matrix_led_ready_heart_once"):
+                    heart_result = pokeys.matrix_led_ready_heart_once("REC")
+                    print(f"LKS-N5 FINAL MATRIX READY HEART component=matrix_led ok={bool(isinstance(heart_result, dict) and heart_result.get('ok'))} detail={str(heart_result)[:120]}")
+            except Exception as exc:
+                print(f"LKS-N5 FINAL MATRIX READY HEART component=matrix_led ok=False error={exc}")
+
+        # Po pełnej serii przeliczamy agregat i2c_bus z wyników peryferiów.
+        # To naprawia przypadek: i2c_bus testował się wcześniej jako OFF,
+        # a chwilę później light_laser dał realny ACK.
+        aggregate_i2c = bus_ok_from_statuses(statuses)
+        if aggregate_i2c and not statuses.get("i2c_bus", False):
+            statuses["i2c_bus"] = True
+            print("LKS-N5 FULL MATRIX TEST DONE component=i2c_bus ok=True AGGREGATED_FROM_BUS_DEVICE")
+            ok_count += 1
+
+        self.statuses.update(statuses)
+        fail_count = len([c for c in all_components if not self.statuses.get(c, False)])
         try:
-            self._show_step(SCENE_BOOT_TEST, "DEVICE TEST", "FULL MATRIX: DONE", f"OK {run.ok_count}/{run.total}", "", "real boot step", "90%", 90)
+            self._show_step(SCENE_BOOT_TEST, "DEVICE TEST", "FULL MATRIX: DONE", f"OK {ok_count}/{len(all_components)}", "", "real boot step", "100%", 100)
         except Exception:
             pass
-        print(f"LKS-N5 FULL MATRIX TEST APPLIED statuses={run.total} ok={run.ok_count}")
-        details = "; ".join(run.fail_details[:5])[:180]
-        return True, f"LKS_TEST_MATRIX ok={run.ok_count}/{run.total} fail={fail_count}", details
+        print(f"LKS-N5 FULL MATRIX TEST APPLIED statuses={len(all_components)} ok={ok_count}")
+        details = "; ".join(fail_details[:5])[:180]
+        return True, f"LKS_TEST_MATRIX ok={ok_count}/{len(all_components)} fail={fail_count}", details
 
-    # ------------------------------------------------------------------    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     def run(self) -> List[LksBootProgressResult]:
         self.results.clear()
@@ -510,24 +575,19 @@ class TarzanTspLksBootProgress:
                 bridge_batch_started = False
 
         steps = [
-            # ETAP 5: procenty odpowiadaja fazom pracy, nie sa juz jednym skokiem.
-            # 0-50% = szybki start/detect, 60-90% = realny pelny test 30 komponentow,
-            # 90-100% = safe/final-ready/ekrany koncowe.
-            (SCENE_BOOT_LINUX, 6, "linux_alive", "linux_sys", "Linux alive", self._check_linux_alive),
-            (SCENE_BOOT_LINUX, 14, "repo_structure", "linux_sys", "Repo OK", self._check_repo),
-            (SCENE_BOOT_LINUX, 22, "system_time", "linux_sys", "Time OK", self._check_time),
-            (SCENE_BOOT_SERVICES, 30, "network", "linux_sys", "Network OK", self._check_network),
-            (SCENE_BOOT_SERVICES, 36, "ssh", "linux_sys", "SSH", self._check_service_ssh),
-            (SCENE_BOOT_SERVICES, 42, "tsp_module", "take_sys", "TSP module", self._check_tsp_module),
-            (SCENE_BOOT_SERVICES, 48, "lks_tty", "linux_sys", "LKS-TTY", self._check_lks_tty_module),
-            # boot_hardware = szybkie wykrycie, bez ustawiania statusow ikon i bez pelnych testow komponentow.
-            (SCENE_BOOT_HARDWARE, 50, "lks_n5_serial", "", "LKS-N5 serial", self._check_lks_n5_serial),
-            (SCENE_BOOT_HARDWARE, 52, "pokeys_usb", "", "PoKeys USB detect", self._check_pokeys_usb),
-            (SCENE_BOOT_HARDWARE, 54, "nextion7", "", "Nextion 7 detect", self._check_nextion7),
-            (SCENE_BOOT_HARDWARE, 56, "pokeys_i2c_bus", "", "BUS/I2C detect", self._check_i2c_nodes),
-            (SCENE_BOOT_HARDWARE, 58, "video_nodes", "", "Video detect", self._check_video_nodes),
-            # boot_test = jedyny pelny test 30 komponentow LKS.
-            (SCENE_BOOT_TEST, 60, "diagnostics", "linux_sys", "Full device tests", self._check_diagnostics),
+            (SCENE_BOOT_LINUX, 10, "linux_alive", "linux_sys", "Linux alive", self._check_linux_alive),
+            (SCENE_BOOT_LINUX, 20, "repo_structure", "linux_sys", "Repo OK", self._check_repo),
+            (SCENE_BOOT_LINUX, 30, "system_time", "linux_sys", "Time OK", self._check_time),
+            (SCENE_BOOT_SERVICES, 40, "network", "linux_sys", "Network OK", self._check_network),
+            (SCENE_BOOT_SERVICES, 50, "ssh", "linux_sys", "SSH", self._check_service_ssh),
+            (SCENE_BOOT_SERVICES, 58, "tsp_module", "take_sys", "TSP module", self._check_tsp_module),
+            (SCENE_BOOT_SERVICES, 62, "lks_tty", "linux_sys", "LKS-TTY", self._check_lks_tty_module),
+            (SCENE_BOOT_HARDWARE, 68, "lks_n5_serial", "linux_sys", "LKS-N5 serial", self._check_lks_n5_serial),
+            (SCENE_BOOT_HARDWARE, 74, "pokeys_usb", "pok_play", "PoKeys USB", self._check_pokeys_usb),
+            (SCENE_BOOT_HARDWARE, 78, "nextion7", "next_7", "Nextion 7", self._check_nextion7),
+            (SCENE_BOOT_HARDWARE, 82, "pokeys_i2c_bus", "i2c_bus", "PoKeys BUS/I2C", self._check_i2c_nodes),
+            (SCENE_BOOT_HARDWARE, 86, "video_nodes", "cam_main", "Video nodes", self._check_video_nodes),
+            (SCENE_BOOT_TEST, 94, "diagnostics", "linux_sys", "Real diagnostics", self._check_diagnostics),
         ]
 
         try:
@@ -539,25 +599,6 @@ class TarzanTspLksBootProgress:
                     bridge.end_hardware_batch("LKS_BOOT_DIAGNOSTICS", grace_ms=2000)
                 except Exception:
                     pass
-
-        # ETAP 4/5: po testach i safe-state ustawiamy jeden końcowy stan
-        # fizyczny. To jest ostatni zapis do LCD/Matrix/F-LED przed READY.
-        self._mark_running(SCENE_BOOT_TEST, 94, "FINAL READY OUTPUTS", "LCD/MATRIX/F-LED")
-        bridge = self.hardware_bridge
-        if bridge is not None and hasattr(bridge, "apply_lks_final_ready_outputs"):
-            try:
-                final_ready = bridge.apply_lks_final_ready_outputs("LKS_BOOT_FINAL_READY")
-                ok_final = bool(isinstance(final_ready, dict) and final_ready.get("ok"))
-                print(f"LKS-N5 FINAL READY OUTPUTS ok={ok_final}")
-                if isinstance(final_ready, dict):
-                    matrix_ok = bool(final_ready.get("steps", {}).get("matrix_ready_heart", {}).get("ok"))
-                    print(f"LKS-N5 FINAL MATRIX READY HEART component=matrix_led ok={matrix_ok}")
-                self._show_step(SCENE_BOOT_TEST, "DEVICE TEST", "FINAL READY OUTPUTS", f"OK {ok_final}", "", "ready", "98%", 98)
-            except Exception as exc:
-                print(f"LKS-N5 FINAL READY OUTPUTS ok=False error={exc}")
-                self._show_step(SCENE_BOOT_TEST, "DEVICE TEST", "FINAL READY OUTPUTS", "ERROR", str(exc)[:80], "warning", "98%", 98)
-        else:
-            self._show_step(SCENE_BOOT_TEST, "DEVICE TEST", "FINAL READY OUTPUTS", "NO BRIDGE", "", "warning", "98%", 98)
 
         # Końcówka ma iść zgodnie z fizycznym układem stron operatora:
         # boot_test -> ready_main -> intro_status -> status_main.

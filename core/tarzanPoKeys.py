@@ -1455,45 +1455,145 @@ class TarzanPoKeys:
                 return {"ok": False, "values": {}, "error": str(exc)}
 
     def set_f_leds_off_once(self) -> Dict[str, Any]:
-        """Naturalny stan F1-F4 LED po testach: zgaszone.
+        """Gasi fizyczne diody F1-F4 na REC.
 
-        F-LED sa aktywne stanem niskim: ON=0, OFF=1.
+        W okablowaniu TARZAN F-LED są aktywne stanem 0, więc OFF zapisujemy jako 1.
         """
         with self._lock:
             dev = self.get_device("REC")
             if dev is None:
-                return {"ok": False, "error": "REC not connected", "pins": dict(self.F_LED_PINS)}
-            try:
-                for pin in self.F_LED_PINS.values():
-                    self.set_digital_output(dev, int(pin), 1)
-                return {"ok": True, "pins": dict(self.F_LED_PINS), "off_value": 1}
-            except Exception as exc:
-                return {"ok": False, "error": str(exc), "pins": dict(self.F_LED_PINS)}
+                return {"ok": False, "error": "REC not connected"}
+            errors: List[str] = []
+            for name, pin in self.F_LED_PINS.items():
+                try:
+                    self.set_digital_output(dev, pin, self.F_LED_OFF_VALUE)
+                except Exception as exc:
+                    errors.append(f"{name}/P{pin}: {exc}")
+            return {"ok": not errors, "pins": dict(self.F_LED_PINS), "off_value": self.F_LED_OFF_VALUE, "errors": errors}
 
     def blink_f_led_once(self, visible: bool = False) -> Dict[str, Any]:
-        """Test F1-F4 LED: krotkie migniecie i zawsze powrot do OFF."""
         with self._lock:
             dev = self.get_device("REC")
             if dev is None:
-                return {"ok": False, "error": "REC not connected", "pins": dict(self.F_LED_PINS)}
+                return {"ok": False, "error": "REC not connected"}
+            errors: List[str] = []
             try:
-                for pin in self.F_LED_PINS.values():
-                    self.set_digital_output(dev, int(pin), 1)
+                # Test zaczynamy od OFF i kończymy OFF. Diody nie mają świecić stale.
+                off_res = self.set_f_leds_off_once()
+                if not off_res.get("ok"):
+                    errors.extend(off_res.get("errors", []))
+
                 if visible:
-                    for pin in self.F_LED_PINS.values():
-                        self.set_digital_output(dev, int(pin), 0)
-                        time.sleep(0.08)
-                        self.set_digital_output(dev, int(pin), 1)
-                for pin in self.F_LED_PINS.values():
-                    self.set_digital_output(dev, int(pin), 1)
-                return {"ok": True, "pins": dict(self.F_LED_PINS), "off_value": 1}
+                    for name, pin in self.F_LED_PINS.items():
+                        try:
+                            self.set_digital_output(dev, pin, self.F_LED_ON_VALUE)
+                            time.sleep(0.08)
+                            self.set_digital_output(dev, pin, self.F_LED_OFF_VALUE)
+                        except Exception as exc:
+                            errors.append(f"{name}/P{pin}: {exc}")
+
+                final_off = self.set_f_leds_off_once()
+                if not final_off.get("ok"):
+                    errors.extend(final_off.get("errors", []))
+                return {
+                    "ok": not errors,
+                    "pins": dict(self.F_LED_PINS),
+                    "on_value": self.F_LED_ON_VALUE,
+                    "off_value": self.F_LED_OFF_VALUE,
+                    "errors": errors,
+                }
             except Exception as exc:
                 try:
-                    for pin in self.F_LED_PINS.values():
-                        self.set_digital_output(dev, int(pin), 1)
+                    self.set_f_leds_off_once()
                 except Exception:
                     pass
                 return {"ok": False, "error": str(exc), "pins": dict(self.F_LED_PINS)}
+
+    def _clear_matrix_keyboard_hid_mapping(self, kb: Any) -> None:
+        """Zero USB HID key mapping/macro mapping for MatrixKB.
+
+        MatrixKB ma być skanowana przez PoKeys, ale nie może wysyłać znaków
+        do Windows/Linux jako wirtualna klawiatura USB.
+        """
+        for i in range(128):
+            kb.macroMappingOptions[i] = 0
+            kb.keyMappingKeyCode[i] = 0
+            kb.keyMappingKeyModifier[i] = 0
+            kb.keyMappingTriggeredKey[i] = 0
+            kb.keyMappingKeyCodeUp[i] = 0
+            kb.keyMappingKeyModifierUp[i] = 0
+
+    def configure_play_keypad_4x3_api_only_once(self, *, save_to_flash: bool = False) -> Dict[str, Any]:
+        """Konfiguruje PLAY MatrixKB 4x3 wyłącznie do odczytu API.
+
+        Zgodnie ze schematem TARZAN: ROW1=P27, ROW2=P26, ROW3=P25, ROW4=P24,
+        COL_A=P44, COL_B=P43, COL_C=P42. Key mapping/macro/triggered HID są zerowane,
+        żeby PoKeys nigdy nie siało znaków typu 142580369 do systemu operacyjnego.
+        """
+        board = "PLAY"
+        dev = self.get_device(board)
+        if dev is None:
+            return {"ok": False, "board": board, "error": "PLAY not connected"}
+        try:
+            kb = dev.device.contents.matrixKB
+            kb.matrixKBconfiguration = 1
+            kb.matrixKBwidth = 3
+            kb.matrixKBheight = 4
+            kb.matrixKBScanningDecimation = 1
+
+            for i in range(8):
+                kb.matrixKBcolumnsPins[i] = 0
+            for i in range(16):
+                kb.matrixKBrowsPins[i] = 0
+
+            # PoKeys MatrixKB stores pin indexes as ZERO-BASED values: physical P27 => 26. columnsPins[0] = A, rowsPins[0] = row 1.
+            kb.matrixKBcolumnsPins[0] = int(self.PLAY_KEYPAD_4X3_COLUMNS["A"]) - 1
+            kb.matrixKBcolumnsPins[1] = int(self.PLAY_KEYPAD_4X3_COLUMNS["B"]) - 1
+            kb.matrixKBcolumnsPins[2] = int(self.PLAY_KEYPAD_4X3_COLUMNS["C"]) - 1
+            kb.matrixKBrowsPins[0] = int(self.PLAY_KEYPAD_4X3_ROWS[1]) - 1
+            kb.matrixKBrowsPins[1] = int(self.PLAY_KEYPAD_4X3_ROWS[2]) - 1
+            kb.matrixKBrowsPins[2] = int(self.PLAY_KEYPAD_4X3_ROWS[3]) - 1
+            kb.matrixKBrowsPins[3] = int(self.PLAY_KEYPAD_4X3_ROWS[4]) - 1
+
+            self._clear_matrix_keyboard_hid_mapping(kb)
+
+            set_res = self._call_device(board, "PK_MatrixKBConfigurationSet")
+            get_res = self._call_device(board, "PK_MatrixKBConfigurationGet")
+            save_res = {"ok": True, "skipped": True, "reason": "save_to_flash_false"}
+            if save_to_flash:
+                save_res = self.save_configuration(board)
+            expected_rows_api = [
+                int(self.PLAY_KEYPAD_4X3_ROWS[1]) - 1,
+                int(self.PLAY_KEYPAD_4X3_ROWS[2]) - 1,
+                int(self.PLAY_KEYPAD_4X3_ROWS[3]) - 1,
+                int(self.PLAY_KEYPAD_4X3_ROWS[4]) - 1,
+            ]
+            expected_columns_api = [
+                int(self.PLAY_KEYPAD_4X3_COLUMNS["A"]) - 1,
+                int(self.PLAY_KEYPAD_4X3_COLUMNS["B"]) - 1,
+                int(self.PLAY_KEYPAD_4X3_COLUMNS["C"]) - 1,
+            ]
+            actual_rows_api = [int(kb.matrixKBrowsPins[i]) for i in range(4)]
+            actual_columns_api = [int(kb.matrixKBcolumnsPins[i]) for i in range(3)]
+            mapping_ok = actual_rows_api == expected_rows_api and actual_columns_api == expected_columns_api
+            ok = bool(set_res.get("ok") and get_res.get("ok") and save_res.get("ok") and mapping_ok)
+            return {
+                "ok": ok,
+                "board": board,
+                "mode": "API_ONLY_NO_USB_HID",
+                "rows": dict(self.PLAY_KEYPAD_4X3_ROWS),
+                "columns": dict(self.PLAY_KEYPAD_4X3_COLUMNS),
+                "expected_rows_api": expected_rows_api,
+                "expected_columns_api": expected_columns_api,
+                "actual_rows_api": actual_rows_api,
+                "actual_columns_api": actual_columns_api,
+                "mapping_ok": mapping_ok,
+                "set": set_res,
+                "get": get_res,
+                "save": save_res,
+            }
+        except Exception as exc:
+            return {"ok": False, "board": board, "error": str(exc)}
 
     def read_keypad_once(self) -> Dict[str, Any]:
         with self._lock:

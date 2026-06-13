@@ -729,34 +729,70 @@ class TarzanTspServer:
             self.logger.debug("PAR check failed: %s", exc)
 
     def _run_lks_n5_full_test_matrix(self, *, visible: bool = True) -> Dict[str, bool]:
-        """Uruchamia pełny test 30 ikon LKS-N5 przez wspólny tor ETAPU 3."""
-        try:
-            from core.TSP.tarzanTspLksHardwareTests import run_lks_full_matrix_via_bridge
-        except Exception as exc:
-            raise RuntimeError(f"LKS_FULL_MATRIX_HELPER_IMPORT_FAILED: {exc}") from exc
+        """Uruchamia pełny test 30 ikon LKS-N5 przez LKS_TEST_MATRIX.
 
+        Ten helper używa dokładnie tego samego kontraktu co kliknięcie ikony:
+        HardwareBridge.test_lks_component(component). Nie ma fallbacku do
+        TarzanTspLksDiagnostics, więc brak testu lub błąd matrix daje realny
+        OFF/FAIL, a nie opisową zaślepkę.
+        """
+        from .tarzanTspLksStatusMap import empty_statuses, bus_ok_from_statuses
+        from .tarzanTspLksTestMatrix import MATRIX_ERRORS, components
+
+        statuses: Dict[str, bool] = empty_statuses(False)
         hw_bridge = getattr(self, "hw_bridge", None)
         if hw_bridge is None or not hasattr(hw_bridge, "test_lks_component"):
             raise RuntimeError("NO_HARDWAREBRIDGE_FOR_LKS_TEST_MATRIX")
+        if MATRIX_ERRORS:
+            raise RuntimeError("BAD_TEST_MATRIX: " + "; ".join(MATRIX_ERRORS[:6]))
 
-        def on_component_done(component: str, result: Dict[str, Any], ok: bool, progress: int) -> None:
-            detail = str(result.get("detail", "") or result.get("error", "") or "")
-            if component == "i2c_bus" and detail == "AGGREGATED_FROM_BUS_DEVICE":
-                self.logger.info("LKS-N5 FULL MATRIX TEST DONE component=i2c_bus ok=True AGGREGATED_FROM_BUS_DEVICE")
-            else:
+        all_components = tuple(components())
+        batch_started = False
+        if hasattr(hw_bridge, "begin_hardware_batch"):
+            try:
+                hw_bridge.begin_hardware_batch("LKS_FULL_MATRIX_REAL_TESTS", grace_ms=18000, ensure=False)
+                batch_started = True
+            except Exception:
+                batch_started = False
+        try:
+            ok_count = 0
+            ordered_components = list(all_components)
+            for name in ("light_laser", "light_bh1750", "i2c_bus"):
+                if name in ordered_components:
+                    ordered_components.remove(name)
+            insert_at = ordered_components.index("level_xyz") + 1 if "level_xyz" in ordered_components else 0
+            ordered_components[insert_at:insert_at] = [c for c in ("light_laser", "light_bh1750", "i2c_bus") if c in all_components]
+
+            for component in ordered_components:
+                result = hw_bridge.test_lks_component(component, visible=visible)
+                ok = bool(result.get("ok", False))
+                statuses[component] = ok
+                if component == "light_laser" and ok:
+                    statuses["i2c_bus"] = True
+                if ok:
+                    ok_count += 1
+                detail = str(result.get("detail", "") or result.get("error", "") or "")
+                # Wymagany log DONE dla FULL MATRIX
                 self.logger.info("LKS-N5 FULL MATRIX TEST DONE component=%s ok=%s %s", component, ok, detail[:220])
 
-        run = run_lks_full_matrix_via_bridge(
-            hw_bridge,
-            visible=visible,
-            batch_name="LKS_FULL_MATRIX_REAL_TESTS",
-            safe_state_source="LKS_FULL_MATRIX_REAL_TESTS",
-            progress_start=60,
-            progress_span=30,
-            on_component_done=on_component_done,
-        )
-        self.logger.info("LKS-N5 FULL MATRIX TEST APPLIED statuses=%d ok=%d", run.total, run.ok_count)
-        return run.statuses
+            aggregate_i2c = bus_ok_from_statuses(statuses)
+            if aggregate_i2c and not statuses.get("i2c_bus", False):
+                statuses["i2c_bus"] = True
+                ok_count += 1
+                self.logger.info("LKS-N5 FULL MATRIX TEST DONE component=i2c_bus ok=True AGGREGATED_FROM_BUS_DEVICE")
+            self.logger.info("LKS-N5 FULL MATRIX TEST APPLIED statuses=%d ok=%d", len(all_components), ok_count)
+            return statuses
+        finally:
+            if batch_started and hasattr(hw_bridge, "end_hardware_batch"):
+                try:
+                    hw_bridge.end_hardware_batch("LKS_FULL_MATRIX_REAL_TESTS", grace_ms=2000)
+                except Exception:
+                    pass
+            if hasattr(hw_bridge, "apply_lks_test_safe_state"):
+                try:
+                    hw_bridge.apply_lks_test_safe_state("LKS_FULL_MATRIX_REAL_TESTS")
+                except Exception:
+                    pass
 
     def _run_diagnostics(self) -> None:
         """Diagnostyka na żądanie przez aktywny HardwareBridge.

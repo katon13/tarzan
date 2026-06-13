@@ -154,13 +154,22 @@ class TarzanTspLksBootProgress:
         - procent jest monotoniczny i nigdy się nie cofa,
         - wynik pojedynczego kroku zmienia tylko napisy, a nie restartuje strony.
         """
-        if self._current_scene != scene:
-            self.n5.page(scene)
-            self._current_scene = scene
-
         safe_progress = max(self._global_progress, int(progress))
         self._global_progress = safe_progress
 
+        if self._current_scene != scene:
+            self.n5.page(scene)
+            self._current_scene = scene
+            # Nextion pokazuje wartości domyślne strony natychmiast po `page`.
+            # Na boot_linux/services/hardware domyślne n_progress bywa 0, więc
+            # najpierw nadpisujemy pasek/liczbę, a dopiero potem dłuższe teksty.
+            # To skraca widoczny powrót do 0 do minimum bez ruszania HMI.
+            try:
+                self.n5.set_numbers({"j_progress": safe_progress, "n_progress": safe_progress})
+            except Exception:
+                pass
+
+        self.n5.set_numbers({"j_progress": safe_progress, "n_progress": safe_progress})
         self.n5.set_texts(
             {
                 "t_title": title,
@@ -172,7 +181,6 @@ class TarzanTspLksBootProgress:
                 "t_code": code,
             }
         )
-        self.n5.set_numbers({"j_progress": safe_progress, "n_progress": safe_progress})
 
     def _mark_running(self, scene: str, progress: int, label: str, detail: str = "") -> None:
         if scene == SCENE_BOOT_LINUX:
@@ -449,16 +457,19 @@ class TarzanTspLksBootProgress:
             for idx, component in enumerate(ordered_components, start=1):
                 progress = 50 + int((idx / total) * 40)
                 self._mark_running(SCENE_BOOT_TEST, progress, f"MATRIX {component}", "REAL")
-                result = bridge.test_lks_component(component, visible=True)
+                # Matrix LED ma być wskaźnikiem READY, nie planszą testową.
+                # visible=True w test_matrix_led_once() pokazuje przez chwilę tekst/ramkę "OK",
+                # co na realnej matrycy wygląda jak dwie kreski. Dla matrix_led robimy
+                # niewidoczny ACK i od razu zapisujemy serce READY. Pozostałe widoczne
+                # komponenty, np. LCD/F-LED, dalej testują się fizycznie.
+                visible = False if component == "matrix_led" else True
+                result = bridge.test_lks_component(component, visible=visible)
                 ok = bool(result.get("ok", False))
                 print(f"LKS-N5 FULL MATRIX TEST DONE component={component} ok={ok}")
                 statuses[component] = ok
                 if component == "light_laser" and ok:
                     statuses["i2c_bus"] = True
                 if component == "matrix_led":
-                    # Po teście matrycy nie zostawiamy kresek/ramki testowej.
-                    # Serce READY ma pojawić się od razu i później zostać
-                    # ponownie potwierdzone w final-ready outputs.
                     self._apply_matrix_ready_heart("AFTER MATRIX TEST")
                 if ok:
                     ok_count += 1
@@ -485,6 +496,9 @@ class TarzanTspLksBootProgress:
             if hasattr(bridge, "apply_lks_test_safe_state"):
                 try:
                     bridge.apply_lks_test_safe_state("LKS_BOOT_FULL_MATRIX")
+                    # Safe-state może zmienić wyjścia po teście. Matrix ma zostać
+                    # sercem READY, więc po safe-state potwierdzamy go jeszcze raz.
+                    self._apply_matrix_ready_heart("AFTER MATRIX SAFE STATE")
                 except Exception:
                     pass
 
@@ -570,6 +584,7 @@ class TarzanTspLksBootProgress:
             self._mark_running(SCENE_BOOT_TEST, 96, "SAFE STATE", "F-LED OFF / AXES SAFE")
             if bridge is not None and hasattr(bridge, "apply_lks_test_safe_state"):
                 bridge.apply_lks_test_safe_state("LKS_BOOT_FINAL_SAFE_STATE")
+                self._apply_matrix_ready_heart("AFTER FINAL SAFE STATE")
         except Exception as exc:
             print(f"LKS-N5 FINAL SAFE STATE ok=False error={exc}")
 
